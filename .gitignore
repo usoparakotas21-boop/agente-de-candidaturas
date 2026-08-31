@@ -1,0 +1,32 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+client_secret*.json
+token*.json
+*.pem
+
+# Ambientes e caches Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Dados e artefatos locais (podem conter dados pessoais)
+data/*.db
+data/*.sqlite*
+output/
+generated/
+resumes/
+backups/
+app_backup*/
+
+# Arquivos pessoais e materiais fora do produto
+Imagem do Codex *.png
+*.pdf
+
+# Ferramentas/editor
+.vscode/
+.idea/
+*.log
