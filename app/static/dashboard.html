@@ -120,7 +120,8 @@
     .queue-bulk span { margin-right: auto; color: var(--muted); font-size: 12px; }
     .queue-check { width: 17px; height: 17px; accent-color: var(--blue); }
 
-    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 26px; align-items: start; }
+    .workspace { display: block; }
+    .workspace > .panel + .panel { margin-top: 26px; }
     .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 26px; border-bottom: 1px solid var(--line); }
     .panel-head h2 { margin: 0; font-size: 17px; }
@@ -243,7 +244,7 @@
       .mobile-nav { display: flex; gap: 7px; overflow-x: auto; padding: 10px 4vw; border-bottom: 1px solid var(--line); background: var(--paper); }
       .mobile-nav .sidebar-link { flex: 0 0 auto; width: auto; padding: 8px 10px; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
-      .workspace { grid-template-columns: 1fr; }
+      .workspace { display: block; }
       .distribution { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
       .distribution h2, .distribution > p { grid-column: 1 / -1; }
     }
