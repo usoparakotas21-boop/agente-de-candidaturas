@@ -37,6 +37,7 @@ app.include_router(queue_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
+LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -159,8 +160,11 @@ def startup():
 async def shutdown():
     await stop_monitor()
 
-@app.get("/")
-def root(): return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def root():
+    if not LANDING_PATH.is_file():
+        return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
+    return HTMLResponse(LANDING_PATH.read_text(encoding="utf-8"))
 
 @app.get("/health", include_in_schema=False)
 def health():
