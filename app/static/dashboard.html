@@ -25,7 +25,7 @@
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; color: var(--ink); background: var(--soft); overflow-x: hidden; }
+    body { margin: 0; color: var(--ink); background: var(--soft); overflow-x: hidden; line-height: 1.6; }
     button, input, select, textarea { font: inherit; }
     button { cursor: pointer; }
     [hidden] { display: none !important; }
@@ -84,8 +84,8 @@
     main { width: auto; min-width: 0; margin: 42px 3vw 76px; }
     .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 36px; margin-bottom: 32px; }
     .eyebrow { margin: 0 0 14px; color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 0 0 16px; font-size: clamp(28px, 4vw, 44px); line-height: 1.14; letter-spacing: -.035em; }
-    .hero p:last-child { max-width: 700px; margin: 0; color: var(--muted); line-height: 1.72; }
+    h1 { margin: 0 0 16px; font-size: clamp(28px, 4vw, 44px); line-height: 1.22; letter-spacing: -.035em; }
+    .hero p:last-child { max-width: 700px; margin: 0; color: var(--muted); line-height: 1.85; }
     .refresh {
       min-width: 120px; padding: 11px 16px; border: 1px solid var(--line);
       border-radius: 12px; color: var(--navy); background: var(--paper); font-weight: 700;
@@ -122,7 +122,7 @@
     .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 26px; border-bottom: 1px solid var(--line); }
     .panel-head h2 { margin: 0; font-size: 17px; }
-    .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .panel-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
     .filters { display: flex; gap: 10px; }
     .filters input, .filters select {
       min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px;
@@ -133,7 +133,7 @@
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th { padding: 12px 18px; color: var(--muted); background: #fafbfc; font-size: 11px; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
-    td { padding: 18px 20px; border-top: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+    td { padding: 18px 20px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.55; vertical-align: middle; }
     tbody tr { transition: background .15s ease; cursor: pointer; }
     tbody tr:hover { background: #fafcff; }
     .job-title { font-weight: 750; }
