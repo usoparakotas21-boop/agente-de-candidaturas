@@ -56,6 +56,16 @@
     .logout { padding: 7px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 9px; color: white; background: transparent; font-size: 12px; }
 
     .shell { min-height: 100vh; }
+    .app-layout { display: grid; grid-template-columns: 226px minmax(0, 1fr); max-width: 1540px; margin: 0 auto; }
+    .sidebar { min-height: calc(100vh - 72px); padding: 24px 14px; border-right: 1px solid var(--line); background: #fbfcfe; }
+    .sidebar-label { margin: 0 12px 9px; color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .sidebar-group { display: grid; gap: 4px; margin-bottom: 24px; }
+    .sidebar-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; color: var(--muted); background: transparent; font-size: 13px; font-weight: 700; text-align: left; }
+    .sidebar-link:hover, .sidebar-link.active { color: var(--navy); background: var(--blue-soft); }
+    .sidebar-link .nav-icon { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: var(--blue); background: #e5edff; font-size: 12px; }
+    .sidebar-note { margin: 34px 8px 0; padding: 13px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: white; font-size: 11px; line-height: 1.45; }
+    .sidebar-note strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 12px; }
+    .mobile-nav { display: none; }
     .topbar {
       display: flex; align-items: center; justify-content: space-between;
       min-height: 72px; padding: 0 5vw; color: white;
@@ -226,6 +236,10 @@
     .toast.show { visibility: visible; opacity: 1; transform: translateY(0); }
 
     @media (max-width: 1040px) {
+      .app-layout { display: block; }
+      .sidebar { display: none; }
+      .mobile-nav { display: flex; gap: 7px; overflow-x: auto; padding: 10px 4vw; border-bottom: 1px solid var(--line); background: var(--paper); }
+      .mobile-nav .sidebar-link { flex: 0 0 auto; width: auto; padding: 8px 10px; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
       .workspace { grid-template-columns: 1fr; }
       .distribution { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
@@ -301,8 +315,36 @@
         <button class="logout" id="logoutButton" type="button" hidden>Sair</button>
       </div>
     </header>
-
-    <main>
+    <div class="mobile-nav" aria-label="Navegação principal">
+      <button class="sidebar-link active" data-nav="dashboard" type="button"><span class="nav-icon">⌂</span>Visão geral</button>
+      <button class="sidebar-link" data-nav="jobs" type="button"><span class="nav-icon">⌕</span>Vagas</button>
+      <button class="sidebar-link" data-nav="applications" type="button"><span class="nav-icon">✓</span>Candidaturas</button>
+      <button class="sidebar-link" data-nav="resume" type="button"><span class="nav-icon">▤</span>Currículos</button>
+      <button class="sidebar-link" data-nav="integrations" type="button"><span class="nav-icon">↗</span>Integrações</button>
+      <button class="sidebar-link" data-nav="settings" type="button"><span class="nav-icon">⚙</span>Configurações</button>
+    </div>
+    <div class="app-layout">
+      <aside class="sidebar" aria-label="Navegação principal">
+        <p class="sidebar-label">Workspace</p>
+        <div class="sidebar-group">
+          <button class="sidebar-link active" data-nav="dashboard" type="button"><span class="nav-icon">⌂</span>Visão geral</button>
+          <button class="sidebar-link" data-nav="jobs" type="button"><span class="nav-icon">⌕</span>Vagas</button>
+          <button class="sidebar-link" data-nav="applications" type="button"><span class="nav-icon">✓</span>Candidaturas</button>
+        </div>
+        <p class="sidebar-label">Ferramentas</p>
+        <div class="sidebar-group">
+          <button class="sidebar-link" data-nav="resume" type="button"><span class="nav-icon">▤</span>Currículos</button>
+          <button class="sidebar-link" data-nav="interviews" type="button"><span class="nav-icon">◎</span>Entrevistas</button>
+          <button class="sidebar-link" data-nav="integrations" type="button"><span class="nav-icon">↗</span>Integrações</button>
+        </div>
+        <p class="sidebar-label">Conta</p>
+        <div class="sidebar-group">
+          <button class="sidebar-link" data-nav="settings" type="button"><span class="nav-icon">⚙</span>Configurações</button>
+          <button class="sidebar-link" data-nav="support" type="button"><span class="nav-icon">?</span>Suporte Pro</button>
+        </div>
+        <div class="sidebar-note"><strong>Próximo passo</strong>Importe seu currículo e defina suas preferências para receber matches mais relevantes.</div>
+      </aside>
+      <main>
       <section class="hero">
         <div>
           <p class="eyebrow">Visão geral</p>
@@ -381,7 +423,8 @@
           <div id="distribution"></div>
         </aside>
       </section>
-    </main>
+      </main>
+    </div>
   </div>
 
   <div class="drawer-backdrop" id="backdrop"></div>
@@ -1559,6 +1602,18 @@ async function downloadCoverLetterDocument() {
     let toastTimer;
     function toast(message) { clearTimeout(toastTimer); $("toast").textContent = message; $("toast").classList.add("show"); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 2600); }
 
+    function navigateWorkspace(view) {
+      document.querySelectorAll("[data-nav]").forEach(link => link.classList.toggle("active", link.dataset.nav === view));
+      if (view === "dashboard") window.scrollTo({top: 0, behavior: "smooth"});
+      if (view === "jobs") { resetCaptureReview(); $("captureJobDialog").showModal(); }
+      if (view === "applications") document.querySelector(".queue-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+      if (view === "resume") openProfile();
+      if (view === "integrations") $("gmailButton").click();
+      if (view === "settings") openPreferences();
+      if (view === "interviews") toast("O simulador de entrevistas será liberado na próxima etapa.");
+      if (view === "support") toast("O suporte Pro será conectado ao seu canal de atendimento.");
+    }
+
     populateStatusOptions();
     $("showLoginTab").addEventListener("click", () => showAuthMode("login"));
     $("showSignupTab").addEventListener("click", () => showAuthMode("signup"));
@@ -1570,6 +1625,7 @@ async function downloadCoverLetterDocument() {
     $("closeResetPasswordDialog").addEventListener("click", () => $("resetPasswordDialog").close());
     $("cancelResetPassword").addEventListener("click", () => $("resetPasswordDialog").close());
     $("logoutButton").addEventListener("click", logout);
+    document.querySelectorAll("[data-nav]").forEach(link => link.addEventListener("click", () => navigateWorkspace(link.dataset.nav)));
     $("searchInput").addEventListener("input", renderTable);
     $("statusFilter").addEventListener("change", renderTable);
     $("decisionFilter").addEventListener("change", renderTable);
