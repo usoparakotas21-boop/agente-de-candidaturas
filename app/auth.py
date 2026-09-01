@@ -1,7 +1,8 @@
 import os
+from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,6 +14,7 @@ AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 
 router = APIRouter(prefix="/auth", tags=["autenticacao"])
 
@@ -20,6 +22,49 @@ router = APIRouter(prefix="/auth", tags=["autenticacao"])
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class SignupRequest(LoginRequest):
+    name: str = ""
+
+
+class EmailRequest(BaseModel):
+    email: str
+
+
+class SessionRequest(BaseModel):
+    access_token: str
+    refresh_token: str
+    expires_in: int = 3600
+
+
+class PasswordUpdateRequest(BaseModel):
+    password: str
+
+
+def _validated_email(email: str) -> str:
+    normalized = email.strip().lower()
+    if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+        raise HTTPException(422, "Informe um e-mail valido.")
+    return normalized
+
+
+def _validated_password(password: str) -> str:
+    if len(password) < 8:
+        raise HTTPException(422, "A senha deve ter pelo menos 8 caracteres.")
+    return password
+
+
+def _auth_redirect_url() -> str:
+    return f"{APP_BASE_URL}/dashboard"
+
+
+def _supabase_error(response: httpx.Response, fallback: str) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return fallback
+    return payload.get("msg") or payload.get("message") or payload.get("error_description") or fallback
 
 
 def _configuration_ready() -> bool:
@@ -147,6 +192,145 @@ async def login(payload: LoginRequest):
     return result
 
 
+@router.post("/signup")
+async def signup(payload: SignupRequest):
+    email = _validated_email(payload.email)
+    password = _validated_password(payload.password)
+    redirect_to = quote(_auth_redirect_url(), safe="")
+    try:
+        response = await _supabase_request(
+            "POST",
+            f"/auth/v1/signup?redirect_to={redirect_to}",
+            json={
+                "email": email,
+                "password": password,
+                "data": {"name": payload.name.strip()},
+            },
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de cadastro indisponivel.")
+
+    if response.status_code not in {200, 201}:
+        status = 429 if response.status_code == 429 else 400
+        raise HTTPException(
+            status,
+            _supabase_error(response, "Nao foi possivel criar a conta."),
+        )
+
+    session = response.json()
+    authenticated = bool(session.get("access_token") and session.get("user"))
+    result = JSONResponse(
+        {
+            "created": True,
+            "authenticated": authenticated,
+            "confirmation_required": not authenticated,
+            "message": (
+                "Conta criada. Confira seu e-mail para confirmar o cadastro."
+                if not authenticated
+                else "Conta criada com sucesso."
+            ),
+        },
+        status_code=201,
+    )
+    if authenticated:
+        _set_session_cookies(result, session)
+    return result
+
+
+@router.post("/session")
+async def accept_session(payload: SessionRequest):
+    user = await user_from_token(payload.access_token)
+    if user is None:
+        raise HTTPException(401, "Sessao de confirmacao invalida ou expirada.")
+
+    result = JSONResponse(
+        {
+            "authenticated": True,
+            "user": {"id": user["id"], "email": user.get("email")},
+        }
+    )
+    _set_session_cookies(
+        result,
+        {
+            "access_token": payload.access_token,
+            "refresh_token": payload.refresh_token,
+            "expires_in": payload.expires_in,
+        },
+    )
+    return result
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: EmailRequest):
+    email = _validated_email(payload.email)
+    redirect_to = quote(_auth_redirect_url(), safe="")
+    try:
+        response = await _supabase_request(
+            "POST",
+            f"/auth/v1/recover?redirect_to={redirect_to}",
+            json={"email": email},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de recuperacao indisponivel.")
+
+    if response.status_code == 429:
+        raise HTTPException(429, "Aguarde antes de solicitar outro e-mail.")
+    if response.status_code >= 500:
+        raise HTTPException(503, "Servico de recuperacao indisponivel.")
+    return {
+        "message": (
+            "Se o e-mail estiver cadastrado, enviaremos as instrucoes de recuperacao."
+        )
+    }
+
+
+@router.post("/resend-confirmation")
+async def resend_confirmation(payload: EmailRequest):
+    email = _validated_email(payload.email)
+    redirect_to = quote(_auth_redirect_url(), safe="")
+    try:
+        response = await _supabase_request(
+            "POST",
+            f"/auth/v1/resend?redirect_to={redirect_to}",
+            json={"type": "signup", "email": email},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de confirmacao indisponivel.")
+
+    if response.status_code == 429:
+        raise HTTPException(429, "Aguarde antes de solicitar outro e-mail.")
+    if response.status_code >= 500:
+        raise HTTPException(503, "Servico de confirmacao indisponivel.")
+    return {"message": "Se houver um cadastro pendente, o e-mail sera reenviado."}
+
+
+@router.put("/password")
+async def update_password(
+    payload: PasswordUpdateRequest,
+    request: Request,
+    user: dict = Depends(authenticated_user),
+):
+    password = _validated_password(payload.password)
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request(
+            "PUT",
+            "/auth/v1/user",
+            token=access_token,
+            json={"password": password},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.")
+    if response.status_code != 200:
+        raise HTTPException(
+            400,
+            _supabase_error(response, "Nao foi possivel alterar a senha."),
+        )
+    return {"updated": True}
+
+
 @router.get("/me")
 async def current_user(request: Request):
     if not AUTH_REQUIRED:
@@ -183,6 +367,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/",
         "/dashboard",
         "/auth/login",
+        "/auth/signup",
+        "/auth/session",
+        "/auth/forgot-password",
+        "/auth/resend-confirmation",
         "/auth/me",
         "/auth/logout",
         "/docs",

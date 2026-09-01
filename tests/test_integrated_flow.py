@@ -199,7 +199,7 @@ class IntegratedFlowTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = bytes(response.body).decode("utf-8")
-        self.assertIn("Painel de Candidaturas", body)
+        self.assertIn("Agente de Candidaturas", body)
         self.assertIn("/applications", body)
         self.assertIn("/queue/summary", body)
         self.assertIn("Fila de decisão", body)

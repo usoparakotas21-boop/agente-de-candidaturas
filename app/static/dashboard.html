@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Painel de Candidaturas â€” Paulo Henrique</title>
+  <title>Agente de Candidaturas</title>
   <style>
     :root {
       --ink: #172034;
@@ -44,6 +44,13 @@
     .auth-card input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; outline: none; }
     .auth-card button { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
     .auth-error { min-height: 20px; margin: 12px 0 0; color: var(--red); font-size: 12px; }
+    .auth-status { min-height: 20px; margin: 12px 0 0; color: var(--green); font-size: 12px; line-height: 1.45; }
+    .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 20px 0 6px; padding: 5px; border-radius: 12px; background: var(--soft); }
+    .auth-tabs button { margin: 0; padding: 9px; color: var(--muted); background: transparent; }
+    .auth-tabs button.active { color: white; background: var(--blue); }
+    .auth-card .auth-link { margin-top: 10px; padding: 5px; color: var(--blue); background: transparent; font-size: 12px; }
+    .terms { display: flex !important; align-items: flex-start; gap: 8px; margin-top: 14px !important; color: var(--muted); font-size: 11px !important; line-height: 1.4; }
+    .terms input { width: auto; margin-top: 2px; }
     .user-controls { display: flex; align-items: center; gap: 14px; }
     .user-email { font-size: 12px; opacity: .78; }
     .logout { padding: 7px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 9px; color: white; background: transparent; font-size: 12px; }
@@ -247,24 +254,47 @@
 </head>
 <body>
   <section class="auth-gate" id="authGate" hidden>
-    <form class="auth-card" id="loginForm">
-      <div class="brand-mark">PH</div>
-      <h1>Acesso seguro</h1>
-      <p>Entre com o usuario cadastrado para acessar curriculos e candidaturas.</p>
-      <label for="loginEmail">E-mail</label>
-      <input id="loginEmail" type="email" autocomplete="username" required>
-      <label for="loginPassword">Senha</label>
-      <input id="loginPassword" type="password" autocomplete="current-password" required>
-      <button id="loginButton" type="submit">Entrar</button>
-      <p class="auth-error" id="loginError" role="alert"></p>
-    </form>
+    <div class="auth-card">
+      <div class="brand-mark">AC</div>
+      <h1>Sua carreira em movimento</h1>
+      <p>Entre ou crie sua conta para organizar oportunidades, currículos e candidaturas.</p>
+      <div class="auth-tabs">
+        <button class="active" id="showLoginTab" type="button">Entrar</button>
+        <button id="showSignupTab" type="button">Criar conta</button>
+      </div>
+      <form id="loginForm">
+        <label for="loginEmail">E-mail</label>
+        <input id="loginEmail" type="email" autocomplete="username" required>
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+        <button id="loginButton" type="submit">Entrar</button>
+        <button class="auth-link" id="forgotPasswordButton" type="button">Esqueci minha senha</button>
+        <p class="auth-error" id="loginError" role="alert"></p>
+        <p class="auth-status" id="loginStatus" role="status"></p>
+      </form>
+      <form id="signupForm" hidden>
+        <label for="signupName">Nome</label>
+        <input id="signupName" autocomplete="name" required>
+        <label for="signupEmail">E-mail</label>
+        <input id="signupEmail" type="email" autocomplete="email" required>
+        <label for="signupPassword">Senha</label>
+        <input id="signupPassword" type="password" minlength="8" autocomplete="new-password" required>
+        <label for="signupPasswordConfirm">Confirmar senha</label>
+        <input id="signupPasswordConfirm" type="password" minlength="8" autocomplete="new-password" required>
+        <label class="terms"><input id="signupTerms" type="checkbox" required>Li e aceito os Termos de Uso e a Política de Privacidade.</label>
+        <button id="signupButton" type="submit">Criar minha conta</button>
+        <button class="auth-link" id="resendConfirmationButton" type="button">Reenviar confirmação</button>
+        <p class="auth-error" id="signupError" role="alert"></p>
+        <p class="auth-status" id="signupStatus" role="status"></p>
+      </form>
+    </div>
   </section>
 
   <div class="shell" id="appShell" hidden>
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark">PH</div>
-        <div><strong>Agente de Candidaturas</strong><span>Paulo Henrique Santos Oliveira</span></div>
+        <div class="brand-mark">AC</div>
+        <div><strong>Agente de Candidaturas</strong><span>Seu agente de carreira</span></div>
       </div>
       <div class="user-controls">
         <div><div class="online">Sistema conectado</div><div class="user-email" id="userEmail"></div></div>
@@ -562,6 +592,18 @@
     </div>
   </div>
 </dialog>
+  <dialog id="resetPasswordDialog">
+    <div class="dialog-head">
+      <div><h2>Definir nova senha</h2><p>Escolha uma senha com pelo menos 8 caracteres.</p></div>
+      <button class="close" id="closeResetPasswordDialog" type="button" aria-label="Fechar">×</button>
+    </div>
+    <form class="job-form" id="resetPasswordForm">
+      <div class="field"><label for="newPassword">Nova senha</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+      <div class="field"><label for="newPasswordConfirm">Confirmar nova senha</label><input id="newPasswordConfirm" type="password" minlength="8" autocomplete="new-password" required></div>
+      <p class="auth-error" id="resetPasswordError" role="alert"></p>
+      <div class="dialog-actions"><button class="secondary" id="cancelResetPassword" type="button">Cancelar</button><button class="submit-job" id="saveNewPassword" type="submit">Salvar senha</button></div>
+    </form>
+  </dialog>
   <div class="toast" id="toast" role="status"></div>
 
   <script>
@@ -570,6 +612,7 @@
         const response = await fetch("/auth/me");
         if (!response.ok) {
           $("authGate").hidden = false;
+          showAuthMode("login");
           return;
         }
 
@@ -589,6 +632,52 @@
         $("authGate").hidden = false;
         $("loginError").textContent = "Nao foi possivel verificar o login.";
       }
+    }
+
+    function showAuthMode(mode) {
+      const signup = mode === "signup";
+      $("loginForm").hidden = signup;
+      $("signupForm").hidden = !signup;
+      $("showLoginTab").classList.toggle("active", !signup);
+      $("showSignupTab").classList.toggle("active", signup);
+      $("loginError").textContent = "";
+      $("signupError").textContent = "";
+    }
+
+    async function completeAuthRedirect() {
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = fragment.get("access_token");
+      const refreshToken = fragment.get("refresh_token");
+      if (!accessToken || !refreshToken) return false;
+      const recovery = fragment.get("type") === "recovery";
+      try {
+        const response = await fetch("/auth/session", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_in: Number(fragment.get("expires_in") || 3600),
+          }),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Link inválido ou expirado."));
+        window.history.replaceState({}, "", window.location.pathname);
+        if (recovery) {
+          await initializeAuth();
+          $("resetPasswordDialog").showModal();
+        }
+        return true;
+      } catch (error) {
+        window.history.replaceState({}, "", window.location.pathname);
+        $("authGate").hidden = false;
+        $("loginError").textContent = error.message;
+        return false;
+      }
+    }
+
+    async function bootstrapAuth() {
+      await completeAuthRedirect();
+      if (!$("resetPasswordDialog").open) await initializeAuth();
     }
 
     async function loadGmailStatus() {
@@ -642,6 +731,7 @@
       event.preventDefault();
       $("loginButton").disabled = true;
       $("loginError").textContent = "";
+      $("loginStatus").textContent = "";
       try {
         const response = await fetch("/auth/login", {
           method: "POST",
@@ -651,15 +741,113 @@
             password: $("loginPassword").value,
           }),
         });
-        if (!response.ok) {
-          throw new Error("E-mail ou senha invalidos.");
-        }
+        if (!response.ok) throw new Error(await responseError(response, "E-mail ou senha inválidos."));
         $("loginPassword").value = "";
         await initializeAuth();
       } catch (error) {
         $("loginError").textContent = error.message;
       } finally {
         $("loginButton").disabled = false;
+      }
+    }
+
+    async function signup(event) {
+      event.preventDefault();
+      $("signupError").textContent = "";
+      $("signupStatus").textContent = "";
+      if ($("signupPassword").value !== $("signupPasswordConfirm").value) {
+        $("signupError").textContent = "As senhas não coincidem.";
+        return;
+      }
+      $("signupButton").disabled = true;
+      try {
+        const response = await fetch("/auth/signup", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            name: $("signupName").value.trim(),
+            email: $("signupEmail").value.trim(),
+            password: $("signupPassword").value,
+          }),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível criar a conta."));
+        const payload = await response.json();
+        $("signupPassword").value = "";
+        $("signupPasswordConfirm").value = "";
+        $("signupStatus").textContent = payload.message;
+        if (payload.authenticated) await initializeAuth();
+      } catch (error) {
+        $("signupError").textContent = error.message;
+      } finally {
+        $("signupButton").disabled = false;
+      }
+    }
+
+    async function forgotPassword() {
+      const email = $("loginEmail").value.trim() || $("signupEmail").value.trim();
+      if (!email) {
+        $("loginError").textContent = "Informe seu e-mail primeiro.";
+        showAuthMode("login");
+        return;
+      }
+      $("loginError").textContent = "";
+      try {
+        const response = await fetch("/auth/forgot-password", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email}),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível solicitar a recuperação."));
+        const payload = await response.json();
+        $("loginStatus").textContent = payload.message;
+      } catch (error) {
+        $("loginError").textContent = error.message;
+      }
+    }
+
+    async function resendConfirmation() {
+      const email = $("signupEmail").value.trim();
+      if (!email) {
+        $("signupError").textContent = "Informe o e-mail do cadastro.";
+        return;
+      }
+      $("signupError").textContent = "";
+      try {
+        const response = await fetch("/auth/resend-confirmation", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email}),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível reenviar a confirmação."));
+        const payload = await response.json();
+        $("signupStatus").textContent = payload.message;
+      } catch (error) {
+        $("signupError").textContent = error.message;
+      }
+    }
+
+    async function saveNewPassword(event) {
+      event.preventDefault();
+      $("resetPasswordError").textContent = "";
+      if ($("newPassword").value !== $("newPasswordConfirm").value) {
+        $("resetPasswordError").textContent = "As senhas não coincidem.";
+        return;
+      }
+      $("saveNewPassword").disabled = true;
+      try {
+        const response = await fetch("/auth/password", {
+          method: "PUT",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({password: $("newPassword").value}),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível alterar a senha."));
+        $("resetPasswordDialog").close();
+        $("resetPasswordForm").reset();
+        toast("Senha alterada com sucesso.");
+      } catch (error) {
+        $("resetPasswordError").textContent = error.message;
+      } finally {
+        $("saveNewPassword").disabled = false;
       }
     }
 
@@ -673,6 +861,7 @@
       $("authGate").hidden = false;
       $("userEmail").textContent = "";
       $("logoutButton").hidden = true;
+      showAuthMode("login");
     }
 
     const statusLabels = {
@@ -1371,7 +1560,15 @@ async function downloadCoverLetterDocument() {
     function toast(message) { clearTimeout(toastTimer); $("toast").textContent = message; $("toast").classList.add("show"); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 2600); }
 
     populateStatusOptions();
+    $("showLoginTab").addEventListener("click", () => showAuthMode("login"));
+    $("showSignupTab").addEventListener("click", () => showAuthMode("signup"));
     $("loginForm").addEventListener("submit", login);
+    $("signupForm").addEventListener("submit", signup);
+    $("forgotPasswordButton").addEventListener("click", forgotPassword);
+    $("resendConfirmationButton").addEventListener("click", resendConfirmation);
+    $("resetPasswordForm").addEventListener("submit", saveNewPassword);
+    $("closeResetPasswordDialog").addEventListener("click", () => $("resetPasswordDialog").close());
+    $("cancelResetPassword").addEventListener("click", () => $("resetPasswordDialog").close());
     $("logoutButton").addEventListener("click", logout);
     $("searchInput").addEventListener("input", renderTable);
     $("statusFilter").addEventListener("change", renderTable);
@@ -1464,7 +1661,7 @@ $("downloadCoverLetter").addEventListener(
       downloadSavedCoverLetter
     );
     document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
-    initializeAuth();
+    bootstrapAuth();
   </script>
 </body>
 </html>
