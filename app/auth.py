@@ -1,4 +1,5 @@
 import os
+import logging
 from urllib.parse import quote
 
 import httpx
@@ -24,6 +25,7 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
 APP_BASE_URL = _app_base_url()
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["autenticacao"])
 
@@ -92,6 +94,8 @@ def _supabase_error(response: httpx.Response, fallback: str) -> str:
         return "Este e-mail ja possui cadastro. Use Entrar ou Reenviar confirmacao."
     if "rate limit" in normalized or "too many" in normalized or response.status_code == 429:
         return "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente."
+    if error_code:
+        return f"Supabase recusou o cadastro ({error_code}). Confira os dados e tente novamente."
     return message or fallback
 
 
@@ -239,6 +243,16 @@ async def signup(payload: SignupRequest):
         raise HTTPException(503, "Servico de cadastro indisponivel.")
 
     if response.status_code not in {200, 201}:
+        try:
+            error_payload = response.json()
+        except ValueError:
+            error_payload = {}
+        logger.warning(
+            "Supabase signup rejected status=%s code=%s message=%s",
+            response.status_code,
+            error_payload.get("error_code") or error_payload.get("code") or "unknown",
+            error_payload.get("msg") or error_payload.get("message") or "unknown",
+        )
         status = 429 if response.status_code == 429 else 400
         raise HTTPException(
             status,
