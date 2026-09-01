@@ -147,6 +147,24 @@ def decide_opportunity(
     ):
         review_reasons.append("localizacao fora das preferencias")
 
+    # Preferências adicionais são sinais suaves: orientam a revisão/score,
+    # mas nunca eliminam uma vaga por si só.
+    for field, label in (("contract_types", "tipo de contrato"), ("schedules", "horário"), ("industries", "setor")):
+        values = [_normalized(value) for value in prefs.get(field, [])]
+        if values and not any(value in searchable for value in values):
+            review_reasons.append(f"{label} fora das preferências")
+    salary_text = str(job.get("salary", ""))
+    salary_values = []
+    for raw in re.findall(r"\d[\d.]*", salary_text):
+        try:
+            salary_values.append(float(raw.replace(".", "")))
+        except ValueError:
+            pass
+    if salary_values and prefs.get("salary_min") is not None and max(salary_values) < prefs["salary_min"]:
+        review_reasons.append("faixa salarial abaixo da preferência")
+    if salary_values and prefs.get("salary_max") is not None and min(salary_values) > prefs["salary_max"]:
+        review_reasons.append("faixa salarial acima da preferência")
+
     if analysis is None:
         review_reasons.append("aderencia ainda nao analisada")
     if capture_confidence is not None and capture_confidence < 80:
