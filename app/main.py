@@ -49,6 +49,7 @@ JOBS_PAGE_PATH = Path(__file__).parent / "static" / "vagas.html"
 APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
 INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
+SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -231,13 +232,13 @@ def applications_page():
 
 @app.get("/entrevistas", response_class=HTMLResponse, include_in_schema=False)
 def interviews_page():
-    if not SIMULATOR_PAGE_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
-    return HTMLResponse(SIMULATOR_PAGE_PATH.read_text(encoding="utf-8"))
+    if not SIMULATOR_SMART_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
+    return HTMLResponse(SIMULATOR_SMART_PATH.read_text(encoding="utf-8"))
 
 @app.get("/simulador", response_class=HTMLResponse, include_in_schema=False)
 def simulator_page():
-    if not SIMULATOR_PAGE_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
-    return HTMLResponse(SIMULATOR_PAGE_PATH.read_text(encoding="utf-8"))
+    if not SIMULATOR_SMART_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
+    return HTMLResponse(SIMULATOR_SMART_PATH.read_text(encoding="utf-8"))
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
