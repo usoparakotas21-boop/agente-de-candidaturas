@@ -35,6 +35,16 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         ):
             self.assertEqual(auth._app_base_url(), "https://app.onrender.com")
 
+    def test_invalid_explicit_url_falls_back_to_render_hostname(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "APP_BASE_URL": "Site URL https://agente-de-candidaturas.onrender.com",
+                "RENDER_EXTERNAL_HOSTNAME": "app.onrender.com",
+            },
+        ):
+            self.assertEqual(auth._app_base_url(), "https://app.onrender.com")
+
     async def test_signup_rejects_short_password(self):
         with self.assertRaises(HTTPException) as raised:
             await auth.signup(

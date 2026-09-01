@@ -1,6 +1,6 @@
 import os
 import logging
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -12,10 +12,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 def _app_base_url() -> str:
     explicit_url = os.getenv("APP_BASE_URL", "").strip()
     render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-    return (
-        explicit_url
-        or (f"https://{render_hostname}" if render_hostname else "")
-    ).rstrip("/")
+    render_url = (
+        f"https://{render_hostname}" if render_hostname else ""
+    )
+    candidate = explicit_url or render_url
+    parsed = urlparse(candidate)
+    if parsed.scheme != "https" or not parsed.netloc or any(char.isspace() for char in candidate):
+        return render_url.rstrip("/")
+    return candidate.rstrip("/")
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
