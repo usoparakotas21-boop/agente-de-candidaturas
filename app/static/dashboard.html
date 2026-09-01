@@ -1625,7 +1625,7 @@ async function downloadCoverLetterDocument() {
       document.querySelectorAll("[data-nav]").forEach(link => link.classList.toggle("active", link.dataset.nav === view));
       if (view === "dashboard") window.scrollTo({top: 0, behavior: "smooth"});
       if (view === "jobs") { window.location.assign("/vagas"); return; }
-      if (view === "applications") document.querySelector(".queue-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+      if (view === "applications") window.location.assign("/candidaturas");
       if (view === "resume") window.location.assign("/curriculos");
       if (view === "integrations") $("gmailButton").click();
       if (view === "settings") window.location.assign("/configuracoes");
