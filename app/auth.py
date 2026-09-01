@@ -78,7 +78,21 @@ def _supabase_error(response: httpx.Response, fallback: str) -> str:
         payload = response.json()
     except ValueError:
         return fallback
-    return payload.get("msg") or payload.get("message") or payload.get("error_description") or fallback
+    raw_message = (
+        payload.get("msg")
+        or payload.get("message")
+        or payload.get("error_description")
+        or payload.get("error")
+        or ""
+    )
+    message = str(raw_message)
+    normalized = message.casefold()
+    error_code = str(payload.get("error_code") or payload.get("code") or "").casefold()
+    if "already registered" in normalized or "already exists" in normalized or error_code in {"user_already_exists", "email_exists"}:
+        return "Este e-mail ja possui cadastro. Use Entrar ou Reenviar confirmacao."
+    if "rate limit" in normalized or "too many" in normalized or response.status_code == 429:
+        return "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente."
+    return message or fallback
 
 
 def _configuration_ready() -> bool:

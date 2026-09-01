@@ -46,6 +46,13 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(raised.exception.status_code, 422)
 
+    def test_supabase_error_explains_existing_email(self):
+        response = httpx.Response(
+            422,
+            json={"error_code": "user_already_exists", "msg": "User already registered"},
+        )
+        self.assertIn("ja possui cadastro", auth._supabase_error(response, "fallback"))
+
     async def test_signup_waits_for_email_confirmation_without_session(self):
         supabase_response = httpx.Response(
             200,
