@@ -442,6 +442,11 @@
         <div class="field full"><label for="preferenceRoles">Cargos desejados, separados por vírgula</label><input id="preferenceRoles" placeholder="Coordenador de RH, Supervisor de RH"></div>
         <div class="field"><label for="preferenceLocations">Localizações</label><input id="preferenceLocations" placeholder="Salvador/BA, Remoto"></div>
         <div class="field"><label for="preferenceModalities">Modalidades</label><input id="preferenceModalities" placeholder="Remoto, Híbrido"></div>
+        <div class="field"><label for="preferenceContracts">Tipo de contrato</label><input id="preferenceContracts" placeholder="CLT, PJ, estágio"></div>
+        <div class="field"><label for="preferenceSchedules">Horários</label><input id="preferenceSchedules" placeholder="Comercial, flexível, noturno"></div>
+        <div class="field"><label for="preferenceIndustries">Setores de interesse</label><input id="preferenceIndustries" placeholder="Tecnologia, saúde, financeiro"></div>
+        <div class="field"><label for="salaryMin">Salário mínimo (R$)</label><input id="salaryMin" type="number" min="0" step="100" placeholder="Ex.: 5000"></div>
+        <div class="field"><label for="salaryMax">Salário desejado até (R$)</label><input id="salaryMax" type="number" min="0" step="100" placeholder="Ex.: 12000"></div>
         <div class="field full"><label for="excludedCompanies">Empresas excluídas</label><input id="excludedCompanies" placeholder="Empresa A, Empresa B"></div>
         <div class="field"><label for="requiredKeywords">Termos obrigatórios</label><input id="requiredKeywords" placeholder="Recursos Humanos, liderança"></div>
         <div class="field"><label for="excludedKeywords">Termos excluídos</label><input id="excludedKeywords" placeholder="temporário, estágio"></div>
@@ -1221,6 +1226,11 @@
         $("preferenceRoles").value = (preferences.target_roles || []).join(", ");
         $("preferenceLocations").value = (preferences.locations || []).join(", ");
         $("preferenceModalities").value = (preferences.modalities || []).join(", ");
+        $("preferenceContracts").value = (preferences.contract_types || []).join(", ");
+        $("preferenceSchedules").value = (preferences.schedules || []).join(", ");
+        $("preferenceIndustries").value = (preferences.industries || []).join(", ");
+        $("salaryMin").value = preferences.salary_min ?? "";
+        $("salaryMax").value = preferences.salary_max ?? "";
         $("excludedCompanies").value = (preferences.excluded_companies || []).join(", ");
         $("requiredKeywords").value = (preferences.required_keywords || []).join(", ");
         $("excludedKeywords").value = (preferences.excluded_keywords || []).join(", ");
@@ -1242,6 +1252,11 @@
         target_roles: csvValues($("preferenceRoles").value),
         locations: csvValues($("preferenceLocations").value),
         modalities: csvValues($("preferenceModalities").value),
+        contract_types: csvValues($("preferenceContracts").value),
+        schedules: csvValues($("preferenceSchedules").value),
+        industries: csvValues($("preferenceIndustries").value),
+        salary_min: $("salaryMin").value ? Number($("salaryMin").value) : null,
+        salary_max: $("salaryMax").value ? Number($("salaryMax").value) : null,
         excluded_companies: csvValues($("excludedCompanies").value),
         required_keywords: csvValues($("requiredKeywords").value),
         excluded_keywords: csvValues($("excludedKeywords").value),

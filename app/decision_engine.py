@@ -30,6 +30,9 @@ def default_preferences(
         "target_roles": _items(target_roles),
         "locations": _items(location),
         "modalities": [],
+        "contract_types": [],
+        "schedules": [],
+        "industries": [],
         "excluded_companies": [],
         "required_keywords": [],
         "excluded_keywords": [],
@@ -37,6 +40,8 @@ def default_preferences(
         "automatic_score": DEFAULT_AUTOMATIC_SCORE,
         "allow_automatic": False,
         "max_daily_applications": 5,
+        "salary_min": None,
+        "salary_max": None,
     }
 
 
@@ -52,6 +57,9 @@ def normalize_preferences(
         "target_roles",
         "locations",
         "modalities",
+        "contract_types",
+        "schedules",
+        "industries",
         "excluded_companies",
         "required_keywords",
         "excluded_keywords",
@@ -73,6 +81,12 @@ def normalize_preferences(
         result["minimum_score"],
     )
     result["allow_automatic"] = bool(supplied.get("allow_automatic", False))
+    for field in ("salary_min", "salary_max"):
+        try:
+            value = supplied.get(field)
+            result[field] = int(value) if value not in (None, "") else None
+        except (TypeError, ValueError):
+            result[field] = None
     return result
 
 
