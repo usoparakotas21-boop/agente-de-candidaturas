@@ -162,6 +162,12 @@ async def shutdown():
 @app.get("/")
 def root(): return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
 
+@app.get("/health", include_in_schema=False)
+def health():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "healthy"}
+
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
     if not DASHBOARD_PATH.is_file(): raise HTTPException(500, "Dashboard nao encontrado.")

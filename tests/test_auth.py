@@ -44,11 +44,14 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             200,
             json={"id": "owner-new", "email": "pessoa@example.com"},
         )
-        with patch.object(
-            auth,
-            "_supabase_request",
-            AsyncMock(return_value=supabase_response),
-        ) as request_mock:
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=supabase_response),
+            ) as request_mock,
+        ):
             response = await auth.signup(
                 auth.SignupRequest(
                     name="Pessoa Teste",
@@ -77,10 +80,13 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             "expires_in": 3600,
             "user": {"id": "owner-new", "email": "pessoa@example.com"},
         }
-        with patch.object(
-            auth,
-            "_supabase_request",
-            AsyncMock(return_value=httpx.Response(200, json=session)),
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=httpx.Response(200, json=session)),
+            ),
         ):
             response = await auth.signup(
                 auth.SignupRequest(
@@ -119,15 +125,30 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all("HttpOnly" in value for value in cookies))
 
     async def test_forgot_password_returns_generic_message(self):
-        with patch.object(
-            auth,
-            "_supabase_request",
-            AsyncMock(return_value=httpx.Response(200, json={})),
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=httpx.Response(200, json={})),
+            ),
         ):
             response = await auth.forgot_password(
                 auth.EmailRequest(email="pessoa@example.com")
             )
         self.assertIn("Se o e-mail estiver cadastrado", response["message"])
+
+    async def test_signup_rejects_missing_public_https_url(self):
+        with patch.object(auth, "APP_BASE_URL", ""):
+            with self.assertRaises(HTTPException) as raised:
+                await auth.signup(
+                    auth.SignupRequest(
+                        name="Pessoa Teste",
+                        email="pessoa@example.com",
+                        password="senha-segura",
+                    )
+                )
+        self.assertEqual(raised.exception.status_code, 503)
 
     async def test_local_mode_returns_unrestricted_marker(self):
         with patch.object(auth, "AUTH_REQUIRED", False):

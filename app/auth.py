@@ -11,10 +11,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
-APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
+APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
 
 router = APIRouter(prefix="/auth", tags=["autenticacao"])
 
@@ -56,6 +56,11 @@ def _validated_password(password: str) -> str:
 
 
 def _auth_redirect_url() -> str:
+    if not APP_BASE_URL.startswith("https://"):
+        raise HTTPException(
+            503,
+            "APP_BASE_URL deve conter a URL HTTPS publica do site.",
+        )
     return f"{APP_BASE_URL}/dashboard"
 
 
@@ -366,6 +371,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     PUBLIC_PATHS = {
         "/",
         "/dashboard",
+        "/health",
         "/auth/login",
         "/auth/signup",
         "/auth/session",

@@ -39,7 +39,12 @@ def _redirect_uri() -> str:
     configured = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
     if configured:
         return configured
-    base_url = os.getenv("APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
+    base_url = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
+    if not base_url.startswith("https://"):
+        raise HTTPException(
+            status_code=503,
+            detail="Defina APP_BASE_URL com a URL HTTPS publica do site.",
+        )
     return f"{base_url}/auth/gmail/callback"
 
 
