@@ -81,8 +81,8 @@
     .online { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: .9; }
     .online::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #58d68d; }
 
-    main { width: min(1400px, 92vw); margin: 34px auto 60px; }
-    .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+    main { width: min(1400px, 92vw); margin: 42px auto 76px; }
+    .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 36px; margin-bottom: 32px; }
     .eyebrow { margin: 0 0 7px; color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
     h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.14; letter-spacing: -.035em; }
     .hero p:last-child { max-width: 700px; margin: 12px 0 0; color: var(--muted); line-height: 1.72; }
@@ -98,14 +98,14 @@
       box-shadow: 0 8px 20px rgba(47,111,237,.2);
     }
 
-    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
-    .metric { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: 0 6px 20px rgba(24,49,83,.04); }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
+    .metric { padding: 23px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: 0 6px 20px rgba(24,49,83,.04); }
     .metric-label { color: var(--muted); font-size: 13px; font-weight: 650; }
     .metric-value { display: block; margin-top: 12px; font-size: 30px; font-weight: 800; letter-spacing: -.04em; }
     .metric-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 
     .queue-panel { margin-bottom: 20px; }
-    .queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 22px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+    .queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 20px 26px; border-bottom: 1px solid var(--line); background: #fafbfc; }
     .queue-summary-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
     .queue-summary-item span { display: block; color: var(--muted); font-size: 11px; }
     .queue-summary-item strong { display: block; margin-top: 5px; font-size: 20px; }
@@ -118,9 +118,9 @@
     .queue-bulk span { margin-right: auto; color: var(--muted); font-size: 12px; }
     .queue-check { width: 17px; height: 17px; accent-color: var(--blue); }
 
-    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 26px; align-items: start; }
     .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden; }
-    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 26px; border-bottom: 1px solid var(--line); }
     .panel-head h2 { margin: 0; font-size: 17px; }
     .panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
     .filters { display: flex; gap: 10px; }
@@ -133,7 +133,7 @@
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th { padding: 12px 18px; color: var(--muted); background: #fafbfc; font-size: 11px; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
-    td { padding: 16px 18px; border-top: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+    td { padding: 18px 20px; border-top: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
     tbody tr { transition: background .15s ease; cursor: pointer; }
     tbody tr:hover { background: #fafcff; }
     .job-title { font-weight: 750; }
