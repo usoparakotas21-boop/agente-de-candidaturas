@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import utc_now
+from app.models import Application, ApplicationEvent, utc_now
 from app.queue_service import (
     approve,
     enqueue,
@@ -48,6 +48,17 @@ class QueueServiceLocalModeTest(unittest.TestCase):
 
         self.assertEqual(approved["status"], "PROMOVIDO")
         self.assertIsNotNone(approved["job_id"])
+        application = self.session.query(Application).filter_by(
+            job_id=approved["job_id"]
+        ).one()
+        self.assertEqual(application.status, "IDENTIFICADA")
+        self.assertEqual(application.queue_decision, "REVISAR")
+        self.assertEqual(
+            self.session.query(ApplicationEvent)
+            .filter_by(application_id=application.id)
+            .count(),
+            1,
+        )
         self.assertEqual(rejected["status"], "RECUSADO")
         items, total = list_items(self.session, None)
         self.assertEqual(total, 2)

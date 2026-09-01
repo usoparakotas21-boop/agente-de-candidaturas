@@ -87,6 +87,20 @@
     .metric-value { display: block; margin-top: 12px; font-size: 30px; font-weight: 800; letter-spacing: -.04em; }
     .metric-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 
+    .queue-panel { margin-bottom: 20px; }
+    .queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 22px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+    .queue-summary-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+    .queue-summary-item span { display: block; color: var(--muted); font-size: 11px; }
+    .queue-summary-item strong { display: block; margin-top: 5px; font-size: 20px; }
+    .queue-reasons { max-width: 360px; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .queue-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .queue-action { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--navy); background: var(--paper); font-size: 11px; font-weight: 800; }
+    .queue-action.approve { color: var(--green); border-color: #b9e7d0; background: var(--green-soft); }
+    .queue-action.reject { color: var(--red); border-color: #f1c4be; background: var(--red-soft); }
+    .queue-bulk { display: flex; align-items: center; gap: 9px; padding: 12px 22px; border-bottom: 1px solid var(--line); }
+    .queue-bulk span { margin-right: auto; color: var(--muted); font-size: 12px; }
+    .queue-check { width: 17px; height: 17px; accent-color: var(--blue); }
+
     .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
     .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
@@ -223,6 +237,7 @@
       .panel-head { align-items: stretch; flex-direction: column; }
       .filters { flex-direction: column; }
       .filters input, .filters select { width: 100%; }
+      .queue-summary { grid-template-columns: 1fr 1fr; }
       .distribution { display: block; }
       th:nth-child(3), td:nth-child(3) { display: none; }
       td, th { padding-left: 12px; padding-right: 12px; }
@@ -280,6 +295,35 @@
         <article class="metric"><span class="metric-label">AutomÃ¡tica</span><strong class="metric-value" id="automaticMetric">â€”</strong><span class="metric-note">aptas segundo suas regras</span></article>
         <article class="metric"><span class="metric-label">Revisar</span><strong class="metric-value" id="reviewMetric">â€”</strong><span class="metric-note">precisam da sua decisÃ£o</span></article>
         <article class="metric"><span class="metric-label">Descartar</span><strong class="metric-value" id="discardMetric">â€”</strong><span class="metric-note">fora das preferÃªncias</span></article>
+      </section>
+
+      <section class="panel queue-panel" aria-label="Fila de decisão">
+        <div class="panel-head">
+          <div><h2>Fila de decisão</h2><p>Revise oportunidades captadas antes que avancem para candidaturas.</p></div>
+          <div class="filters">
+            <select id="queueDecisionFilter" aria-label="Filtrar decisão da fila"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
+            <select id="queueStatusFilter" aria-label="Filtrar status da fila"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="PROMOVIDO">Aprovado</option><option value="RECUSADO">Recusado</option><option value="EXPIRADO">Expirado</option></select>
+            <button class="refresh" id="queueRefreshButton" type="button">Atualizar fila</button>
+          </div>
+        </div>
+        <div class="queue-summary">
+          <div class="queue-summary-item"><span>Automáticas hoje</span><strong id="queueAutomaticToday">0</strong></div>
+          <div class="queue-summary-item"><span>Aguardando revisão</span><strong id="queueReviewPending">0</strong></div>
+          <div class="queue-summary-item"><span>Descartes pendentes</span><strong id="queueDiscardPending">0</strong></div>
+          <div class="queue-summary-item"><span>Expiradas</span><strong id="queueExpiredTotal">0</strong></div>
+        </div>
+        <div class="queue-bulk" id="queueBulkBar" hidden>
+          <span id="queueSelectedCount">0 itens selecionados</span>
+          <button class="queue-action approve" id="queueBulkApprove" type="button">Aprovar selecionados</button>
+          <button class="queue-action reject" id="queueBulkReject" type="button">Recusar selecionados</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th><input class="queue-check" id="queueSelectAll" type="checkbox" aria-label="Selecionar todos"></th><th>Oportunidade</th><th>Decisão</th><th>Confiança</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="queueRows"></tbody>
+          </table>
+          <div class="empty" id="queueEmptyState" hidden><strong>Nenhum item nesta fila</strong>Novas oportunidades captadas aparecerão aqui.</div>
+        </div>
       </section>
 
       <section class="workspace">
@@ -536,7 +580,7 @@
           $("userEmail").textContent = payload.user.email || "Usuario autenticado";
           $("logoutButton").hidden = false;
         }
-        await Promise.all([loadApplications(), loadGmailStatus()]);
+        await Promise.all([loadApplications(), loadQueue(), loadGmailStatus()]);
         if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
           window.history.replaceState({}, "", "/dashboard");
           toast("Gmail conectado com sucesso.");
@@ -622,6 +666,8 @@
     async function logout() {
       await fetch("/auth/logout", {method: "POST"});
       applications = [];
+      queueItems = [];
+      selectedQueueIds.clear();
       selectedId = null;
       $("appShell").hidden = true;
       $("authGate").hidden = false;
@@ -637,6 +683,8 @@
     const decisionLabels = {AUTOMATICA: "AutomÃ¡tica", REVISAR: "Revisar", DESCARTAR: "Descartar"};
     const statuses = Object.keys(statusLabels);
     let applications = [];
+    let queueItems = [];
+    const selectedQueueIds = new Set();
     let selectedId = null;
     let capturePreview = null;
     const analysisCache = {};
@@ -671,6 +719,122 @@
       finally { $("refreshButton").disabled = false; }
     }
 
+    async function loadQueue(showMessage = false) {
+      $("queueRefreshButton").disabled = true;
+      const params = new URLSearchParams();
+      if ($("queueDecisionFilter").value) params.set("decision", $("queueDecisionFilter").value);
+      if ($("queueStatusFilter").value) params.set("status", $("queueStatusFilter").value);
+      try {
+        const suffix = params.toString() ? `?${params}` : "";
+        const [itemsResponse, summaryResponse] = await Promise.all([
+          fetch(`/queue/${suffix}`),
+          fetch("/queue/summary"),
+        ]);
+        if (!itemsResponse.ok || !summaryResponse.ok) {
+          throw new Error("Não foi possível carregar a fila.");
+        }
+        const payload = await itemsResponse.json();
+        const summary = await summaryResponse.json();
+        queueItems = payload.items || [];
+        selectedQueueIds.clear();
+        renderQueue(summary);
+        if (showMessage) toast("Fila atualizada.");
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        $("queueRefreshButton").disabled = false;
+      }
+    }
+
+    function renderQueue(summary) {
+      $("queueAutomaticToday").textContent = summary.automatica?.hoje || 0;
+      $("queueReviewPending").textContent = summary.revisar?.pendente || 0;
+      $("queueDiscardPending").textContent = summary.descartar?.pendente || 0;
+      $("queueExpiredTotal").textContent = summary.expirado?.total || 0;
+      $("queueRows").innerHTML = queueItems.map(item => {
+        const pending = item.status === "PENDENTE";
+        const reasons = (item.decision_reasons || []).slice(0, 3).join(" • ");
+        return `
+          <tr>
+            <td><input class="queue-check queue-item-check" type="checkbox" data-id="${item.id}" aria-label="Selecionar ${escapeHtml(item.title || "item")}" ${pending ? "" : "disabled"}></td>
+            <td><div class="job-title">${escapeHtml(item.title || "Cargo não identificado")}</div><div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div></td>
+            <td><span class="badge ${decisionBadgeClass(item.decision)}">${decisionLabels[item.decision] || escapeHtml(item.decision)}</span></td>
+            <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "—" : item.confidence_overall + "%"}</span></td>
+            <td><span class="badge ${queueStatusBadgeClass(item.status)}">${queueStatusLabel(item.status)}</span></td>
+            <td><div class="queue-actions">${pending ? `
+              <button class="queue-action approve" type="button" data-queue-action="approve" data-id="${item.id}">Aprovar</button>
+              <button class="queue-action reject" type="button" data-queue-action="reject" data-id="${item.id}">Recusar</button>
+            ` : "Resolvido"}</div></td>
+          </tr>`;
+      }).join("");
+      $("queueEmptyState").hidden = queueItems.length > 0;
+      $("queueSelectAll").checked = false;
+      updateQueueBulkBar();
+
+      document.querySelectorAll(".queue-item-check").forEach(input => {
+        input.addEventListener("change", () => {
+          const id = Number(input.dataset.id);
+          input.checked ? selectedQueueIds.add(id) : selectedQueueIds.delete(id);
+          updateQueueBulkBar();
+        });
+      });
+      document.querySelectorAll("[data-queue-action]").forEach(button => {
+        button.addEventListener("click", () => queueAction(Number(button.dataset.id), button.dataset.queueAction));
+      });
+    }
+
+    const queueStatusLabel = status => ({PENDENTE:"Pendente", PROMOVIDO:"Aprovado", RECUSADO:"Recusado", EXPIRADO:"Expirado"}[status] || status);
+    const queueStatusBadgeClass = status => ({PENDENTE:"amber", PROMOVIDO:"green", RECUSADO:"red", EXPIRADO:"gray"}[status] || "gray");
+
+    function updateQueueBulkBar() {
+      const count = selectedQueueIds.size;
+      $("queueBulkBar").hidden = count === 0;
+      $("queueSelectedCount").textContent = `${count} ${count === 1 ? "item selecionado" : "itens selecionados"}`;
+    }
+
+    async function queueAction(id, action) {
+      const verb = action === "approve" ? "aprovar" : "recusar";
+      if (!window.confirm(`Deseja ${verb} esta oportunidade?`)) return;
+      let body;
+      if (action === "reject") {
+        const reason = window.prompt("Motivo da recusa (opcional):", "") ?? "";
+        body = JSON.stringify({reason});
+      }
+      try {
+        const response = await fetch(`/queue/${id}/${action}`, {
+          method: "POST",
+          headers: body ? {"Content-Type":"application/json"} : undefined,
+          body,
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível atualizar a fila."));
+        await Promise.all([loadQueue(), loadApplications()]);
+        toast(action === "approve" ? "Oportunidade aprovada." : "Oportunidade recusada.");
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+
+    async function queueBulkAction(action) {
+      const ids = [...selectedQueueIds];
+      if (!ids.length) return;
+      const verb = action === "approve" ? "aprovar" : "recusar";
+      if (!window.confirm(`Deseja ${verb} ${ids.length} oportunidade(s)?`)) return;
+      try {
+        const response = await fetch("/queue/bulk", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ids, action}),
+        });
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível processar a seleção."));
+        const payload = await response.json();
+        const failures = (payload.results || []).filter(item => !item.success).length;
+        await Promise.all([loadQueue(), loadApplications()]);
+        toast(failures ? `Concluído com ${failures} falha(s).` : "Seleção processada.");
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+
     function renderMetrics() {
       $("totalMetric").textContent = applications.length;
       $("automaticMetric").textContent = applications.filter(item => item.queue_decision === "AUTOMATICA").length;
@@ -703,7 +867,7 @@
           <td>${formatDate(item.updated_at)}</td>
         </tr>`).join("");
       $("emptyState").hidden = filtered.length > 0;
-      document.querySelectorAll("tbody tr").forEach(row => {
+      document.querySelectorAll("#applicationRows tr").forEach(row => {
         row.addEventListener("click", () => openApplication(Number(row.dataset.id)));
         row.addEventListener("keydown", event => { if (event.key === "Enter") openApplication(Number(row.dataset.id)); });
       });
@@ -1212,7 +1376,23 @@ async function downloadCoverLetterDocument() {
     $("searchInput").addEventListener("input", renderTable);
     $("statusFilter").addEventListener("change", renderTable);
     $("decisionFilter").addEventListener("change", renderTable);
-    $("refreshButton").addEventListener("click", () => loadApplications(true));
+    $("refreshButton").addEventListener("click", async () => {
+      await Promise.all([loadApplications(), loadQueue()]);
+      toast("Dados atualizados.");
+    });
+    $("queueRefreshButton").addEventListener("click", () => loadQueue(true));
+    $("queueDecisionFilter").addEventListener("change", () => loadQueue());
+    $("queueStatusFilter").addEventListener("change", () => loadQueue());
+    $("queueSelectAll").addEventListener("change", event => {
+      selectedQueueIds.clear();
+      document.querySelectorAll(".queue-item-check:not(:disabled)").forEach(input => {
+        input.checked = event.currentTarget.checked;
+        if (input.checked) selectedQueueIds.add(Number(input.dataset.id));
+      });
+      updateQueueBulkBar();
+    });
+    $("queueBulkApprove").addEventListener("click", () => queueBulkAction("approve"));
+    $("queueBulkReject").addEventListener("click", () => queueBulkAction("reject"));
     $("gmailButton").addEventListener("click", () => {
       window.location.assign("/auth/gmail/start");
     });

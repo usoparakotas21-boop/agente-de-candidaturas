@@ -201,6 +201,9 @@ class IntegratedFlowTest(unittest.TestCase):
         body = bytes(response.body).decode("utf-8")
         self.assertIn("Painel de Candidaturas", body)
         self.assertIn("/applications", body)
+        self.assertIn("/queue/summary", body)
+        self.assertIn("Fila de decisão", body)
+        self.assertIn("queueBulkApprove", body)
         self.assertIn("Nova vaga", body)
         self.assertIn("Gerar e baixar currículo", body)
 

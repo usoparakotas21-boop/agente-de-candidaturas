@@ -3,12 +3,19 @@ Servico de Fila - Camada unica de escrita em queue_items.
 Gerencia o ciclo de vida dos itens na fila.
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from app.models import QueueItem, Job
+from app.models import (
+    Application,
+    ApplicationEvent,
+    Candidate,
+    Job,
+    QueueItem,
+)
 from app.decision_reasons import get_reason_label
 
 
@@ -133,6 +140,30 @@ def _promote_item(session: Session, item: QueueItem, owner_id: Optional[str]) ->
     session.add(job)
     session.flush()
 
+    candidate = (
+        session.query(Candidate)
+        .filter(Candidate.owner_id == effective_owner_id)
+        .order_by(Candidate.id)
+        .first()
+    )
+    application = Application(
+        job_id=job.id,
+        candidate_id=candidate.id if candidate else None,
+        status="IDENTIFICADA",
+        queue_decision=item.decision,
+        decision_reasons=json.dumps(item.decision_reasons or [], ensure_ascii=False),
+        capture_confidence=item.confidence_overall,
+    )
+    session.add(application)
+    session.flush()
+    session.add(
+        ApplicationEvent(
+            application_id=application.id,
+            status="IDENTIFICADA",
+            note="Oportunidade aprovada na fila.",
+        )
+    )
+
     # Atualizar item
     item.status = "PROMOVIDO"
     item.job_id = job.id
@@ -196,7 +227,10 @@ def reject(session: Session, owner_id: Optional[str], item_id: int, reason: Opti
     item.resolved_at = utc_now()
     item.resolved_by = "usuario"
     if reason:
-        item.decision_reasons.append(f"RECUSADO_PELO_USUARIO: {reason}")
+        item.decision_reasons = [
+            *(item.decision_reasons or []),
+            f"RECUSADO_PELO_USUARIO: {reason}",
+        ]
 
     session.commit()
 
