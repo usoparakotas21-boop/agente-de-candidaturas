@@ -38,6 +38,7 @@ app.include_router(queue_router)
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
+SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -176,6 +177,11 @@ def health():
 def dashboard():
     if not DASHBOARD_PATH.is_file(): raise HTTPException(500, "Dashboard nao encontrado.")
     return HTMLResponse(DASHBOARD_PATH.read_text(encoding="utf-8"))
+
+@app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
+def settings_page():
+    if not SETTINGS_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
+    return HTMLResponse(SETTINGS_PATH.read_text(encoding="utf-8"))
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
