@@ -27,7 +27,7 @@ class RejectRequest(BaseModel):
 
 @router.get("/summary")
 async def queue_summary(
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Resumo da fila para os cartoes do topo do dashboard."""
@@ -44,7 +44,7 @@ async def list_queue_items(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Listar itens da fila com paginacao e filtros."""
@@ -100,7 +100,7 @@ async def list_queue_items(
 @router.get("/{item_id}")
 async def get_queue_item(
     item_id: int,
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Obter detalhe de um item da fila."""
@@ -157,7 +157,7 @@ async def get_queue_item(
 @router.post("/{item_id}/approve")
 async def approve_queue_item(
     item_id: int,
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Promover um item da fila para job."""
@@ -176,7 +176,7 @@ async def approve_queue_item(
 async def reject_queue_item(
     item_id: int,
     request: RejectRequest,
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Recusar um item da fila."""
@@ -194,7 +194,7 @@ async def reject_queue_item(
 @router.post("/bulk")
 async def bulk_action(
     request: BulkActionRequest,
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Acao em lote: aprovar ou recusar multiplos itens."""
@@ -227,7 +227,7 @@ async def bulk_action(
 
 @router.post("/expire")
 async def expire_stale_items(
-    user: dict = Depends(lambda: {"id": None}),
+    user: dict = Depends(authenticated_user),
     db: Session = Depends(get_db)
 ):
     """Expiracao manual de itens antigos (rotina do worker)."""
@@ -236,5 +236,5 @@ async def expire_stale_items(
         pass  # Modo local
     
     # Apenas o dono pode expirar seus proprios itens
-    count = expire_stale(db, 14)  # 14 dias
+    count = expire_stale(db, 14, owner_id=owner_id)  # 14 dias
     return {"expired": count}

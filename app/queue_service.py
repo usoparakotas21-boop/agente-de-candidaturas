@@ -206,7 +206,11 @@ def reject(session: Session, owner_id: Optional[str], item_id: int, reason: Opti
     }
 
 
-def expire_stale(session: Session, ttl_days: int = 14) -> int:
+def expire_stale(
+    session: Session,
+    ttl_days: int = 14,
+    owner_id: Optional[str] = None,
+) -> int:
     """
     Rotina do worker.
     PENDENTE antigo -> EXPIRADO.
@@ -216,12 +220,15 @@ def expire_stale(session: Session, ttl_days: int = 14) -> int:
     
     cutoff = utc_now() - timedelta(days=ttl_days)
     
-    items = session.query(QueueItem).filter(
+    query = session.query(QueueItem).filter(
         and_(
             QueueItem.status == "PENDENTE",
             QueueItem.captured_at < cutoff
         )
-    ).all()
+    )
+    if owner_id is not None:
+        query = query.filter(QueueItem.owner_id == owner_id)
+    items = query.all()
 
     count = 0
     for item in items:

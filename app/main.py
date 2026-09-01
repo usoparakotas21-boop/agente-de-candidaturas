@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text
 from starlette.concurrency import run_in_threadpool
 
-from .auth import router as auth_router
+from .auth import AuthMiddleware, authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
 from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_monitor
 from .queue_routes import router as queue_router
@@ -29,6 +29,7 @@ from .resume_personalizer import personalize_resume
 from .queue_service import enqueue
 
 app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
+app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
 app.include_router(gmail_monitor_router)
@@ -127,9 +128,6 @@ def _save_analysis(app, analysis, cand):
     app.analysis_data = json.dumps(analysis, ensure_ascii=False)
     _apply_decision(app, cand, analysis)
 
-async def authenticated_user(request: Request):
-    return {"id": "local_user", "email": "local@teste.com", "local_mode": True}
-
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
@@ -162,7 +160,7 @@ async def shutdown():
     await stop_monitor()
 
 @app.get("/")
-def root(): return {"agente": "Agente de Candidaturas", "candidato": "Paulo Henrique", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
+def root(): return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
