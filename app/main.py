@@ -41,6 +41,7 @@ DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
 PROFILE_PAGE_PATH = Path(__file__).parent / "static" / "profile.html"
+SECURITY_PAGE_PATH = Path(__file__).parent / "static" / "security.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -190,6 +191,11 @@ def settings_page():
 def profile_page():
     if not PROFILE_PAGE_PATH.is_file(): raise HTTPException(500, "Perfil nao encontrado.")
     return HTMLResponse(PROFILE_PAGE_PATH.read_text(encoding="utf-8"))
+
+@app.get("/seguranca", response_class=HTMLResponse, include_in_schema=False)
+def security_page():
+    if not SECURITY_PAGE_PATH.is_file(): raise HTTPException(500, "Seguranca nao encontrada.")
+    return HTMLResponse(SECURITY_PAGE_PATH.read_text(encoding="utf-8"))
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):

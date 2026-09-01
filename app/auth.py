@@ -57,6 +57,10 @@ class PasswordUpdateRequest(BaseModel):
     password: str
 
 
+class EmailUpdateRequest(BaseModel):
+    email: str
+
+
 def _validated_email(email: str) -> str:
     normalized = email.strip().lower()
     if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
@@ -375,6 +379,30 @@ async def update_password(
             _supabase_error(response, "Nao foi possivel alterar a senha."),
         )
     return {"updated": True}
+
+
+@router.put("/email")
+async def update_email(
+    payload: EmailUpdateRequest,
+    request: Request,
+    user: dict = Depends(authenticated_user),
+):
+    email = _validated_email(payload.email)
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request(
+            "PUT",
+            "/auth/v1/user",
+            token=access_token,
+            json={"email": email},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.")
+    if response.status_code != 200:
+        raise HTTPException(400, _supabase_error(response, "Nao foi possivel alterar o e-mail."))
+    return {"updated": True, "message": "Confira o novo e-mail para confirmar a alteracao."}
 
 
 @router.get("/me")
