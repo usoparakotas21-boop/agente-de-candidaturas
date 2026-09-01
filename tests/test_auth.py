@@ -28,6 +28,13 @@ def make_request(cookie: str = "") -> Request:
 
 
 class AuthTest(unittest.IsolatedAsyncioTestCase):
+    def test_render_hostname_builds_public_app_url(self):
+        with patch.dict(
+            "os.environ",
+            {"APP_BASE_URL": "", "RENDER_EXTERNAL_HOSTNAME": "app.onrender.com"},
+        ):
+            self.assertEqual(auth._app_base_url(), "https://app.onrender.com")
+
     async def test_signup_rejects_short_password(self):
         with self.assertRaises(HTTPException) as raised:
             await auth.signup(

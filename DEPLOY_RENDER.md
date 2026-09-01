@@ -15,7 +15,8 @@ Configure no servico:
 - `DATABASE_URL`: conexao PostgreSQL do Supabase.
 - `SUPABASE_URL`: Project URL do Supabase.
 - `SUPABASE_PUBLISHABLE_KEY`: chave publicavel do Supabase.
-- `APP_BASE_URL`: URL HTTPS final do servico Render, sem barra no final.
+- `APP_BASE_URL`: opcional no Render, pois o dominio publico e detectado
+  automaticamente. Defina-a somente ao adotar um dominio personalizado.
 
 O Blueprint fixa `AUTH_REQUIRED=true` e `COOKIE_SECURE=true`.
 

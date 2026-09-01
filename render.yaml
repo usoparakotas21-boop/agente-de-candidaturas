@@ -17,5 +17,3 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
-      - key: APP_BASE_URL
-        sync: false

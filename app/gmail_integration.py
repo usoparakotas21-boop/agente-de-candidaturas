@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
-from .auth import authenticated_user
+from .auth import APP_BASE_URL, authenticated_user
 from .database import SessionLocal
 from .models import EmailIntegration
 
@@ -39,7 +39,7 @@ def _redirect_uri() -> str:
     configured = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
     if configured:
         return configured
-    base_url = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
+    base_url = APP_BASE_URL
     if not base_url.startswith("https://"):
         raise HTTPException(
             status_code=503,

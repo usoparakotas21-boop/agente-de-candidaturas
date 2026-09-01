@@ -8,13 +8,22 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
+def _app_base_url() -> str:
+    explicit_url = os.getenv("APP_BASE_URL", "").strip()
+    render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+    return (
+        explicit_url
+        or (f"https://{render_hostname}" if render_hostname else "")
+    ).rstrip("/")
+
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
-APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
+APP_BASE_URL = _app_base_url()
 
 router = APIRouter(prefix="/auth", tags=["autenticacao"])
 
