@@ -305,15 +305,15 @@
     <main>
       <section class="hero">
         <div>
-          <p class="eyebrow">VisÃ£o geral</p>
-          <h1>Suas oportunidades,<br>em um sÃ³ lugar.</h1>
-          <p>Acompanhe aderÃªncia, documentos e cada avanÃ§o do processo seletivo.</p>
+          <p class="eyebrow">Visão geral</p>
+          <h1>Suas oportunidades,<br>em um só lugar.</h1>
+          <p>Acompanhe aderência, documentos e cada avanço do processo seletivo.</p>
         </div>
         <div class="hero-actions">
           <button class="refresh" id="gmailButton" type="button">Conectar Gmail</button>
           <button class="refresh" id="gmailSyncButton" type="button" hidden>Buscar e-mails</button>
-          <button class="refresh" id="profileButton">Meu currÃ­culo</button>
-          <button class="refresh" id="preferencesButton">PreferÃªncias</button>
+          <button class="refresh" id="profileButton">Meu currículo</button>
+          <button class="refresh" id="preferencesButton">Preferências</button>
           <button class="new-job" id="captureJobButton">Captar vaga</button>
           <button class="new-job" id="newJobButton">Nova vaga</button>
           <button class="refresh" id="refreshButton">Atualizar dados</button>
@@ -321,10 +321,10 @@
       </section>
 
       <section class="metrics" aria-label="Resumo das candidaturas">
-        <article class="metric"><span class="metric-label">Total de vagas</span><strong class="metric-value" id="totalMetric">â€”</strong><span class="metric-note">oportunidades acompanhadas</span></article>
-        <article class="metric"><span class="metric-label">AutomÃ¡tica</span><strong class="metric-value" id="automaticMetric">â€”</strong><span class="metric-note">aptas segundo suas regras</span></article>
-        <article class="metric"><span class="metric-label">Revisar</span><strong class="metric-value" id="reviewMetric">â€”</strong><span class="metric-note">precisam da sua decisÃ£o</span></article>
-        <article class="metric"><span class="metric-label">Descartar</span><strong class="metric-value" id="discardMetric">â€”</strong><span class="metric-note">fora das preferÃªncias</span></article>
+        <article class="metric"><span class="metric-label">Total de vagas</span><strong class="metric-value" id="totalMetric">—</strong><span class="metric-note">oportunidades acompanhadas</span></article>
+        <article class="metric"><span class="metric-label">Automática</span><strong class="metric-value" id="automaticMetric">—</strong><span class="metric-note">aptas segundo suas regras</span></article>
+        <article class="metric"><span class="metric-label">Revisar</span><strong class="metric-value" id="reviewMetric">—</strong><span class="metric-note">precisam da sua decisão</span></article>
+        <article class="metric"><span class="metric-label">Descartar</span><strong class="metric-value" id="discardMetric">—</strong><span class="metric-note">fora das preferências</span></article>
       </section>
 
       <section class="panel queue-panel" aria-label="Fila de decisão">
@@ -362,13 +362,13 @@
             <div><h2>Candidaturas</h2><p>Clique em uma vaga para ver detalhes e atualizar o andamento.</p></div>
             <div class="filters">
               <input id="searchInput" type="search" placeholder="Buscar empresa ou cargo" aria-label="Buscar candidatura">
-              <select id="decisionFilter" aria-label="Filtrar por decisÃ£o"><option value="">Todas as decisÃµes</option><option value="AUTOMATICA">AutomÃ¡tica</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
+              <select id="decisionFilter" aria-label="Filtrar por decisão"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
               <select id="statusFilter" aria-label="Filtrar por status"><option value="">Todos os status</option></select>
             </div>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Oportunidade</th><th>DecisÃ£o</th><th>Status</th><th>Score</th><th>AtualizaÃ§Ã£o</th></tr></thead>
+              <thead><tr><th>Oportunidade</th><th>Decisão</th><th>Status</th><th>Score</th><th>Atualização</th></tr></thead>
               <tbody id="applicationRows"></tbody>
             </table>
             <div class="empty" id="emptyState" hidden><strong>Nenhuma candidatura encontrada</strong>Ajuste a busca ou cadastre uma nova vaga pela API.</div>
@@ -376,8 +376,8 @@
         </div>
 
         <aside class="panel distribution">
-          <h2>DistribuiÃ§Ã£o por etapa</h2>
-          <p>Onde estÃ£o concentradas as oportunidades.</p>
+          <h2>Distribuição por etapa</h2>
+          <p>Onde estão concentradas as oportunidades.</p>
           <div id="distribution"></div>
         </aside>
       </section>
@@ -387,47 +387,47 @@
   <div class="drawer-backdrop" id="backdrop"></div>
   <dialog id="preferencesDialog">
     <div class="dialog-head">
-      <div><h2>PreferÃªncias do agente</h2><p>Estas regras organizam a fila. Nenhuma candidatura serÃ¡ enviada nesta versÃ£o.</p></div>
-      <button class="close" id="closePreferencesDialog" type="button" aria-label="Fechar">Ã—</button>
+      <div><h2>Preferências do agente</h2><p>Estas regras organizam a fila. Nenhuma candidatura será enviada nesta versão.</p></div>
+      <button class="close" id="closePreferencesDialog" type="button" aria-label="Fechar">×</button>
     </div>
     <form class="job-form" id="preferencesForm">
       <div class="form-grid">
-        <div class="field full"><label for="preferenceRoles">Cargos desejados, separados por vÃ­rgula</label><input id="preferenceRoles" placeholder="Coordenador de RH, Supervisor de RH"></div>
-        <div class="field"><label for="preferenceLocations">LocalizaÃ§Ãµes</label><input id="preferenceLocations" placeholder="Salvador/BA, Remoto"></div>
-        <div class="field"><label for="preferenceModalities">Modalidades</label><input id="preferenceModalities" placeholder="Remoto, HÃ­brido"></div>
-        <div class="field full"><label for="excludedCompanies">Empresas excluÃ­das</label><input id="excludedCompanies" placeholder="Empresa A, Empresa B"></div>
-        <div class="field"><label for="requiredKeywords">Termos obrigatÃ³rios</label><input id="requiredKeywords" placeholder="Recursos Humanos, lideranÃ§a"></div>
-        <div class="field"><label for="excludedKeywords">Termos excluÃ­dos</label><input id="excludedKeywords" placeholder="temporÃ¡rio, estÃ¡gio"></div>
-        <div class="field"><label for="minimumScore">Score mÃ­nimo</label><input id="minimumScore" type="number" min="0" max="100" value="65"></div>
-        <div class="field"><label for="automaticScore">Score para fila automÃ¡tica</label><input id="automaticScore" type="number" min="0" max="100" value="85"></div>
-        <div class="field"><label for="maxDailyApplications">Limite diÃ¡rio futuro</label><input id="maxDailyApplications" type="number" min="1" max="50" value="5"></div>
-        <div class="field"><label><input id="allowAutomatic" type="checkbox" style="width:auto"> Autorizar classificaÃ§Ã£o como automÃ¡tica</label></div>
+        <div class="field full"><label for="preferenceRoles">Cargos desejados, separados por vírgula</label><input id="preferenceRoles" placeholder="Coordenador de RH, Supervisor de RH"></div>
+        <div class="field"><label for="preferenceLocations">Localizações</label><input id="preferenceLocations" placeholder="Salvador/BA, Remoto"></div>
+        <div class="field"><label for="preferenceModalities">Modalidades</label><input id="preferenceModalities" placeholder="Remoto, Híbrido"></div>
+        <div class="field full"><label for="excludedCompanies">Empresas excluídas</label><input id="excludedCompanies" placeholder="Empresa A, Empresa B"></div>
+        <div class="field"><label for="requiredKeywords">Termos obrigatórios</label><input id="requiredKeywords" placeholder="Recursos Humanos, liderança"></div>
+        <div class="field"><label for="excludedKeywords">Termos excluídos</label><input id="excludedKeywords" placeholder="temporário, estágio"></div>
+        <div class="field"><label for="minimumScore">Score mínimo</label><input id="minimumScore" type="number" min="0" max="100" value="65"></div>
+        <div class="field"><label for="automaticScore">Score para fila automática</label><input id="automaticScore" type="number" min="0" max="100" value="85"></div>
+        <div class="field"><label for="maxDailyApplications">Limite diário futuro</label><input id="maxDailyApplications" type="number" min="1" max="50" value="5"></div>
+        <div class="field"><label><input id="allowAutomatic" type="checkbox" style="width:auto"> Autorizar classificação como automática</label></div>
       </div>
-      <p class="metric-note" id="preferencesStatus">Carregando preferÃªncias...</p>
-      <div class="dialog-actions"><button class="secondary" id="cancelPreferences" type="button">Cancelar</button><button class="submit-job" id="savePreferences" type="submit">Salvar preferÃªncias</button></div>
+      <p class="metric-note" id="preferencesStatus">Carregando preferências...</p>
+      <div class="dialog-actions"><button class="secondary" id="cancelPreferences" type="button">Cancelar</button><button class="submit-job" id="savePreferences" type="submit">Salvar preferências</button></div>
     </form>
   </dialog>
   <dialog id="profileDialog">
     <div class="dialog-head">
-      <div><h2>Meu currÃ­culo</h2><p>Importe um DOCX ou PDF textual para atualizar seu perfil profissional.</p></div>
-      <button class="close" id="closeProfileDialog" type="button" aria-label="Fechar">Ã—</button>
+      <div><h2>Meu currículo</h2><p>Importe um DOCX ou PDF textual para atualizar seu perfil profissional.</p></div>
+      <button class="close" id="closeProfileDialog" type="button" aria-label="Fechar">×</button>
     </div>
     <form class="job-form" id="profileForm">
       <div class="field">
-        <label for="resumeFile">CurrÃ­culo DOCX ou PDF textual (mÃ¡ximo 5 MB)</label>
+        <label for="resumeFile">Currículo DOCX ou PDF textual (máximo 5 MB)</label>
         <input id="resumeFile" name="file" type="file" accept=".docx,.pdf" required>
       </div>
       <p id="profileStatus" class="metric-note">Carregando perfil...</p>
       <div class="dialog-actions">
         <button class="secondary" id="cancelProfile" type="button">Cancelar</button>
-        <button class="submit-job" id="uploadProfileButton" type="submit">Importar currÃ­culo</button>
+        <button class="submit-job" id="uploadProfileButton" type="submit">Importar currículo</button>
       </div>
     </form>
   </dialog>
   <dialog id="captureJobDialog">
     <div class="dialog-head">
-      <div><h2>Captar e analisar vaga</h2><p>Envie um print/PDF ou cole o texto da oportunidade. O sistema identificarÃ¡ os dados e farÃ¡ a anÃ¡lise automaticamente.</p></div>
-      <button class="close" id="closeCaptureJobDialog" type="button" aria-label="Fechar">Ã—</button>
+      <div><h2>Captar e analisar vaga</h2><p>Envie um print/PDF ou cole o texto da oportunidade. O sistema identificará os dados e fará a análise automaticamente.</p></div>
+      <button class="close" id="closeCaptureJobDialog" type="button" aria-label="Fechar">×</button>
     </div>
     <form class="job-form" id="captureJobForm">
       <div class="field">
@@ -442,26 +442,26 @@
         </select>
       </div>
       <div class="field" id="captureFileField">
-        <label for="captureFile">Print ou PDF da oportunidade (mÃ¡ximo 10 MB)</label>
+        <label for="captureFile">Print ou PDF da oportunidade (máximo 10 MB)</label>
         <input id="captureFile" name="file" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf">
       </div>
       <div class="field" id="captureTextField">
-        <label for="captureText">ConteÃºdo completo da oportunidade</label>
-        <textarea id="captureText" name="raw_text" style="min-height: 220px" placeholder="Se preferir, cole aqui o tÃ­tulo, empresa, localizaÃ§Ã£o, requisitos, atividades e o link da vaga."></textarea>
+        <label for="captureText">Conteúdo completo da oportunidade</label>
+        <textarea id="captureText" name="raw_text" style="min-height: 220px" placeholder="Se preferir, cole aqui o título, empresa, localização, requisitos, atividades e o link da vaga."></textarea>
       </div>
       <section id="captureReview" hidden>
-        <p class="metric-note">Confira principalmente empresa e cargo. O score sÃ³ serÃ¡ calculado depois da confirmaÃ§Ã£o.</p>
+        <p class="metric-note">Confira principalmente empresa e cargo. O score só será calculado depois da confirmação.</p>
         <div class="form-grid">
           <div class="field"><label for="reviewCompany">Empresa</label><input id="reviewCompany"></div>
           <div class="field"><label for="reviewTitle">Cargo</label><input id="reviewTitle"></div>
-          <div class="field"><label for="reviewLocation">LocalizaÃ§Ã£o</label><input id="reviewLocation"></div>
+          <div class="field"><label for="reviewLocation">Localização</label><input id="reviewLocation"></div>
           <div class="field"><label for="reviewModality">Modalidade</label><input id="reviewModality"></div>
-          <div class="field"><label for="reviewSalary">SalÃ¡rio</label><input id="reviewSalary"></div>
+          <div class="field"><label for="reviewSalary">Salário</label><input id="reviewSalary"></div>
           <div class="field"><label for="reviewUrl">Link</label><input id="reviewUrl"></div>
           <div class="field full"><label for="reviewDescription">Texto reconhecido</label><textarea id="reviewDescription" style="min-height: 220px"></textarea></div>
         </div>
       </section>
-      <p class="metric-note" id="captureStatus">A vaga serÃ¡ cadastrada, filtrada e analisada.</p>
+      <p class="metric-note" id="captureStatus">A vaga será cadastrada, filtrada e analisada.</p>
       <div class="dialog-actions">
         <button class="secondary" id="cancelCaptureJob" type="button">Cancelar</button>
         <button class="submit-job" id="submitCaptureJob" type="submit">Captar e analisar</button>
@@ -469,15 +469,15 @@
     </form>
   </dialog>
   <aside class="drawer" id="drawer" aria-label="Detalhes da candidatura" aria-hidden="true">
-    <div class="drawer-top"><span class="badge blue" id="drawerStatus">STATUS</span><button class="close" id="closeDrawer" aria-label="Fechar">Ã—</button></div>
+    <div class="drawer-top"><span class="badge blue" id="drawerStatus">STATUS</span><button class="close" id="closeDrawer" aria-label="Fechar">×</button></div>
     <h2 id="drawerTitle"></h2><p class="drawer-company" id="drawerCompany"></p>
     <div class="detail-metrics">
-      <div class="detail-metric"><span>Score de aderÃªncia</span><strong id="drawerScore">â€”</strong></div>
-      <div class="detail-metric"><span>PersonalizaÃ§Ã£o</span><strong id="drawerPersonalization">â€”</strong></div>
-      <div class="detail-metric wide"><span>DecisÃ£o da fila</span><strong id="drawerDecision">Revisar</strong></div>
-      <div class="detail-metric wide"><span>RecomendaÃ§Ã£o</span><strong id="drawerRecommendation">Aguardando anÃ¡lise</strong></div>
+      <div class="detail-metric"><span>Score de aderência</span><strong id="drawerScore">—</strong></div>
+      <div class="detail-metric"><span>Personalização</span><strong id="drawerPersonalization">—</strong></div>
+      <div class="detail-metric wide"><span>Decisão da fila</span><strong id="drawerDecision">Revisar</strong></div>
+      <div class="detail-metric wide"><span>Recomendação</span><strong id="drawerRecommendation">Aguardando análise</strong></div>
     </div>
-    <div class="decision-card"><strong>Por que esta decisÃ£o foi tomada</strong><ul id="decisionReasons"></ul></div>
+    <div class="decision-card"><strong>Por que esta decisão foi tomada</strong><ul id="decisionReasons"></ul></div>
     <div class="action-grid">
   <button class="action-button" id="analyzeButton">
     Analisar vaga
@@ -488,19 +488,19 @@
   </button>
 
   <button class="action-button" id="coverLetterButton">
-    Gerar carta de apresentaÃ§Ã£o
+    Gerar carta de apresentação
   </button>
 
   <button class="action-button" id="downloadButton" hidden>
-    Baixar Ãºltimo currÃ­culo
+    Baixar último currículo
   </button>
 
   <button class="action-button" id="downloadSavedCoverLetterButton" hidden>
-    Baixar Ãºltima carta
+    Baixar última carta
   </button>
 </div>
     <div class="analysis-card" id="analysisCard" hidden>
-      <h3>Resultado da anÃ¡lise</h3>
+      <h3>Resultado da análise</h3>
       <div class="analysis-columns">
         <div><strong>Pontos fortes</strong><ul id="strengthList"></ul></div>
         <div><strong>Gaps identificados</strong><ul id="gapList"></ul></div>
@@ -514,25 +514,25 @@
     <div class="form-card">
       <label for="newStatus">Atualizar andamento</label>
       <select id="newStatus"></select>
-      <textarea id="statusNote" placeholder="ObservaÃ§Ã£o opcional"></textarea>
-      <button class="primary" id="saveStatus">Salvar atualizaÃ§Ã£o</button>
+      <textarea id="statusNote" placeholder="Observação opcional"></textarea>
+      <button class="primary" id="saveStatus">Salvar atualização</button>
     </div>
     <h3 class="timeline-title">Linha do tempo</h3>
     <div class="timeline" id="timeline"></div>
   </aside>
   <dialog id="newJobDialog">
     <div class="dialog-head">
-      <div><h2>Adicionar nova vaga</h2><p>Copie os dados principais do anÃºncio. A anÃ¡lise serÃ¡ feita na prÃ³xima etapa.</p></div>
-      <button class="close" id="closeJobDialog" type="button" aria-label="Fechar">Ã—</button>
+      <div><h2>Adicionar nova vaga</h2><p>Copie os dados principais do anúncio. A análise será feita na próxima etapa.</p></div>
+      <button class="close" id="closeJobDialog" type="button" aria-label="Fechar">×</button>
     </div>
     <form class="job-form" id="newJobForm">
       <div class="form-grid">
         <div class="field"><label for="jobCompany">Empresa *</label><input id="jobCompany" name="company" required></div>
         <div class="field"><label for="jobTitle">Cargo *</label><input id="jobTitle" name="title" required></div>
-        <div class="field"><label for="jobLocation">LocalizaÃ§Ã£o</label><input id="jobLocation" name="location" placeholder="Salvador/BA"></div>
-        <div class="field"><label for="jobModality">Modalidade</label><select id="jobModality" name="modality"><option value="">NÃ£o informada</option><option>Presencial</option><option>HÃ­brido</option><option>Remoto</option></select></div>
+        <div class="field"><label for="jobLocation">Localização</label><input id="jobLocation" name="location" placeholder="Salvador/BA"></div>
+        <div class="field"><label for="jobModality">Modalidade</label><select id="jobModality" name="modality"><option value="">Não informada</option><option>Presencial</option><option>Híbrido</option><option>Remoto</option></select></div>
         <div class="field full"><label for="jobSalary">Faixa salarial</label><input id="jobSalary" name="salary" placeholder="Ex.: R$ 8.000 a R$ 10.000"></div>
-        <div class="field full"><label for="jobDescription">DescriÃ§Ã£o completa *</label><textarea id="jobDescription" name="description" required placeholder="Cole aqui responsabilidades, requisitos e diferenciais da vaga."></textarea></div>
+        <div class="field full"><label for="jobDescription">Descrição completa *</label><textarea id="jobDescription" name="description" required placeholder="Cole aqui responsabilidades, requisitos e diferenciais da vaga."></textarea></div>
       </div>
       <div class="dialog-actions"><button class="secondary" id="cancelJob" type="button">Cancelar</button><button class="submit-job" id="submitJob" type="submit">Cadastrar vaga</button></div>
     </form>
@@ -540,7 +540,7 @@
   <dialog id="coverLetterDialog">
   <div class="dialog-head">
     <div>
-      <h2>Carta de apresentaÃ§Ã£o</h2>
+      <h2>Carta de apresentação</h2>
       <p id="coverLetterSubtitle"></p>
     </div>
 
@@ -550,7 +550,7 @@
       type="button"
       aria-label="Fechar"
     >
-      Ã—
+      ×
     </button>
   </div>
 
@@ -866,10 +866,10 @@
 
     const statusLabels = {
       IDENTIFICADA: "Identificada", ANALISADA: "Analisada", PERSONALIZADA: "Personalizada",
-      CURRICULO_GERADO: "CurrÃ­culo gerado", CANDIDATURA_ENVIADA: "Candidatura enviada",
+      CURRICULO_GERADO: "Currículo gerado", CANDIDATURA_ENVIADA: "Candidatura enviada",
       ENTREVISTA: "Entrevista", APROVADO: "Aprovado", RECUSADO: "Recusado", ARQUIVADA: "Arquivada"
     };
-    const decisionLabels = {AUTOMATICA: "AutomÃ¡tica", REVISAR: "Revisar", DESCARTAR: "Descartar"};
+    const decisionLabels = {AUTOMATICA: "Automática", REVISAR: "Revisar", DESCARTAR: "Descartar"};
     const statuses = Object.keys(statusLabels);
     let applications = [];
     let queueItems = [];
@@ -880,7 +880,7 @@
 
     const $ = id => document.getElementById(id);
     const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
-    const formatDate = value => value ? new Intl.DateTimeFormat("pt-BR", {day:"2-digit", month:"short", year:"numeric"}).format(new Date(value)) : "â€”";
+    const formatDate = value => value ? new Intl.DateTimeFormat("pt-BR", {day:"2-digit", month:"short", year:"numeric"}).format(new Date(value)) : "—";
     const scoreClass = score => score == null ? "" : score >= 85 ? "high" : score >= 55 ? "mid" : "low";
     const badgeClass = status => ({APROVADO:"green", ENTREVISTA:"amber", RECUSADO:"red", ARQUIVADA:"gray", CURRICULO_GERADO:"blue", CANDIDATURA_ENVIADA:"blue"}[status] || "gray");
     const decisionBadgeClass = decision => ({AUTOMATICA:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
@@ -898,7 +898,7 @@
       $("refreshButton").disabled = true;
       try {
         const response = await fetch("/applications");
-        if (!response.ok) throw new Error("NÃ£o foi possÃ­vel carregar as candidaturas.");
+        if (!response.ok) throw new Error("Não foi possível carregar as candidaturas.");
         const payload = await response.json();
         applications = payload.applications || [];
         renderMetrics(); renderDistribution(); renderTable();
@@ -942,13 +942,13 @@
       $("queueExpiredTotal").textContent = summary.expirado?.total || 0;
       $("queueRows").innerHTML = queueItems.map(item => {
         const pending = item.status === "PENDENTE";
-        const reasons = (item.decision_reasons || []).slice(0, 3).join(" • ");
+        const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
         return `
           <tr>
             <td><input class="queue-check queue-item-check" type="checkbox" data-id="${item.id}" aria-label="Selecionar ${escapeHtml(item.title || "item")}" ${pending ? "" : "disabled"}></td>
             <td><div class="job-title">${escapeHtml(item.title || "Cargo não identificado")}</div><div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div></td>
             <td><span class="badge ${decisionBadgeClass(item.decision)}">${decisionLabels[item.decision] || escapeHtml(item.decision)}</span></td>
-            <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "—" : item.confidence_overall + "%"}</span></td>
+            <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "-" : item.confidence_overall + "%"}</span></td>
             <td><span class="badge ${queueStatusBadgeClass(item.status)}">${queueStatusLabel(item.status)}</span></td>
             <td><div class="queue-actions">${pending ? `
               <button class="queue-action approve" type="button" data-queue-action="approve" data-id="${item.id}">Aprovar</button>
@@ -1052,7 +1052,7 @@
           <td><div class="job-title">${escapeHtml(item.job_title)}</div><div class="company">${escapeHtml(item.company)}</div></td>
           <td><span class="badge ${decisionBadgeClass(item.queue_decision)}">${decisionLabels[item.queue_decision] || "Revisar"}</span></td>
           <td><span class="badge ${badgeClass(item.status)}">${statusLabels[item.status] || escapeHtml(item.status)}</span></td>
-          <td><span class="score ${scoreClass(item.analysis_score)}">${item.analysis_score == null ? "â€”" : Math.round(item.analysis_score)}</span></td>
+          <td><span class="score ${scoreClass(item.analysis_score)}">${item.analysis_score == null ? "—" : Math.round(item.analysis_score)}</span></td>
           <td>${formatDate(item.updated_at)}</td>
         </tr>`).join("");
       $("emptyState").hidden = filtered.length > 0;
@@ -1069,14 +1069,14 @@
       $("drawerStatus").className = `badge ${badgeClass(item.status)}`;
       $("drawerTitle").textContent = item.job_title;
       $("drawerCompany").textContent = item.company;
-      $("drawerScore").textContent = item.analysis_score == null ? "â€”" : Math.round(item.analysis_score);
-      $("drawerPersonalization").textContent = item.personalization_score == null ? "â€”" : Math.round(item.personalization_score);
+      $("drawerScore").textContent = item.analysis_score == null ? "—" : Math.round(item.analysis_score);
+      $("drawerPersonalization").textContent = item.personalization_score == null ? "—" : Math.round(item.personalization_score);
       $("drawerDecision").textContent = decisionLabels[item.queue_decision] || "Revisar";
-      $("drawerRecommendation").textContent = item.recommendation || "Aguardando anÃ¡lise";
+      $("drawerRecommendation").textContent = item.recommendation || "Aguardando análise";
       const reasons = item.decision_reasons || [];
       $("decisionReasons").innerHTML = reasons.length
         ? reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join("")
-        : "<li>Aguardando anÃ¡lise e preferÃªncias.</li>";
+        : "<li>Aguardando análise e preferências.</li>";
       $("downloadButton").hidden = !item.document_path;
       $("downloadSavedCoverLetterButton").hidden = !item.cover_letter_path;
       $("newStatus").value = item.status;
@@ -1100,20 +1100,20 @@
       const breakdown = analysis.score_breakdown || {};
       const factors = [
         ["Requisitos", breakdown.requirements, 60, true],
-        ["ExperiÃªncia", breakdown.experience, 10, false],
+        ["Experiência", breakdown.experience, 10, false],
         ["Senioridade", breakdown.seniority, 15, false],
         ["Tecnologia", breakdown.technology, 10, false],
-        ["LocalizaÃ§Ã£o", breakdown.location, 5, false]
+        ["Localização", breakdown.location, 5, false]
       ];
       $("scoreBreakdown").innerHTML = factors.map(([label, value, maximum, wide]) => `
         <div class="score-factor ${wide ? "wide" : ""}">
-          <span>${label}</span><strong>${value == null ? "â€”" : Number(value).toFixed(value % 1 ? 1 : 0)} / ${maximum}</strong>
+          <span>${label}</span><strong>${value == null ? "—" : Number(value).toFixed(value % 1 ? 1 : 0)} / ${maximum}</strong>
         </div>`).join("");
 
       const evidenceLabels = {
-        COMPROVADO_DIRETAMENTE: ["EvidÃªncia direta", "direct"],
-        COMPROVADO_POR_EXPERIENCIA_RELACIONADA: ["EvidÃªncia relacionada", "related"],
-        NAO_ENCONTRADO: ["NÃ£o encontrada", "missing"]
+        COMPROVADO_DIRETAMENTE: ["Evidência direta", "direct"],
+        COMPROVADO_POR_EXPERIENCIA_RELACIONADA: ["Evidência relacionada", "related"],
+        NAO_ENCONTRADO: ["Não encontrada", "missing"]
       };
       const requirements = analysis.requirements || [];
       $("requirementRows").innerHTML = requirements.length
@@ -1121,7 +1121,7 @@
             const evidence = evidenceLabels[item.status] || [item.status, "missing"];
             return `<div class="requirement-row"><span>${escapeHtml(item.requirement)}</span><span class="evidence ${evidence[1]}">${evidence[0]}</span></div>`;
           }).join("")
-        : '<div class="requirement-row"><span>Nenhum requisito especÃ­fico identificado.</span></div>';
+        : '<div class="requirement-row"><span>Nenhum requisito específico identificado.</span></div>';
     }
 
     function closeDrawer() {
@@ -1136,7 +1136,7 @@
           method: "PATCH", headers: {"Content-Type": "application/json"},
           body: JSON.stringify({status: $("newStatus").value, note: $("statusNote").value.trim()})
         });
-        if (!response.ok) throw new Error("NÃ£o foi possÃ­vel atualizar a candidatura.");
+        if (!response.ok) throw new Error("Não foi possível atualizar a candidatura.");
         const updated = await response.json();
         applications = applications.map(item => item.id === updated.id ? updated : item);
         renderMetrics(); renderDistribution(); renderTable(); openApplication(updated.id); toast("Andamento atualizado.");
@@ -1154,11 +1154,11 @@
       $("profileStatus").textContent = "Carregando perfil...";
       try {
         const response = await fetch("/profile");
-        if (!response.ok) throw new Error("NÃ£o foi possÃ­vel consultar o perfil.");
+        if (!response.ok) throw new Error("Não foi possível consultar o perfil.");
         const profile = await response.json();
         $("profileStatus").textContent = profile.configured
-          ? `${profile.name} â€¢ ${profile.experiences} experiÃªncias â€¢ ${profile.skills} competÃªncias â€¢ ${profile.resume_filename || "currÃ­culo ainda nÃ£o importado"}`
-          : "Nenhum currÃ­culo importado para este usuÃ¡rio.";
+          ? `${profile.name} • ${profile.experiences} experiências • ${profile.skills} competências • ${profile.resume_filename || "currículo ainda não importado"}`
+          : "Nenhum currículo importado para este usuário.";
       } catch (error) {
         $("profileStatus").textContent = error.message;
       }
@@ -1166,10 +1166,10 @@
 
     async function openPreferences() {
       $("preferencesDialog").showModal();
-      $("preferencesStatus").textContent = "Carregando preferÃªncias...";
+      $("preferencesStatus").textContent = "Carregando preferências...";
       try {
         const response = await fetch("/preferences");
-        if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel consultar as preferÃªncias."));
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível consultar as preferências."));
         const preferences = await response.json();
         $("preferenceRoles").value = (preferences.target_roles || []).join(", ");
         $("preferenceLocations").value = (preferences.locations || []).join(", ");
@@ -1182,8 +1182,8 @@
         $("maxDailyApplications").value = preferences.max_daily_applications;
         $("allowAutomatic").checked = Boolean(preferences.allow_automatic);
         $("preferencesStatus").textContent = preferences.allow_automatic
-          ? "A classificaÃ§Ã£o automÃ¡tica estÃ¡ autorizada. O envio continua desativado."
-          : "As oportunidades continuarÃ£o aguardando revisÃ£o humana.";
+          ? "A classificação automática está autorizada. O envio continua desativado."
+          : "As oportunidades continuarão aguardando revisão humana.";
       } catch (error) {
         $("preferencesStatus").textContent = error.message;
       }
@@ -1210,11 +1210,11 @@
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel salvar as preferÃªncias."));
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível salvar as preferências."));
         const result = await response.json();
         await loadApplications();
         $("preferencesDialog").close();
-        toast(`PreferÃªncias salvas. ${result.decisions_updated} decisÃ£o(Ãµes) recalculada(s).`);
+        toast(`Preferências salvas. ${result.decisions_updated} decisão(ões) recalculada(s).`);
       } catch (error) {
         $("preferencesStatus").textContent = error.message;
       } finally {
@@ -1229,16 +1229,16 @@
       const data = new FormData();
       data.append("file", file);
       $("uploadProfileButton").disabled = true;
-      $("profileStatus").textContent = "Validando e importando currÃ­culo...";
+      $("profileStatus").textContent = "Validando e importando currículo...";
       try {
         const response = await fetch("/profile/resume", {method: "POST", body: data});
         if (!response.ok) {
-          throw new Error(await responseError(response, "NÃ£o foi possÃ­vel importar o currÃ­culo."));
+          throw new Error(await responseError(response, "Não foi possível importar o currículo."));
         }
         const result = await response.json();
-        $("profileStatus").textContent = `${result.name} â€¢ ${result.experiences} experiÃªncias â€¢ ${result.skills} competÃªncias importadas.`;
+        $("profileStatus").textContent = `${result.name} • ${result.experiences} experiências • ${result.skills} competências importadas.`;
         $("resumeFile").value = "";
-        toast("CurrÃ­culo importado com seguranÃ§a.");
+        toast("Currículo importado com segurança.");
       } catch (error) {
         $("profileStatus").textContent = error.message;
       } finally {
@@ -1258,10 +1258,10 @@
       $("submitJob").disabled = true;
       try {
         const response = await fetch("/jobs", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
-        if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel cadastrar a vaga."));
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível cadastrar a vaga."));
         const created = await response.json();
         $("newJobDialog").close(); $("newJobForm").reset(); selectedId = created.application.id;
-        await loadApplications(); openApplication(selectedId); toast("Vaga cadastrada. Agora vocÃª pode analisÃ¡-la.");
+        await loadApplications(); openApplication(selectedId); toast("Vaga cadastrada. Agora você pode analisá-la.");
       } catch (error) { toast(error.message); }
       finally { $("submitJob").disabled = false; }
     }
@@ -1272,7 +1272,7 @@
       $("captureFileField").hidden = false;
       $("captureTextField").hidden = false;
       $("submitCaptureJob").textContent = "Captar e analisar";
-      $("captureStatus").textContent = "A vaga serÃ¡ cadastrada, filtrada e analisada.";
+      $("captureStatus").textContent = "A vaga será cadastrada, filtrada e analisada.";
     }
 
     function showCaptureReview(preview) {
@@ -1321,7 +1321,7 @@
               auto_analyze: true
             })
           });
-          if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel confirmar a vaga."));
+          if (!response.ok) throw new Error(await responseError(response, "Não foi possível confirmar a vaga."));
           const result = await response.json();
           $("captureJobDialog").close();
           $("captureJobForm").reset();
@@ -1349,7 +1349,7 @@
       }
       $("submitCaptureJob").disabled = true;
       $("captureStatus").textContent = captureFile
-        ? "Lendo o arquivo e preparando os campos para revisÃ£o..."
+        ? "Lendo o arquivo e preparando os campos para revisão..."
         : "Identificando e analisando a oportunidade...";
       try {
         let response;
@@ -1370,7 +1370,7 @@
           });
         }
         if (!response.ok) {
-          throw new Error(await responseError(response, "NÃ£o foi possÃ­vel captar a vaga."));
+          throw new Error(await responseError(response, "Não foi possível captar a vaga."));
         }
         const result = await response.json();
         if (captureFile) {
@@ -1383,7 +1383,7 @@
               selectedId = result.application_id;
               openApplication(selectedId);
             }
-            toast(`Vaga captada automaticamente (${result.confidence}% de confianÃ§a).`);
+            toast(`Vaga captada automaticamente (${result.confidence}% de confiança).`);
             return;
           }
           showCaptureReview(result);
@@ -1391,13 +1391,13 @@
         }
         $("captureJobDialog").close();
         $("captureJobForm").reset();
-        $("captureStatus").textContent = "A vaga serÃ¡ cadastrada, filtrada e analisada.";
+        $("captureStatus").textContent = "A vaga será cadastrada, filtrada e analisada.";
         await loadApplications();
         if (result.application_id) {
           selectedId = result.application_id;
           openApplication(selectedId);
         }
-        toast(result.duplicate ? "Essa vaga jÃ¡ estava no painel." : "Vaga captada e analisada automaticamente.");
+        toast(result.duplicate ? "Essa vaga já estava no painel." : "Vaga captada e analisada automaticamente.");
       } catch (error) {
         $("captureStatus").textContent = error.message;
       } finally {
@@ -1410,10 +1410,10 @@
       $("analyzeButton").disabled = true;
       try {
         const response = await fetch(`/jobs/${item.job_id}/analyze`, {method:"POST"});
-        if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel analisar a vaga."));
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível analisar a vaga."));
         const payload = await response.json();
         analysisCache[item.id] = payload.analysis;
-        await loadApplications(); openApplication(item.id); toast(`AnÃ¡lise concluÃ­da: ${Math.round(payload.analysis.score)} pontos.`);
+        await loadApplications(); openApplication(item.id); toast(`Análise concluída: ${Math.round(payload.analysis.score)} pontos.`);
       } catch (error) { toast(error.message); }
       finally { $("analyzeButton").disabled = false; }
     }
@@ -1446,7 +1446,7 @@ async function generateCoverLetter() {
       throw new Error(
         await responseError(
           response,
-          "NÃ£o foi possÃ­vel gerar a carta."
+          "Não foi possível gerar a carta."
         )
       );
     }
@@ -1454,7 +1454,7 @@ async function generateCoverLetter() {
     const payload = await response.json();
 
     $("coverLetterSubtitle").textContent =
-      `${payload.company} â€” ${payload.job_title}`;
+      `${payload.company} — ${payload.job_title}`;
 
     $("coverLetterText").value = payload.letter;
 
@@ -1491,7 +1491,7 @@ async function downloadCoverLetterDocument() {
       throw new Error(
         await responseError(
           response,
-          "NÃ£o foi possÃ­vel gerar o arquivo da carta."
+          "Não foi possível gerar o arquivo da carta."
         )
       );
     }
@@ -1531,12 +1531,12 @@ async function downloadCoverLetterDocument() {
       $("generateButton").disabled = true;
       try {
         const response = await fetch(`/jobs/${item.job_id}/generate-document`, {method:"POST"});
-        if (!response.ok) throw new Error(await responseError(response, "NÃ£o foi possÃ­vel gerar o currÃ­culo."));
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível gerar o currículo."));
         const blob = await response.blob();
         const disposition = response.headers.get("content-disposition") || "";
         const match = disposition.match(/filename="?([^";]+)"?/i);
         saveBlob(blob, match ? match[1] : `Curriculo_${item.job_title}.docx`);
-        await loadApplications(); openApplication(item.id); toast("CurrÃ­culo gerado e enviado para download.");
+        await loadApplications(); openApplication(item.id); toast("Currículo gerado e enviado para download.");
       } catch (error) { toast(error.message); }
       finally { $("generateButton").disabled = false; }
     }
