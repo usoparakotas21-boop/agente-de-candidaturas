@@ -25,7 +25,7 @@
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; color: var(--ink); background: var(--soft); }
+    body { margin: 0; color: var(--ink); background: var(--soft); overflow-x: hidden; }
     button, input, select, textarea { font: inherit; }
     button { cursor: pointer; }
     [hidden] { display: none !important; }
@@ -84,8 +84,8 @@
     main { width: min(1400px, 92vw); margin: 34px auto 60px; }
     .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
     .eyebrow { margin: 0 0 7px; color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: -.035em; }
-    .hero p:last-child { max-width: 700px; margin: 10px 0 0; color: var(--muted); line-height: 1.55; }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.14; letter-spacing: -.035em; }
+    .hero p:last-child { max-width: 700px; margin: 12px 0 0; color: var(--muted); line-height: 1.72; }
     .refresh {
       min-width: 120px; padding: 11px 16px; border: 1px solid var(--line);
       border-radius: 12px; color: var(--navy); background: var(--paper); font-weight: 700;
@@ -248,7 +248,8 @@
     @media (max-width: 700px) {
       .topbar { padding: 0 20px; }
       .online { display: none; }
-      main { width: calc(100% - 24px); margin-top: 22px; }
+      main { width: 100%; max-width: 100%; min-width: 0; margin: 22px 0 42px; padding: 0 16px; }
+      .app-layout, .workspace, .panel { min-width: 0; }
       .hero { align-items: stretch; flex-direction: column; }
       .hero-actions { width: 100%; }
       .refresh, .new-job { width: 50%; min-width: 0; }
