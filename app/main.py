@@ -45,6 +45,7 @@ SECURITY_PAGE_PATH = Path(__file__).parent / "static" / "security.html"
 ONBOARDING_PATH = Path(__file__).parent / "static" / "onboarding.html"
 RESUMES_PATH = Path(__file__).parent / "static" / "curriculos.html"
 CONFIG_PATH = Path(__file__).parent / "static" / "configuracoes.html"
+JOBS_PAGE_PATH = Path(__file__).parent / "static" / "vagas.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -214,6 +215,11 @@ def resumes_page():
 def config_page():
     if not CONFIG_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
     return HTMLResponse(CONFIG_PATH.read_text(encoding="utf-8"))
+
+@app.get("/vagas", response_class=HTMLResponse, include_in_schema=False)
+def jobs_page():
+    if not JOBS_PAGE_PATH.is_file(): raise HTTPException(500, "Vagas nao encontradas.")
+    return HTMLResponse(JOBS_PAGE_PATH.read_text(encoding="utf-8"))
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
