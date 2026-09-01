@@ -187,8 +187,8 @@ def dashboard():
 
 @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
 def settings_page():
-    if not SETTINGS_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
-    return HTMLResponse(SETTINGS_PATH.read_text(encoding="utf-8"))
+    if not CONFIG_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
+    return HTMLResponse(CONFIG_PATH.read_text(encoding="utf-8"))
 
 @app.get("/perfil", response_class=HTMLResponse, include_in_schema=False)
 def profile_page():
