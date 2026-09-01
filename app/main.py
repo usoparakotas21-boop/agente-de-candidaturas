@@ -231,8 +231,8 @@ def applications_page():
 
 @app.get("/entrevistas", response_class=HTMLResponse, include_in_schema=False)
 def interviews_page():
-    if not INTERVIEWS_PAGE_PATH.is_file(): raise HTTPException(500, "Entrevistas nao encontradas.")
-    return HTMLResponse(INTERVIEWS_PAGE_PATH.read_text(encoding="utf-8"))
+    if not SIMULATOR_PAGE_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
+    return HTMLResponse(SIMULATOR_PAGE_PATH.read_text(encoding="utf-8"))
 
 @app.get("/simulador", response_class=HTMLResponse, include_in_schema=False)
 def simulator_page():
