@@ -1,4 +1,5 @@
 ﻿import json
+import base64
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -39,6 +40,7 @@ APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO
 DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
+PROFILE_PAGE_PATH = Path(__file__).parent / "static" / "profile.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -66,6 +68,7 @@ class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print
 class ResumeRequest(BaseModel): title: str; resume: dict
 class ApplicationStatusRequest(BaseModel): status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]; note: str = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5
+class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []
 
 def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
 def _fallback_profile():
@@ -183,13 +186,64 @@ def settings_page():
     if not SETTINGS_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
     return HTMLResponse(SETTINGS_PATH.read_text(encoding="utf-8"))
 
+@app.get("/perfil", response_class=HTMLResponse, include_in_schema=False)
+def profile_page():
+    if not PROFILE_PAGE_PATH.is_file(): raise HTTPException(500, "Perfil nao encontrado.")
+    return HTMLResponse(PROFILE_PAGE_PATH.read_text(encoding="utf-8"))
+
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
         c = _candidate_for_user(db, user)
         if c is None: return {"configured": False}
-        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "target_roles": _split_target_roles(c.target_roles), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills)}
+        data = {}
+        if c.profile_data:
+            try: data = json.loads(c.profile_data)
+            except: data = {}
+        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills)}
+    finally: db.close()
+
+@app.put("/profile")
+def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
+    db = SessionLocal()
+    try:
+        oid = _owner_id(user)
+        c = db.scalar(select(Candidate).where(Candidate.owner_id == oid).order_by(Candidate.id))
+        if c is None:
+            c = Candidate(owner_id=oid, name=req.name.strip() or "Usuário", location=req.location.strip(), email=user.get("email", ""), phone=req.phone.strip(), linkedin=req.linkedin.strip(), target_roles=", ".join(req.target_roles), summary=req.summary.strip())
+            db.add(c)
+        else:
+            c.name = req.name.strip() or c.name; c.location = req.location.strip(); c.phone = req.phone.strip(); c.linkedin = req.linkedin.strip(); c.target_roles = ", ".join(req.target_roles); c.summary = req.summary.strip()
+        data = {}
+        if c.profile_data:
+            try: data = json.loads(c.profile_data)
+            except: data = {}
+        data.update({"headline": req.headline.strip(), "website": req.website.strip(), "industry": req.industry.strip()})
+        c.profile_data = json.dumps(data, ensure_ascii=False)
+        db.commit()
+        return {"status": "PERFIL_ATUALIZADO"}
+    except Exception:
+        db.rollback(); raise
+    finally: db.close()
+
+@app.post("/profile/photo")
+async def upload_profile_photo(file: UploadFile = File(...), user=Depends(authenticated_user)):
+    content = await file.read()
+    if len(content) > 1_500_000: raise HTTPException(413, "A foto deve ter no máximo 1,5 MB.")
+    content_type = (file.content_type or "").lower()
+    if content_type not in {"image/jpeg", "image/png", "image/webp"}: raise HTTPException(415, "Use uma imagem JPG, PNG ou WebP.")
+    db = SessionLocal()
+    try:
+        c = db.scalar(select(Candidate).where(Candidate.owner_id == _owner_id(user)).order_by(Candidate.id))
+        if c is None: raise HTTPException(409, "Salve seu perfil antes de adicionar uma foto.")
+        data = {}
+        if c.profile_data:
+            try: data = json.loads(c.profile_data)
+            except: data = {}
+        data["photo_data"] = f"data:{content_type};base64,{base64.b64encode(content).decode('ascii')}"
+        c.profile_data = json.dumps(data, ensure_ascii=False); db.commit()
+        return {"status": "FOTO_ATUALIZADA"}
     finally: db.close()
 
 @app.get("/preferences")
