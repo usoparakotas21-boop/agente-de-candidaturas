@@ -47,6 +47,7 @@ RESUMES_PATH = Path(__file__).parent / "static" / "curriculos.html"
 CONFIG_PATH = Path(__file__).parent / "static" / "configuracoes.html"
 JOBS_PAGE_PATH = Path(__file__).parent / "static" / "vagas.html"
 APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
+INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -226,6 +227,11 @@ def jobs_page():
 def applications_page():
     if not APPLICATIONS_PAGE_PATH.is_file(): raise HTTPException(500, "Candidaturas nao encontradas.")
     return HTMLResponse(APPLICATIONS_PAGE_PATH.read_text(encoding="utf-8"))
+
+@app.get("/entrevistas", response_class=HTMLResponse, include_in_schema=False)
+def interviews_page():
+    if not INTERVIEWS_PAGE_PATH.is_file(): raise HTTPException(500, "Entrevistas nao encontradas.")
+    return HTMLResponse(INTERVIEWS_PAGE_PATH.read_text(encoding="utf-8"))
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
