@@ -42,6 +42,7 @@ LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
 PROFILE_PAGE_PATH = Path(__file__).parent / "static" / "profile.html"
 SECURITY_PAGE_PATH = Path(__file__).parent / "static" / "security.html"
+ONBOARDING_PATH = Path(__file__).parent / "static" / "onboarding.html"
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
@@ -69,7 +70,7 @@ class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print
 class ResumeRequest(BaseModel): title: str; resume: dict
 class ApplicationStatusRequest(BaseModel): status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]; note: str = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5
-class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []
+class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
 
 def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
 def _fallback_profile():
@@ -197,6 +198,11 @@ def security_page():
     if not SECURITY_PAGE_PATH.is_file(): raise HTTPException(500, "Seguranca nao encontrada.")
     return HTMLResponse(SECURITY_PAGE_PATH.read_text(encoding="utf-8"))
 
+@app.get("/onboarding", response_class=HTMLResponse, include_in_schema=False)
+def onboarding_page():
+    if not ONBOARDING_PATH.is_file(): raise HTTPException(500, "Onboarding nao encontrado.")
+    return HTMLResponse(ONBOARDING_PATH.read_text(encoding="utf-8"))
+
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
     db = SessionLocal()
@@ -225,6 +231,7 @@ def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
         if c.profile_data:
             try: data = json.loads(c.profile_data)
             except: data = {}
+        data.update(req.profile_data)
         data.update({"headline": req.headline.strip(), "website": req.website.strip(), "industry": req.industry.strip()})
         c.profile_data = json.dumps(data, ensure_ascii=False)
         db.commit()
