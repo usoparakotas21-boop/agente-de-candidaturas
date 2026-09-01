@@ -1610,7 +1610,7 @@ async function downloadCoverLetterDocument() {
       if (view === "dashboard") window.scrollTo({top: 0, behavior: "smooth"});
       if (view === "jobs") { resetCaptureReview(); $("captureJobDialog").showModal(); }
       if (view === "applications") document.querySelector(".queue-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
-      if (view === "resume") window.location.assign("/perfil");
+      if (view === "resume") window.location.assign("/curriculos");
       if (view === "integrations") $("gmailButton").click();
       if (view === "settings") window.location.assign("/settings");
       if (view === "interviews") toast("O simulador de entrevistas será liberado na próxima etapa.");
