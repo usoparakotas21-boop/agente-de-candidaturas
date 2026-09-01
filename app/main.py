@@ -28,6 +28,7 @@ from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
 from .queue_service import enqueue
+from .ai_provider import AIProviderError, evaluate_interview_answer
 
 app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
 app.add_middleware(AuthMiddleware)
@@ -78,6 +79,14 @@ class ResumeRequest(BaseModel): title: str; resume: dict
 class ApplicationStatusRequest(BaseModel): status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]; note: str = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
+class InterviewAnswerRequest(BaseModel): question: str = Field(min_length=3, max_length=500); answer: str = Field(min_length=5, max_length=12000); context: str = Field(default="", max_length=4000)
+
+@app.post("/api/interviews/evaluate")
+async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authenticated_user)):
+    try:
+        return await evaluate_interview_answer(req.question, req.answer, req.context)
+    except AIProviderError as exc:
+        raise HTTPException(503, str(exc))
 
 def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
 def _fallback_profile():
