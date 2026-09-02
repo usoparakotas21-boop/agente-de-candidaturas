@@ -61,6 +61,12 @@ class EmailUpdateRequest(BaseModel):
     email: str
 
 
+class MfaCodeRequest(BaseModel):
+    factor_id: str
+    challenge_id: str
+    code: str
+
+
 def _validated_email(email: str) -> str:
     normalized = email.strip().lower()
     if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
@@ -403,6 +409,35 @@ async def update_email(
     if response.status_code != 200:
         raise HTTPException(400, _supabase_error(response, "Nao foi possivel alterar o e-mail."))
     return {"updated": True, "message": "Confira o novo e-mail para confirmar a alteracao."}
+
+
+@router.post("/mfa/enroll")
+async def mfa_enroll(request: Request, user: dict = Depends(authenticated_user)):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request("POST", "/auth/v1/factors", token=access_token, json={"factor_type": "totp", "friendly_name": "Agente de Candidaturas"})
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.")
+    if response.status_code not in {200, 201}:
+        raise HTTPException(400, _supabase_error(response, "Nao foi possivel iniciar o 2FA."))
+    factor = response.json()
+    return {"id": factor.get("id"), "type": factor.get("type"), "qr_code": factor.get("totp", {}).get("qr_code"), "secret": factor.get("totp", {}).get("secret"), "uri": factor.get("totp", {}).get("uri")}
+
+
+@router.post("/mfa/verify")
+async def mfa_verify(payload: MfaCodeRequest, request: Request, user: dict = Depends(authenticated_user)):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request("POST", f"/auth/v1/factors/{payload.factor_id}/verify", token=access_token, json={"challenge_id": payload.challenge_id, "code": payload.code})
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.")
+    if response.status_code not in {200, 201}:
+        raise HTTPException(400, _supabase_error(response, "Codigo 2FA invalido."))
+    return {"verified": True, "message": "Autenticador ativado com sucesso."}
 
 
 @router.get("/me")
