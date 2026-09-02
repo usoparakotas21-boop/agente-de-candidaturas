@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import base64
 import html
 import logging
@@ -31,12 +31,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth/gmail", tags=["gmail"])
 
 GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
-DEFAULT_QUERY = (
-    "newer_than:14d "
-    "{subject:vaga subject:vagas subject:oportunidade subject:emprego "
-    "subject:job from:linkedin.com from:indeed.com from:gupy.io "
-    "from:infojobs.com.br from:bebee.com from:catho.com.br}"
-)
+# Search a broad recent window first and let _looks_like_job classify the
+# message. Restricting Gmail's query to a fixed list of senders caused alerts
+# from new companies and manual test messages to be silently skipped.
+DEFAULT_QUERY = "newer_than:7d"
 KNOWN_SOURCES = {
     "linkedin": "linkedin",
     "indeed": "indeed",
