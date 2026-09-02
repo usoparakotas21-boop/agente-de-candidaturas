@@ -1,0 +1,1 @@
+(function(){const rows=document.querySelectorAll('.integration');if(rows.length<2)return;const row=rows[1],badge=row.querySelector('.badge');if(badge){badge.textContent='Disponível';badge.style.color='#16794b';badge.style.background='#e6f7ef'}const a=document.createElement('a');a.className='secondary';a.href='/auth/outlook/start';a.textContent='Conectar';row.appendChild(a);})();

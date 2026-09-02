@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .auth import AuthMiddleware, authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
+from .outlook_integration import router as outlook_router
 from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_monitor
 from .queue_routes import router as queue_router
 from .analyzer import analyze_job
@@ -34,6 +35,7 @@ app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
 app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
+app.include_router(outlook_router)
 app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
 
@@ -76,6 +78,7 @@ def _page(path: Path) -> HTMLResponse:
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'
     if path.name == "settings.html": extra += '<script src="/static/settings-enhance.js?v=2"></script>'
+    if path.name == "settings.html": extra += '<script src="/static/outlook-enhance.js?v=1"></script>'
     if path.name == "security.html": extra = '<script src="/static/security-enhance.js?v=3"></script>'
     html = html.replace("</body>", extra + "</body>", 1)
     return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
