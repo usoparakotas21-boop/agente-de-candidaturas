@@ -440,6 +440,20 @@ async def mfa_verify(payload: MfaCodeRequest, request: Request, user: dict = Dep
     return {"verified": True, "message": "Autenticador ativado com sucesso."}
 
 
+@router.post("/mfa/challenge")
+async def mfa_challenge(payload: dict, request: Request, user: dict = Depends(authenticated_user)):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request("POST", f"/auth/v1/factors/{payload.get('factor_id')}/challenge", token=access_token, json={})
+    except httpx.HTTPError:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.")
+    if response.status_code not in {200, 201}:
+        raise HTTPException(400, _supabase_error(response, "Nao foi possivel iniciar a verificacao 2FA."))
+    return response.json()
+
+
 @router.get("/me")
 async def current_user(request: Request):
     if not AUTH_REQUIRED:
