@@ -83,7 +83,12 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
     async with httpx.AsyncClient(timeout=20) as client:
         token_response = await client.post(TOKEN_URL, data={"client_id": os.getenv("OUTLOOK_CLIENT_ID"), "client_secret": _secret(), "code": code, "redirect_uri": _redirect(), "grant_type": "authorization_code"})
         if token_response.status_code != 200:
-            raise HTTPException(400, "A Microsoft nao aceitou o codigo de autorizacao.")
+            try:
+                details = token_response.json()
+            except ValueError:
+                details = {}
+            reason = details.get("error_description") or details.get("error") or "verifique Client Secret e Redirect URI."
+            raise HTTPException(400, f"A Microsoft recusou o token: {reason}")
         tokens = token_response.json()
         graph = await client.get(GRAPH_URL, headers={"Authorization": f"Bearer {tokens.get('access_token', '')}"})
     if graph.status_code != 200:
