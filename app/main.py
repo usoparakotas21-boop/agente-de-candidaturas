@@ -66,6 +66,10 @@ def _page(path: Path) -> HTMLResponse:
     label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
     crumb = f'<div class="breadcrumbs"><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
+    extra = ""
+    if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js"></script>'
+    if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script>'
+    html = html.replace("</body>", extra + "</body>", 1)
     return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
@@ -624,7 +628,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.created_at.isoformat() if j.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")
