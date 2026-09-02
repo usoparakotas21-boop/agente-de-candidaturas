@@ -71,6 +71,7 @@ def _page(path: Path) -> HTMLResponse:
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script>'
     if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
+    if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     html = html.replace("</body>", extra + "</body>", 1)
     return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
 
