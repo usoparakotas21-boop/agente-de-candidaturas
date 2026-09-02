@@ -210,7 +210,8 @@ async def shutdown():
 def root():
     if not LANDING_PATH.is_file():
         return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
-    return HTMLResponse(LANDING_PATH.read_text(encoding="utf-8"))
+    html = LANDING_PATH.read_text(encoding="utf-8")
+    return HTMLResponse(html.replace("</body>", '<script src="/static/landing-enhance.js"></script></body>', 1))
 
 @app.get("/health", include_in_schema=False)
 def health():
