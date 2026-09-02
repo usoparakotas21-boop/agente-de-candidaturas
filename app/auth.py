@@ -430,7 +430,13 @@ async def current_user(request: Request):
 
 
 @router.post("/logout")
-async def logout():
+async def logout(request: Request):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if access_token and _configuration_ready():
+        try:
+            await _supabase_request("POST", "/auth/v1/logout?scope=global", token=access_token)
+        except httpx.HTTPError:
+            logger.warning("Falha ao revogar sessão no provedor; cookies serão limpos.")
     response = Response(status_code=204)
     _clear_session_cookies(response)
     return response
