@@ -75,6 +75,7 @@ def _page(path: Path) -> HTMLResponse:
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'
+    if path.name == "settings.html": extra += '<script src="/static/settings-enhance.js?v=2"></script>'
     if path.name == "security.html": extra = '<script src="/static/security-enhance.js?v=3"></script>'
     html = html.replace("</body>", extra + "</body>", 1)
     return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
