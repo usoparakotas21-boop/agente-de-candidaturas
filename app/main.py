@@ -52,6 +52,13 @@ INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
 
+def _page(path: Path) -> HTMLResponse:
+    html = path.read_text(encoding="utf-8")
+    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-nav a:hover{text-decoration:underline}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+4){display:none}}</style><nav class="global-nav"><a href="/dashboard">AC · Agente de Candidaturas</a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a></nav>'''
+    if path.name == "dashboard.html":
+        nav = '<style>#newJobButton{display:none!important}.hero-actions{gap:12px}</style>'
+    return HTMLResponse(html.replace("<body>", "<body>" + nav, 1))
+
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 def _candidate_for_user(db, user):
     q = select(Candidate).order_by(Candidate.id)
@@ -197,57 +204,57 @@ def health():
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
     if not DASHBOARD_PATH.is_file(): raise HTTPException(500, "Dashboard nao encontrado.")
-    return HTMLResponse(DASHBOARD_PATH.read_text(encoding="utf-8"))
+    return _page(DASHBOARD_PATH)
 
 @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
 def settings_page():
     if not CONFIG_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
-    return HTMLResponse(CONFIG_PATH.read_text(encoding="utf-8"))
+    return _page(CONFIG_PATH)
 
 @app.get("/perfil", response_class=HTMLResponse, include_in_schema=False)
 def profile_page():
     if not PROFILE_PAGE_PATH.is_file(): raise HTTPException(500, "Perfil nao encontrado.")
-    return HTMLResponse(PROFILE_PAGE_PATH.read_text(encoding="utf-8"))
+    return _page(PROFILE_PAGE_PATH)
 
 @app.get("/seguranca", response_class=HTMLResponse, include_in_schema=False)
 def security_page():
     if not SECURITY_PAGE_PATH.is_file(): raise HTTPException(500, "Seguranca nao encontrada.")
-    return HTMLResponse(SECURITY_PAGE_PATH.read_text(encoding="utf-8"))
+    return _page(SECURITY_PAGE_PATH)
 
 @app.get("/onboarding", response_class=HTMLResponse, include_in_schema=False)
 def onboarding_page():
     if not ONBOARDING_PATH.is_file(): raise HTTPException(500, "Onboarding nao encontrado.")
-    return HTMLResponse(ONBOARDING_PATH.read_text(encoding="utf-8"))
+    return _page(ONBOARDING_PATH)
 
 @app.get("/curriculos", response_class=HTMLResponse, include_in_schema=False)
 def resumes_page():
     if not RESUMES_PATH.is_file(): raise HTTPException(500, "Curriculos nao encontrados.")
-    return HTMLResponse(RESUMES_PATH.read_text(encoding="utf-8"))
+    return _page(RESUMES_PATH)
 
 @app.get("/configuracoes", response_class=HTMLResponse, include_in_schema=False)
 def config_page():
     if not CONFIG_PATH.is_file(): raise HTTPException(500, "Configuracoes nao encontradas.")
-    return HTMLResponse(CONFIG_PATH.read_text(encoding="utf-8"))
+    return _page(CONFIG_PATH)
 
 @app.get("/vagas", response_class=HTMLResponse, include_in_schema=False)
 def jobs_page():
     if not JOBS_PAGE_PATH.is_file(): raise HTTPException(500, "Vagas nao encontradas.")
-    return HTMLResponse(JOBS_PAGE_PATH.read_text(encoding="utf-8"))
+    return _page(JOBS_PAGE_PATH)
 
 @app.get("/candidaturas", response_class=HTMLResponse, include_in_schema=False)
 def applications_page():
     if not APPLICATIONS_PAGE_PATH.is_file(): raise HTTPException(500, "Candidaturas nao encontradas.")
-    return HTMLResponse(APPLICATIONS_PAGE_PATH.read_text(encoding="utf-8"))
+    return _page(APPLICATIONS_PAGE_PATH)
 
 @app.get("/entrevistas", response_class=HTMLResponse, include_in_schema=False)
 def interviews_page():
     if not SIMULATOR_SMART_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
-    return HTMLResponse(SIMULATOR_SMART_PATH.read_text(encoding="utf-8"))
+    return _page(SIMULATOR_SMART_PATH)
 
 @app.get("/simulador", response_class=HTMLResponse, include_in_schema=False)
 def simulator_page():
     if not SIMULATOR_SMART_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
-    return HTMLResponse(SIMULATOR_SMART_PATH.read_text(encoding="utf-8"))
+    return _page(SIMULATOR_SMART_PATH)
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
