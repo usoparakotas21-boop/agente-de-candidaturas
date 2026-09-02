@@ -69,6 +69,7 @@ def _page(path: Path) -> HTMLResponse:
     extra = ""
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
+    if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
     if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
