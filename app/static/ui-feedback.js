@@ -1,0 +1,8 @@
+(function(){
+  const bar=document.createElement('div');bar.className='sync-indicator';bar.setAttribute('role','status');bar.innerHTML='<span class="sync-dot"></span><span class="sync-label">Pronto</span>';document.body.appendChild(bar);
+  const style=document.createElement('style');style.textContent='.sync-indicator{position:fixed;right:18px;bottom:18px;z-index:40;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dbe6f0;border-radius:999px;color:#49627b;background:#fff;box-shadow:0 8px 24px #173b5c18;font:600 12px/1.2 Inter,system-ui,sans-serif;opacity:0;transform:translateY(8px);transition:.2s}.sync-indicator.visible{opacity:1;transform:none}.sync-dot{width:7px;height:7px;border-radius:50%;background:#36b37e}.sync-indicator.busy .sync-dot{background:#2f6fed;animation:syncPulse 1s infinite}.sync-indicator.error .sync-dot{background:#d64545}.sync-indicator.offline .sync-dot{background:#c27a13}@keyframes syncPulse{50%{opacity:.35}}@media(max-width:600px){.sync-indicator{right:12px;bottom:12px}}';document.head.appendChild(style);
+  const label=bar.querySelector('.sync-label');let timer;
+  function show(text,state,ms){label.textContent=text;bar.className='sync-indicator visible '+(state||'');clearTimeout(timer);if(ms)timer=setTimeout(()=>bar.classList.remove('visible'),ms)}
+  window.addEventListener('offline',()=>show('Sem conexão','offline'));window.addEventListener('online',()=>show('Conexão restaurada','',2800));
+  const native=window.fetch;window.fetch=function(){show('Sincronizando…','busy');return native.apply(this,arguments).then(r=>{if(!r.ok)throw r;show('Dados atualizados','',1800);return r}).catch(e=>{show(e?.status?'Não foi possível concluir':'Sem conexão','error',4200);throw e})};
+})();

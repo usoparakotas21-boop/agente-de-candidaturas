@@ -66,7 +66,7 @@ def _page(path: Path) -> HTMLResponse:
     label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
     crumb = f'<div class="breadcrumbs"><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
-    extra = ""
+    extra = '<script src="/static/ui-feedback.js"></script>'
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
