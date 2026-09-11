@@ -1,4 +1,4 @@
-import os
+import os`nimport re
 import logging
 from urllib.parse import quote, urlparse
 
@@ -75,11 +75,15 @@ def _validated_email(email: str) -> str:
 
 
 def _validated_password(password: str) -> str:
-    if len(password) < 8:
-        raise HTTPException(422, "A senha deve ter pelo menos 8 caracteres.")
+    if len(password) < 10:
+        raise HTTPException(422, "A senha deve ter pelo menos 10 caracteres.")
+    if not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password):
+        raise HTTPException(422, "Inclua letras maiusculas e minusculas.")
+    if not re.search(r"\d", password):
+        raise HTTPException(422, "Inclua pelo menos um numero.")
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise HTTPException(422, "Inclua pelo menos um simbolo.")
     return password
-
-
 def _auth_redirect_url() -> str:
     if not APP_BASE_URL.startswith("https://"):
         raise HTTPException(
