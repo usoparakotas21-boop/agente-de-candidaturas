@@ -700,7 +700,7 @@
       const fragment = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = fragment.get("access_token");
       const refreshToken = fragment.get("refresh_token");
-      if (!accessToken || !refreshToken) return false;
+      if (!accessToken) return false;
       const recovery = fragment.get("type") === "recovery";
       try {
         const response = await fetch("/auth/session", {
