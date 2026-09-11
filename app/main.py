@@ -53,6 +53,8 @@ APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
 INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
+TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
+PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
@@ -224,6 +226,14 @@ def root():
     html = LANDING_PATH.read_text(encoding="utf-8")
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     return HTMLResponse(html.replace("</body>", '<script src="/static/landing-enhance.js"></script><script>' + auth_script + '</script></body>', 1))
+
+@app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
+def terms_page():
+    return HTMLResponse(TERMS_PATH.read_text(encoding="utf-8"))
+
+@app.get("/privacidade", response_class=HTMLResponse, include_in_schema=False)
+def privacy_page():
+    return HTMLResponse(PRIVACY_PATH.read_text(encoding="utf-8"))
 
 @app.get("/health", include_in_schema=False)
 def health():
