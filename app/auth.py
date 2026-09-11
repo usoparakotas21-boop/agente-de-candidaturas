@@ -422,7 +422,7 @@ async def mfa_enroll(request: Request, user: dict = Depends(authenticated_user))
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")
     try:
-        response = await _supabase_request("POST", "/auth/v1/factors", token=access_token, json={"factor_type": "totp", "friendly_name": "AgenteDeCandidaturas"})
+        response = await _supabase_request("POST", "/auth/v1/factors", token=access_token, json={"factor_type": "totp", "friendly_name": "Agente de Candidaturas"})
     except httpx.HTTPError:
         raise HTTPException(503, "Servico de autenticacao indisponivel.")
     if response.status_code not in {200, 201}:
