@@ -49,7 +49,7 @@ class EmailRequest(BaseModel):
 
 class SessionRequest(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str = ""
     expires_in: int = 3600
 
 
