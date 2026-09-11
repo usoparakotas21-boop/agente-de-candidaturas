@@ -222,7 +222,8 @@ def root():
     if not LANDING_PATH.is_file():
         return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
     html = LANDING_PATH.read_text(encoding="utf-8")
-    return HTMLResponse(html.replace("</body>", '<script src="/static/landing-enhance.js"></script><script src="/static/landing-auth.js?v=1"></script></body>', 1))
+    auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
+    return HTMLResponse(html.replace("</body>", '<script src="/static/landing-enhance.js"></script><script>' + auth_script + '</script></body>', 1))
 
 @app.get("/health", include_in_schema=False)
 def health():
