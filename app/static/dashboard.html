@@ -694,10 +694,13 @@
           $("logoutButton").hidden = false;
         }
         await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
-        const requestedApplication = Number(new URLSearchParams(window.location.search).get("application_id"));
-        if (requestedApplication && applications.some(item => item.id === requestedApplication)) {
-          openApplication(requestedApplication);
+        const requestedApplication = new URLSearchParams(window.location.search).get("application_id");
+        const requestedItem = applications.find(item => String(item.id) === String(requestedApplication || ""));
+        if (requestedItem) {
+          openApplication(requestedItem.id);
           window.history.replaceState({}, "", "/dashboard");
+        } else if (requestedApplication) {
+          toast("Não foi possível localizar essa candidatura.");
         }
         if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
           window.history.replaceState({}, "", "/dashboard");
