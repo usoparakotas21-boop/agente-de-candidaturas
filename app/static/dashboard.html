@@ -694,6 +694,11 @@
           $("logoutButton").hidden = false;
         }
         await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
+        const requestedApplication = Number(new URLSearchParams(window.location.search).get("application_id"));
+        if (requestedApplication && applications.some(item => item.id === requestedApplication)) {
+          openApplication(requestedApplication);
+          window.history.replaceState({}, "", "/dashboard");
+        }
         if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
           window.history.replaceState({}, "", "/dashboard");
           toast("Gmail conectado com sucesso.");
