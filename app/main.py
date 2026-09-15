@@ -108,8 +108,7 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
         return {"allowed": True, "price": os.getenv("DOCUMENT_EXPORT_PRICE", ""), "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip()}
 
     app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
-    user_metadata = user.get("user_metadata") if isinstance(user.get("user_metadata"), dict) else {}
-    plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or user_metadata.get("plan") or "").strip().casefold()
+    plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or "").strip().casefold()
     paid_flag = app_metadata.get("document_export_paid") or app_metadata.get("document_export_access")
     paid_flag = str(paid_flag).strip().casefold() in {"1", "true", "yes", "paid", "pro"}
     allowed_emails = {
