@@ -1,6 +1,6 @@
 # Projeto — Agente de Candidaturas
 
-Última atualização: 31/08/2026  
+Última atualização: 15/09/2026
 Versão atual confirmada no código: **0.24.0**  
 Diretório principal: `C:\agente_curriculos`  
 Estado: aplicação local funcional, com autenticação, banco Supabase, importação e personalização de currículo, captação de vagas por texto/arquivo e leitura automática do Gmail.
@@ -68,14 +68,17 @@ Métrica principal futura: **entrevistas qualificadas por 100 candidaturas**, e 
 - Decisão `AUTOMATICA` exige score mínimo, autorização do usuário, confiança de captura >= 80% e ausência de pendências.
 - Motivos da decisão automática passaram a explicar os principais gates utilizados.
 - Fila persistente com aprovação, recusa, promoção automática e endpoints de consulta.
+- Fila de decisão visível e operável pelo dashboard, com filtros e ações de aprovação e recusa.
+- OAuth individual do Outlook com escopo de leitura, estado assinado e refresh token criptografado.
 - Extrator de vagas por texto validado para campos rotulados, URLs sem protocolo, títulos em múltiplas linhas e identificação estável de duplicidade.
-- Suíte automatizada com 38 testes aprovados em 31/08/2026.
+- Leitura automática da Inbox do Outlook via Microsoft Graph, com o mesmo parser, controle de duplicidade e fila de qualidade do Gmail.
+- Health check `/health` executa `SELECT 1` e informa separadamente o estado da aplicação e do banco.
+- Suíte automatizada com 59 testes aprovados em 15/09/2026.
 
 ### Ainda não concluído
 
 - Hospedagem pública 24 horas.
 - Worker distribuído para executar o monitor fora do processo web.
-- Exibir a fila de decisão no dashboard para `AUTOMATICA`, `REVISAR` e `DESCARTAR`.
 - Envio automático geral de candidaturas.
 - Integrações oficiais adicionais com plataformas de vagas.
 - Pagamentos e liberação de planos.
@@ -87,7 +90,7 @@ Métrica principal futura: **entrevistas qualificadas por 100 candidaturas**, e 
 ## 3. Problemas conhecidos
 
 1. Templates incomuns de alerta, sem links individuais nem títulos reconhecíveis, ainda podem exigir revisão manual.
-2. A decisão `REVISAR` já impede a persistência automática, mas ainda precisa de uma fila visível no dashboard.
+2. A fila já está visível no dashboard; ainda falta validar suas ações com dados reais no ambiente público.
 3. Na primeira sincronização da versão 0.20.0, algumas mensagens geraram `HTTPException`. Elas foram registradas como processadas para evitar repetição infinita.
 4. O score pode mudar quando o currículo importado altera o perfil estruturado. A interface deve explicar quais dados causaram a mudança.
 5. O monitor atual só funciona enquanto o servidor local estiver ligado. Ele ainda não funciona com o computador desligado.
@@ -100,9 +103,10 @@ Continuar o **motor de qualidade e decisão**, antes de ampliar o envio automát
 1. concluído: dividir e-mails-resumo em vagas individuais e validar os campos capturados;
 2. concluído: aplicar gates de confiança, preferências e decisão explicável;
 3. concluído: persistir a fila com decisões `AUTOMATICA`, `REVISAR` e `DESCARTAR`;
-4. próximo: exibir e operar essa fila pelo dashboard;
-5. depois: combinar a fila revisada com o fluxo de candidatura;
-6. somente depois iniciar a automação de envio.
+4. concluído: exibir e operar a fila pelo dashboard;
+5. próximo: validar Gmail, Outlook e fila de ponta a ponta no ambiente público;
+6. depois: combinar a fila revisada com o fluxo de candidatura;
+7. somente depois iniciar a automação de envio.
 
 ## 5. Arquitetura atual
 
@@ -332,10 +336,14 @@ Esse comando informa apenas se cada variável existe. Ele não mostra segredos.
 | GET | `/auth/gmail/callback` | Retorno OAuth do Google |
 | GET | `/auth/gmail/status` | Consultar conexão Gmail |
 | POST | `/gmail/sync` | Buscar e-mails imediatamente |
+| GET | `/auth/outlook/start` | Iniciar autorização Outlook |
+| GET | `/auth/outlook/callback` | Retorno OAuth da Microsoft |
+| GET | `/auth/outlook/status` | Consultar conexão Outlook |
+| POST | `/auth/outlook/sync` | Buscar e-mails do Outlook imediatamente |
 
 ## 12. Testes
 
-A pasta `tests` contém **30 casos de teste** distribuídos em:
+A pasta `tests` contém **59 casos de teste**. A cobertura inclui:
 
 - `test_integrated_flow.py`: 10 testes de fluxo, documentos, histórico e dashboard.
 - `test_job_source_fetcher.py`: 2 testes de páginas públicas e JSON-LD.
@@ -343,8 +351,10 @@ A pasta `tests` contém **30 casos de teste** distribuídos em:
 - `test_job_intake.py`: 8 testes de extração, normalização e duplicidade.
 - `test_job_quality.py`: 6 testes de separação, links e decisão de qualidade.
 - `test_gmail_monitor.py`: 1 teste de conversão do HTML e preservação dos links.
+- `test_outlook_integration.py`: 3 testes do OAuth, validação do estado, criptografia, persistência do token e normalização de mensagens Graph.
+- `test_auth.py`, `test_decision_engine.py` e `test_queue_service.py`: autenticação, decisões e operações da fila.
 
-Os 10 testes integrados foram executados com sucesso em 13/08/2026. Como houve evolução posterior até a versão 0.20.0, executar novamente a suíte completa na retomada.
+A suíte completa foi executada com sucesso em 15/09/2026: **59 testes aprovados**.
 
 ```powershell
 Set-Location C:\agente_curriculos

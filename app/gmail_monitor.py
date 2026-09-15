@@ -309,9 +309,19 @@ def _record_result(
         db.close()
 
 
-async def sync_integration(integration: EmailIntegration) -> dict[str, int]:
-    access_token = await _access_token(integration)
-    message_ids = await _list_message_ids(access_token)
+async def sync_integration(
+    integration: EmailIntegration,
+    *,
+    access_token: str | None = None,
+    list_message_ids=None,
+    get_message=None,
+    source_name: str = "gmail",
+    provider_label: str = "Gmail",
+) -> dict[str, int]:
+    access_token = access_token or await _access_token(integration)
+    list_message_ids = list_message_ids or _list_message_ids
+    get_message = get_message or _get_message
+    message_ids = await list_message_ids(access_token)
     processed = _already_processed(integration.id, message_ids)
     counters = {
         "found": len(message_ids),
@@ -332,7 +342,7 @@ async def sync_integration(integration: EmailIntegration) -> dict[str, int]:
         subject = ""
         sender = ""
         try:
-            message = await _get_message(access_token, message_id)
+            message = await get_message(access_token, message_id)
             parsed = _message_content(message)
             subject = parsed["subject"]
             sender = parsed["sender"]
@@ -409,7 +419,7 @@ async def sync_integration(integration: EmailIntegration) -> dict[str, int]:
                         owner_id=integration.owner_id,
                         captured=captured_data,
                         decision_result=decision_result,
-                        source="gmail",
+                        source=source_name,
                         source_ref=message_id,
                     )
                     db.commit()
@@ -469,7 +479,7 @@ async def sync_integration(integration: EmailIntegration) -> dict[str, int]:
                 error=" | ".join(outcomes),
             )
         except Exception as exc:
-            logger.warning("Falha ao processar mensagem Gmail %s: %s", message_id, type(exc).__name__)
+            logger.warning("Falha ao processar mensagem %s %s: %s", provider_label, message_id, type(exc).__name__)
             _record_result(
                 integration,
                 message_id,
@@ -503,7 +513,7 @@ async def sync_owner(owner_id: str) -> dict[str, int]:
 async def sync_all_integrations() -> None:
     db = SessionLocal()
     try:
-        integrations = list(db.scalars(select(EmailIntegration)).all())
+        integrations = list(db.scalars(select(EmailIntegration).where(EmailIntegration.provider == "gmail")).all())
         for integration in integrations:
             db.expunge(integration)
     finally:

@@ -207,6 +207,12 @@ class IntegratedFlowTest(unittest.TestCase):
         self.assertIn("Nova vaga", body)
         self.assertIn("Gerar e baixar currículo", body)
 
+    def test_health_checks_database_with_light_query(self):
+        payload = main_module.health()
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["db"], "connected")
+
     def test_create_job_also_creates_application(self):
         request = main_module.JobCreateRequest(
             source="dashboard",

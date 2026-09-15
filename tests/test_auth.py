@@ -80,7 +80,7 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                 auth.SignupRequest(
                     name="Pessoa Teste",
                     email="Pessoa@Example.com",
-                    password="senha-segura",
+                    password="Senha-segura1!",
                 )
             )
 
@@ -116,7 +116,7 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                 auth.SignupRequest(
                     name="Pessoa Teste",
                     email="pessoa@example.com",
-                    password="senha-segura",
+                    password="Senha-segura1!",
                 )
             )
 
@@ -169,7 +169,7 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                     auth.SignupRequest(
                         name="Pessoa Teste",
                         email="pessoa@example.com",
-                        password="senha-segura",
+                        password="Senha-segura1!",
                     )
                 )
         self.assertEqual(raised.exception.status_code, 503)

@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from .auth import AuthMiddleware, authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
 from .outlook_integration import router as outlook_router
+from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
 from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_monitor
 from .queue_routes import router as queue_router
 from .analyzer import analyze_job
@@ -36,6 +37,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
 app.include_router(outlook_router)
+app.include_router(outlook_monitor_router)
 app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
 
@@ -214,10 +216,12 @@ def startup():
     finally:
         db.close()
     start_monitor()
+    start_outlook_monitor()
 
 @app.on_event("shutdown")
 async def shutdown():
     await stop_monitor()
+    await stop_outlook_monitor()
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root():
@@ -237,9 +241,14 @@ def privacy_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    with engine.connect() as connection:
-        connection.execute(text("SELECT 1"))
-    return {"status": "healthy"}
+    try:
+        # Consulta mínima para confirmar que o processo consegue alcançar o banco.
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception as exc:
+        # O processo continua saudável para o monitor, mas o estado do banco fica explícito.
+        return {"status": "ok", "db": "error", "detail": str(exc)}
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():

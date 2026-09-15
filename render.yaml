@@ -19,3 +19,25 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: APP_BASE_URL
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: OAUTH_STATE_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: OUTLOOK_CLIENT_ID
+        sync: false
+      - key: OUTLOOK_CLIENT_SECRET
+        sync: false
+      - key: OUTLOOK_REDIRECT_URI
+        sync: false
+      - key: GMAIL_AUTO_SYNC
+        value: "true"
+      - key: OUTLOOK_AUTO_SYNC
+        value: "true"
