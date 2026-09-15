@@ -468,7 +468,7 @@
     </div>
     <form class="job-form" id="profileForm">
       <div class="field">
-        <label for="resumeFile">Currículo DOCX ou PDF textual (máximo 5 MB)</label>
+        <label id="resumeFileLabel" for="resumeFile">Currículo DOCX ou PDF textual (máximo 5 MB)</label>
         <input id="resumeFile" name="file" type="file" accept=".docx,.pdf" required>
       </div>
       <p id="profileStatus" class="metric-note">Carregando perfil...</p>
@@ -1245,11 +1245,20 @@
 
     async function openProfile() {
       $("profileDialog").showModal();
+      $("resumeFile").value = "";
+      $("uploadProfileButton").disabled = false;
+      $("uploadProfileButton").textContent = "Importar currículo";
+      $("resumeFileLabel").textContent = "Currículo DOCX ou PDF textual (máximo 5 MB)";
       $("profileStatus").textContent = "Carregando perfil...";
       try {
         const response = await fetch("/profile");
         if (!response.ok) throw new Error("Não foi possível consultar o perfil.");
         const profile = await response.json();
+        const hasResume = Boolean(profile.resume_filename);
+        $("uploadProfileButton").textContent = hasResume ? "Substituir currículo" : "Importar currículo";
+        $("resumeFileLabel").textContent = hasResume
+          ? "Selecione um novo DOCX ou PDF para substituir o atual (máximo 5 MB)"
+          : "Currículo DOCX ou PDF textual (máximo 5 MB)";
         $("profileStatus").textContent = profile.configured
           ? `${profile.name} • ${profile.experiences} experiências • ${profile.skills} competências • ${profile.resume_filename || "currículo ainda não importado"}`
           : "Nenhum currículo importado para este usuário.";
@@ -1342,6 +1351,8 @@
         const result = await response.json();
         $("profileStatus").textContent = `${result.name} • ${result.experiences} experiências • ${result.skills} competências importadas.`;
         $("resumeFile").value = "";
+        $("profileButton").textContent = "Meu currículo ✓";
+        $("profileDialog").close();
         toast("Currículo importado com segurança.");
       } catch (error) {
         $("profileStatus").textContent = error.message;
