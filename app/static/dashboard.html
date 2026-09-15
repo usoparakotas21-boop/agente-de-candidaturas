@@ -113,6 +113,8 @@
     .queue-summary-item strong { display: block; margin-top: 5px; font-size: 20px; }
     .queue-reasons { max-width: 360px; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
     .queue-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .queue-job-link { color: inherit; text-decoration: none; }
+    .queue-job-link:hover { text-decoration: underline; }
     .queue-action { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--navy); background: var(--paper); font-size: 11px; font-weight: 800; }
     .queue-action.approve { color: var(--green); border-color: #b9e7d0; background: var(--green-soft); }
     .queue-action.reject { color: var(--red); border-color: #f1c4be; background: var(--red-soft); }
@@ -1030,10 +1032,14 @@
       $("queueRows").innerHTML = queueItems.map(item => {
         const pending = item.status === "PENDENTE";
         const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
+        const title = escapeHtml(item.title || "Cargo não identificado");
+        const titleMarkup = item.url
+          ? `<a class="job-title queue-job-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${title}</a>`
+          : `<div class="job-title">${title}</div>`;
         return `
           <tr>
             <td><input class="queue-check queue-item-check" type="checkbox" data-id="${item.id}" aria-label="Selecionar ${escapeHtml(item.title || "item")}" ${pending ? "" : "disabled"}></td>
-            <td><div class="job-title">${escapeHtml(item.title || "Cargo não identificado")}</div><div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div></td>
+            <td>${titleMarkup}<div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div></td>
             <td><span class="badge ${decisionBadgeClass(item.decision)}">${decisionLabels[item.decision] || escapeHtml(item.decision)}</span></td>
             <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "-" : item.confidence_overall + "%"}</span></td>
             <td><span class="badge ${queueStatusBadgeClass(item.status)}">${queueStatusLabel(item.status)}</span></td>

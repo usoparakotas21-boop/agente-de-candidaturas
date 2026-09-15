@@ -738,7 +738,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.created_at.isoformat() if j.created_at else None} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")
