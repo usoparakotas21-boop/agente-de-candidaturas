@@ -1,5 +1,6 @@
 import json
 import base64
+import os
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -92,6 +93,74 @@ def _page(path: Path) -> HTMLResponse:
     return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
+
+
+def _document_export_metadata(user: dict | None) -> dict[str, Any]:
+    """Return the server-side entitlement metadata for DOCX exports.
+
+    The payment provider/webhook can grant access through Supabase app_metadata
+    (``plan=pro`` or ``document_export_paid=true``).  An email allowlist is
+    available for one-off purchases until the checkout integration is wired.
+    """
+    # Direct calls from internal compatibility helpers/tests do not represent a
+    # browser request and keep the historical behavior of returning a file.
+    if not isinstance(user, dict):
+        return {"allowed": True, "price": os.getenv("DOCUMENT_EXPORT_PRICE", ""), "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip()}
+
+    app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
+    user_metadata = user.get("user_metadata") if isinstance(user.get("user_metadata"), dict) else {}
+    plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or user_metadata.get("plan") or "").strip().casefold()
+    paid_flag = app_metadata.get("document_export_paid") or app_metadata.get("document_export_access")
+    paid_flag = str(paid_flag).strip().casefold() in {"1", "true", "yes", "paid", "pro"}
+    allowed_emails = {
+        item.strip().casefold()
+        for item in os.getenv("DOCUMENT_EXPORT_ALLOWED_EMAILS", "").split(",")
+        if item.strip()
+    }
+    email = str(user.get("email") or "").strip().casefold()
+    allowed = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} or paid_flag or email in allowed_emails
+    return {
+        "allowed": allowed,
+        "price": os.getenv("DOCUMENT_EXPORT_PRICE", "").strip(),
+        "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip(),
+    }
+
+
+def _require_document_export(user: dict | None) -> dict[str, Any]:
+    offer = _document_export_metadata(user)
+    if offer["allowed"]:
+        return offer
+    detail = {
+        "code": "DOCUMENT_EXPORT_PAYMENT_REQUIRED",
+        "message": "A prévia é gratuita. O download do currículo e da carta exige o plano Pro ou pagamento avulso.",
+        "price": offer["price"],
+        "checkout_url": offer["checkout_url"],
+    }
+    raise HTTPException(status_code=402, detail=detail)
+
+
+def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
+    resume = arts["resume"]
+    summary = str(resume.get("summary") or "")
+    return {
+        "name": resume.get("candidate", {}).get("name", "Candidato"),
+        "target": resume.get("target", ""),
+        "headline": resume.get("headline", ""),
+        "summary": summary[:420] + ("…" if len(summary) > 420 else ""),
+        "skills": list(resume.get("skills") or [])[:8],
+        "experiences": [
+            {
+                "company": item.get("company", ""),
+                "role": item.get("role", ""),
+                "period": item.get("period", ""),
+            }
+            for item in (resume.get("experiences") or [])[:3]
+        ],
+        "personalization_score": arts["personalization"].get("personalization_score", 0),
+        "notice": "Prévia gratuita. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.",
+    }
+
+
 def _candidate_for_user(db, user):
     q = select(Candidate).order_by(Candidate.id)
     oid = _owner_id(user)
@@ -161,7 +230,7 @@ def _ensure_app(db, job, cand):
 def _advance_app(db, app, status, note=""):
     if APPLICATION_STATUSES.index(status) > APPLICATION_STATUSES.index(app.status):
         _add_event(db, app, status, note)
-def _serialize_app(a):
+def _serialize_app(a, include_document_paths: bool = True):
     an = None
     if a.analysis_data:
         try: an = json.loads(a.analysis_data)
@@ -170,7 +239,7 @@ def _serialize_app(a):
     except: dr = []
     try: fc = json.loads(a.field_confidence or "{}")
     except: fc = {}
-    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path, "cover_letter_text": a.cover_letter_text, "cover_letter_path": a.cover_letter_path, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "created_at": e.created_at.isoformat()} for e in a.events]}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text, "cover_letter_path": a.cover_letter_path if include_document_paths else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "created_at": e.created_at.isoformat()} for e in a.events]}
 def _cand_prefs(cand):
     s = {}
     if cand and cand.preferences_data:
@@ -694,7 +763,7 @@ def list_apps(status: str = None, decision: str = None, user=Depends(authenticat
         if status: q = q.where(Application.status == status)
         if decision: q = q.where(Application.queue_decision == decision)
         apps = db.scalars(q).all()
-        return {"total": len(apps), "applications": [_serialize_app(a) for a in apps]}
+        return {"total": len(apps), "applications": [_serialize_app(a, _document_export_metadata(user)["allowed"]) for a in apps]}
     finally: db.close()
 
 @app.get("/applications/{app_id}")
@@ -703,13 +772,25 @@ def get_app(app_id: int, user=Depends(authenticated_user)):
     try:
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
-        return _serialize_app(app)
+        return _serialize_app(app, _document_export_metadata(user)["allowed"])
     finally: db.close()
+
+@app.get("/billing/document-export")
+def document_export_offer(user=Depends(authenticated_user)):
+    offer = _document_export_metadata(user)
+    return {
+        "allowed": offer["allowed"],
+        "price": offer["price"],
+        "checkout_url": offer["checkout_url"],
+        "message": "Download liberado." if offer["allowed"] else "A prévia é gratuita; o download completo exige o plano Pro ou pagamento avulso.",
+    }
+
 
 @app.get("/applications/{app_id}/document", response_class=FileResponse)
 def download_doc(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
+        _require_document_export(user)
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
         if not app.document_path: raise HTTPException(404, "Nao possui curriculo gerado.")
@@ -766,6 +847,7 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
 def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
+        _require_document_export(user)
         job = _job_for_user(db, job_id, user)
         if job is None: raise HTTPException(404, "Vaga nao encontrada.")
         c = _candidate_for_user(db, user)
@@ -786,6 +868,7 @@ def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
 def download_cover_letter(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
+        _require_document_export(user)
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
         if not app.cover_letter_path: raise HTTPException(404, "Nao possui carta gerada.")
@@ -794,7 +877,7 @@ def download_cover_letter(app_id: int, user=Depends(authenticated_user)):
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name)
     finally: db.close()
 
-@app.post("/jobs/{job_id}/generate-document", response_class=FileResponse)
+@app.post("/jobs/{job_id}/generate-document")
 def generate_doc(job_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
@@ -802,6 +885,22 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
         if job is None: raise HTTPException(404, "Vaga não encontrada.")
         c = _candidate_for_user(db, user)
         arts = _build_application(job, c)
+        if not _document_export_metadata(user)["allowed"]:
+            app = _ensure_app(db, job, c)
+            _save_analysis(app, arts["analysis"], c)
+            app.personalization_score = arts["personalization"]["personalization_score"]
+            if app.status == "IDENTIFICADA":
+                _add_event(db, app, "ANALISADA", "Prévia gratuita gerada; exportação bloqueada.")
+            db.commit()
+            return {
+                "status": "PREVIA_GRATUITA",
+                "application_id": app.id,
+                "job_id": job.id,
+                "company": job.company,
+                "job_title": job.title,
+                "preview": _resume_preview(arts),
+                "export": document_export_offer(user),
+            }
         path = Path(generate_docx(arts["resume"])).resolve()
         if not path.is_file(): raise HTTPException(500, "Documento nao foi criado.")
         app = _ensure_app(db, job, c)
@@ -814,7 +913,8 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
     finally: db.close()
 
 @app.post("/generate-document")
-def generate_doc_standalone(req: ResumeRequest):
+def generate_doc_standalone(req: ResumeRequest, user=Depends(authenticated_user)):
+    _require_document_export(user)
     r = req.resume.copy()
     r["target"] = req.title
     path = generate_docx(r)

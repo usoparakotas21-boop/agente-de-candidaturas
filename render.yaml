@@ -41,3 +41,9 @@ services:
         value: "true"
       - key: OUTLOOK_AUTO_SYNC
         value: "true"
+      - key: DOCUMENT_EXPORT_PRICE
+        sync: false
+      - key: DOCUMENT_EXPORT_CHECKOUT_URL
+        sync: false
+      - key: DOCUMENT_EXPORT_ALLOWED_EMAILS
+        sync: false

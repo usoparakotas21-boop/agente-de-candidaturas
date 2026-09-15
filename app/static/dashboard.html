@@ -536,8 +536,9 @@
   </button>
 
   <button class="action-button accent" id="generateButton">
-    Gerar e baixar currículo
+    Pré-visualizar currículo
   </button>
+  <!-- Gerar e baixar currículo: o download completo exige o Pro ou pagamento avulso. -->
 
   <button class="action-button" id="coverLetterButton">
     Gerar carta de apresentação
@@ -551,6 +552,7 @@
     Baixar última carta
   </button>
 </div>
+    <div class="notice" id="documentExportNotice" hidden></div>
     <div class="analysis-card" id="analysisCard" hidden>
       <h3>Resultado da análise</h3>
       <div class="analysis-columns">
@@ -644,6 +646,20 @@
     </div>
   </div>
 </dialog>
+  <dialog id="resumePreviewDialog">
+    <div class="dialog-head">
+      <div><h2>Prévia do currículo</h2><p id="resumePreviewSubtitle"></p></div>
+      <button class="close" id="closeResumePreview" type="button" aria-label="Fechar">×</button>
+    </div>
+    <div class="job-form">
+      <div class="field"><strong id="resumePreviewName"></strong><p id="resumePreviewHeadline"></p></div>
+      <div class="field"><label>Resumo</label><p id="resumePreviewSummary"></p></div>
+      <div class="field"><label>Competências em destaque</label><p id="resumePreviewSkills"></p></div>
+      <div class="field"><label>Experiências</label><div id="resumePreviewExperiences"></div></div>
+      <p class="notice" id="resumePreviewNotice"></p>
+      <div class="dialog-actions"><a class="submit-job" id="resumePreviewCheckout" href="#" target="_blank" rel="noopener" hidden>Libere o download</a><button class="secondary" id="finishResumePreview" type="button">Fechar</button></div>
+    </div>
+  </dialog>
   <dialog id="resetPasswordDialog">
     <div class="dialog-head">
       <div><h2>Definir nova senha</h2><p>Escolha uma senha com pelo menos 8 caracteres.</p></div>
@@ -675,7 +691,7 @@
           $("userEmail").textContent = payload.user.email || "Usuario autenticado";
           $("logoutButton").hidden = false;
         }
-        await Promise.all([loadApplications(), loadQueue(), loadGmailStatus()]);
+        await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
         if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
           window.history.replaceState({}, "", "/dashboard");
           toast("Gmail conectado com sucesso.");
@@ -928,6 +944,7 @@
     const selectedQueueIds = new Set();
     let selectedId = null;
     let capturePreview = null;
+    let documentExport = {allowed: false, price: "", checkout_url: ""};
     const analysisCache = {};
 
     const $ = id => document.getElementById(id);
@@ -958,6 +975,22 @@
         if (showMessage) toast("Dados atualizados.");
       } catch (error) { toast(error.message); }
       finally { $("refreshButton").disabled = false; }
+    }
+
+    async function loadDocumentExport() {
+      try {
+        const response = await fetch("/billing/document-export");
+        if (!response.ok) return;
+        documentExport = await response.json();
+        $("generateButton").textContent = documentExport.allowed ? "Gerar e baixar currículo" : "Pré-visualizar currículo";
+        const notice = $("documentExportNotice");
+        if (!documentExport.allowed) {
+          notice.hidden = false;
+          notice.textContent = documentExport.price
+            ? `Prévia gratuita ativa. O download do currículo + carta está disponível por pagamento avulso (${documentExport.price}).`
+            : "Prévia gratuita ativa. O download do currículo + carta exige o plano Pro ou pagamento avulso.";
+        }
+      } catch { /* a prévia continua disponível mesmo sem carregar a oferta */ }
     }
 
     async function loadQueue(showMessage = false) {
@@ -1129,8 +1162,9 @@
       $("decisionReasons").innerHTML = reasons.length
         ? reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join("")
         : "<li>Aguardando análise e preferências.</li>";
-      $("downloadButton").hidden = !item.document_path;
-      $("downloadSavedCoverLetterButton").hidden = !item.cover_letter_path;
+      $("downloadButton").hidden = !documentExport.allowed || !item.document_path;
+      $("downloadSavedCoverLetterButton").hidden = !documentExport.allowed || !item.cover_letter_path;
+      $("downloadCoverLetter").hidden = !documentExport.allowed;
       $("newStatus").value = item.status;
       $("statusNote").value = "";
       $("timeline").innerHTML = [...item.events].reverse().map(event => `
@@ -1588,12 +1622,35 @@ async function downloadCoverLetterDocument() {
   }
 }
 
+    function showResumePreview(payload) {
+      const preview = payload.preview || {};
+      $("resumePreviewSubtitle").textContent = `${payload.company || ""} — ${payload.job_title || ""}`;
+      $("resumePreviewName").textContent = preview.name || "Candidato";
+      $("resumePreviewHeadline").textContent = preview.headline || "";
+      $("resumePreviewSummary").textContent = preview.summary || "";
+      $("resumePreviewSkills").textContent = (preview.skills || []).join(" · ") || "—";
+      $("resumePreviewExperiences").innerHTML = (preview.experiences || []).map(item => `<p><strong>${escapeHtml(item.role)}</strong> · ${escapeHtml(item.company)} <small>${escapeHtml(item.period)}</small></p>`).join("") || "—";
+      const exportInfo = payload.export || documentExport;
+      $("resumePreviewNotice").textContent = preview.notice || exportInfo.message || "O download completo exige pagamento.";
+      const checkout = $("resumePreviewCheckout");
+      checkout.hidden = !exportInfo.checkout_url;
+      checkout.href = exportInfo.checkout_url || "#";
+      $("resumePreviewDialog").showModal();
+    }
+
     async function generateDocument() {
       const item = applications.find(entry => entry.id === selectedId); if (!item) return;
       $("generateButton").disabled = true;
       try {
         const response = await fetch(`/jobs/${item.job_id}/generate-document`, {method:"POST"});
         if (!response.ok) throw new Error(await responseError(response, "Não foi possível gerar o currículo."));
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          showResumePreview(await response.json());
+          await loadApplications();
+          openApplication(item.id);
+          return;
+        }
         const blob = await response.blob();
         const disposition = response.headers.get("content-disposition") || "";
         const match = disposition.match(/filename="?([^";]+)"?/i);
@@ -1726,10 +1783,12 @@ $("copyCoverLetter").addEventListener(
     toast("Carta copiada.");
   }
 );
-$("downloadCoverLetter").addEventListener(
+    $("downloadCoverLetter").addEventListener(
   "click",
   downloadCoverLetterDocument
 );
+    $("closeResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
+    $("finishResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
     $("downloadButton").addEventListener("click", downloadExistingDocument);
     $("downloadSavedCoverLetterButton").addEventListener(
       "click",

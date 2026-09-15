@@ -239,6 +239,31 @@ class IntegratedFlowTest(unittest.TestCase):
         self.assertTrue(Path(downloaded.path).is_file())
         self.assertEqual(Path(downloaded.path).read_bytes()[:2], b"PK")
 
+    def test_free_plan_gets_preview_instead_of_resume_download(self):
+        free_user = {"id": None, "local_mode": True, "app_metadata": {}}
+
+        payload = main_module.generate_document_for_job(1, free_user)
+
+        self.assertEqual(payload["status"], "PREVIA_GRATUITA")
+        self.assertEqual(payload["export"]["allowed"], False)
+        self.assertIn("summary", payload["preview"])
+
+        db = self.testing_session()
+        application = db.query(Application).filter_by(job_id=1).one()
+        self.assertIsNone(application.document_path)
+        db.close()
+
+    def test_free_plan_cannot_download_existing_resume(self):
+        generated = main_module.generate_document_for_job(1)
+        application_id = int(generated.headers["x-application-id"])
+        free_user = {"id": None, "local_mode": True, "app_metadata": {}}
+
+        with self.assertRaises(HTTPException) as context:
+            main_module.download_application_document(application_id, free_user)
+
+        self.assertEqual(context.exception.status_code, 402)
+        self.assertEqual(context.exception.detail["code"], "DOCUMENT_EXPORT_PAYMENT_REQUIRED")
+
     def test_cover_letter_returns_personalized_text(self):
         payload = main_module.create_cover_letter_for_job(1)
 
