@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text
 from starlette.concurrency import run_in_threadpool
@@ -230,6 +230,12 @@ def root():
     html = LANDING_PATH.read_text(encoding="utf-8")
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     return HTMLResponse(html.replace("</body>", '<script src="/static/landing-enhance.js"></script><script>' + auth_script + '</script></body>', 1))
+
+@app.head("/", include_in_schema=False)
+def root_head():
+    # Alguns monitores fazem HEAD na URL raiz; aproveite o ping para manter o banco ativo.
+    health()
+    return Response(status_code=200)
 
 @app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
 def terms_page():
