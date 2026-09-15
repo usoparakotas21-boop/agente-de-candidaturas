@@ -659,7 +659,7 @@
       <div class="field"><label>Competências em destaque</label><p id="resumePreviewSkills"></p></div>
       <div class="field"><label>Experiências</label><div id="resumePreviewExperiences"></div></div>
       <p class="notice" id="resumePreviewNotice"></p>
-      <div class="dialog-actions"><a class="submit-job" id="resumePreviewCheckout" href="#" target="_blank" rel="noopener" hidden>Libere o download</a><button class="secondary" id="finishResumePreview" type="button">Fechar</button></div>
+      <div class="dialog-actions"><button class="submit-job" id="resumePreviewCheckout" type="button" hidden>Libere o download</button><button class="secondary" id="finishResumePreview" type="button">Fechar</button></div>
     </div>
   </dialog>
   <dialog id="resetPasswordDialog">
@@ -956,7 +956,7 @@
     const selectedQueueIds = new Set();
     let selectedId = null;
     let capturePreview = null;
-    let documentExport = {allowed: false, price: "", checkout_url: ""};
+    let documentExport = {allowed: false, price: "", checkout_url: "", checkout_ready: false};
     const analysisCache = {};
 
     const $ = id => document.getElementById(id);
@@ -1660,9 +1660,30 @@ async function downloadCoverLetterDocument() {
       const exportInfo = payload.export || documentExport;
       $("resumePreviewNotice").textContent = preview.notice || exportInfo.message || "O download completo exige pagamento.";
       const checkout = $("resumePreviewCheckout");
-      checkout.hidden = !exportInfo.checkout_url;
-      checkout.href = exportInfo.checkout_url || "#";
+      checkout.hidden = !exportInfo.checkout_url && !exportInfo.checkout_ready;
+      checkout.textContent = exportInfo.price ? `Liberar download (${exportInfo.price})` : "Liberar download";
       $("resumePreviewDialog").showModal();
+    }
+
+    async function startDocumentExportCheckout() {
+      const checkout = $("resumePreviewCheckout");
+      checkout.disabled = true;
+      checkout.textContent = "Abrindo pagamento...";
+      try {
+        if (documentExport.checkout_url) {
+          window.open(documentExport.checkout_url, "_blank", "noopener");
+          return;
+        }
+        const response = await fetch("/billing/document-export/checkout", {method: "POST"});
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || "Não foi possível iniciar o pagamento.");
+        window.open(payload.checkout_url, "_blank", "noopener");
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        checkout.disabled = false;
+        checkout.textContent = documentExport.price ? `Liberar download (${documentExport.price})` : "Liberar download";
+      }
     }
 
     async function generateDocument() {
@@ -1816,6 +1837,7 @@ $("copyCoverLetter").addEventListener(
 );
     $("closeResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
     $("finishResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
+    $("resumePreviewCheckout").addEventListener("click", startDocumentExportCheckout);
     $("downloadButton").addEventListener("click", downloadExistingDocument);
     $("downloadSavedCoverLetterButton").addEventListener(
       "click",

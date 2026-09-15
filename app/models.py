@@ -305,6 +305,25 @@ class ApplicationEvent(Base):
     application = relationship("Application", back_populates="events")
 
 
+class DocumentExportPurchase(Base):
+    """Pedido de exportação pago via checkout InfinitePay."""
+
+    __tablename__ = "document_export_purchases"
+    __table_args__ = (UniqueConstraint("order_nsu", name="uq_document_export_order_nsu"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    order_nsu: Mapped[str] = mapped_column(String(120), nullable=False)
+    invoice_slug: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    transaction_nsu: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    paid_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="PENDING")
+    receipt_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 # ============================================================
 # NOVO PARA VERSÃO 0.23.0
 # ============================================================

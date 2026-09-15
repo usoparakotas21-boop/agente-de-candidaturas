@@ -2,9 +2,11 @@ import json
 import base64
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
@@ -25,7 +27,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, Candidate, Experience, Job, Skill
+from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, Experience, Job, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
@@ -95,6 +97,18 @@ def _page(path: Path) -> HTMLResponse:
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 
 
+def _document_export_price() -> str:
+    configured = os.getenv("DOCUMENT_EXPORT_PRICE", "").strip()
+    if configured:
+        return configured
+    raw_cents = os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip()
+    try:
+        cents = int(raw_cents)
+    except (TypeError, ValueError):
+        return ""
+    return f"R$ {cents / 100:.2f}".replace(".", ",") if cents > 0 else ""
+
+
 def _document_export_metadata(user: dict | None) -> dict[str, Any]:
     """Return the server-side entitlement metadata for DOCX exports.
 
@@ -105,7 +119,7 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
     # Direct calls from internal compatibility helpers/tests do not represent a
     # browser request and keep the historical behavior of returning a file.
     if not isinstance(user, dict):
-        return {"allowed": True, "price": os.getenv("DOCUMENT_EXPORT_PRICE", ""), "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip()}
+        return {"allowed": True, "price": _document_export_price(), "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip()}
 
     app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
     plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or "").strip().casefold()
@@ -117,11 +131,28 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
         if item.strip()
     }
     email = str(user.get("email") or "").strip().casefold()
-    allowed = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} or paid_flag or email in allowed_emails
+    local_paid = False
+    owner_id = str(user.get("id") or "").strip()
+    if owner_id:
+        db = SessionLocal()
+        try:
+            local_paid = db.scalar(
+                select(DocumentExportPurchase.id).where(
+                    DocumentExportPurchase.owner_id == owner_id,
+                    DocumentExportPurchase.status == "PAID",
+                ).limit(1)
+            ) is not None
+        except Exception:
+            # Bases antigas podem ainda não ter recebido a tabela nova.
+            local_paid = False
+        finally:
+            db.close()
+    allowed = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} or paid_flag or email in allowed_emails or local_paid
     return {
         "allowed": allowed,
-        "price": os.getenv("DOCUMENT_EXPORT_PRICE", "").strip(),
+        "price": _document_export_price(),
         "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip(),
+        "checkout_ready": bool(os.getenv("INFINITEPAY_HANDLE", "").strip() and os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip()),
     }
 
 
@@ -781,8 +812,107 @@ def document_export_offer(user=Depends(authenticated_user)):
         "allowed": offer["allowed"],
         "price": offer["price"],
         "checkout_url": offer["checkout_url"],
+        "checkout_ready": offer.get("checkout_ready", False),
         "message": "Download liberado." if offer["allowed"] else "A prévia é gratuita; o download completo exige o plano Pro ou pagamento avulso.",
     }
+
+
+def _infinitepay_base_url() -> str:
+    configured = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
+    if configured.startswith("https://"):
+        return configured
+    hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+    return f"https://{hostname}" if hostname else "https://agente-de-candidaturas.onrender.com"
+
+
+def _infinitepay_price_cents() -> int:
+    raw = os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Configure INFINITEPAY_EXPORT_PRICE_CENTS no Render.")
+    if value < 100:
+        raise HTTPException(503, "INFINITEPAY_EXPORT_PRICE_CENTS deve ser pelo menos 100 centavos.")
+    return value
+
+
+@app.post("/billing/document-export/checkout")
+async def create_document_export_checkout(user=Depends(authenticated_user)):
+    owner_id = _owner_id(user)
+    handle = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
+    if not owner_id:
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
+    if not handle:
+        raise HTTPException(503, "Configure INFINITEPAY_HANDLE no Render.")
+    price_cents = _infinitepay_price_cents()
+    order_nsu = f"export-{uuid.uuid4().hex}"
+    payload = {
+        "handle": handle,
+        "order_nsu": order_nsu,
+        "redirect_url": f"{_infinitepay_base_url()}/billing/infinitepay/success",
+        "webhook_url": f"{_infinitepay_base_url()}/webhooks/infinitepay",
+        "items": [{"quantity": 1, "price": price_cents, "description": "Exportação de currículo e carta personalizada"}],
+    }
+    db = SessionLocal()
+    try:
+        db.add(DocumentExportPurchase(owner_id=owner_id, order_nsu=order_nsu, amount=price_cents))
+        db.commit()
+    finally:
+        db.close()
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post("https://api.checkout.infinitepay.io/links", json=payload)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "Não foi possível criar o checkout InfinitePay.") from exc
+    if response.status_code >= 400:
+        raise HTTPException(502, "A InfinitePay recusou a criação do checkout.")
+    data = response.json()
+    checkout_url = data.get("url") or data.get("checkout_url") or data.get("link")
+    if not checkout_url:
+        raise HTTPException(502, "A InfinitePay não retornou um link de checkout.")
+    return {"checkout_url": checkout_url, "order_nsu": order_nsu}
+
+
+@app.post("/webhooks/infinitepay")
+async def infinitepay_webhook(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(400, "Payload inválido.")
+    order_nsu = str(payload.get("order_nsu") or "").strip()
+    if not order_nsu:
+        raise HTTPException(400, "order_nsu ausente.")
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
+        if purchase is None:
+            return {"received": True}
+        handle = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
+        transaction_nsu = str(payload.get("transaction_nsu") or "").strip()
+        invoice_slug = str(payload.get("invoice_slug") or payload.get("slug") or "").strip()
+        if not handle or not transaction_nsu or not invoice_slug:
+            return {"received": True, "verified": False}
+        check_payload = {"handle": handle, "order_nsu": order_nsu, "transaction_nsu": transaction_nsu, "slug": invoice_slug}
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post("https://api.checkout.infinitepay.io/payment_check", json=check_payload)
+        if response.status_code < 400:
+            check = response.json()
+            if check.get("success") and check.get("paid"):
+                purchase.status = "PAID"
+                purchase.invoice_slug = invoice_slug
+                purchase.transaction_nsu = transaction_nsu
+                purchase.paid_amount = int(check.get("paid_amount") or check.get("amount") or 0)
+                purchase.receipt_url = str(payload.get("receipt_url") or "")[:1000] or None
+                purchase.paid_at = utc_now()
+                db.commit()
+        return {"received": True}
+    finally:
+        db.close()
+
+
+@app.get("/billing/infinitepay/success", response_class=HTMLResponse, include_in_schema=False)
+def infinitepay_success():
+    return HTMLResponse("<h1>Pagamento recebido</h1><p>Estamos confirmando o pagamento. Volte ao painel para atualizar o acesso ao download.</p><a href='/dashboard'>Voltar ao painel</a>")
 
 
 @app.get("/applications/{app_id}/document", response_class=FileResponse)

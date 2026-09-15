@@ -47,3 +47,7 @@ services:
         sync: false
       - key: DOCUMENT_EXPORT_ALLOWED_EMAILS
         sync: false
+      - key: INFINITEPAY_HANDLE
+        sync: false
+      - key: INFINITEPAY_EXPORT_PRICE_CENTS
+        sync: false
