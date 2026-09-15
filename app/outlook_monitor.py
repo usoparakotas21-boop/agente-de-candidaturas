@@ -147,7 +147,12 @@ async def sync_all_integrations() -> None:
                 token = await _access_token(integration)
                 await sync_integration(integration, access_token=token, list_message_ids=_list_message_ids, get_message=_get_message, source_name="outlook", provider_label="Outlook")
         except Exception as exc:
-            logger.warning("Sincronizacao Outlook falhou para integracao %s: %s", integration.id, type(exc).__name__)
+            logger.warning(
+                "Sincronizacao Outlook falhou para integracao %s: %s - %s",
+                integration.id,
+                type(exc).__name__,
+                str(exc)[:300],
+            )
 
 
 async def _monitor_loop() -> None:

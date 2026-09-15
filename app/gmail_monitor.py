@@ -524,9 +524,10 @@ async def sync_all_integrations() -> None:
                 await sync_integration(integration)
             except Exception as exc:
                 logger.warning(
-                    "Sincronizacao Gmail falhou para integracao %s: %s",
+                    "Sincronizacao Gmail falhou para integracao %s: %s - %s",
                     integration.id,
                     type(exc).__name__,
+                    str(exc)[:300],
                 )
 
 
