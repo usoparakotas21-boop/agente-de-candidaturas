@@ -1,5 +1,6 @@
 import json
 import base64
+import logging
 import os
 import re
 import uuid
@@ -36,6 +37,7 @@ from .queue_service import enqueue
 from .ai_provider import AIProviderError, evaluate_interview_answer
 
 app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
+logger = logging.getLogger(__name__)
 app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
@@ -863,10 +865,29 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post("https://api.checkout.infinitepay.io/links", json=payload)
     except httpx.HTTPError as exc:
+        logger.exception("Falha de rede ao criar checkout InfinitePay order_nsu=%s", order_nsu)
         raise HTTPException(502, "Não foi possível criar o checkout InfinitePay.") from exc
     if response.status_code >= 400:
+        # A API devolve o motivo no corpo (por exemplo, checkout integrado
+        # desabilitado ou configuração inválida). Registre-o para diagnóstico
+        # sem expor o payload completo ao usuário.
+        logger.warning(
+            "InfinitePay recusou checkout status=%s order_nsu=%s body=%s",
+            response.status_code,
+            order_nsu,
+            response.text[:2000],
+        )
         raise HTTPException(502, "A InfinitePay recusou a criação do checkout.")
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        logger.warning(
+            "InfinitePay retornou JSON inválido status=%s order_nsu=%s body=%s",
+            response.status_code,
+            order_nsu,
+            response.text[:2000],
+        )
+        raise HTTPException(502, "A InfinitePay retornou uma resposta inválida.") from exc
     checkout_url = data.get("url") or data.get("checkout_url") or data.get("link")
     if not checkout_url:
         raise HTTPException(502, "A InfinitePay não retornou um link de checkout.")
