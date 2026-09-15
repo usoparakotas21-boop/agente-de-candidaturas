@@ -171,18 +171,52 @@ def _require_document_export(user: dict | None) -> dict[str, Any]:
     raise HTTPException(status_code=402, detail=detail)
 
 
+def _cover_letter_preview(text_value: str | None, limit: int = 560) -> str:
+    """Keep the free preview useful without exposing the complete letter."""
+    text_value = str(text_value or "").strip()
+    if len(text_value) <= limit:
+        return text_value
+    cut = text_value[:limit]
+    boundary = max(cut.rfind("\n\n"), cut.rfind(". "))
+    if boundary >= int(limit * 0.55):
+        cut = cut[: boundary + (2 if text_value[boundary:boundary + 2] == ". " else 0)]
+    return cut.rstrip() + "…"
+
+
+def _masked_name(name: str | None) -> str:
+    parts = [part for part in str(name or "Candidato").split() if part]
+    if len(parts) <= 1:
+        return parts[0] if parts else "Candidato"
+    return f"{parts[0]} " + " ".join(f"{part[0]}." for part in parts[1:])
+
+
+def _masked_email(email: str | None) -> str:
+    value = str(email or "").strip()
+    if "@" not in value:
+        return "contato oculto"
+    local, domain = value.split("@", 1)
+    return f"{local[:1]}•••@•••{domain[domain.rfind('.'):]}" if "." in domain else f"{local[:1]}•••@•••"
+
+
 def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
     resume = arts["resume"]
     summary = str(resume.get("summary") or "")
+    candidate = resume.get("candidate") or {}
+    contact = candidate
     return {
-        "name": resume.get("candidate", {}).get("name", "Candidato"),
+        "name": _masked_name(candidate.get("name", "Candidato")),
         "target": resume.get("target", ""),
         "headline": resume.get("headline", ""),
         "summary": summary[:420] + ("…" if len(summary) > 420 else ""),
         "skills": list(resume.get("skills") or [])[:8],
+        "contact": {
+            "email": _masked_email(contact.get("email")),
+            "phone": "telefone oculto",
+            "location": contact.get("location") or "Localização oculta",
+        },
         "experiences": [
             {
-                "company": item.get("company", ""),
+                "company": "Empresa confidencial",
                 "role": item.get("role", ""),
                 "period": item.get("period", ""),
             }
@@ -262,7 +296,7 @@ def _ensure_app(db, job, cand):
 def _advance_app(db, app, status, note=""):
     if APPLICATION_STATUSES.index(status) > APPLICATION_STATUSES.index(app.status):
         _add_event(db, app, status, note)
-def _serialize_app(a, include_document_paths: bool = True):
+def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_text: bool = False):
     an = None
     if a.analysis_data:
         try: an = json.loads(a.analysis_data)
@@ -271,7 +305,7 @@ def _serialize_app(a, include_document_paths: bool = True):
     except: dr = []
     try: fc = json.loads(a.field_confidence or "{}")
     except: fc = {}
-    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text, "cover_letter_path": a.cover_letter_path if include_document_paths else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "created_at": e.created_at.isoformat()} for e in a.events]}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "created_at": e.created_at.isoformat()} for e in a.events]}
 def _cand_prefs(cand):
     s = {}
     if cand and cand.preferences_data:
@@ -795,7 +829,8 @@ def list_apps(status: str = None, decision: str = None, user=Depends(authenticat
         if status: q = q.where(Application.status == status)
         if decision: q = q.where(Application.queue_decision == decision)
         apps = db.scalars(q).all()
-        return {"total": len(apps), "applications": [_serialize_app(a, _document_export_metadata(user)["allowed"]) for a in apps]}
+        allowed = _document_export_metadata(user)["allowed"]
+        return {"total": len(apps), "applications": [_serialize_app(a, allowed, allowed) for a in apps]}
     finally: db.close()
 
 @app.get("/applications/{app_id}")
@@ -804,7 +839,8 @@ def get_app(app_id: int, user=Depends(authenticated_user)):
     try:
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
-        return _serialize_app(app, _document_export_metadata(user)["allowed"])
+        allowed = _document_export_metadata(user)["allowed"]
+        return _serialize_app(app, allowed, allowed)
     finally: db.close()
 
 @app.get("/billing/document-export")
@@ -958,7 +994,8 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
         if app.status != req.status or req.note:
             _add_event(db, app, req.status, req.note)
         db.commit(); db.refresh(app)
-        return _serialize_app(app)
+        allowed = _document_export_metadata(user)["allowed"]
+        return _serialize_app(app, allowed, allowed)
     finally: db.close()
 
 @app.post("/jobs/{job_id}/analyze")
@@ -990,7 +1027,8 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
         _save_analysis(app, arts["analysis"], c)
         app.cover_letter_text = letter
         db.commit(); db.refresh(app)
-        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter}
+        export = _document_export_metadata(user)
+        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso." if not export["allowed"] else "Carta completa liberada."}
     finally: db.close()
 
 @app.post("/jobs/{job_id}/cover-letter/document", response_class=FileResponse)

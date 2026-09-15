@@ -229,7 +229,25 @@
     .field textarea { min-height: 130px; resize: vertical; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
     .secondary { padding: 10px 15px; border: 1px solid var(--line); border-radius: 10px; color: var(--navy); background: white; font-weight: 750; }
+    .secondary:disabled, .submit-job:disabled { cursor: not-allowed; opacity: .55; }
     .submit-job { padding: 10px 17px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
+    .preview-lock { margin: 0 0 16px; padding: 11px 13px; border: 1px solid #cbd9f7; border-radius: 10px; color: #31558b; background: var(--blue-soft); font-size: 12px; line-height: 1.45; }
+    .resume-paper { padding: 28px 30px; border: 1px solid #dfe5ef; border-radius: 5px; background: white; box-shadow: 0 12px 28px rgba(24,49,83,.09); }
+    .resume-paper-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid var(--navy); }
+    .resume-paper-head strong { display: block; font-size: 20px; letter-spacing: .02em; }
+    .resume-paper-head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .resume-watermark { flex: 0 0 auto; padding: 5px 8px; border: 1px solid #b9c9ee; border-radius: 5px; color: var(--blue); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+    .resume-contact { padding: 10px 0 14px; color: var(--muted); font-size: 11px; }
+    .resume-section { margin-top: 17px; }
+    .resume-section h3 { margin: 0 0 7px; color: var(--navy); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .resume-section p { margin: 0; color: #3e4c63; font-size: 12px; line-height: 1.55; }
+    .resume-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .resume-skill { padding: 4px 7px; border-radius: 5px; color: #31558b; background: var(--blue-soft); font-size: 10px; }
+    .resume-experience { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 8px 0; border-top: 1px solid #edf0f5; }
+    .resume-experience:first-child { border-top: 0; }
+    .resume-experience strong { display: block; font-size: 12px; }
+    .resume-experience span, .resume-experience small { color: var(--muted); font-size: 10px; }
+    .resume-paper .preview-lock { margin: 20px 0 0; }
     .timeline-title { margin: 26px 0 15px; font-size: 15px; }
     .timeline { position: relative; margin-left: 8px; padding-left: 22px; border-left: 2px solid var(--line); }
     .event { position: relative; padding: 0 0 20px; }
@@ -611,6 +629,7 @@
   </div>
 
   <div class="job-form">
+    <p class="preview-lock" id="coverLetterNotice" hidden></p>
     <div class="field">
       <label for="coverLetterText">Texto personalizado</label>
 
@@ -654,11 +673,17 @@
       <button class="close" id="closeResumePreview" type="button" aria-label="Fechar">×</button>
     </div>
     <div class="job-form">
-      <div class="field"><strong id="resumePreviewName"></strong><p id="resumePreviewHeadline"></p></div>
-      <div class="field"><label>Resumo</label><p id="resumePreviewSummary"></p></div>
-      <div class="field"><label>Competências em destaque</label><p id="resumePreviewSkills"></p></div>
-      <div class="field"><label>Experiências</label><div id="resumePreviewExperiences"></div></div>
-      <p class="notice" id="resumePreviewNotice"></p>
+      <div class="resume-paper">
+        <div class="resume-paper-head">
+          <div><strong id="resumePreviewName"></strong><p id="resumePreviewHeadline"></p></div>
+          <span class="resume-watermark">PRÉVIA</span>
+        </div>
+        <div class="resume-contact" id="resumePreviewContact"></div>
+        <section class="resume-section"><h3>Resumo profissional</h3><p id="resumePreviewSummary"></p></section>
+        <section class="resume-section"><h3>Competências em destaque</h3><div class="resume-skills" id="resumePreviewSkills"></div></section>
+        <section class="resume-section"><h3>Experiências</h3><div id="resumePreviewExperiences"></div></section>
+        <p class="preview-lock" id="resumePreviewNotice"></p>
+      </div>
       <div class="dialog-actions"><button class="submit-job" id="resumePreviewCheckout" type="button" hidden>Libere o download</button><button class="secondary" id="finishResumePreview" type="button">Fechar</button></div>
     </div>
   </dialog>
@@ -1580,6 +1605,13 @@ async function generateCoverLetter() {
       `${payload.company} — ${payload.job_title}`;
 
     $("coverLetterText").value = payload.letter;
+    const locked = Boolean(payload.preview);
+    const copyButton = $("copyCoverLetter");
+    const notice = $("coverLetterNotice");
+    copyButton.disabled = locked;
+    copyButton.textContent = locked ? "Copiar texto completo (Pro)" : "Copiar texto";
+    notice.hidden = !locked;
+    notice.textContent = payload.notice || "A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso.";
 
     $("coverLetterDialog").showModal();
 
@@ -1654,9 +1686,11 @@ async function downloadCoverLetterDocument() {
       $("resumePreviewSubtitle").textContent = `${payload.company || ""} — ${payload.job_title || ""}`;
       $("resumePreviewName").textContent = preview.name || "Candidato";
       $("resumePreviewHeadline").textContent = preview.headline || "";
+      const contact = preview.contact || {};
+      $("resumePreviewContact").textContent = [contact.email, contact.phone, contact.location].filter(Boolean).join("  ·  ");
       $("resumePreviewSummary").textContent = preview.summary || "";
-      $("resumePreviewSkills").textContent = (preview.skills || []).join(" · ") || "—";
-      $("resumePreviewExperiences").innerHTML = (preview.experiences || []).map(item => `<p><strong>${escapeHtml(item.role)}</strong> · ${escapeHtml(item.company)} <small>${escapeHtml(item.period)}</small></p>`).join("") || "—";
+      $("resumePreviewSkills").innerHTML = (preview.skills || []).map(skill => `<span class="resume-skill">${escapeHtml(skill)}</span>`).join("") || "<span>—</span>";
+      $("resumePreviewExperiences").innerHTML = (preview.experiences || []).map(item => `<div class="resume-experience"><div><strong>${escapeHtml(item.role)}</strong><span>${escapeHtml(item.company)}</span></div><small>${escapeHtml(item.period)}</small></div>`).join("") || "—";
       const exportInfo = payload.export || documentExport;
       $("resumePreviewNotice").textContent = preview.notice || exportInfo.message || "O download completo exige pagamento.";
       const checkout = $("resumePreviewCheckout");
@@ -1824,6 +1858,10 @@ $("finishCoverLetter").addEventListener(
 $("copyCoverLetter").addEventListener(
   "click",
   async () => {
+    if ($("copyCoverLetter").disabled) {
+      toast("A cópia do texto completo exige o plano Pro ou pagamento avulso.");
+      return;
+    }
     const letter = $("coverLetterText").value;
 
     await navigator.clipboard.writeText(letter);
