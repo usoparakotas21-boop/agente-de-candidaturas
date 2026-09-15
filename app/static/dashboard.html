@@ -785,7 +785,9 @@
         }
         await loadApplications();
         toast(
-          `${payload.captured} vaga(s) nova(s), ${payload.duplicate} repetida(s) e ${payload.ignored} ignorada(s).`
+          `${payload.captured} vaga(s) capturada(s), ${payload.review || 0} para revisar, ` +
+          `${payload.duplicate} repetida(s) e ${payload.ignored} ignorada(s) ` +
+          `(de ${payload.found || 0} e-mail(s) encontrados).`
         );
       } catch (error) {
         toast(error.message);

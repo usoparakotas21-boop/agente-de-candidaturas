@@ -232,7 +232,10 @@ async def _access_token(integration: EmailIntegration) -> str:
 
 async def _list_message_ids(access_token: str) -> list[str]:
     query = os.getenv("GMAIL_JOB_QUERY", DEFAULT_QUERY).strip() or DEFAULT_QUERY
-    max_results = min(max(int(os.getenv("GMAIL_MAX_RESULTS", "25")), 1), 100)
+    # A caixa de entrada costuma misturar alertas de vagas com mensagens
+    # financeiras, notícias e promoções. Buscar só 25 mensagens fazia com
+    # que vagas recentes ficassem fora da primeira página do Gmail.
+    max_results = min(max(int(os.getenv("GMAIL_MAX_RESULTS", "100")), 1), 100)
     async with httpx.AsyncClient(timeout=25.0) as client:
         response = await client.get(
             GMAIL_MESSAGES_URL,
