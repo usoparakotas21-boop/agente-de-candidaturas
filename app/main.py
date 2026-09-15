@@ -755,7 +755,7 @@ def list_apps(status: str = None, decision: str = None, user=Depends(authenticat
     db = SessionLocal()
     try:
         if status and status not in APPLICATION_STATUSES: raise HTTPException(422, "Status invalido.")
-        if decision and decision not in ("AUTOMATICA", "REVISAR", "DESCARTAR"): raise HTTPException(422, "Decisao invalida.")
+        if decision and decision not in ("AUTOMATICA", "CAPTURAR", "REVISAR", "DESCARTAR"): raise HTTPException(422, "Decisao invalida.")
         q = select(Application).join(Application.job).order_by(Application.updated_at.desc())
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)

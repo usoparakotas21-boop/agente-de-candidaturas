@@ -377,7 +377,7 @@
         <div class="panel-head">
           <div><h2>Fila de decisão</h2><p>Revise oportunidades captadas antes que avancem para candidaturas.</p></div>
           <div class="filters">
-            <select id="queueDecisionFilter" aria-label="Filtrar decisão da fila"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
+            <select id="queueDecisionFilter" aria-label="Filtrar decisão da fila"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="CAPTURAR">Capturar</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
             <select id="queueStatusFilter" aria-label="Filtrar status da fila"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="PROMOVIDO">Aprovado</option><option value="RECUSADO">Recusado</option><option value="EXPIRADO">Expirado</option></select>
             <button class="refresh" id="queueRefreshButton" type="button">Atualizar fila</button>
           </div>
@@ -408,7 +408,7 @@
             <div><h2>Candidaturas</h2><p>Clique em uma vaga para ver detalhes e atualizar o andamento.</p></div>
             <div class="filters">
               <input id="searchInput" type="search" placeholder="Buscar empresa ou cargo" aria-label="Buscar candidatura">
-              <select id="decisionFilter" aria-label="Filtrar por decisão"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
+              <select id="decisionFilter" aria-label="Filtrar por decisão"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="CAPTURAR">Capturar</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
               <select id="statusFilter" aria-label="Filtrar por status"><option value="">Todos os status</option></select>
             </div>
           </div>
@@ -939,7 +939,7 @@
       CURRICULO_GERADO: "Currículo gerado", CANDIDATURA_ENVIADA: "Candidatura enviada",
       ENTREVISTA: "Entrevista", APROVADO: "Aprovado", RECUSADO: "Recusado", ARQUIVADA: "Arquivada"
     };
-    const decisionLabels = {AUTOMATICA: "Automática", REVISAR: "Revisar", DESCARTAR: "Descartar"};
+    const decisionLabels = {AUTOMATICA: "Automática", CAPTURAR: "Capturar", REVISAR: "Revisar", DESCARTAR: "Descartar"};
     const statuses = Object.keys(statusLabels);
     let applications = [];
     let queueItems = [];
@@ -954,7 +954,7 @@
     const formatDate = value => value ? new Intl.DateTimeFormat("pt-BR", {day:"2-digit", month:"short", year:"numeric"}).format(new Date(value)) : "—";
     const scoreClass = score => score == null ? "" : score >= 85 ? "high" : score >= 55 ? "mid" : "low";
     const badgeClass = status => ({APROVADO:"green", ENTREVISTA:"amber", RECUSADO:"red", ARQUIVADA:"gray", CURRICULO_GERADO:"blue", CANDIDATURA_ENVIADA:"blue"}[status] || "gray");
-    const decisionBadgeClass = decision => ({AUTOMATICA:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
+    const decisionBadgeClass = decision => ({AUTOMATICA:"green", CAPTURAR:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
     const csvValues = value => String(value || "").split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
 
     function populateStatusOptions() {

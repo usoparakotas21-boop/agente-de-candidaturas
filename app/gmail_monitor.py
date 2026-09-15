@@ -433,7 +433,7 @@ async def sync_integration(
                         if item.job_id:
                             job_ids.append(item.job_id)
                             message_captured += 1
-                        elif item.decision == "REVISAR":
+                        elif item.decision in ("REVISAR", "CAPTURAR"):
                             message_reviews += 1
                         else:
                             message_ignored += 1

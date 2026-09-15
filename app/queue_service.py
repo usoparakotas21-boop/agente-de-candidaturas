@@ -324,9 +324,11 @@ def get_summary(session: Session, owner_id: str) -> dict:
         decision_counts_query = decision_counts_query.filter(QueueItem.owner_id == owner_id)
     decision_counts = decision_counts_query.group_by(QueueItem.decision).all()
 
-    # Contagem por status para REVISAR
+    # Contagem por status para itens que aguardam uma decisão do usuário.
+    # O avaliador usa CAPTURAR para recomendar aprovação manual.
     revisar_query = session.query(func.count(QueueItem.id)).filter(
-        QueueItem.decision == "REVISAR", QueueItem.status == "PENDENTE"
+        QueueItem.decision.in_(["REVISAR", "CAPTURAR"]),
+        QueueItem.status == "PENDENTE",
     )
     if owner_id is not None:
         revisar_query = revisar_query.filter(QueueItem.owner_id == owner_id)
@@ -349,6 +351,7 @@ def get_summary(session: Session, owner_id: str) -> dict:
     result = {
         "automatica": {"total": 0, "hoje": 0},
         "revisar": {"pendente": revisar_pendente, "total": 0},
+        "capturar": {"pendente": 0, "total": 0},
         "descartar": {"pendente": descartar_pendente, "total": 0},
         "expirado": {"total": expirado_total},
     }
@@ -360,6 +363,8 @@ def get_summary(session: Session, owner_id: str) -> dict:
             result["automatica"]["hoje"] = row.hoje or 0
         elif decision == "REVISAR":
             result["revisar"]["total"] = row.total
+        elif decision == "CAPTURAR":
+            result["capturar"]["total"] = row.total
         elif decision == "DESCARTAR":
             result["descartar"]["total"] = row.total
 

@@ -92,3 +92,16 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(expired, 1)
         self.assertEqual(owner_a.status, "EXPIRADO")
         self.assertEqual(owner_b.status, "PENDENTE")
+
+    def test_capturar_items_count_as_pending_review(self):
+        enqueue(
+            self.session,
+            None,
+            {"title": "Business Partner", "company": "Empresa Teste"},
+            {"decision": "CAPTURAR", "reasons": [], "engine_version": "test"},
+            "teste",
+        )
+
+        summary = get_summary(self.session, None)
+        self.assertEqual(summary["revisar"]["pendente"], 1)
+        self.assertEqual(summary["capturar"]["total"], 1)
