@@ -208,6 +208,9 @@
     .application-action-card strong { display: block; margin-bottom: 5px; font-size: 13px; }
     .application-action-card p { margin: 0 0 11px; color: var(--muted); font-size: 12px; }
     .application-action-card button { width: 100%; padding: 10px 12px; border: 1px solid var(--blue); border-radius: 10px; color: white; background: var(--blue); font-size: 12px; font-weight: 800; }
+    .application-action-card button.secondary-action { margin-top: 8px; color: var(--navy); border-color: var(--line); background: white; }
+    .application-action-card button[hidden] { display: none; }
+    .application-platform-note { margin: 0 0 11px !important; color: var(--ink) !important; font-size: 11px !important; }
     .analysis-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .analysis-columns strong { color: var(--muted); font-size: 11px; text-transform: uppercase; }
     .analysis-columns ul { margin: 7px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.5; }
@@ -564,7 +567,9 @@
     <div class="application-action-card" id="applicationActionCard" hidden>
       <strong>Próximo passo da candidatura</strong>
       <p>Abra o anúncio e siga o processo do site. Depois, atualize o andamento para acompanhar tudo aqui.</p>
+      <p class="application-platform-note" id="applicationPlatformNote"></p>
       <button id="startApplicationButton" type="button">Abrir anúncio e iniciar candidatura</button>
+      <button class="secondary-action" id="markApplicationSentButton" type="button" hidden disabled>Já enviei — marcar como enviada</button>
     </div>
     <button class="action-button original-job-button" id="openOriginalJob" type="button" hidden>Abrir anúncio original</button>
     <div class="action-grid">
@@ -1014,6 +1019,16 @@
     const badgeClass = status => ({APROVADO:"green", ENTREVISTA:"amber", RECUSADO:"red", ARQUIVADA:"gray", CURRICULO_GERADO:"blue", CANDIDATURA_ENVIADA:"blue"}[status] || "gray");
     const decisionBadgeClass = decision => ({AUTOMATICA:"green", CAPTURAR:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
     const csvValues = value => String(value || "").split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
+    function applicationPlatform(url) {
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        if (host.includes("indeed")) return ["Indeed", "Confira os campos e conclua o envio na página do Indeed."];
+        if (host.includes("infojobs")) return ["InfoJobs", "Confira os campos e conclua o envio na página do InfoJobs."];
+        if (host.includes("jobbol")) return ["Jobbol", "Confira os campos e conclua o envio na página do Jobbol."];
+        if (host.includes("linkedin")) return ["LinkedIn", "Confira os campos e conclua o envio na página do LinkedIn."];
+        return [host.replace(/^www\./, "") || "site da vaga", "Confira os campos e conclua o envio na página da empresa."];
+      } catch { return ["site da vaga", "Confira os campos e conclua o envio na página da empresa."]; }
+    }
 
     function populateStatusOptions() {
       statuses.forEach(status => {
@@ -1225,6 +1240,10 @@
       const actionCard = $("applicationActionCard");
       actionCard.hidden = !item.job_url || ["CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"].includes(item.status);
       $("startApplicationButton").dataset.url = item.job_url || "";
+      const [platform, platformMessage] = applicationPlatform(item.job_url);
+      $("applicationPlatformNote").textContent = item.job_url ? `Plataforma detectada: ${platform}. ${platformMessage}` : "";
+      $("markApplicationSentButton").hidden = true;
+      $("markApplicationSentButton").disabled = true;
       $("drawerScore").textContent = item.analysis_score == null ? "—" : Math.round(item.analysis_score);
       $("drawerPersonalization").textContent = item.personalization_score == null ? "—" : Math.round(item.personalization_score);
       $("drawerDecision").textContent = decisionLabels[item.queue_decision] || "Revisar";
@@ -1255,6 +1274,7 @@
       });
       $("openOriginalJob").disabled = loading;
       $("startApplicationButton").disabled = loading;
+      $("markApplicationSentButton").disabled = loading || $("markApplicationSentButton").hidden;
       $("newStatus").disabled = loading;
       $("statusNote").disabled = loading;
     }
@@ -1269,6 +1289,9 @@
       $("openOriginalJob").dataset.url = "";
       $("applicationActionCard").hidden = true;
       $("startApplicationButton").dataset.url = "";
+      $("applicationPlatformNote").textContent = "";
+      $("markApplicationSentButton").hidden = true;
+      $("markApplicationSentButton").disabled = true;
       $("drawerScore").textContent = "—";
       $("drawerPersonalization").textContent = "—";
       $("drawerDecision").textContent = "Carregando…";
@@ -1924,7 +1947,15 @@ async function downloadCoverLetterDocument() {
       const url = $("startApplicationButton").dataset.url;
       if (!url) return;
       window.open(url, "_blank", "noopener");
+      $("markApplicationSentButton").hidden = false;
+      $("markApplicationSentButton").disabled = false;
       toast("Anúncio aberto. Depois de enviar, atualize o andamento para Candidatura enviada.");
+    });
+    $("markApplicationSentButton").addEventListener("click", () => {
+      if (!selectedId) return;
+      $("newStatus").value = "CANDIDATURA_ENVIADA";
+      $("statusNote").value = "Candidatura enviada pelo anúncio original.";
+      saveStatus();
     });
     $("analyzeButton").addEventListener("click", analyzeApplication);
     $("generateButton").addEventListener("click", generateDocument);
