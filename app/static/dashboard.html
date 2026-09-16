@@ -194,6 +194,7 @@
     .primary { width: 100%; margin-top: 10px; padding: 11px 14px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
     .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 18px; }
     .action-button { padding: 11px 10px; border: 1px solid var(--line); border-radius: 11px; color: var(--navy); background: white; font-size: 12px; font-weight: 800; }
+    .original-job-button { width: 100%; margin: 0 0 12px; color: var(--blue); }
     .action-button.accent { color: white; border-color: var(--blue); background: var(--blue); }
     .action-button[hidden] { display: none; }
     .analysis-card { margin: 0 0 18px; padding: 16px; border-radius: 15px; background: var(--blue-soft); }
@@ -555,6 +556,7 @@
       <div class="detail-metric wide"><span>Recomendação</span><strong id="drawerRecommendation">Aguardando análise</strong></div>
     </div>
     <div class="decision-card"><strong>Por que esta decisão foi tomada</strong><ul id="decisionReasons"></ul></div>
+    <button class="action-button original-job-button" id="openOriginalJob" type="button" hidden>Abrir anúncio original</button>
     <div class="action-grid">
   <button class="action-button" id="analyzeButton">
     Analisar vaga
@@ -1207,6 +1209,9 @@
       $("drawerStatus").className = `badge ${badgeClass(item.status)}`;
       $("drawerTitle").textContent = item.job_title;
       $("drawerCompany").textContent = item.company;
+      const originalJobButton = $("openOriginalJob");
+      originalJobButton.hidden = !item.job_url;
+      originalJobButton.dataset.url = item.job_url || "";
       $("drawerScore").textContent = item.analysis_score == null ? "—" : Math.round(item.analysis_score);
       $("drawerPersonalization").textContent = item.personalization_score == null ? "—" : Math.round(item.personalization_score);
       $("drawerDecision").textContent = decisionLabels[item.queue_decision] || "Revisar";
@@ -1235,6 +1240,7 @@
       ["analyzeButton", "generateButton", "coverLetterButton", "downloadButton", "downloadSavedCoverLetterButton", "saveStatus"].forEach(id => {
         $(id).disabled = loading;
       });
+      $("openOriginalJob").disabled = loading;
       $("newStatus").disabled = loading;
       $("statusNote").disabled = loading;
     }
@@ -1245,6 +1251,8 @@
       $("drawerStatus").className = "badge blue";
       $("drawerTitle").textContent = "Abrindo candidatura";
       $("drawerCompany").textContent = "Estamos carregando os detalhes da oportunidade.";
+      $("openOriginalJob").hidden = true;
+      $("openOriginalJob").dataset.url = "";
       $("drawerScore").textContent = "—";
       $("drawerPersonalization").textContent = "—";
       $("drawerDecision").textContent = "Carregando…";
@@ -1892,6 +1900,10 @@ async function downloadCoverLetterDocument() {
     $("closeDrawer").addEventListener("click", closeDrawer);
     $("backdrop").addEventListener("click", closeDrawer);
     $("saveStatus").addEventListener("click", saveStatus);
+    $("openOriginalJob").addEventListener("click", () => {
+      const url = $("openOriginalJob").dataset.url;
+      if (url) window.open(url, "_blank", "noopener");
+    });
     $("analyzeButton").addEventListener("click", analyzeApplication);
     $("generateButton").addEventListener("click", generateDocument);
    $("coverLetterButton").addEventListener(
