@@ -232,6 +232,7 @@
     .secondary:disabled, .submit-job:disabled { cursor: not-allowed; opacity: .55; }
     .submit-job { padding: 10px 17px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
     .preview-lock { margin: 0 0 16px; padding: 11px 13px; border: 1px solid #cbd9f7; border-radius: 10px; color: #31558b; background: var(--blue-soft); font-size: 12px; line-height: 1.45; }
+    .preview-locked { user-select: none; -webkit-user-select: none; cursor: default; }
     .resume-paper { padding: 28px 30px; border: 1px solid #dfe5ef; border-radius: 5px; background: white; box-shadow: 0 12px 28px rgba(24,49,83,.09); }
     .resume-paper-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid var(--navy); }
     .resume-paper-head strong { display: block; font-size: 20px; letter-spacing: .02em; }
@@ -1607,9 +1608,18 @@ async function generateCoverLetter() {
     $("coverLetterText").value = payload.letter;
     const locked = Boolean(payload.preview);
     const copyButton = $("copyCoverLetter");
+    const downloadButton = $("downloadCoverLetter");
+    const coverLetterText = $("coverLetterText");
     const notice = $("coverLetterNotice");
     copyButton.disabled = locked;
+    downloadButton.disabled = locked;
     copyButton.textContent = locked ? "Copiar texto completo (Pro)" : "Copiar texto";
+    downloadButton.textContent = locked ? "Baixar em Word (Pro)" : "Baixar em Word";
+    coverLetterText.classList.toggle("preview-locked", locked);
+    coverLetterText.setAttribute(
+      "aria-label",
+      locked ? "Prévia protegida da carta de apresentação" : "Texto completo da carta de apresentação",
+    );
     notice.hidden = !locked;
     notice.textContent = payload.notice || "A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso.";
 
@@ -1873,6 +1883,24 @@ $("copyCoverLetter").addEventListener(
   "click",
   downloadCoverLetterDocument
 );
+
+    ["copy", "cut", "selectstart", "contextmenu"].forEach(eventName => {
+      $("coverLetterText").addEventListener(eventName, event => {
+        if ($("coverLetterText").classList.contains("preview-locked")) {
+          event.preventDefault();
+        }
+      });
+    });
+    $("coverLetterText").addEventListener("keydown", event => {
+      if (
+        $("coverLetterText").classList.contains("preview-locked") &&
+        (event.ctrlKey || event.metaKey) &&
+        ["c", "x"].includes(event.key.toLowerCase())
+      ) {
+        event.preventDefault();
+        toast("A cópia do texto completo exige o plano Pro ou pagamento avulso.");
+      }
+    });
     $("closeResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
     $("finishResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());
     $("resumePreviewCheckout").addEventListener("click", startDocumentExportCheckout);
