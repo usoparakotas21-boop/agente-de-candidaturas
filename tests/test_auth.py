@@ -127,6 +127,52 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(auth.ACCESS_COOKIE_NAME in value for value in cookies))
         self.assertTrue(any(auth.REFRESH_COOKIE_NAME in value for value in cookies))
 
+    async def test_login_normalizes_email_before_calling_supabase(self):
+        session = {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "expires_in": 3600,
+            "user": {"id": "owner-a", "email": "pessoa@example.com"},
+        }
+        with patch.object(
+            auth,
+            "_supabase_request",
+            AsyncMock(return_value=httpx.Response(200, json=session)),
+        ) as request_mock:
+            response = await auth.login(
+                auth.LoginRequest(
+                    email="  Pessoa@Example.com ",
+                    password="Senha-segura1!",
+                )
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            request_mock.await_args.kwargs["json"]["email"],
+            "pessoa@example.com",
+        )
+
+    async def test_login_exposes_confirmation_error_from_supabase(self):
+        supabase_response = httpx.Response(
+            400,
+            json={"error_code": "email_not_confirmed", "msg": "Email not confirmed"},
+        )
+        with patch.object(
+            auth,
+            "_supabase_request",
+            AsyncMock(return_value=supabase_response),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                await auth.login(
+                    auth.LoginRequest(
+                        email="pessoa@example.com",
+                        password="Senha-segura1!",
+                    )
+                )
+
+        self.assertEqual(raised.exception.status_code, 401)
+        self.assertIn("Confirme seu e-mail", raised.exception.detail)
+
     async def test_confirmation_session_verifies_token_and_sets_cookies(self):
         user = {"id": "owner-new", "email": "pessoa@example.com"}
         with patch.object(

@@ -113,6 +113,10 @@ def _supabase_error(response: httpx.Response, fallback: str) -> str:
         return "Este e-mail ja possui cadastro. Use Entrar ou Reenviar confirmacao."
     if "rate limit" in normalized or "too many" in normalized or response.status_code == 429:
         return "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente."
+    if error_code in {"email_not_confirmed", "email_not_verified"} or "email not confirmed" in normalized:
+        return "Confirme seu e-mail antes de entrar."
+    if error_code in {"invalid_credentials", "invalid_grant"} or "invalid login credentials" in normalized:
+        return "E-mail ou senha invalidos."
     if error_code:
         return f"Supabase recusou o cadastro ({error_code}). Confira os dados e tente novamente."
     return message or fallback
@@ -217,17 +221,21 @@ async def authenticated_user(request: Request) -> dict:
 
 @router.post("/login")
 async def login(payload: LoginRequest):
+    email = _validated_email(payload.email)
     try:
         response = await _supabase_request(
             "POST",
             "/auth/v1/token?grant_type=password",
-            json={"email": payload.email, "password": payload.password},
+            json={"email": email, "password": payload.password},
         )
     except httpx.HTTPError:
         raise HTTPException(503, "Servico de autenticacao indisponivel.")
 
     if response.status_code != 200:
-        raise HTTPException(401, "E-mail ou senha invalidos.")
+        raise HTTPException(
+            401,
+            _supabase_error(response, "E-mail ou senha invalidos."),
+        )
 
     session = response.json()
     result = JSONResponse(
