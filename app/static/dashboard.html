@@ -203,6 +203,11 @@
     .decision-card { margin: 0 0 18px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--soft); }
     .decision-card strong { display: block; margin-bottom: 7px; font-size: 13px; }
     .decision-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .application-action-card { margin: 0 0 18px; padding: 15px 16px; border: 1px solid rgba(79,98,240,.18); border-radius: 15px; background: var(--blue-soft); }
+    .application-action-card[hidden] { display: none; }
+    .application-action-card strong { display: block; margin-bottom: 5px; font-size: 13px; }
+    .application-action-card p { margin: 0 0 11px; color: var(--muted); font-size: 12px; }
+    .application-action-card button { width: 100%; padding: 10px 12px; border: 1px solid var(--blue); border-radius: 10px; color: white; background: var(--blue); font-size: 12px; font-weight: 800; }
     .analysis-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .analysis-columns strong { color: var(--muted); font-size: 11px; text-transform: uppercase; }
     .analysis-columns ul { margin: 7px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.5; }
@@ -556,6 +561,11 @@
       <div class="detail-metric wide"><span>Recomendação</span><strong id="drawerRecommendation">Aguardando análise</strong></div>
     </div>
     <div class="decision-card"><strong>Por que esta decisão foi tomada</strong><ul id="decisionReasons"></ul></div>
+    <div class="application-action-card" id="applicationActionCard" hidden>
+      <strong>Próximo passo da candidatura</strong>
+      <p>Abra o anúncio e siga o processo do site. Depois, atualize o andamento para acompanhar tudo aqui.</p>
+      <button id="startApplicationButton" type="button">Abrir anúncio e iniciar candidatura</button>
+    </div>
     <button class="action-button original-job-button" id="openOriginalJob" type="button" hidden>Abrir anúncio original</button>
     <div class="action-grid">
   <button class="action-button" id="analyzeButton">
@@ -1212,6 +1222,9 @@
       const originalJobButton = $("openOriginalJob");
       originalJobButton.hidden = !item.job_url;
       originalJobButton.dataset.url = item.job_url || "";
+      const actionCard = $("applicationActionCard");
+      actionCard.hidden = !item.job_url || ["CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"].includes(item.status);
+      $("startApplicationButton").dataset.url = item.job_url || "";
       $("drawerScore").textContent = item.analysis_score == null ? "—" : Math.round(item.analysis_score);
       $("drawerPersonalization").textContent = item.personalization_score == null ? "—" : Math.round(item.personalization_score);
       $("drawerDecision").textContent = decisionLabels[item.queue_decision] || "Revisar";
@@ -1241,6 +1254,7 @@
         $(id).disabled = loading;
       });
       $("openOriginalJob").disabled = loading;
+      $("startApplicationButton").disabled = loading;
       $("newStatus").disabled = loading;
       $("statusNote").disabled = loading;
     }
@@ -1253,6 +1267,8 @@
       $("drawerCompany").textContent = "Estamos carregando os detalhes da oportunidade.";
       $("openOriginalJob").hidden = true;
       $("openOriginalJob").dataset.url = "";
+      $("applicationActionCard").hidden = true;
+      $("startApplicationButton").dataset.url = "";
       $("drawerScore").textContent = "—";
       $("drawerPersonalization").textContent = "—";
       $("drawerDecision").textContent = "Carregando…";
@@ -1903,6 +1919,12 @@ async function downloadCoverLetterDocument() {
     $("openOriginalJob").addEventListener("click", () => {
       const url = $("openOriginalJob").dataset.url;
       if (url) window.open(url, "_blank", "noopener");
+    });
+    $("startApplicationButton").addEventListener("click", () => {
+      const url = $("startApplicationButton").dataset.url;
+      if (!url) return;
+      window.open(url, "_blank", "noopener");
+      toast("Anúncio aberto. Depois de enviar, atualize o andamento para Candidatura enviada.");
     });
     $("analyzeButton").addEventListener("click", analyzeApplication);
     $("generateButton").addEventListener("click", generateDocument);
