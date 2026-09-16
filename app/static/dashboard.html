@@ -178,6 +178,9 @@
     .close { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: var(--soft); font-size: 20px; }
     .drawer h2 { margin: 16px 0 3px; font-size: 24px; line-height: 1.2; }
     .drawer-company { margin: 0; color: var(--muted); }
+    .drawer-loading-message { margin: 18px 0 0; padding: 11px 13px; border-radius: 11px; color: #245fc5; background: var(--blue-soft); font-size: 12px; font-weight: 700; }
+    .drawer-loading-message[hidden] { display: none; }
+    .drawer.loading .detail-metric strong, .drawer.loading .decision-card, .drawer.loading .timeline { opacity: .55; }
     .detail-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 22px 0; }
     .detail-metric { padding: 15px; border-radius: 14px; background: var(--soft); }
     .detail-metric span { display: block; color: var(--muted); font-size: 11px; }
@@ -544,6 +547,7 @@
   <aside class="drawer" id="drawer" aria-label="Detalhes da candidatura" aria-hidden="true">
     <div class="drawer-top"><span class="badge blue" id="drawerStatus">STATUS</span><button class="close" id="closeDrawer" aria-label="Fechar">×</button></div>
     <h2 id="drawerTitle"></h2><p class="drawer-company" id="drawerCompany"></p>
+    <p class="drawer-loading-message" id="drawerLoadingMessage" hidden>Estamos abrindo os detalhes desta candidatura…</p>
     <div class="detail-metrics">
       <div class="detail-metric"><span>Score de aderência</span><strong id="drawerScore">—</strong></div>
       <div class="detail-metric"><span>Personalização</span><strong id="drawerPersonalization">—</strong></div>
@@ -719,13 +723,19 @@
           $("userEmail").textContent = payload.user.email || "Usuario autenticado";
           $("logoutButton").hidden = false;
         }
-        await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
         const requestedApplication = new URLSearchParams(window.location.search).get("application_id");
+        if (requestedApplication) {
+          // Open a clear loading state immediately so navigation from Minhas candidaturas
+          // never looks like it returned to the dashboard by mistake.
+          showApplicationLoading();
+          window.history.replaceState({}, "", "/dashboard");
+        }
+        await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
         const requestedItem = applications.find(item => String(item.id) === String(requestedApplication || ""));
         if (requestedItem) {
           openApplication(requestedItem.id);
-          window.history.replaceState({}, "", "/dashboard");
         } else if (requestedApplication) {
+          closeDrawer();
           toast("Não foi possível localizar essa candidatura.");
         }
         if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
@@ -1192,6 +1202,7 @@
     function openApplication(id) {
       const item = applications.find(entry => entry.id === id); if (!item) return;
       selectedId = id;
+      setApplicationDrawerLoading(false);
       $("drawerStatus").textContent = statusLabels[item.status] || item.status;
       $("drawerStatus").className = `badge ${badgeClass(item.status)}`;
       $("drawerTitle").textContent = item.job_title;
@@ -1214,6 +1225,37 @@
         <time>${formatDate(event.created_at)}</time>${event.note ? `<p>${escapeHtml(event.note)}</p>` : ""}</div>`).join("");
       renderAnalysis(item.id);
       $("drawer").classList.add("open"); $("backdrop").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
+    }
+
+    function setApplicationDrawerLoading(loading) {
+      const drawer = $("drawer");
+      drawer.classList.toggle("loading", loading);
+      drawer.setAttribute("aria-busy", loading ? "true" : "false");
+      $("drawerLoadingMessage").hidden = !loading;
+      ["analyzeButton", "generateButton", "coverLetterButton", "downloadButton", "downloadSavedCoverLetterButton", "saveStatus"].forEach(id => {
+        $(id).disabled = loading;
+      });
+      $("newStatus").disabled = loading;
+      $("statusNote").disabled = loading;
+    }
+
+    function showApplicationLoading() {
+      selectedId = null;
+      $("drawerStatus").textContent = "Abrindo…";
+      $("drawerStatus").className = "badge blue";
+      $("drawerTitle").textContent = "Abrindo candidatura";
+      $("drawerCompany").textContent = "Estamos carregando os detalhes da oportunidade.";
+      $("drawerScore").textContent = "—";
+      $("drawerPersonalization").textContent = "—";
+      $("drawerDecision").textContent = "Carregando…";
+      $("drawerRecommendation").textContent = "Aguarde só um instante.";
+      $("decisionReasons").innerHTML = "<li>Buscando os dados da candidatura…</li>";
+      $("timeline").innerHTML = "<div class=\"event\"><strong>Carregando detalhes</strong><p>A candidatura será exibida aqui em instantes.</p></div>";
+      $("analysisCard").hidden = true;
+      $("drawer").classList.add("open");
+      $("backdrop").classList.add("open");
+      $("drawer").setAttribute("aria-hidden", "false");
+      setApplicationDrawerLoading(true);
     }
 
     function renderAnalysis(applicationId) {
@@ -1254,6 +1296,8 @@
 
     function closeDrawer() {
       $("drawer").classList.remove("open"); $("backdrop").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true");
+      $("drawer").removeAttribute("aria-busy");
+      setApplicationDrawerLoading(false);
     }
 
     async function saveStatus() {
