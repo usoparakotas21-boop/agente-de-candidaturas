@@ -9,8 +9,7 @@ from docx.enum.section import WD_SECTION
 from docx.enum.style import WD_STYLE_TYPE
 
 
-OUTPUT_DIR = Path("output")
-OUTPUT_DIR.mkdir(exist_ok=True)
+from .document_storage import OUTPUT_DIR
 
 
 MASTER_PROFILE = {

@@ -180,7 +180,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 10. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
 11. Concluir acessibilidade dos modais: script global agora registra o disparador, aplica foco inicial, devolve foco ao fechar, marca `aria-modal` e mantém o Tab dentro do diálogo, incluindo os drawers customizados.
 12. Concluir o isolamento operacional de OCR/IA/leitura de e-mail: uploads de currículo, OCR, confirmação e leitura de páginas já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
-13. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
+13. Concluir armazenamento privado e retenção: documentos gerados agora ficam em diretório temporário privado (permissão `0700`) fora da raiz do projeto, e a inicialização remove artefatos antigos conforme `DOCUMENT_RETENTION_DAYS` (60 dias por padrão). Uploads de OCR continuam sendo apagados imediatamente; falta ligar expurgo de rascunhos/objetos do Storage.
 14. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
 15. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
 16. Confirmar backups diários do Supabase, executar um teste de restauração e documentar a revogação/rotação emergencial de tokens OAuth e chaves de API.
@@ -237,7 +237,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner` | RLS aplicado; repetir prova de isolamento em **P0.1** e revisar chaves/papel do banco em **P0.14** |
 | Uploads | Validador central confirma magic bytes e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura; arquivos de vaga já tinham validação própria | Código e testes locais aprovados; isolamento/limpeza operacional continua em **P0.13** |
-| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.13**; retenção automática em **P1.6** |
+| Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P0.13/P1.6** |
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Sanitizador central remove markup executável de texto de vaga antes de persistir/analisar; frontend continua escapando campos; fronteira específica de prompt injection e testes hostis ainda faltam | Sanitização base implementada; CSP e superfícies restantes em **P0.6**, prompt injection em **P1.7** |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 88 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 89 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.11** |
 
 ## Variáveis e segredos

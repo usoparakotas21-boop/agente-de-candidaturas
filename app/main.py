@@ -37,6 +37,7 @@ from .models import Application, ApplicationEvent, Candidate, DocumentExportPurc
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
+from .document_storage import cleanup_expired_documents
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -418,6 +419,7 @@ def startup():
         db.commit()
     finally:
         db.close()
+    cleanup_expired_documents()
     start_monitor()
     start_outlook_monitor()
 
