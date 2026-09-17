@@ -805,7 +805,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")
@@ -814,7 +814,7 @@ def get_job_endpoint(job_id: int, user=Depends(authenticated_user)):
     try:
         job = _job_for_user(db, job_id, user)
         if job is None: raise HTTPException(404, "Vaga nao encontrada.")
-        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url, "description": job.description}
+        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url, "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None}
     finally: db.close()
 
 @app.get("/applications")
