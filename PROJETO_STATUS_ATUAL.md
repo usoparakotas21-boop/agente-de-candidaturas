@@ -164,6 +164,43 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | --- | --- | --- |
 | Painel operacional com boa base visual e segurança em consolidação. | SaaS estável e seguro, com P0 concluído, checkout funcional e UX redonda. | Copiloto completo de carreira: análise, documentos, preparação para entrevistas e extensão de navegador. |
 
+## Auditoria das sugestões recebidas
+
+As sugestões abaixo foram comparadas com o código, os testes, os painéis já verificados e a fila desta página. O destino indica a forma necessária para realmente encerrar o item.
+
+| Sugestão | Veredito | Destino correto e complemento necessário |
+| --- | --- | --- |
+| Reorganizar ações do cabeçalho, CTA único, menu de documentos e paginação | Já feito | Sem nova tarefa; manter regressão visual e paginação funcionando |
+| Badges, estados vazios, busca e contadores | Parcialmente feito | Badges, estados vazios e busca cargo/empresa existem; busca por tecnologia fica junto das heurísticas em **P1.3** se houver necessidade real |
+| Kanban, donut de score e exportação CSV/Excel operacional | Faz sentido, mas não é gate | **P2**; exportação de dados pessoais para LGPD é separada e permanece em **P1.6** |
+| Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.12**; dispensar é melhoria opcional depois da sincronização |
+| Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
+| Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
+| Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
+| IDOR e RLS obrigatório | Parcialmente feito | Migração RLS e testes locais estão feitos; prova com duas contas reais continua em **P0.1** |
+| `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita | Conferir painel do Supabase e conexão TLS em **P0.6**; não há motivo para adicionar essa chave ao app |
+| Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
+| Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
+| Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
+| Assinatura, replay e idempotência de webhook | Parcialmente feito | Mercado Pago tem HMAC no código, mas falta segredo e replay real; InfinitePay ainda depende da assinatura oficial do provedor. Tudo fica em **P0.5** |
+| Mensagens de erro genéricas | Feito no código | Apenas revisar endpoints legados em **P0.8**; não expor stack trace ou detalhes de provedor |
+| OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
+| Backup diário, restauração e revogação | Runbook feito | Evidência de backup e teste real permanecem em **P0.11** |
+| Cloudflare, DNS redundante e DDoS | Condicional | Só entram em **P2** quando houver domínio próprio e necessidade de borda; Render e UptimeRobot já cobrem a operação atual |
+| Termos, privacidade, consentimento, portabilidade e exclusão | Parcialmente feito | Páginas e aceite existem; consentimento versionado é **P1.7**, exportação/exclusão no mesmo fluxo é **P1.6**, textos legais em **P1.11** |
+| Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
+| Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
+| CLT/PJ/MEI, modalidade, salário e pretensão | Necessário para análise brasileira | **P1.9**; separar salário oferecido de pretensão do candidato e exibir confiança da extração |
+| Métrica de entrevistas por 100 candidaturas | Divisor de águas | **P1.1**, antes de prometer aumento de conversão; exige atribuição por canal e versão do documento |
+| Proteção contra golpes | Deve ser destaque de produto | **P1.2**; transformar sinais atuais em decisão de risco visível antes da candidatura |
+| Heurísticas de RH brasileiro | Diferencial válido | **P1.3**, versionadas, explicáveis e testadas junto da IA |
+| Copiloto de entrevistas e follow-up da zona morta | Faz sentido após medir eventos | **P1.4/P1.5**, dependem do registro correto de candidatura, retorno e entrevista |
+| Candidatura automática geral | Não deve ser liberada agora | Continua desativada até fechar P0 e validar termos/fluxos de cada plataforma; abrir anúncio e iniciar candidatura com confirmação do usuário é o comportamento seguro atual |
+| InfinitePay | Configuração não prova operação | **P0.5**; exige conta habilitada, método de assinatura documentado, webhook recebido e checkout controlado |
+| UptimeRobot | Já existe | Não recriar; apenas conferir painel, intervalo e alertas durante auditoria operacional |
+| Senhas comprometidas | Implementação adequada, mas com limite | k-anonimato e variável do Render estão feitos; o teste publicado é **P0.10**. A decisão fail-open/fail-closed deve ser documentada, pois indisponibilidade do serviço hoje não bloqueia a senha |
+
+
 ## Próximas prioridades
 
 ### P0 — antes de aceitar usuários pagantes
@@ -180,8 +217,6 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 10. **Senhas comprometidas — código e configuração do Render concluídos:** executar o teste controlado no serviço publicado sem registrar a senha usada.
 11. **Backup e recuperação — runbook concluído:** confirmar backup diário, retenção e teste de restauração isolada conforme `DISASTER_RECOVERY.md`.
 12. **Acessibilidade de modais — código concluído:** fazer a validação manual final com teclado em `<dialog>` e drawers.
-13. **Processamento pesado — código concluído:** separar monitores/IA em worker e impor limites distribuídos de concorrência/CPU.
-14. **Retenção — código local concluído:** ligar expurgo de rascunhos e objetos do Storage ao prazo configurável de 30/60 dias.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
@@ -192,22 +227,24 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 5. Implementar o acompanhamento da zona morta: prazos, lembretes, follow-up por canal e registro do retorno ou encerramento.
 6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
 7. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
-8. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
-9. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
-10. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
-11. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
-12. Sincronizar o card de onboarding com o perfil e as preferências reais.
-13. Exibir links legais e logout no cabeçalho/rodapé global.
+8. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
+9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
+10. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
+11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
+12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
+13. Sincronizar o card de onboarding com o perfil e as preferências reais.
+14. Exibir links legais e logout no cabeçalho/rodapé global.
 
 ### Próximo ciclo prático já classificado
 
 1. **Gate de e-mail confirmado:** já implementado no backend; o próximo trabalho é somente validar a configuração real do Supabase, templates, redirecionamentos e reenvio em produção. Não é uma nova implementação P0.
 2. **Idempotência de pagamentos:** permanece dentro do **P0.5**, junto da assinatura dos webhooks e da exposição pública correta das rotas. A chave deve registrar `order_nsu` e `payment_id` e permitir apenas uma transição válida para `PAID`.
-3. **Expurgo automático de uploads:** permanece em **P0.14**, depois da validação operacional do armazenamento; a rotina deve cobrir temporários, prints e rascunhos abandonados com prazo configurável de 30/60 dias.
+3. **Expurgo automático de uploads:** permanece em **P1.8**, depois da validação do armazenamento privado; a rotina deve cobrir temporários, prints e rascunhos abandonados com prazo configurável de 30/60 dias.
 
 ### P2 — escala e diferenciação
 
 - Separar Gmail/Outlook em worker próprio e monitorar falhas.
+- Separar OCR/IA e tarefas de documentos em worker próprio com limites distribuídos de concorrência/CPU; os timeouts HTTP atuais continuam sendo a proteção do P0.
 - Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
 - Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
 - Criar extensão de navegador para captação autorizada.
@@ -234,15 +271,15 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner`; código cliente usa a chave publicável e o Render não exibe chave mestra | RLS aplicado; prova real de isolamento e conferência equivalente no Supabase permanecem em **P0.1/P0.6** |
 | Senhas comprometidas | Consulta k-anonimizada envia apenas o prefixo do hash SHA-1 para o serviço de verificação; `PWNED_PASSWORD_CHECK` aparece no Render sem expor valor | Código e configuração do Render confirmados; testar comportamento do serviço publicado em **P0.10** |
-| Uploads | Validador central confirma magic bytes, estrutura e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura | Código e testes locais aprovados; validação operacional e expurgo externo seguem em **P0.2/P0.14** |
-| Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P0.14** |
+| Uploads | Validador central confirma magic bytes, estrutura e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura | Código e testes locais aprovados; validação operacional em **P0.2** e expurgo externo em **P1.8** |
+| Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P1.8** |
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Sanitizador central remove markup executável antes de persistir/analisar; prompt de entrevistas delimita dados não confiáveis e testes hostis verificam que tags/instruções não escapam | Sanitização e primeira fronteira implementadas; CSP/superfícies restantes em **P0.7**, ampliar cobertura por origem em **P1.8** |
 | Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e testes locais aprovados; `MERCADOPAGO_WEBHOOK_SECRET` ainda não aparece no Render, e faltam assinatura da InfinitePay e replay controlado em **P0.5** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Implementado; revisar endpoints operacionais restantes em **P0.8** |
-| Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P0.13/P2** |
+| Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P2** |
 | Backup e recuperação | `DISASTER_RECOVERY.md` cobre restauração isolada, validação de RLS, UptimeRobot e revogação/rotação sem registrar segredos | Runbook concluído; confirmar backup diário e executar restauração real em **P0.11** |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
