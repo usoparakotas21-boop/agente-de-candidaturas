@@ -8,7 +8,7 @@ from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -149,6 +149,30 @@ def _validated_password(password: str) -> str:
     if not re.search(r"[^A-Za-z0-9]", password):
         raise HTTPException(422, "Inclua pelo menos um simbolo.")
     return password
+
+
+def _email_is_verified(user: dict | None) -> bool:
+    """Return whether Supabase explicitly considers the account confirmed.
+
+    Older/local test doubles may omit both confirmation fields. In that case
+    there is no provider signal to enforce, so keep the existing behavior. A
+    real Supabase user includes these fields, and an explicit null value means
+    the confirmation link is still pending.
+    """
+    if not isinstance(user, dict):
+        return False
+    fields = ("email_confirmed_at", "confirmed_at")
+    if not any(field in user for field in fields):
+        return True
+    return any(bool(user.get(field)) for field in fields)
+
+
+def _email_confirmation_error() -> HTTPException:
+    return HTTPException(
+        403,
+        "Confirme seu e-mail antes de entrar. Enviamos um link para o endereço cadastrado.",
+        headers={"X-Auth-Reason": "email_not_verified"},
+    )
 def _auth_redirect_url() -> str:
     if not APP_BASE_URL.startswith("https://"):
         raise HTTPException(
@@ -303,16 +327,33 @@ async def login(payload: LoginRequest, request: Request = None):
         )
 
     session = response.json()
-    result = JSONResponse(
-        {
-            "authenticated": True,
-            "user": {
-                "id": session["user"]["id"],
-                "email": session["user"].get("email"),
+    session_user = session.get("user")
+    authenticated = bool(session.get("access_token") and session_user and _email_is_verified(session_user))
+    confirmation_required = bool(session_user) and not _email_is_verified(session_user)
+    if confirmation_required:
+        result = JSONResponse(
+            {
+                "authenticated": False,
+                "confirmation_required": True,
+                "code": "email_not_verified",
+                "detail": _email_confirmation_error().detail,
             },
-        }
-    )
-    _set_session_cookies(result, session)
+            status_code=403,
+            headers={"X-Auth-Reason": "email_not_verified"},
+        )
+    else:
+        result = JSONResponse(
+            {
+                "authenticated": authenticated,
+                "confirmation_required": False,
+                "user": {
+                    "id": session_user["id"],
+                    "email": session_user.get("email"),
+                } if session_user else None,
+            }
+        )
+    if authenticated:
+        _set_session_cookies(result, session)
     return result
 
 
@@ -353,15 +394,17 @@ async def signup(payload: SignupRequest, request: Request = None):
         )
 
     session = response.json()
-    authenticated = bool(session.get("access_token") and session.get("user"))
+    session_user = session.get("user")
+    authenticated = bool(session.get("access_token") and session_user and _email_is_verified(session_user))
+    confirmation_required = bool(session_user) and not _email_is_verified(session_user)
     result = JSONResponse(
         {
             "created": True,
             "authenticated": authenticated,
-            "confirmation_required": not authenticated,
+            "confirmation_required": not authenticated or confirmation_required,
             "message": (
                 "Conta criada. Confira seu e-mail para confirmar o cadastro."
-                if not authenticated
+                if not authenticated or confirmation_required
                 else "Conta criada com sucesso."
             ),
         },
@@ -377,6 +420,8 @@ async def accept_session(payload: SessionRequest):
     user = await user_from_token(payload.access_token)
     if user is None:
         raise HTTPException(401, "Sessao de confirmacao invalida ou expirada.")
+    if not _email_is_verified(user):
+        raise _email_confirmation_error()
 
     result = JSONResponse(
         {
@@ -549,6 +594,14 @@ async def current_user(request: Request):
         response = JSONResponse({"detail": "Login necessario."}, status_code=401)
         _clear_session_cookies(response)
         return response
+    if not _email_is_verified(user):
+        response = JSONResponse(
+            {"detail": _email_confirmation_error().detail, "code": "email_not_verified"},
+            status_code=403,
+            headers={"X-Auth-Reason": "email_not_verified"},
+        )
+        _clear_session_cookies(response)
+        return response
 
     response = JSONResponse(
         {
@@ -586,6 +639,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/resend-confirmation",
         "/auth/me",
         "/auth/logout",
+        "/auth/verification-required",
         "/docs",
         "/openapi.json",
         "/redoc",
@@ -604,6 +658,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
         user, renewed_session = await _resolve_session(request)
         if user is None:
             response = JSONResponse({"detail": "Login necessario."}, status_code=401)
+            _clear_session_cookies(response)
+            return response
+
+        if not _email_is_verified(user):
+            wants_html = request.method in {"GET", "HEAD"} and "text/html" in request.headers.get("accept", "")
+            if wants_html:
+                response = RedirectResponse("/auth/verification-required", status_code=303)
+            else:
+                response = JSONResponse(
+                    {"detail": _email_confirmation_error().detail, "code": "email_not_verified"},
+                    status_code=403,
+                    headers={"X-Auth-Reason": "email_not_verified"},
+                )
             _clear_session_cookies(response)
             return response
 

@@ -127,6 +127,63 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(auth.ACCESS_COOKIE_NAME in value for value in cookies))
         self.assertTrue(any(auth.REFRESH_COOKIE_NAME in value for value in cookies))
 
+    async def test_signup_does_not_set_session_for_explicitly_unverified_user(self):
+        session = {
+            "access_token": "new-access",
+            "refresh_token": "new-refresh",
+            "expires_in": 3600,
+            "user": {
+                "id": "owner-new",
+                "email": "pessoa@example.com",
+                "email_confirmed_at": None,
+                "confirmed_at": None,
+            },
+        }
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=httpx.Response(200, json=session)),
+            ),
+        ):
+            response = await auth.signup(
+                auth.SignupRequest(
+                    name="Pessoa Teste",
+                    email="pessoa@example.com",
+                    password="Senha-segura1!",
+                )
+            )
+
+        body = json.loads(response.body)
+        self.assertFalse(body["authenticated"])
+        self.assertTrue(body["confirmation_required"])
+        self.assertEqual(response.headers.getlist("set-cookie"), [])
+
+    async def test_login_rejects_explicitly_unverified_user(self):
+        session = {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "user": {
+                "id": "owner-a",
+                "email": "pessoa@example.com",
+                "email_confirmed_at": None,
+            },
+        }
+        with patch.object(
+            auth,
+            "_supabase_request",
+            AsyncMock(return_value=httpx.Response(200, json=session)),
+        ):
+            response = await auth.login(
+                auth.LoginRequest(email="pessoa@example.com", password="Senha-segura1!")
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.body)["code"], "email_not_verified")
+        self.assertEqual(response.headers.get("x-auth-reason"), "email_not_verified")
+        self.assertEqual(response.headers.getlist("set-cookie"), [])
+
     async def test_login_normalizes_email_before_calling_supabase(self):
         session = {
             "access_token": "access",
@@ -193,6 +250,25 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(auth.ACCESS_COOKIE_NAME in value for value in cookies))
         self.assertTrue(any(auth.REFRESH_COOKIE_NAME in value for value in cookies))
         self.assertTrue(all("HttpOnly" in value for value in cookies))
+
+    async def test_confirmation_session_rejects_unverified_token(self):
+        with patch.object(
+            auth,
+            "user_from_token",
+            AsyncMock(
+                return_value={
+                    "id": "owner-new",
+                    "email": "pessoa@example.com",
+                    "email_confirmed_at": None,
+                }
+            ),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                await auth.accept_session(
+                    auth.SessionRequest(access_token="pending-access")
+                )
+        self.assertEqual(raised.exception.status_code, 403)
+        self.assertIn("Confirme seu e-mail", raised.exception.detail)
 
     async def test_forgot_password_returns_generic_message(self):
         with (
@@ -306,6 +382,46 @@ class AuthMiddlewareTest(unittest.TestCase):
             response = client.get("/private")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["owner_id"], "owner-a")
+
+    def test_private_route_redirects_unverified_html_request(self):
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "email_confirmed_at": None,
+        }
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(
+                auth,
+                "_resolve_session",
+                AsyncMock(return_value=(user, None)),
+            ),
+            TestClient(self.app) as client,
+        ):
+            response = client.get("/private", headers={"accept": "text/html"}, follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/auth/verification-required")
+
+    def test_private_route_rejects_unverified_api_request(self):
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "email_confirmed_at": None,
+        }
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(
+                auth,
+                "_resolve_session",
+                AsyncMock(return_value=(user, None)),
+            ),
+            TestClient(self.app) as client,
+        ):
+            response = client.get("/private", headers={"accept": "application/json"})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["code"], "email_not_verified")
 
     def test_signup_route_is_public(self):
         with (

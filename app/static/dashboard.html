@@ -767,6 +767,13 @@
       try {
         const response = await fetch("/auth/me");
         if (!response.ok) {
+          if (response.status === 403) {
+            const detail = await response.json().catch(() => ({}));
+            if (detail.code === "email_not_verified") {
+              window.location.href = "/auth/verification-required";
+              return;
+            }
+          }
           $("authGate").hidden = false;
           showAuthMode("login");
           return;

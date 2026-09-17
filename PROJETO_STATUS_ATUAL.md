@@ -19,7 +19,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Cookies de sessão com `HttpOnly`, `SameSite=Lax` e `Secure` configurável por `COOKIE_SECURE`.
 - Cookie de acesso e refresh renovados pelo middleware quando necessário.
 - Formulário de cadastro com aceite obrigatório dos Termos de Uso e da Política de Privacidade.
-- Supabase pode exigir confirmação de e-mail e o login traduz esse retorno para uma mensagem compreensível.
+- Confirmação de e-mail é um gate explícito: sessão, login, callback de confirmação e rotas protegidas recusam contas pendentes; há página própria e reenvio limitado.
 - O botão `Sair` existe no shell autenticado e na área de Segurança.
 
 ### Perfil, currículo e documentos
@@ -100,7 +100,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ## O que está parcial ou ainda não existe
 
-- Verificação de e-mail ainda não é um gate uniforme para todas as operações; o Supabase pode retornar confirmação pendente, mas falta uma experiência e uma regra de backend consistentes.
+- O gate de confirmação de e-mail está implementado; falta validar em produção as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
 - O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
@@ -127,7 +127,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. Tornar verificação de e-mail obrigatória e consistente antes da sessão e das operações sensíveis, com reenvio limitado.
+1. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
 2. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
 3. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads.
@@ -163,7 +163,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ## Validações recentes
 
 - Compilação de `app/auth.py`, `app/main.py` e `app/security.py` aprovada.
-- 20 testes de autenticação e controles de segurança aprovados.
+- 25 testes de autenticação e controles de segurança aprovados, incluindo cadastro/login/callback pendentes e redirecionamento de contas não confirmadas.
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `cad91fb` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.

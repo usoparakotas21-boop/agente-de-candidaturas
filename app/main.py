@@ -65,6 +65,7 @@ SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
 TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
+EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
 
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
@@ -391,6 +392,12 @@ def terms_page():
 @app.get("/privacidade", response_class=HTMLResponse, include_in_schema=False)
 def privacy_page():
     return HTMLResponse(PRIVACY_PATH.read_text(encoding="utf-8"))
+
+@app.get("/auth/verification-required", response_class=HTMLResponse, include_in_schema=False)
+def email_verification_page():
+    if not EMAIL_VERIFICATION_PATH.is_file():
+        raise HTTPException(500, "Pagina de confirmacao nao encontrada.")
+    return HTMLResponse(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8"))
 
 @app.get("/health", include_in_schema=False)
 def health():

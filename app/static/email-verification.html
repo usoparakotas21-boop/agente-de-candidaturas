@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirme seu e-mail · Agente de Candidaturas</title>
+  <style>
+    :root { color-scheme: light; --navy:#10234f; --blue:#4f5bea; --muted:#60708b; --line:#dce4f2; --paper:#f6f8fc; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; color:var(--navy); background:var(--paper); font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(100%,520px); padding:34px; border:1px solid var(--line); border-radius:20px; background:#fff; box-shadow:0 18px 50px rgba(16,35,79,.10); }
+    .mark { width:44px; height:44px; display:grid; place-items:center; border-radius:13px; color:#fff; background:var(--blue); font-weight:850; }
+    h1 { margin:22px 0 8px; font-size:clamp(25px,5vw,34px); line-height:1.1; }
+    p { margin:10px 0; color:var(--muted); }
+    form { display:grid; gap:10px; margin-top:22px; }
+    label { font-size:12px; font-weight:750; color:var(--navy); }
+    input { width:100%; min-height:46px; padding:11px 13px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+    button, a { min-height:44px; display:inline-flex; align-items:center; justify-content:center; padding:10px 15px; border-radius:10px; font:inherit; font-weight:800; text-decoration:none; cursor:pointer; }
+    button { border:0; color:#fff; background:var(--blue); }
+    button:disabled { cursor:wait; opacity:.65; }
+    a { margin-top:10px; border:1px solid var(--line); color:var(--navy); background:#fff; }
+    .status { min-height:24px; margin:8px 0 0; color:#16794b; font-size:13px; }
+    .error { color:#b42318; }
+    @media(max-width:520px){ main{padding:26px 21px;border-radius:15px} }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true">AC</div>
+    <h1>Confirme seu e-mail</h1>
+    <p>Para entrar no painel, abra o link enviado para o seu e-mail. A confirmação protege sua conta e evita acessos indevidos.</p>
+    <form id="confirmationForm">
+      <label for="email">E-mail usado no cadastro</label>
+      <input id="email" type="email" autocomplete="email" required>
+      <button id="resendButton" type="submit">Reenviar confirmação</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+    <a href="/">Voltar para o início</a>
+  </main>
+  <script>
+    const form = document.getElementById("confirmationForm");
+    const email = document.getElementById("email");
+    const button = document.getElementById("resendButton");
+    const status = document.getElementById("status");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.className = "status";
+      status.textContent = "";
+      button.disabled = true;
+      try {
+        const response = await fetch("/auth/resend-confirmation", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email: email.value.trim()})
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Não foi possível reenviar agora.");
+        status.textContent = payload.message || "Se houver um cadastro pendente, o e-mail será reenviado.";
+      } catch (error) {
+        status.className = "status error";
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
