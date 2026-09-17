@@ -132,9 +132,20 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
 - O produto ainda não fecha o ciclo de resultado: não há atribuição confiável entre versão do currículo, canal, candidatura e entrevista qualificada.
+- O avaliador de entrevistas já existe, mas ainda não transforma os gaps da vaga em um roteiro de preparação contextualizado para cada candidatura.
+- Não há acompanhamento automático da zona morta após a candidatura, com prazo, lembrete e sugestão de follow-up apropriado ao canal.
 - A proteção contra golpes já aparece como sinal na análise, mas ainda não é uma porta de entrada claramente posicionada nem um fluxo completo de risco antes da candidatura.
 - As heurísticas de RH brasileiro ainda não estão formalizadas como regras versionadas e explicáveis do motor de análise.
 - Não existe visão Kanban, extensão de navegador ou exportação operacional para CSV/Excel.
+
+## Divisor de águas incorporado ao planejamento
+
+As ideias de diferenciação foram incluídas como produto de resultado e hábito, sem antecipar a extensão antes de fechar segurança, métricas e fluxo de candidatura:
+
+- **Copiloto de entrevistas baseado em gaps:** usar os requisitos ausentes e os pontos fracos da análise para gerar perguntas prováveis, respostas orientadas por evidências do currículo e um plano de estudo por vaga.
+- **Acompanhamento da zona morta:** iniciar o relógio quando a candidatura for registrada, sugerir lembrete e follow-up conforme o canal e permitir registrar resposta, entrevista ou encerramento.
+- **Prova social por conversão:** mostrar a sequência vagas analisadas → candidaturas enviadas → entrevistas qualificadas, segmentada por origem e versão de currículo/carta, sem prometer aumento antes de haver amostra suficiente.
+- **Extensão de navegador 1-click:** permanece como aposta de escala no P2; deverá usar permissões mínimas, consentimento explícito e captação autorizada em cada site.
 
 ## Direção de produto incorporada ao planejamento
 
@@ -169,17 +180,19 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
 1. Fechar o loop de resultado: persistir eventos de candidatura e retorno, versionar currículo/carta e origem, registrar entrevistas qualificadas e criar a primeira visão de conversão por 100 candidaturas.
-2. Transformar proteção contra golpe em etapa explícita de risco, com sinais, explicação, bloqueio ou revisão e registro do resultado para calibrar os critérios.
-3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; cada regra deve ser versionada, explicável e coberta por teste.
-4. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
-5. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
-6. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
-7. Delimitar conteúdo de vagas, OCR, Gmail e PDFs como dados não confiáveis; adicionar testes contra prompt injection.
-8. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
-9. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
-10. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
-11. Sincronizar o card de onboarding com o perfil e as preferências reais.
-12. Exibir links legais e logout no cabeçalho/rodapé global.
+2. Criar o copiloto de entrevistas baseado nos gaps: perguntas prováveis, roteiro de resposta com fatos comprovados e plano de preparação por vaga.
+3. Implementar o acompanhamento da zona morta: prazos, lembretes, follow-up por canal e registro do retorno ou encerramento.
+4. Transformar proteção contra golpe em etapa explícita de risco, com sinais, explicação, bloqueio ou revisão e registro do resultado para calibrar os critérios.
+5. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; cada regra deve ser versionada, explicável e coberta por teste.
+6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
+7. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
+8. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
+9. Delimitar conteúdo de vagas, OCR, Gmail e PDFs como dados não confiáveis; adicionar testes contra prompt injection.
+10. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
+11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
+12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
+13. Sincronizar o card de onboarding com o perfil e as preferências reais.
+14. Exibir links legais e logout no cabeçalho/rodapé global.
 
 ### Próximo ciclo prático já classificado
 
