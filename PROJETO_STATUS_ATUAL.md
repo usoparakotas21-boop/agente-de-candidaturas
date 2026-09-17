@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `cad91fb` — `Add security headers and auth rate limiting`  
+**Commit publicado:** `e84fd60` — `Enforce email confirmation before access`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -165,7 +165,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Compilação de `app/auth.py`, `app/main.py` e `app/security.py` aprovada.
 - 25 testes de autenticação e controles de segurança aprovados, incluindo cadastro/login/callback pendentes e redirecionamento de contas não confirmadas.
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
-- Deploy `cad91fb` confirmado como ativo no Render.
+- Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - O conjunto histórico registrava 59 testes aprovados em 15/09/2026; a suíte completa precisa ser reexecutada no ambiente com todas as dependências instaladas.
 
