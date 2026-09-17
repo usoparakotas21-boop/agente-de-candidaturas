@@ -110,8 +110,10 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Currículo e arquivos de vaga já validam assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central para todos os uploads.
 - Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
 - Falta sanitização central no backend para conteúdo de vaga, e-mail e OCR que possa voltar para HTML.
+- O avaliador que envia pergunta, resposta e contexto para a Gemini ainda precisa de uma fronteira explícita de dados não confiáveis e testes contra prompt injection.
 - Falta verificação contra senhas comprometidas e fluxo completo de MFA no login, recuperação e revogação.
 - Os handlers de webhook consultam o provedor antes de liberar a compra, mas as rotas de webhook ainda não estão na lista pública do middleware de autenticação; também falta assinatura/verificação equivalente e idempotência explícita contra replay.
+- As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
@@ -141,10 +143,10 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 ### P0 — antes de aceitar usuários pagantes
 
 1. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
-2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência contra replays.
+2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência atômica contra replays; uma transição já paga não deve ser reaplicada.
 3. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
 4. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
-5. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
+5. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras, integrações e rotas de download/exportação; a autorização deve exigir dono compatível e transação paga válida.
 6. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
 7. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads, incluindo foto de perfil.
 8. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
@@ -168,6 +170,12 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 10. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 11. Sincronizar o card de onboarding com o perfil e as preferências reais.
 12. Exibir links legais e logout no cabeçalho/rodapé global.
+
+### Próximo ciclo prático já classificado
+
+1. **Gate de e-mail confirmado:** já implementado no backend; o próximo trabalho é somente validar a configuração real do Supabase, templates, redirecionamentos e reenvio em produção. Não é uma nova implementação P0.
+2. **Idempotência de pagamentos:** permanece dentro do **P0.2**, junto da assinatura dos webhooks e da exposição pública correta das rotas. A chave deve registrar `order_nsu` e `payment_id` e permitir apenas uma transição válida para `PAID`.
+3. **Expurgo automático de uploads:** permanece em **P1.6**, depois do fechamento do P0; a rotina deve cobrir temporários, prints e rascunhos abandonados com prazo configurável de 30/60 dias.
 
 ### P2 — escala e diferenciação
 
@@ -198,8 +206,9 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e foto em **P0.7** |
 | Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.8**; retenção automática em **P1.6** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
-| XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; não há sanitização central nem testes de conteúdo hostil na IA | XSS armazenado em **P0.13**; prompt injection em **P1.7** |
+| XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.13**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
+| Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; a autorização ainda não está vinculada a uma transação/exportação específica e falta teste integrado de IDOR | Refinamento e teste em **P0.5** |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.5**; textos legais em **P1.10** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.4** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
