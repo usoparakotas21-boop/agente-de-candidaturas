@@ -349,6 +349,14 @@ class AuthMiddlewareTest(unittest.TestCase):
         async def public_signup():
             return {"public": True}
 
+        @self.app.get("/termos")
+        async def terms_page():
+            return {"public": "terms"}
+
+        @self.app.get("/privacidade")
+        async def privacy_page():
+            return {"public": "privacy"}
+
         @self.app.get("/private")
         async def private(request: FastAPIRequest):
             return {"owner_id": request.state.user["id"]}
@@ -366,6 +374,23 @@ class AuthMiddlewareTest(unittest.TestCase):
         ):
             response = client.get("/private")
         self.assertEqual(response.status_code, 401)
+
+    def test_legal_pages_are_public_before_login(self):
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=False),
+            TestClient(self.app) as client,
+        ):
+            terms = client.get("/termos")
+            privacy = client.get("/privacidade")
+        self.assertEqual(terms.status_code, 200)
+        self.assertEqual(terms.json(), {"public": "terms"})
+        self.assertEqual(privacy.status_code, 200)
+        self.assertEqual(privacy.json(), {"public": "privacy"})
+
+        with TestClient(self.app) as client:
+            self.assertIn(client.get("/termos/").status_code, {200, 307})
+            self.assertIn(client.get("/privacidade/").status_code, {200, 307})
 
     def test_private_route_receives_verified_user(self):
         user = {"id": "owner-a", "email": "a@example.com"}

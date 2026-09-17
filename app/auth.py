@@ -862,6 +862,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/webhooks/infinitepay",
         "/webhooks/mercadopago",
         "/auth/verification-required",
+        # Documentos legais precisam ser legíveis antes do cadastro e do
+        # consentimento; não podem cair no bloqueio de sessão.
+        "/termos",
+        "/termos/",
+        "/privacidade",
+        "/privacidade/",
         "/docs",
         "/openapi.json",
         "/redoc",

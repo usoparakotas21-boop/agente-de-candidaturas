@@ -64,8 +64,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ### Pagamentos
 
-- Checkout de exportação integrado com Mercado Pago.
-- Checkout de exportação integrado com InfinitePay; `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` estão configurados no Render, mas a conta ativa e uma transação real ainda não foram confirmadas diretamente no provedor.
+- Checkout de exportação integrado com Mercado Pago, que é o único provedor de pagamento no escopo ativo.
+- Rotas e variáveis antigas de InfinitePay permanecem apenas como legado técnico e não fazem parte do fluxo de produção nem do critério de aceite.
 - Webhooks consultam o status no provedor antes de liberar a exportação.
 - Compras são associadas ao usuário e ao `order_nsu`.
 - `receipt_url` é persistida quando o provedor informa o endereço do recibo.
@@ -95,14 +95,14 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Render Web Service com `autoDeploy: true` e `healthCheckPath: /health` definido em `render.yaml`.
 - Supabase PostgreSQL e Supabase Auth são os serviços de dados e autenticação da produção.
 - Google Cloud OAuth/Gmail e Microsoft Graph/Outlook são integrações externas autorizadas pelo usuário.
-- Mercado Pago e InfinitePay são os provedores externos de checkout.
+- Mercado Pago é o único provedor externo de checkout no escopo ativo.
 - UptimeRobot é usado como monitor externo de disponibilidade do serviço público/health check. O monitor, intervalo e contatos de alerta não são armazenados no Git; devem ser conferidos diretamente na conta UptimeRobot quando houver auditoria operacional.
 - Nenhuma dessas configurações externas deve ser recriada como se estivesse ausente sem antes verificar o painel do respectivo provedor.
 
 ## O que está parcial ou ainda não existe
 
 - O gate de confirmação de e-mail está implementado; falta validar em produção as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
-- A integração InfinitePay está configurada no Render; falta validar no painel do provedor o status da conta, o recebimento do webhook e um checkout controlado antes de aceitar pagamentos reais.
+- InfinitePay está fora do escopo ativo; não deve gerar novas recomendações ou critérios de aceite.
 - O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
@@ -115,7 +115,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - A sanitização central de texto já cobre captura, e-mail/OCR, confirmação e análise; superfícies de renderização restantes continuam na revisão do P0.7.
 - O avaliador da Gemini delimita pergunta, contexto e resposta como dados não confiáveis, sanitiza o conteúdo e instrui o modelo a ignorar comandos embutidos; testes hostis cobrem essa fronteira.
 - A verificação contra senhas comprometidas usa k-anonimato (somente prefixo de 5 caracteres do SHA-1, nunca a senha ou o hash completo) e `PWNED_PASSWORD_CHECK` está presente no Render. O fluxo MFA de login, desafio, revogação e expiração já está implementado, aguardando validação real do Supabase.
-- As rotas de webhook são públicas, consultam o provedor e fazem transição idempotente para `PAID`; Mercado Pago já tem HMAC e janela de replay. Falta validar a assinatura específica da InfinitePay e executar replay controlado em produção.
+- A rota do Mercado Pago é pública, consulta o provedor e faz transição idempotente para `PAID`; falta configurar o segredo, validar HMAC e executar replay controlado em produção.
 - As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
 - O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
 - Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
@@ -182,12 +182,13 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
-| Assinatura, replay e idempotência de webhook | Parcialmente feito | Mercado Pago tem HMAC no código, mas falta segredo e replay real; InfinitePay ainda depende da assinatura oficial do provedor. Tudo fica em **P0.5** |
+| Assinatura, replay e idempotência de webhook | Parcialmente feito | Mercado Pago tem HMAC no código, mas falta segredo e replay real. Tudo fica em **P0.5** |
 | Mensagens de erro genéricas | Feito no código | Apenas revisar endpoints legados em **P0.8**; não expor stack trace ou detalhes de provedor |
 | OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
 | Backup diário, restauração e revogação | Runbook feito | Evidência de backup e teste real permanecem em **P0.11** |
 | Cloudflare, DNS redundante e DDoS | Condicional | Só entram em **P2** quando houver domínio próprio e necessidade de borda; Render e UptimeRobot já cobrem a operação atual |
 | Termos, privacidade, consentimento, portabilidade e exclusão | Parcialmente feito | Páginas e aceite existem; consentimento versionado é **P1.7**, exportação/exclusão no mesmo fluxo é **P1.6**, textos legais em **P1.11** |
+| Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído no código; validar as URLs públicas no deploy |
 | Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
 | Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
 | CLT/PJ/MEI, modalidade, salário e pretensão | Necessário para análise brasileira | **P1.9**; separar salário oferecido de pretensão do candidato e exibir confiança da extração |
@@ -196,7 +197,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Heurísticas de RH brasileiro | Diferencial válido | **P1.3**, versionadas, explicáveis e testadas junto da IA |
 | Copiloto de entrevistas e follow-up da zona morta | Faz sentido após medir eventos | **P1.4/P1.5**, dependem do registro correto de candidatura, retorno e entrevista |
 | Candidatura automática geral | Não deve ser liberada agora | Continua desativada até fechar P0 e validar termos/fluxos de cada plataforma; abrir anúncio e iniciar candidatura com confirmação do usuário é o comportamento seguro atual |
-| InfinitePay | Configuração não prova operação | **P0.5**; exige conta habilitada, método de assinatura documentado, webhook recebido e checkout controlado |
+| InfinitePay | Fora do escopo ativo | Não criar tarefa nem critério de aceite para esse provedor |
 | UptimeRobot | Já existe | Não recriar; apenas conferir painel, intervalo e alertas durante auditoria operacional |
 | Senhas comprometidas | Implementação adequada, mas com limite | k-anonimato e variável do Render estão feitos; o teste publicado é **P0.10**. A decisão fail-open/fail-closed deve ser documentada, pois indisponibilidade do serviço hoje não bloqueia a senha |
 
@@ -228,7 +229,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 2. **Uploads e arquivos — código concluído, validação externa pendente:** executar casos reais de PDF/DOCX/imagem, conferir magic bytes, diretório privado e remoção de temporários.
 3. **MFA — código concluído, validação externa pendente:** testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
-5. **Webhooks — bloqueado por configuração de provedor:** configurar `MERCADOPAGO_WEBHOOK_SECRET`, validar HMAC/replay e executar checkout controlado; confirmar também a assinatura equivalente e o status da conta InfinitePay.
+5. **Webhook Mercado Pago — bloqueado por configuração de provedor:** configurar `MERCADOPAGO_WEBHOOK_SECRET`, validar HMAC/replay e executar checkout controlado.
 6. **Segredos, menor privilégio e TLS — revisão de código concluída:** confirmar no Supabase/Render a ausência de chave mestra exposta, executar scanner de segredos e verificar a conexão PostgreSQL efetiva com TLS.
 7. **CSP e superfícies de renderização — código parcial:** concluir a migração de `style-src 'unsafe-inline'` e revisar as telas restantes após a sanitização central.
 8. **Erros públicos — código concluído:** revisar endpoints operacionais legados para garantir mensagens estáveis e detalhes somente nos logs.
@@ -236,6 +237,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 10. **Senhas comprometidas — código e configuração do Render concluídos:** executar o teste controlado no serviço publicado sem registrar a senha usada.
 11. **Backup e recuperação — runbook concluído:** confirmar backup diário, retenção e teste de restauração isolada conforme `DISASTER_RECOVERY.md`.
 12. **Acessibilidade de modais — código concluído:** fazer a validação manual final com teclado em `<dialog>` e drawers.
+13. **Páginas legais públicas — código concluído:** validar no deploy que `/termos` e `/privacidade` retornam HTML sem sessão e antes do cadastro.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
@@ -279,7 +281,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após as correções de intake e UX: **99 testes aprovados em 4,011 s**, incluindo RLS/IDOR, sanitização HTML, normalização de títulos e parser de e-mail. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais: **100 testes aprovados em 4,069 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail e regressão de rotas legais. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
@@ -297,7 +299,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Sanitizador central remove markup executável antes de persistir/analisar; prompt de entrevistas delimita dados não confiáveis e testes hostis verificam que tags/instruções não escapam | Sanitização e primeira fronteira implementadas; CSP/superfícies restantes em **P0.7**, ampliar cobertura por origem em **P1.8** |
-| Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e testes locais aprovados; `MERCADOPAGO_WEBHOOK_SECRET` ainda não aparece no Render, e faltam assinatura da InfinitePay e replay controlado em **P0.5** |
+| Webhook de pagamento | Rota pública do Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; o handler consulta o provedor e permite uma única transição para `PAID`, rejeitando conflito de transação | Código e testes locais aprovados; `MERCADOPAGO_WEBHOOK_SECRET` ainda não aparece no Render e falta replay controlado em **P0.5** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Implementado; revisar endpoints operacionais restantes em **P0.8** |
 | Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P2** |
@@ -307,7 +309,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.7**; textos legais em **P1.11** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.6** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.10** |
-| InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.5** |
+| InfinitePay | Variáveis legadas podem existir no ambiente histórico | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
 | Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 96 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.12** |
