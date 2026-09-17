@@ -13,6 +13,8 @@ services:
         value: "true"
       - key: MFA_LOGIN_ENFORCE
         value: "true"
+      - key: PWNED_PASSWORD_CHECK
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: SUPABASE_URL

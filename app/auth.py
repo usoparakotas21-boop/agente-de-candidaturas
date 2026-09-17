@@ -3,6 +3,7 @@ import re
 import logging
 import threading
 import time
+import hashlib
 from collections import deque
 from urllib.parse import quote, urlparse
 
@@ -38,6 +39,8 @@ MFA_PENDING_FACTOR_COOKIE_NAME = "agente_mfa_pending_factor"
 MFA_PENDING_CHALLENGE_COOKIE_NAME = "agente_mfa_pending_challenge"
 MFA_PENDING_MAX_AGE = 5 * 60
 APP_BASE_URL = _app_base_url()
+PWNED_PASSWORD_CHECK = os.getenv("PWNED_PASSWORD_CHECK", "false").lower() == "true"
+PWNED_PASSWORD_TIMEOUT = 4.0
 logger = logging.getLogger(__name__)
 
 # A small in-process limiter protects the public auth endpoints even when the
@@ -161,6 +164,46 @@ def _validated_password(password: str) -> str:
     if not re.search(r"[^A-Za-z0-9]", password):
         raise HTTPException(422, "Inclua pelo menos um simbolo.")
     return password
+
+
+async def _password_was_compromised(password: str) -> bool:
+    """Check a password with k-anonymity; never send the password or full hash."""
+    if not PWNED_PASSWORD_CHECK:
+        return False
+    digest = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = digest[:5], digest[5:]
+    try:
+        async with httpx.AsyncClient(
+            timeout=PWNED_PASSWORD_TIMEOUT,
+            headers={
+                "Add-Padding": "true",
+                "User-Agent": "Agente-de-Candidaturas-password-check",
+            },
+        ) as client:
+            response = await client.get(
+                f"https://api.pwnedpasswords.com/range/{prefix}"
+            )
+        if response.status_code != 200:
+            logger.warning("Password compromise service returned status=%s", response.status_code)
+            return False
+        for line in response.text.splitlines():
+            candidate, _, count = line.partition(":")
+            if candidate.strip().upper() == suffix:
+                try:
+                    return int(count.strip()) > 0
+                except ValueError:
+                    return True
+    except httpx.HTTPError:
+        logger.warning("Password compromise service unavailable", exc_info=True)
+    return False
+
+
+async def _reject_compromised_password(password: str) -> None:
+    if await _password_was_compromised(password):
+        raise HTTPException(
+            422,
+            "Escolha uma senha que nao apareca em vazamentos conhecidos.",
+        )
 
 
 def _email_is_verified(user: dict | None) -> bool:
@@ -450,6 +493,7 @@ async def signup(payload: SignupRequest, request: Request = None):
     email = _validated_email(payload.email)
     _enforce_rate_limit(request, "signup", email)
     password = _validated_password(payload.password)
+    await _reject_compromised_password(password)
     redirect_to = quote(_auth_redirect_url(), safe="")
     try:
         response = await _supabase_request(
@@ -581,6 +625,7 @@ async def update_password(
     user: dict = Depends(authenticated_user),
 ):
     password = _validated_password(payload.password)
+    await _reject_compromised_password(password)
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")

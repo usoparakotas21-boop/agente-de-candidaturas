@@ -114,7 +114,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Processamentos temporários são removidos no fluxo e documentos gerados ficam fora da raiz em diretório `0700`; falta ligar expurgo de rascunhos/objetos do Storage.
 - A sanitização central de texto já cobre captura, e-mail/OCR, confirmação e análise; superfícies de renderização restantes continuam na revisão do P0.6.
 - O avaliador que envia pergunta, resposta e contexto para a Gemini ainda precisa de uma fronteira explícita de dados não confiáveis e testes contra prompt injection.
-- Falta verificação contra senhas comprometidas; o fluxo MFA de login, desafio, revogação e expiração já está implementado, aguardando validação real do Supabase.
+- A verificação contra senhas comprometidas usa k-anonimato (somente prefixo de 5 caracteres do SHA-1, nunca a senha ou o hash completo) e fica habilitada no Render; falta validar a variável no serviço publicado. O fluxo MFA de login, desafio, revogação e expiração já está implementado, aguardando validação real do Supabase.
 - As rotas de webhook são públicas, consultam o provedor e fazem transição idempotente para `PAID`; Mercado Pago já tem HMAC e janela de replay. Falta validar a assinatura específica da InfinitePay e executar replay controlado em produção.
 - As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
 - O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
@@ -182,7 +182,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 12. Concluir o isolamento operacional de OCR/IA/leitura de e-mail: uploads de currículo, OCR, confirmação e leitura de páginas já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
 13. Concluir armazenamento privado e retenção: documentos gerados agora ficam em diretório temporário privado (permissão `0700`) fora da raiz do projeto, e a inicialização remove artefatos antigos conforme `DOCUMENT_RETENTION_DAYS` (60 dias por padrão). Uploads de OCR continuam sendo apagados imediatamente; falta ligar expurgo de rascunhos/objetos do Storage.
 14. Fechar a auditoria de variáveis e menor privilégio: a revisão do código, `render.yaml` e histórico rastreado confirmou ausência de `SERVICE_ROLE_KEY` no cliente e o banco agora força `sslmode=require`; falta confirmar no painel do Render/Supabase, executar scanner de segredos e verificar a conexão efetiva de produção.
-15. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+15. Validar em produção a consulta contra senhas comprometidas: a implementação k-anonimizada e o bloqueio de senha exposta já estão no código; falta confirmar `PWNED_PASSWORD_CHECK=true` no Render e testar uma senha conhecida sem registrar seu valor.
 16. Confirmar backups diários do Supabase, executar um teste de restauração e documentar a revogação/rotação emergencial de tokens OAuth e chaves de API.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
@@ -236,6 +236,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner`; código cliente usa a chave publicável | RLS aplicado; prova real de isolamento e conferência de chaves no painel permanecem em **P0.1/P0.14** |
+| Senhas comprometidas | Consulta k-anonimizada envia apenas o prefixo do hash SHA-1 para o serviço de verificação; senha e hash completo nunca saem da aplicação | Código e testes locais aprovados; confirmar a variável e o comportamento do serviço publicado em **P0.15** |
 | Uploads | Validador central confirma magic bytes, estrutura e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura | Código e testes locais aprovados; validação operacional e expurgo externo seguem em **P0.4/P0.13** |
 | Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P0.13/P1.6** |
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
@@ -263,6 +264,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`;
 - `COOKIE_SECURE`, `AUTH_REQUIRED`, `APP_BASE_URL`;
 - `MFA_LOGIN_ENFORCE` (habilitado no Render para exigir challenge quando houver fator TOTP verificado);
+- `PWNED_PASSWORD_CHECK` (habilitado no Render para bloquear senhas presentes em vazamentos conhecidos);
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
 - `TOKEN_ENCRYPTION_KEY`;
 - `GEMINI_API_KEY`;
