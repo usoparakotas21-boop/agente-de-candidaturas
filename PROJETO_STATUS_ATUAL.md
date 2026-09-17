@@ -106,11 +106,11 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa `unsafe-inline` porque as telas atuais contêm scripts e estilos inline; a política precisa ser endurecida depois da migração para nonces ou arquivos externos.
 - Falta teste formal de IDOR/RLS com dois usuários para cada rota que recebe IDs.
-- Falta validar MIME real, extensão e assinatura (`magic bytes`) de cada upload em uma camada central.
+- Currículo e arquivos de vaga já validam assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central para todos os uploads.
 - Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
 - Falta sanitização central no backend para conteúdo de vaga, e-mail e OCR que possa voltar para HTML.
 - Falta verificação contra senhas comprometidas e fluxo completo de MFA no login, recuperação e revogação.
-- Falta assinatura/verificação equivalente nos webhooks e idempotência explícita contra replay.
+- Os handlers de webhook consultam o provedor antes de liberar a compra, mas as rotas de webhook ainda não estão na lista pública do middleware de autenticação; também falta assinatura/verificação equivalente e idempotência explícita contra replay.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
@@ -128,16 +128,17 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ### P0 — antes de aceitar usuários pagantes
 
 1. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
-2. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
-3. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
-4. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads.
-5. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
-6. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline`.
-7. Auditar variáveis do Render e o histórico Git em busca de segredos.
-8. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação e revogação.
-9. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
-10. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
-11. Verificar assinatura dos webhooks e garantir idempotência contra replays.
+2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência contra replays.
+3. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
+4. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
+5. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads, incluindo foto de perfil.
+6. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
+7. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline`.
+8. Auditar variáveis do Render e o histórico Git em busca de segredos.
+9. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação e revogação.
+10. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+11. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
+12. Reexecutar a suíte completa em ambiente com todas as dependências instaladas; a execução local atual está bloqueada por `psycopg` ausente no `venv`.
 
 ### P1 — LGPD, IA e monetização
 
@@ -168,6 +169,25 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - O conjunto histórico registrava 59 testes aprovados em 15/09/2026; a suíte completa precisa ser reexecutada no ambiente com todas as dependências instaladas.
+
+## Auditoria do checklist de segurança e operação — 17/09/2026
+
+| Item verificado | Evidência encontrada | Estado e prioridade |
+| --- | --- | --- |
+| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.1** |
+| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.7** |
+| Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.3** |
+| Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.4** |
+| Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e foto em **P0.5** |
+| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.6**; retenção automática em **P1.3** |
+| Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
+| XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; não há sanitização central nem testes de conteúdo hostil na IA | XSS armazenado em **P0.11**; prompt injection em **P1.4** |
+| Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
+| Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | **P1.2** e **P1.7** |
+| Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.1** |
+| Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.6** |
+| UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
+| Suíte completa | 25 testes de auth/segurança passam; descoberta completa encontrou 48 testes, mas 5 módulos não importam no ambiente local porque `psycopg` não está instalado | Bloqueio de validação em **P0.12** |
 
 ## Variáveis e segredos
 
