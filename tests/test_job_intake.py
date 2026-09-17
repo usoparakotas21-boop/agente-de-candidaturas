@@ -80,6 +80,24 @@ class JobIntakeParserTest(unittest.TestCase):
         second = parse_job_text(SAMPLE, "linkedin")
         self.assertEqual(first["external_id"], second["external_id"])
 
+    def test_url_used_as_title_is_converted_to_readable_job_name(self):
+        result = parse_job_text(
+            "Cargo: https://www.jobbol.com.br/cargos/analista-administrativo\n"
+            "Empresa: Jobbol\n"
+            "Descricao com responsabilidades, requisitos e experiencia para a vaga.\n"
+            "https://www.jobbol.com.br/cargos/analista-administrativo"
+        )
+        self.assertEqual(result["title"], "Analista Administrativo")
+
+    def test_company_prefix_cnpj_is_hidden(self):
+        result = parse_job_text(
+            "Cargo: Analista de Inovacao\n"
+            "Empresa: 5.297.491 RODRIGO FELIPE - ME\n"
+            "Descricao com responsabilidades, requisitos e experiencia para a vaga.\n"
+            "https://example.com/jobs/123"
+        )
+        self.assertEqual(result["company"], "RODRIGO FELIPE - ME")
+
     def test_rejects_short_text(self):
         with self.assertRaises(ValueError):
             parse_job_text("Vaga de RH")

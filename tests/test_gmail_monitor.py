@@ -38,6 +38,25 @@ class GmailMonitorContentTest(unittest.TestCase):
         self.assertIn("/jobs/101", blocks[0])
         self.assertIn("/jobs/202", blocks[1])
 
+    def test_drops_style_content_before_job_intake(self):
+        rich = """
+        <style>.mj-outlook-group-fix { width:100% !important; }</style>
+        <p>Analista de Recursos Humanos</p><p>Empresa Alpha</p>
+        """
+        message = {
+            "payload": {
+                "headers": [
+                    {"name": "Subject", "value": "Nova vaga"},
+                    {"name": "From", "value": "alertas@example.com"},
+                ],
+                "mimeType": "text/html",
+                "body": {"data": _encoded(rich)},
+            }
+        }
+        parsed = _message_content(message)
+        self.assertNotIn("mj-outlook", parsed["content"])
+        self.assertIn("Analista de Recursos Humanos", parsed["content"])
+
 
 if __name__ == "__main__":
     unittest.main()

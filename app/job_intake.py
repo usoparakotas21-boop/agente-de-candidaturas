@@ -115,6 +115,33 @@ def _extract_url(text: str) -> str:
     return urls[0].rstrip(".,;:")
 
 
+def _title_from_url(value: str) -> str:
+    """Converte uma URL de anúncio em um título legível quando necessário."""
+    candidate = (value or "").strip()
+    if not re.match(r"^https?://", candidate, flags=re.I):
+        return ""
+    parsed = urlparse(candidate)
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    if not segments:
+        return ""
+    slug = re.sub(r"[-_]+", " ", segments[-1])
+    slug = re.sub(r"\b(?:vaga|job|jobs|view|position|vacancy)\b", " ", slug, flags=re.I)
+    slug = re.sub(r"\b\d{2,}\b", " ", slug)
+    slug = " ".join(slug.split()).strip(" -")
+    return slug.title() if slug else ""
+
+
+def _normalize_company_name(value: str) -> str:
+    """Remove prefixos de CNPJ que poluem o nome exibido da empresa."""
+    original = (value or "").strip()
+    normalized = re.sub(
+        r"^\s*\d{1,3}(?:\.\d{3}){1,3}(?:[-/]\d{1,2})?\s+",
+        "",
+        original,
+    )
+    return normalized or original
+
+
 def _fallback_title(lines: list[str]) -> str:
     for line in lines[:40]:
         normalized = _normalized(line)
@@ -244,9 +271,11 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
 
     if not title:
         title = _fallback_title(lines)
+    title = _title_from_url(title) or title
     title = _extend_title(lines, title)
     if not company:
         company = _fallback_company(lines, title, url)
+    company = _normalize_company_name(company)
 
     location = _extract_location(lines, text)
     modality = _extract_modality(lines, text)

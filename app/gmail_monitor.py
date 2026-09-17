@@ -25,6 +25,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture, split_job_alert
 from .models import EmailIntegration, ProcessedEmailMessage
 from .queue_service import enqueue
+from .text_sanitization import sanitize_untrusted_text
 
 
 logger = logging.getLogger(__name__)
@@ -98,14 +99,25 @@ class _ReadableEmailParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
         self.link = ""
+        self._ignored_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"script", "style", "noscript", "template"}:
+            self._ignored_depth += 1
+            return
+        if self._ignored_depth:
+            return
         if tag in self.BLOCK_TAGS:
             self.parts.append("\n")
         if tag == "a":
             self.link = next((value or "" for name, value in attrs if name == "href"), "")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript", "template"}:
+            self._ignored_depth = max(0, self._ignored_depth - 1)
+            return
+        if self._ignored_depth:
+            return
         if tag == "a" and self.link.startswith(("http://", "https://")):
             self.parts.extend(("\n", html.unescape(self.link), "\n"))
             self.link = ""
@@ -113,6 +125,8 @@ class _ReadableEmailParser(HTMLParser):
             self.parts.append("\n")
 
     def handle_data(self, data: str) -> None:
+        if self._ignored_depth:
+            return
         self.parts.append(data)
 
     def text(self) -> str:
@@ -178,6 +192,7 @@ def _message_content(message: dict[str, Any]) -> dict[str, str]:
     content = rich_text or plain_text
     if not content:
         content = str(message.get("snippet", ""))
+    content = sanitize_untrusted_text(content, max_chars=80_000)
     return {
         "subject": _header(payload, "Subject"),
         "sender": _header(payload, "From"),

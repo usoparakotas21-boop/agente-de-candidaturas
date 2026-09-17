@@ -173,7 +173,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Reorganizar ações do cabeçalho, CTA único, menu de documentos e paginação | Já feito | Sem nova tarefa; manter regressão visual e paginação funcionando |
 | Badges, estados vazios, busca e contadores | Parcialmente feito | Badges, estados vazios e busca cargo/empresa existem; busca por tecnologia fica junto das heurísticas em **P1.3** se houver necessidade real |
 | Kanban, donut de score e exportação CSV/Excel operacional | Faz sentido, mas não é gate | **P2**; exportação de dados pessoais para LGPD é separada e permanece em **P1.6** |
-| Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.12**; dispensar é melhoria opcional depois da sincronização |
+| Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.13**; dispensar é melhoria opcional depois da sincronização |
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
 | Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
@@ -199,6 +199,25 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | InfinitePay | Configuração não prova operação | **P0.5**; exige conta habilitada, método de assinatura documentado, webhook recebido e checkout controlado |
 | UptimeRobot | Já existe | Não recriar; apenas conferir painel, intervalo e alertas durante auditoria operacional |
 | Senhas comprometidas | Implementação adequada, mas com limite | k-anonimato e variável do Render estão feitos; o teste publicado é **P0.10**. A decisão fail-open/fail-closed deve ser documentada, pois indisponibilidade do serviço hoje não bloqueia a senha |
+
+### Auditoria visual e de intake — 17/09/2026
+
+As telas anexadas foram tratadas como evidência de comportamento, não como instruções isoladas. O código e os testes foram comparados antes de abrir novas tarefas:
+
+| Achado | Situação após a verificação | Prioridade correta |
+| --- | --- | --- |
+| CSS de Outlook/Gmail vazando no título | Corrigido no parser HTML do Gmail: `style`, `script`, `noscript` e `template` são ignorados antes da sanitização; teste de regressão adicionado | P0.2 concluído no código; manter validação operacional de uploads/intake |
+| URL pura usada como título | Corrigido no intake: slug de URL vira título legível (`Analista Administrativo`) | P0.2 concluído no código |
+| Razão social com prefixo numérico de CNPJ | Corrigido no intake removendo o prefixo sem apagar o sufixo societário | P0.2 concluído no código |
+| Alertas “27 vagas abertas...” salvos como uma vaga | O splitter atual já separa blocos por URLs/títulos detectáveis, mas não decompõe todo resumo sem links individuais | P1.3, junto das heurísticas de parsing por provedor; não duplicar como tarefa P0 |
+| Cards, badges, paginação, busca e estado vazio da fila | Já implementados; a incoerência textual entre “Aguardando revisão” e “Capturar” é nomenclatura de produto a revisar junto das heurísticas | P1.3 se houver mudança de decisão; sem novo P0 |
+| `/vagas` exibe erro sem ação | Corrigido com botão local `Tentar novamente`, sem exigir F5; backend já retorna mensagem pública estável | P1.15 concluído no código; testar no navegador durante a validação visual |
+| Modal abre com textos repetidos “Carregando...” | Ainda não há skeleton screen; trocar por blocos de carregamento é melhoria de percepção, sem impacto de segurança | P1.15 |
+| Cabeçalho escuro duplicado em Currículos/Configurações | Removido o cabeçalho interno; permanece a navegação global adicionada pelo shell | P1.15 concluído no código |
+| Botões Aprovar/Recusar genéricos e subtítulo de alerta repetido | Decisão e status são dados distintos; renomear ações e reduzir o subtítulo exige revisar copy e transições | P1.3, junto do modelo de decisão; não implementar só por aparência |
+| Botão Limpar próximo da ação principal | Ação continua disponível, mas deve virar link/ação neutra com confirmação quando houver conteúdo | P1.15 |
+| Placeholders de salário ausentes | Adicionados exemplos `Ex.: 8.000` e `Ex.: 12.000` nas configurações | P1.9 concluído no código |
+| R$ 9,90 avulso, FAQ e prova social na landing | A linha do avulso pode ser adicionada com o preço real; FAQ é copy útil; números de prova social só entram quando vierem de métricas observadas | P1.16; métricas de conversão permanecem P1.1 |
 
 
 ## Próximas prioridades
@@ -234,6 +253,8 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. Sincronizar o card de onboarding com o perfil e as preferências reais.
 14. Exibir links legais e logout no cabeçalho/rodapé global.
+15. Finalizar estados de carregamento e ações destrutivas de UX: skeleton no detalhe, `Limpar` como ação neutra com confirmação e teste visual do retry do Banco de vagas.
+16. Ajustar a landing sem inventar prova social: explicitar o download avulso de R$ 9,90 e publicar FAQ somente com comportamentos realmente suportados.
 
 ### Próximo ciclo prático já classificado
 
@@ -258,7 +279,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após instalar a dependência declarada `psycopg[binary]`: **74 testes aprovados em 3,904 s**, incluindo os testes novos de RLS/IDOR. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após as correções de intake e UX: **99 testes aprovados em 4,011 s**, incluindo RLS/IDOR, sanitização HTML, normalização de títulos e parser de e-mail. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
