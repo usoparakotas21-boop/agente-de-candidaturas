@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Criar currículo e carta | Agente de Candidaturas</title>
+  <style>
+    :root{--ink:#10213d;--muted:#64748b;--line:#dce6f2;--bg:#f6f9fd;--paper:#fff;--blue:#4f5eea;--deep:#203a82;--soft:#eef2ff;--green:#17754e}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer}
+    .wrap{max-width:1120px;margin:0 auto;padding:38px 22px 70px}.intro{margin:10px 0 28px}.eyebrow{display:inline-flex;padding:6px 10px;border-radius:999px;background:#e9eeff;color:#3c4bc6;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}.intro h1{max-width:690px;margin:12px 0 8px;font-size:clamp(30px,4vw,48px);line-height:1.06;letter-spacing:-.045em}.intro p{max-width:690px;margin:0;color:var(--muted);font-size:16px}
+    .layout{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(290px,.88fr);gap:20px;align-items:start}.card{border:1px solid var(--line);border-radius:18px;background:var(--paper);box-shadow:0 12px 30px #1739650b;padding:24px}.card h2{margin:0 0 6px;font-size:19px}.card>p{margin:0 0 20px;color:var(--muted);font-size:13px}.field{display:grid;gap:6px;margin-top:16px}.field label{font-size:12px;font-weight:800;color:#405473}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--ink);outline:0;background:#fff}.field textarea{min-height:190px;resize:vertical;line-height:1.55}.field input:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px #eef0ff}.hint{color:var(--muted);font-size:11px}.actions{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap}.primary,.secondary{min-height:44px;border-radius:10px;padding:11px 16px;font-weight:850}.primary{border:1px solid var(--blue);background:var(--blue);color:#fff}.secondary{border:1px solid var(--line);background:#fff;color:var(--deep)}.primary:disabled{opacity:.55;cursor:wait}.status{min-height:22px;margin-top:12px;color:#a33b2a;font-size:13px}.status.ok{color:var(--green)}
+    .side{background:linear-gradient(150deg,#203e8b,#4f5eea);border:0;color:#fff}.side h2{font-size:21px}.side>p{color:#e3e8ff}.steps{display:grid;gap:14px;margin-top:22px}.step{display:grid;grid-template-columns:29px 1fr;gap:10px;align-items:start}.step b{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#ffffff2b;font-size:13px}.step strong{display:block;font-size:13px}.step span{display:block;margin-top:2px;color:#dbe3ff;font-size:12px;line-height:1.45}.tip{margin-top:22px;padding:13px 14px;border-radius:12px;background:#ffffff18;color:#eef1ff;font-size:12px}
+    .result{grid-column:1/-1;display:none}.result.visible{display:block}.result-head{display:flex;justify-content:space-between;gap:18px;align-items:start}.result-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.score{padding:9px 12px;border-radius:10px;background:#eaf8f1;color:var(--green);font-size:12px;font-weight:850;white-space:nowrap}.preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.preview{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fbfdff}.preview h3{margin:0 0 10px;font-size:14px}.preview-body{color:#334764;font-size:13px;white-space:pre-wrap;max-height:245px;overflow:auto}.skills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.skill{padding:5px 8px;border-radius:999px;background:var(--soft);color:#4050bd;font-size:11px;font-weight:750}.notice{margin-top:16px;padding:12px 14px;border-radius:10px;background:#fff7e6;color:#815300;font-size:12px}.file-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.file-actions[hidden]{display:none}.file-actions button{min-height:40px}
+    @media(max-width:780px){.wrap{padding:25px 14px 50px}.layout{grid-template-columns:1fr}.result{grid-column:auto}.preview-grid{grid-template-columns:1fr}.result-head{display:block}.score{display:inline-block;margin-top:12px}.side{order:-1}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="intro">
+      <span class="eyebrow">Documentos sob medida</span>
+      <h1>Crie um currículo e uma carta para cada oportunidade.</h1>
+      <p>Informe o cargo e cole os detalhes da vaga. O sistema reorganiza suas experiências e destaca o que mais importa para aquela seleção.</p>
+    </div>
+    <div class="layout">
+      <section class="card">
+        <h2>Sobre a oportunidade</h2>
+        <p>Quanto mais contexto você enviar, mais precisa fica a adaptação.</p>
+        <form id="studioForm">
+          <div class="field"><label for="title">Cargo desejado *</label><input id="title" required maxlength="200" placeholder="Ex.: Coordenador de Recursos Humanos"></div>
+          <div class="field"><label for="company">Empresa</label><input id="company" maxlength="200" placeholder="Ex.: Empresa contratante"></div>
+          <div class="field"><label for="location">Localização ou modalidade</label><input id="location" maxlength="300" placeholder="Ex.: Salvador, BA · híbrido"></div>
+          <div class="field"><label for="url">Link do anúncio (opcional)</label><input id="url" type="url" maxlength="1000" placeholder="https://..." inputmode="url"></div>
+          <div class="field"><label for="details">Descrição e requisitos da vaga *</label><textarea id="details" required minlength="20" maxlength="16000" placeholder="Cole aqui a descrição da vaga, responsabilidades, requisitos e diferenciais..."></textarea><span class="hint">Não tem a descrição completa? Escreva os requisitos que você já conhece.</span></div>
+          <div class="actions"><button class="primary" id="generate" type="submit">Gerar minha prévia personalizada</button><button class="secondary" id="clear" type="button">Limpar</button></div>
+          <div class="status" id="status" role="status" aria-live="polite"></div>
+        </form>
+      </section>
+      <aside class="card side">
+        <h2>Como funciona</h2>
+        <p>Você continua no controle e revisa tudo antes de usar.</p>
+        <div class="steps">
+          <div class="step"><b>1</b><div><strong>Conte qual é a vaga</strong><span>O cargo e os requisitos orientam a adaptação.</span></div></div>
+          <div class="step"><b>2</b><div><strong>Veja a prévia</strong><span>Confira o resumo, as competências e a carta antes de exportar.</span></div></div>
+          <div class="step"><b>3</b><div><strong>Exporte quando estiver pronto</strong><span>O arquivo completo fica liberado no plano Pro ou após o pagamento avulso.</span></div></div>
+        </div>
+        <div class="tip">Dica: copie a descrição diretamente do anúncio para destacar palavras-chave compatíveis com o sistema de seleção.</div>
+      </aside>
+      <section class="card result" id="result">
+        <div class="result-head"><div><h2>Prévia adaptada ao cargo</h2><p id="resultSubtitle"></p></div><span class="score" id="score"></span></div>
+        <div class="preview-grid">
+          <article class="preview"><h3>Currículo direcionado</h3><div class="preview-body" id="resumeSummary"></div><div class="skills" id="skills"></div></article>
+          <article class="preview"><h3>Carta de apresentação</h3><div class="preview-body" id="letter"></div></article>
+        </div>
+        <div class="notice" id="notice"></div>
+        <div class="file-actions" id="exportActions" hidden><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const $=id=>document.getElementById(id);let current=null;
+    function msg(text,ok=false){$('status').textContent=text;$('status').className='status'+(ok?' ok':'')}
+    function showExport(offer){
+      const actions=$('exportActions'); actions.hidden=false;
+      const paid=Boolean(offer&&offer.allowed);
+      $('checkout').hidden=paid; $('refreshAccess').hidden=paid; $('downloadResume').hidden=!paid; $('downloadLetter').hidden=!paid;
+      $('notice').textContent=paid?'Seu acesso está liberado. Baixe os dois arquivos personalizados abaixo.':(offer?.price?`Prévia gratuita ativa. O currículo e a carta completos podem ser liberados por ${offer.price}.`:'Prévia gratuita ativa. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.');
+    }
+    async function getOffer(){const r=await fetch('/billing/document-export');return r.ok?r.json():{allowed:false}}
+    async function refreshAccess(){try{showExport(await getOffer())}catch{} }
+    $('studioForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('generate');button.disabled=true;msg('Adaptando seu currículo e escrevendo a carta...');try{const r=await fetch('/document-studio/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('title').value.trim(),company:$('company').value.trim(),location:$('location').value.trim(),url:$('url').value.trim(),details:$('details').value.trim()})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Não foi possível gerar a prévia.');current=data;$('resultSubtitle').textContent=`${data.company} · ${data.job_title}`;$('score').textContent=`${data.analysis?.score??'—'}% de aderência`;$('resumeSummary').textContent=`${data.resume_preview?.name||'Candidato'}\n${data.resume_preview?.headline||data.resume_preview?.target||data.job_title}\n\n${data.resume_preview?.summary||''}\n\nExperiências adaptadas:\n${(data.resume_preview?.experiences||[]).map(x=>`• ${x.role} · ${x.company}`).join('\n')||'• Seu histórico será organizado aqui'}`;$('skills').innerHTML=(data.resume_preview?.skills||[]).map(x=>`<span class="skill">${x.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</span>`).join('');$('letter').textContent=data.cover_letter_preview||'A carta personalizada aparecerá aqui.';$('result').classList.add('visible');showExport(data.export);msg('Prévia gerada com sucesso.',true);$('result').scrollIntoView({behavior:'smooth',block:'start'})}catch(err){msg(err.message)}finally{button.disabled=false}});
+    $('clear').addEventListener('click',()=>{$('studioForm').reset();$('result').classList.remove('visible');$('exportActions').hidden=true;msg('')});
+    $('checkout').addEventListener('click',async()=>{const b=$('checkout');b.disabled=true;b.textContent='Abrindo pagamento...';try{const r=await fetch('/billing/document-export/checkout',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Não foi possível abrir o pagamento.');window.open(d.checkout_url,'_blank','noopener');b.textContent='Pagamento aberto em outra aba';}catch(err){msg(err.message);b.textContent='Liberar currículo + carta';b.disabled=false}});
+    $('refreshAccess').addEventListener('click',refreshAccess);
+    $('downloadResume').addEventListener('click',()=>{if(current)window.location.href=`/jobs/${current.job_id}/generate-document`});
+    $('downloadLetter').addEventListener('click',()=>{if(current)window.location.href=`/jobs/${current.job_id}/cover-letter/document`});
+  </script>
+</body>
+</html>

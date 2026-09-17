@@ -99,6 +99,7 @@
       border-radius: 12px; color: white; background: var(--blue); font-weight: 800;
       box-shadow: 0 8px 20px rgba(47,111,237,.2);
     }
+    .hero-actions a { text-decoration: none; text-align: center; }
 
     .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
     .metric { padding: 23px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: 0 6px 20px rgba(24,49,83,.04); }
@@ -357,6 +358,7 @@
       <button class="sidebar-link" data-nav="jobs" type="button"><span class="nav-icon">⌕</span>Vagas</button>
       <button class="sidebar-link" data-nav="applications" type="button"><span class="nav-icon">✓</span>Candidaturas</button>
       <button class="sidebar-link" data-nav="resume" type="button"><span class="nav-icon">▤</span>Currículos</button>
+      <a class="sidebar-link" href="/criar-documentos"><span class="nav-icon">✦</span>Criar documentos</a>
       <button class="sidebar-link" data-nav="integrations" type="button"><span class="nav-icon">↗</span>Integrações</button>
       <button class="sidebar-link" data-nav="settings" type="button"><span class="nav-icon">⚙</span>Configurações</button>
     </div>
@@ -371,6 +373,7 @@
         <p class="sidebar-label">Ferramentas</p>
         <div class="sidebar-group">
           <button class="sidebar-link" data-nav="resume" type="button"><span class="nav-icon">▤</span>Currículos</button>
+          <a class="sidebar-link" href="/criar-documentos"><span class="nav-icon">✦</span>Criar documentos</a>
           <a class="sidebar-link" data-nav="interviews" href="/entrevistas"><span class="nav-icon">◎</span>Entrevistas</a>
           <button class="sidebar-link" data-nav="integrations" type="button"><span class="nav-icon">↗</span>Integrações</button>
         </div>
@@ -392,6 +395,7 @@
           <button class="refresh" id="gmailButton" type="button">Conectar Gmail</button>
           <button class="refresh" id="gmailSyncButton" type="button" hidden>Buscar e-mails</button>
           <button class="refresh" id="profileButton">Meu currículo</button>
+          <a class="new-job" id="documentStudioButton" href="/criar-documentos">Criar currículo + carta</a>
           <button class="refresh" id="preferencesButton">Preferências</button>
           <button class="new-job" id="captureJobButton">Captar vaga</button>
           <button class="new-job" id="newJobButton">Nova vaga</button>

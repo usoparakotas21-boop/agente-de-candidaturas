@@ -54,6 +54,7 @@ PROFILE_PAGE_PATH = Path(__file__).parent / "static" / "profile.html"
 SECURITY_PAGE_PATH = Path(__file__).parent / "static" / "security.html"
 ONBOARDING_PATH = Path(__file__).parent / "static" / "onboarding.html"
 RESUMES_PATH = Path(__file__).parent / "static" / "curriculos.html"
+DOCUMENT_STUDIO_PATH = Path(__file__).parent / "static" / "document-studio.html"
 CONFIG_PATH = Path(__file__).parent / "static" / "configuracoes.html"
 JOBS_PAGE_PATH = Path(__file__).parent / "static" / "vagas.html"
 APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
@@ -69,7 +70,7 @@ def _page(path: Path) -> HTMLResponse:
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
         html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">Não conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">Não conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
-    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-nav a:hover{text-decoration:underline}.global-status{color:#b9f1d2;font-size:11px;white-space:nowrap}.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}.breadcrumbs a{color:#3975a8;text-decoration:none}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+4){display:none}.global-status{display:none}}</style><nav class="global-nav"><a href="/dashboard">AC · Agente de Candidaturas</a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">● Sistema conectado</span></nav>'''
+    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-nav a:hover{text-decoration:underline}.global-status{color:#b9f1d2;font-size:11px;white-space:nowrap}.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}.breadcrumbs a{color:#3975a8;text-decoration:none}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}}</style><nav class="global-nav"><a href="/dashboard">AC · Agente de Candidaturas</a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">● Sistema conectado</span></nav>'''
     nav += '<style>button,.button,.btn,.refresh,.new-job,.action-button,.queue-action{font-family:inherit;min-height:42px}select{min-height:42px;border-radius:10px}.status-success{color:#16794b;background:#eaf8f1}.status-warning{color:#a15c00;background:#fff5df}.status-neutral{color:#596579;background:#eef1f5}.status-danger{color:#b42318;background:#fff0ee}@media(max-width:700px){.wrap{width:calc(100% - 24px);padding-top:24px}.top{padding:12px 14px;min-height:58px}.top nav{flex-wrap:wrap}.card{padding:18px}.actions button,.button{min-height:44px}.queue-panel{overflow:hidden}.queue-panel table{display:block;overflow-x:auto;white-space:nowrap}.queue-panel th:nth-child(3),.queue-panel td:nth-child(3){display:none}}</style>'
     nav += '<style>.back-link{display:inline-flex;align-items:center;gap:5px;margin-right:12px;padding:6px 10px;border:1px solid #dbe6f0;border-radius:8px;color:#315d83!important;background:#fff;font-weight:700}.back-link:hover{background:#f3f8fc;text-decoration:none!important}</style>'
     dashboard_insert = ""
@@ -79,7 +80,7 @@ def _page(path: Path) -> HTMLResponse:
         nav = nav[:style_end]
         nav += '<style>#newJobButton{display:none!important}.hero{display:grid;grid-template-columns:minmax(300px,1fr) auto;align-items:end;gap:32px}.hero h1{max-width:520px;font-size:clamp(32px,3.8vw,44px)}.hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:560px}.hero-actions button{width:auto;white-space:nowrap}@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-actions{justify-content:flex-start;max-width:none}}@media(max-width:700px){main{margin:24px 12px 60px}.metrics{grid-template-columns:1fr}.queue-summary{grid-template-columns:1fr 1fr}.hero{display:block}.hero-actions{margin-top:20px;display:grid;grid-template-columns:1fr 1fr}.hero-actions button{width:100%}.queue-actions{gap:8px}.queue-actions button{min-height:42px;padding:9px 11px}}</style>'
         dashboard_insert += '<script>document.addEventListener("DOMContentLoaded",()=>{const s=document.querySelector("#queueStatusFilter");if(s){s.options[0].text="Status da oportunidade";s.title="Filtra em que ponto da análise a oportunidade está."}const d=document.querySelector("#queueDecisionFilter");if(d)d.title="Decisão sugerida pelo agente: avançar, revisar ou descartar.";const cards=document.querySelectorAll(".metric");if(cards.length>=4){cards[0].querySelector(".metric-label").textContent="Novas vagas para você";cards[1].querySelector(".metric-label").textContent="Compatibilidade média";cards[2].querySelector(".metric-label").textContent="Pendentes de ação";cards[3].querySelector(".metric-label").textContent="Resolvidas"}Promise.all([fetch("/jobs").then(r=>r.json()),fetch("/applications").then(r=>r.json())]).then(([j,a])=>{const apps=a.applications||[],scores=apps.map(x=>Number(x.analysis_score)).filter(Number.isFinite),pending=apps.filter(x=>x.queue_decision==="REVISAR").length,resolved=apps.filter(x=>["APROVADO","RECUSADO","ARQUIVADA"].includes(x.status)).length;if(cards.length>=4){cards[0].querySelector(".metric-value").textContent=(j.jobs||[]).length;cards[0].querySelector(".metric-note").textContent="oportunidades capturadas";cards[1].querySelector(".metric-value").textContent=scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length)+"%":"—";cards[1].querySelector(".metric-note").textContent="média das vagas analisadas";cards[2].querySelector(".metric-value").textContent=pending;cards[2].querySelector(".metric-note").textContent=pending?"Revisar "+pending+" pendentes":"Nenhuma pendência";cards[3].querySelector(".metric-value").textContent=resolved;cards[3].querySelector(".metric-note").textContent="já processadas"}})}).catch(()=>{})})</script>'
-    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
+    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
     crumb = f'<div class="breadcrumbs"><a class="back-link" href="/dashboard" onclick="if(history.length>1){{event.preventDefault();history.back()}}">← Voltar</a><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
     extra = '<script src="/static/ui-feedback.js"></script>'
@@ -253,6 +254,12 @@ class JobCreateRequest(BaseModel): source: str = "manual"; external_id: str; com
 class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_analyze: bool = True; reprocess_existing: bool = False
 class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; salary: str = ""; url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
+class DocumentStudioRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=200)
+    company: str = Field(default="", max_length=200)
+    details: str = Field(min_length=20, max_length=16000)
+    location: str = Field(default="", max_length=300)
+    url: str = Field(default="", max_length=1000)
 class ApplicationStatusRequest(BaseModel): status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]; note: str = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
@@ -423,6 +430,11 @@ def onboarding_page():
 def resumes_page():
     if not RESUMES_PATH.is_file(): raise HTTPException(500, "Curriculos nao encontrados.")
     return _page(RESUMES_PATH)
+
+@app.get("/criar-documentos", response_class=HTMLResponse, include_in_schema=False)
+def document_studio_page():
+    if not DOCUMENT_STUDIO_PATH.is_file(): raise HTTPException(500, "Criador de documentos nao encontrado.")
+    return _page(DOCUMENT_STUDIO_PATH)
 
 @app.get("/configuracoes", response_class=HTMLResponse, include_in_schema=False)
 def config_page():
@@ -1208,6 +1220,72 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
         db.commit()
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name, headers={"X-Application-Id": str(app.id), "X-Application-Status": app.status, "X-Analysis-Score": str(arts["analysis"]["score"]), "X-Personalization-Score": str(arts["personalization"]["personalization_score"])})
     finally: db.close()
+
+@app.post("/document-studio/generate")
+def generate_document_studio(req: DocumentStudioRequest, user=Depends(authenticated_user)):
+    """Create a tailored resume and cover letter from a role pasted by the user.
+
+    The role is saved as a private opportunity so the existing preview, payment,
+    export and application tracking flows can be reused consistently.
+    """
+    db = SessionLocal()
+    try:
+        candidate = _candidate_for_user(db, user)
+        profile = _candidate_profile(candidate)
+        title = req.title.strip()
+        company = req.company.strip() or "Empresa não informada"
+        description = req.details.strip()
+        job_data = {
+            "source": "studio",
+            "external_id": f"{_owner_id(user) or 'local'}:studio:{uuid.uuid4().hex}",
+            "company": company,
+            "title": title,
+            "location": req.location.strip(),
+            "modality": "",
+            "salary": "",
+            "url": req.url.strip(),
+            "description": description,
+        }
+        job = Job(owner_id=_owner_id(user), **job_data)
+        db.add(job)
+        db.flush()
+        app_record = _ensure_app(db, job, candidate)
+        arts = _build_application(job, candidate)
+        _save_analysis(app_record, arts["analysis"], candidate)
+        app_record.personalization_score = arts["personalization"].get("personalization_score", 0)
+        app_record.cover_letter_text = generate_cover_letter(
+            job_title=title,
+            company=company,
+            profile=arts["profile"],
+            analysis=arts["analysis"],
+            personalization=arts["personalization"],
+        )
+        _advance_app(db, app_record, "ANALISADA", "Documento personalizado criado no Criador de documentos.")
+        db.commit()
+        db.refresh(job)
+        db.refresh(app_record)
+        export = _document_export_metadata(user)
+        return {
+            "status": "PREVIA_GERADA",
+            "job_id": job.id,
+            "application_id": app_record.id,
+            "company": company,
+            "job_title": title,
+            "analysis": arts["analysis"],
+            "resume_preview": _resume_preview(arts),
+            "cover_letter_preview": _cover_letter_preview(app_record.cover_letter_text),
+            "export": export,
+            "notice": "Prévia adaptada ao cargo. O arquivo completo do currículo e da carta fica disponível após o plano Pro ou pagamento avulso.",
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao gerar documentos no studio")
+        raise HTTPException(500, "Não foi possível gerar os documentos agora.")
+    finally:
+        db.close()
 
 @app.post("/generate-document")
 def generate_doc_standalone(req: ResumeRequest, user=Depends(authenticated_user)):
