@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `e84fd60` — `Enforce email confirmation before access`
+**Commit publicado:** `4bcf86a` — `Audit security checklist and reprioritize backlog`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -65,7 +65,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ### Pagamentos
 
 - Checkout de exportação integrado com Mercado Pago.
-- Checkout de exportação integrado com InfinitePay.
+- Checkout de exportação integrado com InfinitePay; `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` estão configurados no Render, mas a conta ativa e uma transação real ainda não foram confirmadas diretamente no provedor.
 - Webhooks consultam o status no provedor antes de liberar a exportação.
 - Compras são associadas ao usuário e ao `order_nsu`.
 - `receipt_url` é persistida quando o provedor informa o endereço do recibo.
@@ -101,6 +101,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ## O que está parcial ou ainda não existe
 
 - O gate de confirmação de e-mail está implementado; falta validar em produção as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
+- A integração InfinitePay está configurada no Render; falta validar no painel do provedor o status da conta, o recebimento do webhook e um checkout controlado antes de aceitar pagamentos reais.
 - O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
@@ -121,7 +122,19 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O monitor UptimeRobot não é controlado pelo código; alterações de intervalo, URL ou alertas precisam ser feitas no painel do UptimeRobot.
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
+- O produto ainda não fecha o ciclo de resultado: não há atribuição confiável entre versão do currículo, canal, candidatura e entrevista qualificada.
+- A proteção contra golpes já aparece como sinal na análise, mas ainda não é uma porta de entrada claramente posicionada nem um fluxo completo de risco antes da candidatura.
+- As heurísticas de RH brasileiro ainda não estão formalizadas como regras versionadas e explicáveis do motor de análise.
 - Não existe visão Kanban, extensão de navegador ou exportação operacional para CSV/Excel.
+
+## Direção de produto incorporada ao planejamento
+
+As orientações de produto foram lidas junto com o histórico técnico e foram incorporadas sem deslocar o P0 de segurança, privacidade e pagamentos. A ordem adotada é:
+
+- **Resultado medido antes de escala:** registrar fonte, versão do currículo/carta, decisão, candidatura enviada, retorno, entrevista qualificada e desfecho. A métrica principal continua sendo entrevistas qualificadas por 100 candidaturas.
+- **Proteção contra golpe como proposta central:** ampliar os sinais de vaga falsa, cobrança indevida, PJ disfarçado e inconsistências do anúncio para uma decisão de risco visível antes de abrir ou enviar a candidatura.
+- **Conhecimento de RH como regra do produto:** transformar critérios de triagem, ATS, pretensão salarial, regime e sinais de vaga fantasma em heurísticas versionadas, justificadas e testáveis, complementando a IA.
+- **Prova antes de promessa:** qualquer alegação de aumento de conversão deverá vir de dados observados no produto; não será apresentada como promessa antes de haver amostra e atribuição suficientes.
 
 ## Próximas prioridades
 
@@ -129,28 +142,32 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 1. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
 2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência contra replays.
-3. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
-4. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
-5. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads, incluindo foto de perfil.
-6. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
-7. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline`.
-8. Auditar variáveis do Render e o histórico Git em busca de segredos.
-9. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação e revogação.
-10. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
-11. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
-12. Reexecutar a suíte completa em ambiente com todas as dependências instaladas; a execução local atual está bloqueada por `psycopg` ausente no `venv`.
+3. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
+4. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
+5. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
+6. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
+7. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads, incluindo foto de perfil.
+8. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
+9. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline`.
+10. Auditar variáveis do Render e o histórico Git em busca de segredos.
+11. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação e revogação.
+12. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+13. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
 
-### P1 — LGPD, IA e monetização
+### P1 — resultado, proteção, LGPD, IA e monetização
 
-1. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
-2. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
-3. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
-4. Delimitar conteúdo de vagas, OCR, Gmail e PDFs como dados não confiáveis; adicionar testes contra prompt injection.
-5. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
-6. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
-7. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
-8. Sincronizar o card de onboarding com o perfil e as preferências reais.
-9. Exibir links legais e logout no cabeçalho/rodapé global.
+1. Fechar o loop de resultado: persistir eventos de candidatura e retorno, versionar currículo/carta e origem, registrar entrevistas qualificadas e criar a primeira visão de conversão por 100 candidaturas.
+2. Transformar proteção contra golpe em etapa explícita de risco, com sinais, explicação, bloqueio ou revisão e registro do resultado para calibrar os critérios.
+3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; cada regra deve ser versionada, explicável e coberta por teste.
+4. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
+5. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
+6. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
+7. Delimitar conteúdo de vagas, OCR, Gmail e PDFs como dados não confiáveis; adicionar testes contra prompt injection.
+8. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
+9. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
+10. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
+11. Sincronizar o card de onboarding com o perfil e as preferências reais.
+12. Exibir links legais e logout no cabeçalho/rodapé global.
 
 ### P2 — escala e diferenciação
 
@@ -158,8 +175,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional.
 - Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
 - Criar extensão de navegador para captação autorizada.
-- Criar painel administrativo e métricas de entrevistas qualificadas.
-- Adicionar aprendizado baseado nos resultados das candidaturas.
+- Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
+- Adicionar aprendizado baseado nos resultados das candidaturas depois que houver volume e atribuição confiáveis.
 
 ## Validações recentes
 
@@ -168,26 +185,28 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- O conjunto histórico registrava 59 testes aprovados em 15/09/2026; a suíte completa precisa ser reexecutada no ambiente com todas as dependências instaladas.
+- A suíte completa foi reexecutada após instalar a dependência declarada `psycopg[binary]`: **71 testes aprovados em 3,776 s**. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.1** |
-| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.7** |
-| Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.3** |
-| Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.4** |
-| Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e foto em **P0.5** |
-| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.6**; retenção automática em **P1.3** |
+| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.9** |
+| Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.4** |
+| Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.5** |
+| Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e foto em **P0.7** |
+| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.8**; retenção automática em **P1.6** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
-| XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; não há sanitização central nem testes de conteúdo hostil na IA | XSS armazenado em **P0.11**; prompt injection em **P1.4** |
+| XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; não há sanitização central nem testes de conteúdo hostil na IA | XSS armazenado em **P0.13**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
-| Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | **P1.2** e **P1.7** |
-| Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.1** |
-| Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.6** |
+| Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.5**; textos legais em **P1.10** |
+| Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.4** |
+| Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
+| InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.3** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | 25 testes de auth/segurança passam; descoberta completa encontrou 48 testes, mas 5 módulos não importam no ambiente local porque `psycopg` não está instalado | Bloqueio de validação em **P0.12** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 71 testes | **Concluído nesta verificação** |
+| Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.6** |
 
 ## Variáveis e segredos
 
