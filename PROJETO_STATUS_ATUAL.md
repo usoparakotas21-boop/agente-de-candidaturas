@@ -120,7 +120,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
 - Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
 - OCR, parsing, confirmação e busca externa já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
-- Não há evidência versionada de backup diário, teste de restauração ou runbook de revogação/rotação de tokens OAuth e chaves de API após exposição.
+- O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial; ainda falta confirmar os backups do projeto Supabase, executar o teste real e registrar a evidência fora do Git.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
@@ -183,7 +183,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 13. Concluir armazenamento privado e retenção: documentos gerados agora ficam em diretório temporário privado (permissão `0700`) fora da raiz do projeto, e a inicialização remove artefatos antigos conforme `DOCUMENT_RETENTION_DAYS` (60 dias por padrão). Uploads de OCR continuam sendo apagados imediatamente; falta ligar expurgo de rascunhos/objetos do Storage.
 14. Fechar a auditoria de variáveis e menor privilégio: a revisão do código, `render.yaml` e histórico rastreado confirmou ausência de `SERVICE_ROLE_KEY` no cliente e o banco agora força `sslmode=require`; falta confirmar no painel do Render/Supabase, executar scanner de segredos e verificar a conexão efetiva de produção.
 15. Validar em produção a consulta contra senhas comprometidas: a implementação k-anonimizada e o bloqueio de senha exposta já estão no código; falta confirmar `PWNED_PASSWORD_CHECK=true` no Render e testar uma senha conhecida sem registrar seu valor.
-16. Confirmar backups diários do Supabase, executar um teste de restauração e documentar a revogação/rotação emergencial de tokens OAuth e chaves de API.
+16. Confirmar backups diários do Supabase e executar um teste de restauração conforme `DISASTER_RECOVERY.md`; o runbook de revogação/rotação já está versionado, faltando a evidência operacional do painel.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
@@ -246,7 +246,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Implementado; revisar endpoints operacionais restantes em **P0.7** |
 | Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P0.12/P2** |
-| Backup e recuperação | O repositório não comprova backup diário, teste de restauração ou runbook de revogação/rotação de credenciais | Confirmar e testar em **P0.16** |
+| Backup e recuperação | `DISASTER_RECOVERY.md` cobre restauração isolada, validação de RLS, UptimeRobot e revogação/rotação sem registrar segredos | Runbook concluído; confirmar backup diário e executar restauração real em **P0.16** |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.5**; textos legais em **P1.10** |
