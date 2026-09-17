@@ -116,6 +116,9 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Os handlers de webhook consultam o provedor antes de liberar a compra, mas as rotas de webhook ainda não estão na lista pública do middleware de autenticação; também falta assinatura/verificação equivalente e idempotência explícita contra replay.
 - As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
 - A conexão PostgreSQL é criada a partir de `DATABASE_URL`, mas o código não força `sslmode=require`; falta confirmar no Render que a URL de produção exige TLS.
+- Não há handler global para exceções inesperadas; o endpoint `/health` ainda devolve `str(exc)` no campo `detail`, e alguns erros de integração podem propagar mensagens técnicas. Falta padronizar respostas públicas e manter detalhes somente nos logs internos.
+- O OCR do endpoint `/intake/file` é chamado de forma síncrona dentro de uma rota `async`; monitores Gmail/Outlook usam tarefas no mesmo processo e as chamadas externas têm timeouts individuais, mas não há limite total de 30 segundos nem isolamento de recursos para OCR/IA.
+- Não há evidência versionada de backup diário, teste de restauração ou runbook de revogação/rotação de tokens OAuth e chaves de API após exposição.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
@@ -152,13 +155,16 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
 5. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
 6. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline` com nonces ou scripts externos.
-7. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
-8. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
-9. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
-10. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
-11. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
-12. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
-13. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+7. Criar tratamento global de exceções com respostas JSON padronizadas, sem stack traces ou detalhes de banco/provedor, e remover detalhes técnicos de endpoints públicos como `/health`.
+8. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
+9. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
+10. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
+11. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
+12. Isolar OCR/IA/leitura de e-mail em tarefas controladas, evitar bloquear o loop HTTP e impor limite total de 30 segundos e limites de concorrência/CPU por processamento.
+13. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
+14. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
+15. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+16. Confirmar backups diários do Supabase, executar um teste de restauração e documentar a revogação/rotação emergencial de tokens OAuth e chaves de API.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
@@ -203,27 +209,30 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
-| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.1** |
+| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.8** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.6** |
-| Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
+| Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
 | Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.1** |
-| RLS e menor privilégio | `scripts/migrate_rls.py` cria políticas para as tabelas de negócio, mas não inclui `document_export_purchases`; aplicação e Render não referenciam `SERVICE_ROLE_KEY`, porém a aplicação do RLS e o papel efetivo do banco ainda não foram confirmados em produção | Completar e testar RLS em **P0.1**; revisar chaves e papel do banco em **P0.12** |
+| RLS e menor privilégio | `scripts/migrate_rls.py` cria políticas para as tabelas de negócio, mas não inclui `document_export_purchases`; aplicação e Render não referenciam `SERVICE_ROLE_KEY`, porém a aplicação do RLS e o papel efetivo do banco ainda não foram confirmados em produção | Completar e testar RLS em **P0.1**; revisar chaves e papel do banco em **P0.14** |
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e magic bytes em **P0.4** |
-| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.11**; retenção automática em **P1.6** |
+| Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.13**; retenção automática em **P1.6** |
 | MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.5**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; a autorização ainda não está vinculada a uma transação/exportação específica e falta teste integrado de IDOR | Refinamento e teste em **P0.1** |
+| Erros e informação interna | Não há handler global; `/health` devolve `str(exc)` e algumas rotas deixam exceções inesperadas subirem | Padronização sem vazamento em **P0.7** |
+| Tarefas pesadas | OCR usa temporários removidos, mas `/intake/file` executa OCR síncrono na rota `async`; monitores rodam como tarefas no mesmo processo e falta limite total de 30 segundos | Isolamento, timeout total e concorrência em **P0.12** |
+| Backup e recuperação | O repositório não comprova backup diário, teste de restauração ou runbook de revogação/rotação de credenciais | Confirmar e testar em **P0.16** |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.5**; textos legais em **P1.10** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.4** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
-| InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.8** |
+| InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
 | Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 71 testes | **Concluído nesta verificação** |
-| Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.10** |
+| Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.11** |
 
 ## Variáveis e segredos
 
