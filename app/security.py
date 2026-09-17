@@ -1,5 +1,15 @@
+import secrets
+from contextvars import ContextVar
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+
+
+_CSP_NONCE: ContextVar[str] = ContextVar("csp_nonce", default="")
+
+
+def current_csp_nonce() -> str:
+    return _CSP_NONCE.get()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -8,14 +18,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     CONTENT_SECURITY_POLICY = (
         "default-src 'self'; "
         "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; font-src 'self' data:; "
         "connect-src 'self'; form-action 'self' https://*.mercadopago.com https://*.infinitepay.io"
     )
 
     async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
+        nonce = secrets.token_urlsafe(18)
+        token = _CSP_NONCE.set(nonce)
+        try:
+            response = await call_next(request)
+        finally:
+            _CSP_NONCE.reset(token)
+        response.headers.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY.format(nonce=nonce))
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

@@ -173,7 +173,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 3. Concluir a validação de MFA em produção: TOTP agora tem status, enrollment, challenge, unenroll e conclusão de login com cookie temporário de cinco minutos; o login bloqueia a sessão normal quando há fator verificado e o logout revoga também o desafio pendente. Falta validar a configuração TOTP do Supabase e executar um teste real de recuperação/expiração.
 4. Concluir validação de uploads em produção: a checagem central agora confirma extensão, tamanho, assinatura real e decodificação de imagens; PDF/DOCX passaram a exigir magic bytes/estrutura válida e a foto não confia mais no MIME do navegador. Falta revisar o diretório/isolamento operacional dos arquivos no P0.13.
 5. Concluir a sanitização de conteúdo externo em produção: a camada central agora remove scripts, estilos, comentários, tags e controles antes de persistir ou enviar descrições para análise; captura de texto, e-mail/OCR e confirmação convergem para texto simples. Falta completar a revisão de todas as superfícies de renderização no P0.6.
-6. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline` com nonces ou scripts externos.
+6. Concluir CSP com OAuth e checkout: `script-src` agora usa nonce por resposta e não aceita mais `unsafe-inline`; `style-src` ainda mantém `unsafe-inline` por causa dos estilos embutidos e deve ser migrado para folhas externas/nonces antes de fechar o P0.6.
 7. Criar tratamento global de exceções com respostas JSON padronizadas, sem stack traces ou detalhes de banco/provedor, e remover detalhes técnicos de endpoints públicos como `/health`.
 8. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
 9. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
@@ -232,7 +232,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.8** |
-| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.6** |
+| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | `script-src` endurecido; migração de `style-src unsafe-inline` segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner` | RLS aplicado; repetir prova de isolamento em **P0.1** e revisar chaves/papel do banco em **P0.14** |

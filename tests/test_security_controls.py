@@ -41,6 +41,8 @@ class SecurityControlsTest(unittest.TestCase):
         self.assertEqual(response.headers["x-frame-options"], "DENY")
         self.assertEqual(response.headers["referrer-policy"], "strict-origin-when-cross-origin")
         self.assertIn("max-age=31536000", response.headers["strict-transport-security"])
+        self.assertIn("script-src 'self' 'nonce-", response.headers["content-security-policy"])
+        self.assertNotIn("script-src 'self' 'unsafe-inline'", response.headers["content-security-policy"])
 
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
