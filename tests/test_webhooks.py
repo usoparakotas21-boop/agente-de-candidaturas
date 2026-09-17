@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from fastapi import HTTPException
 from starlette.requests import Request
 
 from app import main as main_module
@@ -51,6 +52,15 @@ class WebhookSecurityTest(unittest.TestCase):
             self.assertFalse(main_module._mercadopago_signature_is_valid(stale, payload))
             unsigned = webhook_request("payment-123", "")
             self.assertFalse(main_module._mercadopago_signature_is_valid(unsigned, payload))
+
+    def test_export_checkout_does_not_fallback_to_legacy_provider(self):
+        with patch.dict(
+            "os.environ",
+            {"INFINITEPAY_EXPORT_PRICE_CENTS": "990"},
+            clear=True,
+        ):
+            with self.assertRaises(HTTPException):
+                main_module._document_export_price_cents()
 
     def test_paid_transition_is_idempotent_and_rejects_conflicting_replay(self):
         engine = create_engine("sqlite://")

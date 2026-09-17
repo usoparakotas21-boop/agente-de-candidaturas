@@ -162,7 +162,7 @@ def _document_export_price() -> str:
     configured = os.getenv("DOCUMENT_EXPORT_PRICE", "").strip()
     if configured:
         return configured
-    raw_cents = os.getenv("DOCUMENT_EXPORT_PRICE_CENTS", "").strip() or os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip()
+    raw_cents = os.getenv("DOCUMENT_EXPORT_PRICE_CENTS", "").strip()
     try:
         cents = int(raw_cents)
     except (TypeError, ValueError):
@@ -213,10 +213,7 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
         "allowed": allowed,
         "price": _document_export_price(),
         "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip(),
-        "checkout_ready": bool(
-            os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
-            or (os.getenv("INFINITEPAY_HANDLE", "").strip() and os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip())
-        ),
+        "checkout_ready": bool(os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()),
     }
 
 
@@ -963,7 +960,7 @@ def _infinitepay_base_url() -> str:
 
 
 def _document_export_price_cents() -> int:
-    raw = os.getenv("DOCUMENT_EXPORT_PRICE_CENTS", "").strip() or os.getenv("INFINITEPAY_EXPORT_PRICE_CENTS", "").strip()
+    raw = os.getenv("DOCUMENT_EXPORT_PRICE_CENTS", "").strip()
     try:
         value = int(raw)
     except (TypeError, ValueError):
@@ -1047,70 +1044,22 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
-    if mercadopago_token:
-        price_cents = _document_export_price_cents()
-        order_nsu = f"export-{uuid.uuid4().hex}"
-        base_url = _infinitepay_base_url()
-        payload = {
-            "items": [{"id": "document-export", "title": "Exportação de currículo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
-            "external_reference": order_nsu,
-            "payer": {"email": str(user.get("email") or "")},
-            "back_urls": {
-                "success": f"{base_url}/billing/mercadopago/success",
-                "pending": f"{base_url}/billing/mercadopago/success",
-                "failure": f"{base_url}/billing/mercadopago/success",
-            },
-            "auto_return": "approved",
-            "notification_url": f"{base_url}/webhooks/mercadopago",
-        }
-        db = SessionLocal()
-        try:
-            db.add(DocumentExportPurchase(owner_id=owner_id, order_nsu=order_nsu, amount=price_cents))
-            db.commit()
-        finally:
-            db.close()
-        try:
-            async with httpx.AsyncClient(timeout=20) as client:
-                response = await client.post(
-                    "https://api.mercadopago.com/checkout/preferences",
-                    headers={"Authorization": f"Bearer {mercadopago_token}"},
-                    json=payload,
-                )
-        except httpx.HTTPError as exc:
-            logger.exception("Falha ao criar preferência Mercado Pago order_nsu=%s", order_nsu)
-            raise HTTPException(502, "Não foi possível criar o checkout Mercado Pago.") from exc
-        if response.status_code >= 400:
-            logger.warning("Mercado Pago recusou checkout status=%s order_nsu=%s body=%s", response.status_code, order_nsu, response.text[:2000])
-            raise HTTPException(502, "O Mercado Pago recusou a criação do checkout.")
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise HTTPException(502, "O Mercado Pago retornou uma resposta inválida.") from exc
-        checkout_url = data.get("init_point") or data.get("sandbox_init_point")
-        preference_id = str(data.get("id") or "").strip()
-        if not checkout_url or not preference_id:
-            raise HTTPException(502, "O Mercado Pago não retornou um link de checkout.")
-        db = SessionLocal()
-        try:
-            purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
-            if purchase:
-                purchase.invoice_slug = preference_id
-                db.commit()
-        finally:
-            db.close()
-        return {"checkout_url": checkout_url, "order_nsu": order_nsu, "provider": "mercadopago"}
-
-    handle = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
-    if not handle:
-        raise HTTPException(503, "Configure INFINITEPAY_HANDLE no Render.")
+    if not mercadopago_token:
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = _document_export_price_cents()
     order_nsu = f"export-{uuid.uuid4().hex}"
+    base_url = _infinitepay_base_url()
     payload = {
-        "handle": handle,
-        "order_nsu": order_nsu,
-        "redirect_url": f"{_infinitepay_base_url()}/billing/infinitepay/success",
-        "webhook_url": f"{_infinitepay_base_url()}/webhooks/infinitepay",
-        "items": [{"quantity": 1, "price": price_cents, "description": "Exportação de currículo e carta personalizada"}],
+        "items": [{"id": "document-export", "title": "Exportação de currículo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "external_reference": order_nsu,
+        "payer": {"email": str(user.get("email") or "")},
+        "back_urls": {
+            "success": f"{base_url}/billing/mercadopago/success",
+            "pending": f"{base_url}/billing/mercadopago/success",
+            "failure": f"{base_url}/billing/mercadopago/success",
+        },
+        "auto_return": "approved",
+        "notification_url": f"{base_url}/webhooks/mercadopago",
     }
     db = SessionLocal()
     try:
@@ -1120,35 +1069,34 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
         db.close()
     try:
         async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post("https://api.checkout.infinitepay.io/links", json=payload)
+            response = await client.post(
+                "https://api.mercadopago.com/checkout/preferences",
+                headers={"Authorization": f"Bearer {mercadopago_token}"},
+                json=payload,
+            )
     except httpx.HTTPError as exc:
-        logger.exception("Falha de rede ao criar checkout InfinitePay order_nsu=%s", order_nsu)
-        raise HTTPException(502, "Não foi possível criar o checkout InfinitePay.") from exc
+        logger.exception("Falha ao criar preferência Mercado Pago order_nsu=%s", order_nsu)
+        raise HTTPException(502, "Não foi possível criar o checkout Mercado Pago.") from exc
     if response.status_code >= 400:
-        # A API devolve o motivo no corpo (por exemplo, checkout integrado
-        # desabilitado ou configuração inválida). Registre-o para diagnóstico
-        # sem expor o payload completo ao usuário.
-        logger.warning(
-            "InfinitePay recusou checkout status=%s order_nsu=%s body=%s",
-            response.status_code,
-            order_nsu,
-            response.text[:2000],
-        )
-        raise HTTPException(502, "A InfinitePay recusou a criação do checkout.")
+        logger.warning("Mercado Pago recusou checkout status=%s order_nsu=%s body=%s", response.status_code, order_nsu, response.text[:2000])
+        raise HTTPException(502, "O Mercado Pago recusou a criação do checkout.")
     try:
         data = response.json()
     except ValueError as exc:
-        logger.warning(
-            "InfinitePay retornou JSON inválido status=%s order_nsu=%s body=%s",
-            response.status_code,
-            order_nsu,
-            response.text[:2000],
-        )
-        raise HTTPException(502, "A InfinitePay retornou uma resposta inválida.") from exc
-    checkout_url = data.get("url") or data.get("checkout_url") or data.get("link")
-    if not checkout_url:
-        raise HTTPException(502, "A InfinitePay não retornou um link de checkout.")
-    return {"checkout_url": checkout_url, "order_nsu": order_nsu}
+        raise HTTPException(502, "O Mercado Pago retornou uma resposta inválida.") from exc
+    checkout_url = data.get("init_point") or data.get("sandbox_init_point")
+    preference_id = str(data.get("id") or "").strip()
+    if not checkout_url or not preference_id:
+        raise HTTPException(502, "O Mercado Pago não retornou um link de checkout.")
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
+        if purchase:
+            purchase.invoice_slug = preference_id
+            db.commit()
+    finally:
+        db.close()
+    return {"checkout_url": checkout_url, "order_nsu": order_nsu, "provider": "mercadopago"}
 
 
 @app.post("/webhooks/infinitepay")

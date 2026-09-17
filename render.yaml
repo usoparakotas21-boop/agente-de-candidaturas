@@ -57,7 +57,3 @@ services:
         sync: false
       - key: MERCADOPAGO_WEBHOOK_SECRET
         sync: false
-      - key: INFINITEPAY_HANDLE
-        sync: false
-      - key: INFINITEPAY_EXPORT_PRICE_CENTS
-        sync: false

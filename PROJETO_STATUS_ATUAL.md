@@ -281,7 +281,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após a liberação pública das páginas legais: **100 testes aprovados em 4,069 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail e regressão de rotas legais. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais e a remoção do fallback de pagamento legado: **101 testes aprovados em 3,992 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais e bloqueio do fallback fora do Mercado Pago. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
