@@ -77,6 +77,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Rate limiting em memória por IP e identificador de conta para login, cadastro, recuperação de senha, reenvio de confirmação e alterações de credenciais.
 - Limite retorna HTTP 429 com `Retry-After`.
 - Dados de negócio filtrados por `owner_id` nas rotas principais.
+- Testes de isolamento entre dois usuários cobrem listagem, consulta, atualização e downloads de vagas/candidaturas; o teste de cobertura garante que a migração RLS inclui todas as 11 tabelas do modelo.
 - Refresh tokens de Gmail e Outlook cifrados com Fernet usando `TOKEN_ENCRYPTION_KEY`.
 - Uploads têm limites de tamanho no backend: 5 MB para currículo e 10 MB para arquivos de vaga.
 - Frontend usa `textContent` ou escape em vários pontos que exibem conteúdo de vaga.
@@ -106,7 +107,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa `unsafe-inline` porque as telas atuais contêm scripts e estilos inline; a política precisa ser endurecida depois da migração para nonces ou arquivos externos.
-- Falta teste formal de IDOR/RLS com dois usuários para cada rota que recebe IDs, principalmente downloads e exportações. O script `scripts/migrate_rls.py` cobre as tabelas de negócio, mas ainda não inclui `document_export_purchases` e não houve confirmação de aplicação em todas as tabelas no projeto de produção.
+- Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova contra o PostgreSQL/Supabase de produção e confirmar a aplicação efetiva do RLS em todas as tabelas.
+- O script `scripts/migrate_rls.py` agora cobre as 11 tabelas do modelo, incluindo `document_export_purchases`; falta aplicar e verificar a migração no projeto de produção.
 - A aplicação usa `SUPABASE_PUBLISHABLE_KEY` e não há `SERVICE_ROLE_KEY` no código ou no `render.yaml`; ainda falta revisar no painel do Supabase e do Render se a chave mestra nunca foi exposta e se o acesso do banco segue o menor privilégio.
 - Currículo e arquivos de vaga já conferem assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central que imponha magic bytes em todos os uploads.
 - Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
@@ -166,7 +168,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras, integrações e rotas de download/exportação; ativar e verificar RLS em todas as tabelas do Supabase, incluindo `document_export_purchases`, e exigir dono compatível e transação paga válida.
+1. Validar no PostgreSQL/Supabase de produção o isolamento entre dois usuários, aplicar e verificar RLS em todas as tabelas, incluindo `document_export_purchases`, e exigir dono compatível e transação paga válida. Os testes locais de rotas e cobertura de tabelas já passam.
 2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência atômica contra replays; uma transição já paga não deve ser reaplicada.
 3. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação, revogação e expiração de sessões.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
@@ -222,7 +224,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após instalar a dependência declarada `psycopg[binary]`: **71 testes aprovados em 3,776 s**. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após instalar a dependência declarada `psycopg[binary]`: **74 testes aprovados em 3,904 s**, incluindo os testes novos de RLS/IDOR. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
 
@@ -231,15 +233,15 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.8** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
-| Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.1** |
-| RLS e menor privilégio | `scripts/migrate_rls.py` cria políticas para as tabelas de negócio, mas não inclui `document_export_purchases`; aplicação e Render não referenciam `SERVICE_ROLE_KEY`, porém a aplicação do RLS e o papel efetivo do banco ainda não foram confirmados em produção | Completar e testar RLS em **P0.1**; revisar chaves e papel do banco em **P0.14** |
+| Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; não houve ainda prova contra o Supabase de produção | Código e testes locais aprovados; validação de produção em **P0.1** |
+| RLS e menor privilégio | `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`; aplicação, papel efetivo do banco e políticas no projeto de produção ainda não foram confirmados | Aplicar e testar RLS em **P0.1**; revisar chaves e papel do banco em **P0.14** |
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e magic bytes em **P0.4** |
 | Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.13**; retenção automática em **P1.6** |
 | MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.5**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
-| Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; a autorização ainda não está vinculada a uma transação/exportação específica e falta teste integrado de IDOR | Refinamento e teste em **P0.1** |
+| Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Não há handler global; `/health` devolve `str(exc)` e algumas rotas deixam exceções inesperadas subirem | Padronização sem vazamento em **P0.7** |
 | Tarefas pesadas | OCR usa temporários removidos, mas `/intake/file` executa OCR síncrono na rota `async`; monitores rodam como tarefas no mesmo processo e falta limite total de 30 segundos | Isolamento, timeout total e concorrência em **P0.12** |
 | Backup e recuperação | O repositório não comprova backup diário, teste de restauração ou runbook de revogação/rotação de credenciais | Confirmar e testar em **P0.16** |

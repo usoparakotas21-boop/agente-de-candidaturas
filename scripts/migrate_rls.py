@@ -21,6 +21,7 @@ DIRECT_OWNER_TABLES = (
     "jobs",
     "email_integrations",
     "processed_email_messages",
+    "document_export_purchases",
     "queue_items",
 )
 
