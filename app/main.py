@@ -1,8 +1,11 @@
 import json
 import base64
+import hashlib
+import hmac
 import logging
 import os
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Literal
@@ -11,7 +14,7 @@ import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import inspect, select, text
+from sqlalchemy import inspect, select, text, update
 from starlette.concurrency import run_in_threadpool
 
 from .auth import AuthMiddleware, authenticated_user, router as auth_router
@@ -898,6 +901,74 @@ def _document_export_price_cents() -> int:
     return value
 
 
+def _mercadopago_signature_is_valid(request: Request, payload: dict[str, Any]) -> bool:
+    """Validate Mercado Pago's HMAC webhook signature before processing it."""
+    secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+    signature = request.headers.get("x-signature", "").strip()
+    request_id = request.headers.get("x-request-id", "").strip()
+    payment_id = str(
+        (payload.get("data") or {}).get("id")
+        or payload.get("id")
+        or request.query_params.get("data.id")
+        or ""
+    ).strip()
+    parts = {
+        item.split("=", 1)[0].strip(): item.split("=", 1)[1].strip()
+        for item in signature.split(",")
+        if "=" in item
+    }
+    timestamp = parts.get("ts", "")
+    received = parts.get("v1", "")
+    if not secret or not request_id or not payment_id or not timestamp or not received:
+        return False
+    try:
+        timestamp_int = int(timestamp)
+    except ValueError:
+        return False
+    if abs(int(time.time()) - timestamp_int) > 5 * 60:
+        return False
+    manifest = f"id:{payment_id};request-id:{request_id};ts:{timestamp};"
+    expected = hmac.new(secret.encode("utf-8"), manifest.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, received)
+
+
+def _mark_purchase_paid(
+    db,
+    purchase: DocumentExportPurchase,
+    *,
+    transaction_nsu: str,
+    paid_amount: int,
+    invoice_slug: str | None = None,
+    receipt_url: str | None = None,
+) -> str:
+    """Apply one PAID transition and make repeated webhook delivery safe."""
+    if purchase.status == "PAID":
+        return "idempotent" if purchase.transaction_nsu == transaction_nsu else "conflict"
+    values: dict[str, Any] = {
+        "status": "PAID",
+        "transaction_nsu": transaction_nsu,
+        "paid_amount": paid_amount,
+        "paid_at": utc_now(),
+    }
+    if invoice_slug:
+        values["invoice_slug"] = invoice_slug
+    if receipt_url:
+        values["receipt_url"] = receipt_url
+    result = db.execute(
+        update(DocumentExportPurchase)
+        .where(
+            DocumentExportPurchase.id == purchase.id,
+            DocumentExportPurchase.status != "PAID",
+        )
+        .values(**values)
+    )
+    db.commit()
+    if result.rowcount == 1:
+        return "paid"
+    db.refresh(purchase)
+    return "idempotent" if purchase.status == "PAID" and purchase.transaction_nsu == transaction_nsu else "conflict"
+
+
 @app.post("/billing/document-export/checkout")
 async def create_document_export_checkout(user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
@@ -1033,14 +1104,16 @@ async def infinitepay_webhook(request: Request):
         if response.status_code < 400:
             check = response.json()
             if check.get("success") and check.get("paid"):
-                purchase.status = "PAID"
-                purchase.invoice_slug = invoice_slug
-                purchase.transaction_nsu = transaction_nsu
-                purchase.paid_amount = int(check.get("paid_amount") or check.get("amount") or 0)
-                purchase.receipt_url = str(payload.get("receipt_url") or "")[:1000] or None
-                purchase.paid_at = utc_now()
-                db.commit()
-        return {"received": True}
+                outcome = _mark_purchase_paid(
+                    db,
+                    purchase,
+                    transaction_nsu=transaction_nsu,
+                    paid_amount=int(check.get("paid_amount") or check.get("amount") or 0),
+                    invoice_slug=invoice_slug,
+                    receipt_url=str(payload.get("receipt_url") or "")[:1000] or None,
+                )
+                return {"received": True, "verified": outcome != "conflict", "idempotent": outcome == "idempotent"}
+        return {"received": True, "verified": False}
     finally:
         db.close()
 
@@ -1055,6 +1128,8 @@ async def mercadopago_webhook(request: Request):
         payload = await request.json()
     except Exception:
         payload = {}
+    if not _mercadopago_signature_is_valid(request, payload):
+        return {"received": True, "verified": False}
     payment_id = str((payload.get("data") or {}).get("id") or payload.get("id") or request.query_params.get("data.id") or "").strip()
     notification_type = str(payload.get("type") or payload.get("topic") or "").strip().casefold()
     if not payment_id or notification_type not in {"payment", "payments", ""}:
@@ -1082,11 +1157,13 @@ async def mercadopago_webhook(request: Request):
     try:
         purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
         if purchase and str(payment.get("status") or "").casefold() == "approved":
-            purchase.status = "PAID"
-            purchase.transaction_nsu = payment_id
-            purchase.paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
-            purchase.paid_at = utc_now()
-            db.commit()
+            outcome = _mark_purchase_paid(
+                db,
+                purchase,
+                transaction_nsu=payment_id,
+                paid_amount=int(round(float(payment.get("transaction_amount") or 0) * 100)),
+            )
+            return {"received": True, "verified": outcome != "conflict", "idempotent": outcome == "idempotent", "status": payment.get("status")}
         return {"received": True, "verified": bool(purchase), "status": payment.get("status")}
     finally:
         db.close()

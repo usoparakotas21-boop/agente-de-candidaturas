@@ -639,6 +639,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/resend-confirmation",
         "/auth/me",
         "/auth/logout",
+        "/webhooks/infinitepay",
+        "/webhooks/mercadopago",
         "/auth/verification-required",
         "/docs",
         "/openapi.json",

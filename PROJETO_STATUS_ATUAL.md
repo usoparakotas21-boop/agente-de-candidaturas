@@ -169,7 +169,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 ### P0 — antes de aceitar usuários pagantes
 
 1. Concluir a prova de isolamento com duas contas reais no PostgreSQL/Supabase de produção e verificar que a autorização exige dono compatível e transação paga válida. RLS já foi aplicado e verificado nas 11 tabelas; os testes locais de rotas e cobertura de tabelas passam.
-2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência atômica contra replays; uma transição já paga não deve ser reaplicada.
+2. Concluir a validação de webhooks de pagamento em produção: as rotas já são públicas para os provedores, Mercado Pago já exige HMAC com `MERCADOPAGO_WEBHOOK_SECRET`, a confirmação continua server-to-server e a transição para `PAID` já é idempotente e rejeita transações conflitantes. Falta configurar o segredo no Render e executar replay controlado nos dois provedores.
 3. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação, revogação e expiração de sessões.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
 5. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
@@ -241,7 +241,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.5**; prompt injection em **P1.7** |
-| Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
+| Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e 77 testes locais aprovados; configurar segredo no Render, documentar assinatura da InfinitePay e executar replay controlado em **P0.2** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Não há handler global; `/health` devolve `str(exc)` e algumas rotas deixam exceções inesperadas subirem | Padronização sem vazamento em **P0.7** |
 | Tarefas pesadas | OCR usa temporários removidos, mas `/intake/file` executa OCR síncrono na rota `async`; monitores rodam como tarefas no mesmo processo e falta limite total de 30 segundos | Isolamento, timeout total e concorrência em **P0.12** |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 71 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 77 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.11** |
 
 ## Variáveis e segredos
