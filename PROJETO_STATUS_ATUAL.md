@@ -106,7 +106,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa `unsafe-inline` porque as telas atuais contêm scripts e estilos inline; a política precisa ser endurecida depois da migração para nonces ou arquivos externos.
-- Falta teste formal de IDOR/RLS com dois usuários para cada rota que recebe IDs, principalmente downloads e exportações.
+- Falta teste formal de IDOR/RLS com dois usuários para cada rota que recebe IDs, principalmente downloads e exportações. O script `scripts/migrate_rls.py` cobre as tabelas de negócio, mas ainda não inclui `document_export_purchases` e não houve confirmação de aplicação em todas as tabelas no projeto de produção.
+- A aplicação usa `SUPABASE_PUBLISHABLE_KEY` e não há `SERVICE_ROLE_KEY` no código ou no `render.yaml`; ainda falta revisar no painel do Supabase e do Render se a chave mestra nunca foi exposta e se o acesso do banco segue o menor privilégio.
 - Currículo e arquivos de vaga já conferem assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central que imponha magic bytes em todos os uploads.
 - Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
 - Falta sanitização central no backend para conteúdo de vaga, e-mail e OCR que possa voltar para HTML.
@@ -114,6 +115,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Falta verificação contra senhas comprometidas e fluxo completo de MFA no login, recuperação, revogação e expiração de sessões.
 - Os handlers de webhook consultam o provedor antes de liberar a compra, mas as rotas de webhook ainda não estão na lista pública do middleware de autenticação; também falta assinatura/verificação equivalente e idempotência explícita contra replay.
 - As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
+- A conexão PostgreSQL é criada a partir de `DATABASE_URL`, mas o código não força `sslmode=require`; falta confirmar no Render que a URL de produção exige TLS.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
@@ -122,6 +124,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Falta registrar versão e data do consentimento aceito pelo usuário.
 - O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
 - O monitor UptimeRobot não é controlado pelo código; alterações de intervalo, URL ou alertas precisam ser feitas no painel do UptimeRobot.
+- A busca de páginas públicas já bloqueia hosts e IPs não globais, valida cada redirecionamento e limita o corpo recebido; a proteção contra SSRF precisa permanecer coberta por testes de regressão.
+- O OCR usa arquivos temporários e os remove em `finally`; documentos gerados e outros fluxos ainda precisam de uma política uniforme de diretório privado e expurgo.
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
 - O produto ainda não fecha o ciclo de resultado: não há atribuição confiável entre versão do currículo, canal, candidatura e entrevista qualificada.
@@ -142,7 +146,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras, integrações e rotas de download/exportação; a autorização deve exigir dono compatível e transação paga válida.
+1. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras, integrações e rotas de download/exportação; ativar e verificar RLS em todas as tabelas do Supabase, incluindo `document_export_purchases`, e exigir dono compatível e transação paga válida.
 2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência atômica contra replays; uma transição já paga não deve ser reaplicada.
 3. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação, revogação e expiração de sessões.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
@@ -153,7 +157,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 9. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
 10. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
 11. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
-12. Auditar variáveis do Render e o histórico Git em busca de segredos.
+12. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
 13. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
@@ -180,7 +184,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 ### P2 — escala e diferenciação
 
 - Separar Gmail/Outlook em worker próprio e monitorar falhas.
-- Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional.
+- Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
 - Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
 - Criar extensão de navegador para captação autorizada.
 - Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
@@ -203,6 +207,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
 | Isolamento/IDOR | Rotas principais filtram `owner_id`, inclusive fila; não há teste integrado com dois usuários | Validação pendente em **P0.1** |
+| RLS e menor privilégio | `scripts/migrate_rls.py` cria políticas para as tabelas de negócio, mas não inclui `document_export_purchases`; aplicação e Render não referenciam `SERVICE_ROLE_KEY`, porém a aplicação do RLS e o papel efetivo do banco ainda não foram confirmados em produção | Completar e testar RLS em **P0.1**; revisar chaves e papel do banco em **P0.12** |
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e magic bytes em **P0.4** |
 | Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.11**; retenção automática em **P1.6** |
 | MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
@@ -210,6 +215,8 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.5**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Handlers consultam Mercado Pago/InfinitePay antes de marcar pago; middleware exige sessão porque os caminhos não estão públicos; falta assinatura e guarda idempotente explícita | Correção completa em **P0.2** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; a autorização ainda não está vinculada a uma transação/exportação específica e falta teste integrado de IDOR | Refinamento e teste em **P0.1** |
+| SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
+| SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.5**; textos legais em **P1.10** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.4** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
