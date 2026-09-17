@@ -859,7 +859,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/me",
         "/auth/logout",
         "/auth/mfa/complete",
-        "/webhooks/infinitepay",
         "/webhooks/mercadopago",
         "/auth/verification-required",
         # Documentos legais precisam ser legíveis antes do cadastro e do

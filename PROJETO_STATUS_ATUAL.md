@@ -65,7 +65,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ### Pagamentos
 
 - Checkout de exportação integrado com Mercado Pago, que é o único provedor de pagamento no escopo ativo.
-- Rotas e variáveis antigas de InfinitePay permanecem apenas como legado técnico e não fazem parte do fluxo de produção nem do critério de aceite.
+- Rotas, permissões e variáveis de InfinitePay foram removidas do fluxo ativo; o checkout e o webhook aceitos são exclusivamente do Mercado Pago.
 - Webhooks consultam o status no provedor antes de liberar a exportação.
 - Compras são associadas ao usuário e ao `order_nsu`.
 - `receipt_url` é persistida quando o provedor informa o endereço do recibo.
@@ -102,7 +102,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 ## O que está parcial ou ainda não existe
 
 - O gate de confirmação de e-mail está implementado; falta validar em produção as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
-- InfinitePay está fora do escopo ativo; não deve gerar novas recomendações ou critérios de aceite.
+- InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
@@ -309,7 +309,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.7**; textos legais em **P1.11** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.6** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.10** |
-| InfinitePay | Variáveis legadas podem existir no ambiente histórico | Fora do escopo ativo; não validar nem recomendar como provedor |
+| InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
 | Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 96 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.12** |
@@ -325,7 +325,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
 - `TOKEN_ENCRYPTION_KEY`;
 - `GEMINI_API_KEY`;
-- `MERCADOPAGO_WEBHOOK_SECRET` e credenciais/tokens da InfinitePay.
+- `MERCADOPAGO_WEBHOOK_SECRET` e credenciais do Mercado Pago.
 
 ## Histórico recente de entregas
 

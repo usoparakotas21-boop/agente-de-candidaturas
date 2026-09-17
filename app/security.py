@@ -20,7 +20,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
         "script-src 'self' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; font-src 'self' data:; "
-        "connect-src 'self'; form-action 'self' https://*.mercadopago.com https://*.infinitepay.io"
+        "connect-src 'self'; form-action 'self' https://*.mercadopago.com"
     )
 
     async def dispatch(self, request: Request, call_next):

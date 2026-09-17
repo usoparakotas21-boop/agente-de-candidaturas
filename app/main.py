@@ -951,7 +951,7 @@ def document_export_offer(user=Depends(authenticated_user)):
     }
 
 
-def _infinitepay_base_url() -> str:
+def _public_base_url() -> str:
     configured = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
     if configured.startswith("https://"):
         return configured
@@ -1048,7 +1048,7 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
         raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = _document_export_price_cents()
     order_nsu = f"export-{uuid.uuid4().hex}"
-    base_url = _infinitepay_base_url()
+    base_url = _public_base_url()
     payload = {
         "items": [{"id": "document-export", "title": "Exportação de currículo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
         "external_reference": order_nsu,
@@ -1097,45 +1097,6 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
     finally:
         db.close()
     return {"checkout_url": checkout_url, "order_nsu": order_nsu, "provider": "mercadopago"}
-
-
-@app.post("/webhooks/infinitepay")
-async def infinitepay_webhook(request: Request):
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(400, "Payload inválido.")
-    order_nsu = str(payload.get("order_nsu") or "").strip()
-    if not order_nsu:
-        raise HTTPException(400, "order_nsu ausente.")
-    db = SessionLocal()
-    try:
-        purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
-        if purchase is None:
-            return {"received": True}
-        handle = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
-        transaction_nsu = str(payload.get("transaction_nsu") or "").strip()
-        invoice_slug = str(payload.get("invoice_slug") or payload.get("slug") or "").strip()
-        if not handle or not transaction_nsu or not invoice_slug:
-            return {"received": True, "verified": False}
-        check_payload = {"handle": handle, "order_nsu": order_nsu, "transaction_nsu": transaction_nsu, "slug": invoice_slug}
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post("https://api.checkout.infinitepay.io/payment_check", json=check_payload)
-        if response.status_code < 400:
-            check = response.json()
-            if check.get("success") and check.get("paid"):
-                outcome = _mark_purchase_paid(
-                    db,
-                    purchase,
-                    transaction_nsu=transaction_nsu,
-                    paid_amount=int(check.get("paid_amount") or check.get("amount") or 0),
-                    invoice_slug=invoice_slug,
-                    receipt_url=str(payload.get("receipt_url") or "")[:1000] or None,
-                )
-                return {"received": True, "verified": outcome != "conflict", "idempotent": outcome == "idempotent"}
-        return {"received": True, "verified": False}
-    finally:
-        db.close()
 
 
 @app.post("/webhooks/mercadopago")
@@ -1187,11 +1148,6 @@ async def mercadopago_webhook(request: Request):
         return {"received": True, "verified": bool(purchase), "status": payment.get("status")}
     finally:
         db.close()
-
-
-@app.get("/billing/infinitepay/success", response_class=HTMLResponse, include_in_schema=False)
-def infinitepay_success():
-    return HTMLResponse("<h1>Pagamento recebido</h1><p>Estamos confirmando o pagamento. Volte ao painel para atualizar o acesso ao download.</p><a href='/dashboard'>Voltar ao painel</a>")
 
 
 @app.get("/billing/mercadopago/success", response_class=HTMLResponse, include_in_schema=False)

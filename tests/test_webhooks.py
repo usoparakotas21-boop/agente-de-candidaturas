@@ -36,7 +36,6 @@ def webhook_request(payment_id: str, signature: str, request_id: str = "req-123"
 
 class WebhookSecurityTest(unittest.TestCase):
     def test_payment_webhooks_are_public_for_provider_delivery(self):
-        self.assertIn("/webhooks/infinitepay", AuthMiddleware.PUBLIC_PATHS)
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
 
     def test_mercadopago_hmac_signature_is_required_and_time_limited(self):
