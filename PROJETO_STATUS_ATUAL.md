@@ -174,7 +174,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 4. Concluir validação de uploads em produção: a checagem central agora confirma extensão, tamanho, assinatura real e decodificação de imagens; PDF/DOCX passaram a exigir magic bytes/estrutura válida e a foto não confia mais no MIME do navegador. Falta revisar o diretório/isolamento operacional dos arquivos no P0.13.
 5. Concluir a sanitização de conteúdo externo em produção: a camada central agora remove scripts, estilos, comentários, tags e controles antes de persistir ou enviar descrições para análise; captura de texto, e-mail/OCR e confirmação convergem para texto simples. Falta completar a revisão de todas as superfícies de renderização no P0.6.
 6. Concluir CSP com OAuth e checkout: `script-src` agora usa nonce por resposta e não aceita mais `unsafe-inline`; `style-src` ainda mantém `unsafe-inline` por causa dos estilos embutidos e deve ser migrado para folhas externas/nonces antes de fechar o P0.6.
-7. Criar tratamento global de exceções com respostas JSON padronizadas, sem stack traces ou detalhes de banco/provedor, e remover detalhes técnicos de endpoints públicos como `/health`.
+7. Concluir tratamento global de exceções: handlers agora devolvem JSON genérico para erros inesperados e validações, o `/health` não expõe erro do banco e falhas do provedor de IA usam mensagem estável; manter auditoria dos endpoints legados que ainda transformam erros de validação em mensagens operacionais.
 8. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
 9. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
 10. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
@@ -243,7 +243,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | XSS e prompt injection | Sanitizador central remove markup executável de texto de vaga antes de persistir/analisar; frontend continua escapando campos; fronteira específica de prompt injection e testes hostis ainda faltam | Sanitização base implementada; CSP e superfícies restantes em **P0.6**, prompt injection em **P1.7** |
 | Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e 77 testes locais aprovados; configurar segredo no Render, documentar assinatura da InfinitePay e executar replay controlado em **P0.2** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
-| Erros e informação interna | Não há handler global; `/health` devolve `str(exc)` e algumas rotas deixam exceções inesperadas subirem | Padronização sem vazamento em **P0.7** |
+| Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Implementado; revisar endpoints operacionais restantes em **P0.7** |
 | Tarefas pesadas | OCR usa temporários removidos, mas `/intake/file` executa OCR síncrono na rota `async`; monitores rodam como tarefas no mesmo processo e falta limite total de 30 segundos | Isolamento, timeout total e concorrência em **P0.12** |
 | Backup e recuperação | O repositório não comprova backup diário, teste de restauração ou runbook de revogação/rotação de credenciais | Confirmar e testar em **P0.16** |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 85 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 86 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.11** |
 
 ## Variáveis e segredos

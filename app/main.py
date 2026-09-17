@@ -12,7 +12,8 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text, update
 from starlette.concurrency import run_in_threadpool
@@ -44,6 +45,25 @@ from .security import SecurityHeadersMiddleware, current_csp_nonce
 
 app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
 logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        {"detail": "Os dados enviados sao invalidos.", "code": "invalid_request"},
+        status_code=422,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception):
+    logger.exception("Erro interno nao tratado em %s %s", request.method, request.url.path)
+    return JSONResponse(
+        {"detail": "Nao foi possivel processar a solicitacao agora. Tente novamente em instantes.", "code": "internal_error"},
+        status_code=500,
+    )
+
+
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
@@ -285,7 +305,8 @@ async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authentic
     try:
         return await evaluate_interview_answer(req.question, req.answer, req.context)
     except AIProviderError as exc:
-        raise HTTPException(503, str(exc))
+        logger.warning("Provedor de IA indisponivel na avaliacao de entrevista: %s", exc)
+        raise HTTPException(503, "A analise nao esta disponivel agora. Tente novamente em instantes.") from exc
 
 def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
 def _fallback_profile():
@@ -419,9 +440,10 @@ def health():
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return {"status": "ok", "db": "connected"}
-    except Exception as exc:
-        # O processo continua saudável para o monitor, mas o estado do banco fica explícito.
-        return {"status": "ok", "db": "error", "detail": str(exc)}
+    except Exception:
+        logger.exception("Health check do banco falhou")
+        # O monitor continua recebendo uma resposta estável sem detalhes internos.
+        return {"status": "ok", "db": "error", "detail": "Banco indisponivel."}
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
