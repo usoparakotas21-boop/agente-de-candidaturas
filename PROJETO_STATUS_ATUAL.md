@@ -170,7 +170,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 1. Concluir a prova de isolamento com duas contas reais no PostgreSQL/Supabase de produção e verificar que a autorização exige dono compatível e transação paga válida. RLS já foi aplicado e verificado nas 11 tabelas; os testes locais de rotas e cobertura de tabelas passam.
 2. Concluir a validação de webhooks de pagamento em produção: as rotas já são públicas para os provedores, Mercado Pago já exige HMAC com `MERCADOPAGO_WEBHOOK_SECRET`, a confirmação continua server-to-server e a transição para `PAID` já é idempotente e rejeita transações conflitantes. Falta configurar o segredo no Render e executar replay controlado nos dois provedores.
-3. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação, revogação e expiração de sessões.
+3. Concluir a validação de MFA em produção: TOTP agora tem status, enrollment, challenge, unenroll e conclusão de login com cookie temporário de cinco minutos; o login bloqueia a sessão normal quando há fator verificado e o logout revoga também o desafio pendente. Falta validar a configuração TOTP do Supabase e executar um teste real de recuperação/expiração.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
 5. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
 6. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline` com nonces ou scripts externos.
@@ -238,7 +238,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner` | RLS aplicado; repetir prova de isolamento em **P0.1** e revisar chaves/papel do banco em **P0.14** |
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e magic bytes em **P0.4** |
 | Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.13**; retenção automática em **P1.6** |
-| MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
+| MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Captura remove tags HTML e frontend escapa vários campos; a entrada enviada ao avaliador Gemini ainda não tem fronteira central de dados não confiáveis nem testes hostis | XSS armazenado em **P0.5**; prompt injection em **P1.7** |
 | Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e 77 testes locais aprovados; configurar segredo no Render, documentar assinatura da InfinitePay e executar replay controlado em **P0.2** |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 77 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 79 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.11** |
 
 ## Variáveis e segredos
@@ -262,6 +262,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`;
 - `COOKIE_SECURE`, `AUTH_REQUIRED`, `APP_BASE_URL`;
+- `MFA_LOGIN_ENFORCE` (habilitado no Render para exigir challenge quando houver fator TOTP verificado);
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
 - `TOKEN_ENCRYPTION_KEY`;
 - `GEMINI_API_KEY`;

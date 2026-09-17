@@ -32,6 +32,11 @@ AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
+MFA_PENDING_ACCESS_COOKIE_NAME = "agente_mfa_pending_access"
+MFA_PENDING_REFRESH_COOKIE_NAME = "agente_mfa_pending_refresh"
+MFA_PENDING_FACTOR_COOKIE_NAME = "agente_mfa_pending_factor"
+MFA_PENDING_CHALLENGE_COOKIE_NAME = "agente_mfa_pending_challenge"
+MFA_PENDING_MAX_AGE = 5 * 60
 APP_BASE_URL = _app_base_url()
 logger = logging.getLogger(__name__)
 
@@ -46,6 +51,7 @@ _RATE_LIMITS = {
     "resend-confirmation": (3, 15 * 60),
     "password": (5, 15 * 60),
     "email": (5, 15 * 60),
+    "mfa": (5, 10 * 60),
 }
 _rate_attempts: dict[str, deque[float]] = {}
 _rate_lock = threading.Lock()
@@ -127,6 +133,12 @@ class EmailUpdateRequest(BaseModel):
 
 
 class MfaCodeRequest(BaseModel):
+    factor_id: str
+    challenge_id: str
+    code: str
+
+
+class MfaLoginCodeRequest(BaseModel):
     factor_id: str
     challenge_id: str
     code: str
@@ -284,6 +296,52 @@ def _clear_session_cookies(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
 
 
+def _set_mfa_pending_cookies(response: Response, session: dict, factor_id: str, challenge_id: str) -> None:
+    options = {
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": "lax",
+        "path": "/",
+        "max_age": MFA_PENDING_MAX_AGE,
+    }
+    response.set_cookie(MFA_PENDING_ACCESS_COOKIE_NAME, session["access_token"], **options)
+    if session.get("refresh_token"):
+        response.set_cookie(MFA_PENDING_REFRESH_COOKIE_NAME, session["refresh_token"], **options)
+    response.set_cookie(MFA_PENDING_FACTOR_COOKIE_NAME, factor_id, **options)
+    response.set_cookie(MFA_PENDING_CHALLENGE_COOKIE_NAME, challenge_id, **options)
+
+
+def _clear_mfa_pending_cookies(response: Response) -> None:
+    for name in (
+        MFA_PENDING_ACCESS_COOKIE_NAME,
+        MFA_PENDING_REFRESH_COOKIE_NAME,
+        MFA_PENDING_FACTOR_COOKIE_NAME,
+        MFA_PENDING_CHALLENGE_COOKIE_NAME,
+    ):
+        response.delete_cookie(name, path="/")
+
+
+def _mfa_login_enforced() -> bool:
+    return os.getenv("MFA_LOGIN_ENFORCE", "false").strip().casefold() in {"1", "true", "yes"}
+
+
+async def _verified_mfa_factor(access_token: str) -> dict | None:
+    try:
+        response = await _supabase_request("GET", "/auth/v1/factors", token=access_token)
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+    if response.status_code != 200:
+        raise HTTPException(503, "Nao foi possivel verificar o segundo fator agora.")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
+    factors = payload.get("totp") if isinstance(payload, dict) else []
+    if not isinstance(factors, list):
+        factors = []
+    return next((factor for factor in factors if factor.get("status") == "verified"), None)
+
+
 async def _resolve_session(request: Request) -> tuple[dict | None, dict | None]:
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     user = await user_from_token(access_token) if access_token else None
@@ -352,6 +410,36 @@ async def login(payload: LoginRequest, request: Request = None):
                 } if session_user else None,
             }
         )
+    if authenticated and _mfa_login_enforced():
+        factor = await _verified_mfa_factor(session["access_token"])
+        if factor:
+            try:
+                challenge_response = await _supabase_request(
+                    "POST",
+                    f"/auth/v1/factors/{factor.get('id')}/challenge",
+                    token=session["access_token"],
+                    json={},
+                )
+            except httpx.HTTPError as exc:
+                raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+            if challenge_response.status_code not in {200, 201}:
+                raise HTTPException(503, "Nao foi possivel iniciar a verificacao 2FA.")
+            challenge = challenge_response.json()
+            challenge_id = str(challenge.get("id") or "").strip()
+            factor_id = str(factor.get("id") or "").strip()
+            if not factor_id or not challenge_id:
+                raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
+            result = JSONResponse(
+                {
+                    "authenticated": False,
+                    "mfa_required": True,
+                    "factor_id": factor_id,
+                    "challenge_id": challenge_id,
+                    "message": "Digite o código do seu aplicativo autenticador para continuar.",
+                }
+            )
+            _set_mfa_pending_cookies(result, session, factor_id, challenge_id)
+            return result
     if authenticated:
         _set_session_cookies(result, session)
     return result
@@ -582,6 +670,85 @@ async def mfa_challenge(payload: dict, request: Request, user: dict = Depends(au
     return response.json()
 
 
+@router.get("/mfa/status")
+async def mfa_status(request: Request, user: dict = Depends(authenticated_user)):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id"):
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request("GET", "/auth/v1/factors", token=access_token)
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+    if response.status_code != 200:
+        raise HTTPException(503, "Nao foi possivel consultar o segundo fator agora.")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
+    factors = payload.get("totp") if isinstance(payload, dict) else []
+    if not isinstance(factors, list):
+        factors = []
+    return {
+        "factors": [
+            {
+                "id": factor.get("id"),
+                "type": factor.get("factor_type") or factor.get("type") or "totp",
+                "status": factor.get("status"),
+                "friendly_name": factor.get("friendly_name"),
+            }
+            for factor in factors
+        ],
+        "enabled": any(factor.get("status") == "verified" for factor in factors),
+    }
+
+
+@router.delete("/mfa/{factor_id}")
+async def mfa_unenroll(factor_id: str, request: Request, user: dict = Depends(authenticated_user)):
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token or not user.get("id") or not factor_id.strip():
+        raise HTTPException(401, "Login necessario.")
+    try:
+        response = await _supabase_request("DELETE", f"/auth/v1/factors/{factor_id.strip()}", token=access_token)
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+    if response.status_code not in {200, 204}:
+        raise HTTPException(400, _supabase_error(response, "Nao foi possivel remover o autenticador."))
+    return {"removed": True}
+
+
+@router.post("/mfa/complete")
+async def mfa_complete_login(payload: MfaLoginCodeRequest, request: Request):
+    pending_access = request.cookies.get(MFA_PENDING_ACCESS_COOKIE_NAME)
+    pending_factor = request.cookies.get(MFA_PENDING_FACTOR_COOKIE_NAME)
+    pending_challenge = request.cookies.get(MFA_PENDING_CHALLENGE_COOKIE_NAME)
+    if not pending_access or not pending_factor or not pending_challenge:
+        raise HTTPException(401, "A verificacao 2FA expirou. Entre novamente.")
+    if payload.factor_id != pending_factor or payload.challenge_id != pending_challenge:
+        raise HTTPException(400, "Desafio 2FA invalido.")
+    _enforce_rate_limit(request, "mfa", pending_factor)
+    try:
+        response = await _supabase_request(
+            "POST",
+            f"/auth/v1/factors/{pending_factor}/verify",
+            token=pending_access,
+            json={"challenge_id": pending_challenge, "code": payload.code.strip()},
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+    if response.status_code not in {200, 201}:
+        raise HTTPException(401, "Codigo 2FA invalido.")
+    try:
+        session = response.json()
+    except ValueError as exc:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
+    if not session.get("access_token"):
+        raise HTTPException(503, "O provedor nao retornou uma sessao 2FA valida.")
+    result = JSONResponse({"authenticated": True, "mfa_verified": True})
+    _set_session_cookies(result, session)
+    _clear_mfa_pending_cookies(result)
+    return result
+
+
 @router.get("/me")
 async def current_user(request: Request):
     if not AUTH_REQUIRED:
@@ -617,13 +784,20 @@ async def current_user(request: Request):
 @router.post("/logout")
 async def logout(request: Request):
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    pending_access = request.cookies.get(MFA_PENDING_ACCESS_COOKIE_NAME)
     if access_token and _configuration_ready():
         try:
             await _supabase_request("POST", "/auth/v1/logout?scope=global", token=access_token)
         except httpx.HTTPError:
             logger.warning("Falha ao revogar sessão no provedor; cookies serão limpos.")
+    if pending_access and _configuration_ready():
+        try:
+            await _supabase_request("POST", "/auth/v1/logout?scope=global", token=pending_access)
+        except httpx.HTTPError:
+            logger.warning("Falha ao revogar desafio MFA pendente; cookies serão limpos.")
     response = Response(status_code=204)
     _clear_session_cookies(response)
+    _clear_mfa_pending_cookies(response)
     return response
 
 
@@ -639,6 +813,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/resend-confirmation",
         "/auth/me",
         "/auth/logout",
+        "/auth/mfa/complete",
         "/webhooks/infinitepay",
         "/webhooks/mercadopago",
         "/auth/verification-required",
