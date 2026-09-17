@@ -1,0 +1,188 @@
+# Agente de Candidaturas — status atual
+
+**Atualizado em:** 17/09/2026  
+**Versão declarada da API:** 0.24.0  
+**Commit publicado:** `cad91fb` — `Add security headers and auth rate limiting`  
+**Produção:** `https://agente-de-candidaturas.onrender.com`  
+**Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
+**Diretório local:** `C:\agente_curriculos`
+
+Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` continua como histórico detalhado; quando houver conflito, este documento representa o estado mais recente.
+
+## O que existe de fato
+
+### Aplicação e acesso
+
+- API FastAPI com dashboard responsivo para celular e computador.
+- Deploy público no Render, com health check em `/health`.
+- Login, cadastro, logout, recuperação e alteração de senha pelo Supabase Auth.
+- Cookies de sessão com `HttpOnly`, `SameSite=Lax` e `Secure` configurável por `COOKIE_SECURE`.
+- Cookie de acesso e refresh renovados pelo middleware quando necessário.
+- Formulário de cadastro com aceite obrigatório dos Termos de Uso e da Política de Privacidade.
+- Supabase pode exigir confirmação de e-mail e o login traduz esse retorno para uma mensagem compreensível.
+- O botão `Sair` existe no shell autenticado e na área de Segurança.
+
+### Perfil, currículo e documentos
+
+- Importação de currículo em PDF textual, DOC e DOCX.
+- Extração de nome, resumo, experiências, competências, formação e dados de contato.
+- Perfil profissional editável e preferências de cargo, localização, modalidade, palavras-chave e score.
+- Estúdio independente em `/criar-documentos` para informar cargo, empresa, local, URL e detalhes da vaga.
+- Geração de prévia de currículo adaptado e carta de apresentação personalizada.
+- Prévia gratuita com conteúdo limitado; arquivos completos são liberados por plano ou compra avulsa.
+- Geração de DOCX do currículo e da carta após autorização de exportação.
+- Fluxo de importação mostra o estado concluído e permite substituir o currículo.
+
+### Captação e análise de vagas
+
+- Cadastro manual e captação por texto copiado.
+- Captação por print, imagem e PDF com OCR local.
+- Recuperação de informações de páginas públicas e dados `JobPosting` quando disponíveis.
+- Integração Gmail com OAuth individual e escopo `gmail.readonly`.
+- Monitor automático do Gmail e separação de alertas-resumo em vagas individuais.
+- Integração Outlook/Microsoft Graph com escopo de leitura e monitor equivalente.
+- Detecção de duplicidade e registro de mensagens já processadas.
+- Parser de localização, modalidade e salário em vários formatos.
+- Modalidades Presencial, Híbrido e Remoto já são reconhecidas parcialmente.
+- Análise de aderência com score, pontos fortes, lacunas, recomendação e justificativa.
+- Motor de decisão com `AUTOMATICA`, `REVISAR` e `DESCARTAR`.
+- Confiança de captura abaixo de 80%, localização/modalidade ausentes e pendências relevantes levam a revisão.
+- Detecção de sinais de vaga suspeita, cobrança indevida e contratação PJ/MEI apresentada como emprego.
+
+### Fila, vagas e candidaturas
+
+- Fila persistente com aprovação, recusa, expiração e promoção para vaga/candidatura.
+- Dashboard com filtros de decisão e status, busca por cargo/empresa e contadores.
+- Paginação da fila com 5, 10 ou 25 itens por página.
+- Estado vazio com ação direta para captar uma vaga.
+- Cabeçalho reorganizado com CTA único `+ Captar vaga`, menu `Ações` e Preferências compactas.
+- Banco de vagas com busca, origem, localização, modalidade, salário e detalhes completos.
+- Detalhamento da vaga abre dentro do site e exibe análise, currículo, carta e próximo passo.
+- Botão para abrir o anúncio original e iniciar candidatura no site da plataforma.
+- O sistema registra a candidatura enviada quando o usuário conclui o envio na plataforma externa.
+- A candidatura automática geral ainda não está habilitada.
+
+### Pagamentos
+
+- Checkout de exportação integrado com Mercado Pago.
+- Checkout de exportação integrado com InfinitePay.
+- Webhooks consultam o status no provedor antes de liberar a exportação.
+- Compras são associadas ao usuário e ao `order_nsu`.
+- `receipt_url` é persistida quando o provedor informa o endereço do recibo.
+- Ainda não existe envio automático de comprovante por e-mail.
+
+### Segurança já publicada
+
+- Middleware adiciona `Content-Security-Policy`, `Strict-Transport-Security` em HTTPS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` e `Permissions-Policy`.
+- Rate limiting em memória por IP e identificador de conta para login, cadastro, recuperação de senha, reenvio de confirmação e alterações de credenciais.
+- Limite retorna HTTP 429 com `Retry-After`.
+- Dados de negócio filtrados por `owner_id` nas rotas principais.
+- Refresh tokens de Gmail e Outlook cifrados com Fernet usando `TOKEN_ENCRYPTION_KEY`.
+- Uploads têm limites de tamanho no backend: 5 MB para currículo e 10 MB para arquivos de vaga.
+- Frontend usa `textContent` ou escape em vários pontos que exibem conteúdo de vaga.
+- Segredos são configurados por variáveis de ambiente e não devem ser colocados no Git.
+
+### Legal e privacidade já existentes
+
+- `/termos` com Termos de Uso básicos.
+- `/privacidade` com Política de Privacidade básica.
+- `/seguranca` com alteração de e-mail, alteração de senha, integrações e configuração de autenticador.
+- O cadastro exige aceite dos Termos e da Política.
+
+## O que está parcial ou ainda não existe
+
+- Verificação de e-mail ainda não é um gate uniforme para todas as operações; o Supabase pode retornar confirmação pendente, mas falta uma experiência e uma regra de backend consistentes.
+- O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
+- Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
+- Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
+- CSP usa `unsafe-inline` porque as telas atuais contêm scripts e estilos inline; a política precisa ser endurecida depois da migração para nonces ou arquivos externos.
+- Falta teste formal de IDOR/RLS com dois usuários para cada rota que recebe IDs.
+- Falta validar MIME real, extensão e assinatura (`magic bytes`) de cada upload em uma camada central.
+- Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
+- Falta sanitização central no backend para conteúdo de vaga, e-mail e OCR que possa voltar para HTML.
+- Falta verificação contra senhas comprometidas e fluxo completo de MFA no login, recuperação e revogação.
+- Falta assinatura/verificação equivalente nos webhooks e idempotência explícita contra replay.
+- Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
+- Falta separar claramente salário oferecido de pretensão salarial do candidato.
+- Falta envio de recibo por e-mail após pagamento confirmado.
+- Falta retenção configurável e expurgo automático após 30/60 dias para temporários, prints e rascunhos abandonados.
+- Falta exportação/portabilidade e exclusão definitiva da conta no mesmo fluxo LGPD.
+- Falta registrar versão e data do consentimento aceito pelo usuário.
+- O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
+- Não existe painel administrativo multiusuário.
+- Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
+- Não existe visão Kanban, extensão de navegador ou exportação operacional para CSV/Excel.
+
+## Próximas prioridades
+
+### P0 — antes de aceitar usuários pagantes
+
+1. Tornar verificação de e-mail obrigatória e consistente antes da sessão e das operações sensíveis, com reenvio limitado.
+2. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
+3. Executar testes de isolamento entre dois usuários em vagas, candidaturas, documentos, fila, compras e integrações.
+4. Centralizar validação de tamanho, extensão, MIME e assinatura dos uploads.
+5. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
+6. Revisar CSP com OAuth e checkout e eliminar gradualmente `unsafe-inline`.
+7. Auditar variáveis do Render e o histórico Git em busca de segredos.
+8. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação e revogação.
+9. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
+10. Sanitizar/escapar conteúdo externo no backend para fechar a superfície de XSS armazenado.
+11. Verificar assinatura dos webhooks e garantir idempotência contra replays.
+
+### P1 — LGPD, IA e monetização
+
+1. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
+2. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
+3. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
+4. Delimitar conteúdo de vagas, OCR, Gmail e PDFs como dados não confiáveis; adicionar testes contra prompt injection.
+5. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
+6. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
+7. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
+8. Sincronizar o card de onboarding com o perfil e as preferências reais.
+9. Exibir links legais e logout no cabeçalho/rodapé global.
+
+### P2 — escala e diferenciação
+
+- Separar Gmail/Outlook em worker próprio e monitorar falhas.
+- Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional.
+- Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
+- Criar extensão de navegador para captação autorizada.
+- Criar painel administrativo e métricas de entrevistas qualificadas.
+- Adicionar aprendizado baseado nos resultados das candidaturas.
+
+## Validações recentes
+
+- Compilação de `app/auth.py`, `app/main.py` e `app/security.py` aprovada.
+- 20 testes de autenticação e controles de segurança aprovados.
+- Cabeçalhos de segurança confirmados no endpoint público `/health`.
+- Deploy `cad91fb` confirmado como ativo no Render.
+- O conjunto histórico registrava 59 testes aprovados em 15/09/2026; a suíte completa precisa ser reexecutada no ambiente com todas as dependências instaladas.
+
+## Variáveis e segredos
+
+Os valores reais não pertencem a este documento. Devem permanecer somente no painel do Render ou no ambiente local protegido:
+
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`;
+- `COOKIE_SECURE`, `AUTH_REQUIRED`, `APP_BASE_URL`;
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
+- `TOKEN_ENCRYPTION_KEY`;
+- `GEMINI_API_KEY`;
+- credenciais, tokens e chaves dos webhooks Mercado Pago/InfinitePay.
+
+## Histórico recente de entregas
+
+| Commit | Entrega |
+| --- | --- |
+| `cad91fb` | Cabeçalhos de segurança e rate limiting de autenticação |
+| `863f9e8` | Verificação de e-mail e portabilidade/exclusão agrupadas no planejamento P0/P1 |
+| `66f5c7d` | Retenção, recibos, prompt injection e parsing de regime/modalidade/salário no planejamento |
+| `2c05531` | Refinamento do backlog de segurança, logout, onboarding, XSS e webhooks |
+| `f2d9a7c` | Roadmap de segurança, privacidade e LGPD |
+| `b44daee` | Ações do dashboard, busca e paginação da fila |
+| `6c00d98` | Estúdio de currículo e carta adaptados |
+| `90aeccb` | Checkout de exportação via Mercado Pago |
+| `4f00417` | Checkout de exportação via InfinitePay |
+
+## Regra para continuar o projeto
+
+Não liberar candidatura automática geral nem aceitar usuários pagantes antes de concluir o P0, testar o isolamento de dados e validar os webhooks. Não registrar senhas, tokens, chaves ou URLs privadas em commits, Markdown, logs ou conversas.

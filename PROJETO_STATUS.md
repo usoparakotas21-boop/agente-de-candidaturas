@@ -7,6 +7,8 @@ Estado: aplicação local funcional, com autenticação, banco Supabase, importa
 
 > Este documento foi criado para permitir que uma pessoa ou outro assistente retome o projeto sem reconstruí-lo do zero. Ele não contém senhas, tokens nem chaves privadas.
 
+> **Referência atual:** consulte [PROJETO_STATUS_ATUAL.md](PROJETO_STATUS_ATUAL.md) para o retrato consolidado do código, produção, validações e backlog vigente.
+
 ## 1. Visão do produto
 
 Criar um agente de carreira hospedado na nuvem e disponível 24 horas, capaz de trabalhar com mínima interferência do usuário:
