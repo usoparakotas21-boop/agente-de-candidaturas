@@ -1,9 +1,10 @@
 import hashlib
-import html
 import re
 import unicodedata
 from typing import Any
 from urllib.parse import urlparse
+
+from .text_sanitization import sanitize_untrusted_text
 
 
 MAX_INTAKE_CHARS = 80_000
@@ -74,12 +75,7 @@ def _normalized(value: str) -> str:
 
 
 def _clean_text(raw_text: str) -> str:
-    value = html.unescape(raw_text or "")
-    value = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", value)
-    value = re.sub(r"(?s)<[^>]+>", "\n", value)
-    value = value.replace("\x00", " ")
-    lines = [" ".join(line.split()) for line in value.splitlines()]
-    return "\n".join(line for line in lines if line)
+    return sanitize_untrusted_text(raw_text)
 
 
 def _labeled_value(lines: list[str], labels: tuple[str, ...]) -> str:

@@ -34,6 +34,7 @@ from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_jo
 from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, Experience, Job, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
+from .text_sanitization import sanitize_untrusted_text
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -600,7 +601,9 @@ def analyze_job_endpoint(req: JobRequest, user=Depends(authenticated_user)):
     try:
         c = _candidate_for_user(db, user)
         profile = _candidate_profile(c)
-        analysis = analyze_job(f"{req.title}\n{req.description}", profile)
+        safe_title = sanitize_untrusted_text(req.title, max_chars=200)
+        safe_description = sanitize_untrusted_text(req.description, max_chars=80_000)
+        analysis = analyze_job(f"{safe_title}\n{safe_description}", profile)
         return {"candidate": profile["name"], "job_title": req.title, "analysis": analysis, "next_action": analysis["next_action"]}
     finally: db.close()
 
@@ -612,6 +615,9 @@ def create_job(req: JobCreateRequest, user=Depends(authenticated_user)):
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         if db.scalar(select(Job).where(Job.external_id == ext_id)): raise HTTPException(409, "Vaga ja cadastrada.")
         data = req.model_dump(); data["external_id"] = ext_id
+        for field, limit in (("source", 50), ("company", 200), ("title", 200), ("location", 200), ("modality", 50), ("salary", 100), ("description", 80_000)):
+            data[field] = sanitize_untrusted_text(data.get(field, ""), max_chars=limit).strip()
+        data["url"] = str(data.get("url") or "").strip()[:1000]
         job = Job(owner_id=oid, **data)
         db.add(job); db.flush()
         c = _candidate_for_user(db, user)
@@ -688,7 +694,7 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
             "modality": parsed.get("modality"),
             "url": parsed.get("url"),
             "description": parsed.get("description"),
-            "raw_excerpt": req.raw_text[:2000],
+            "raw_excerpt": sanitize_untrusted_text(req.raw_text, max_chars=2000),
             "confidence_title": quality.get("field_confidence", {}).get("title"),
             "confidence_company": quality.get("field_confidence", {}).get("company"),
             "confidence_description": quality.get("field_confidence", {}).get("description"),
@@ -793,14 +799,15 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
 def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user)):
     if not re.fullmatch(r"intake-[0-9a-f]{24}", req.external_id): raise HTTPException(422, "Identificador invalido.")
     if len(req.title.strip()) < 3 or len(req.company.strip()) < 2: raise HTTPException(422, "Confira cargo e empresa.")
-    if len(req.description.strip()) < 60: raise HTTPException(422, "Descricao muito curta.")
+    safe_description = sanitize_untrusted_text(req.description, max_chars=80_000).strip()
+    if len(safe_description) < 60: raise HTTPException(422, "Descricao muito curta.")
     db = SessionLocal()
     try:
         oid = _owner_id(user)
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         job = db.scalar(select(Job).where(Job.external_id == ext_id))
         updated = job is not None
-        vals = {"source": req.source.strip()[:50], "company": req.company.strip()[:200], "title": req.title.strip()[:200], "location": req.location.strip()[:200], "modality": req.modality.strip()[:50], "salary": req.salary.strip()[:100], "url": req.url.strip()[:1000], "description": req.description.strip()}
+        vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "url": req.url.strip()[:1000], "description": safe_description}
         if job is None:
             job = Job(owner_id=oid, external_id=ext_id, **vals); db.add(job); db.flush()
         else:
