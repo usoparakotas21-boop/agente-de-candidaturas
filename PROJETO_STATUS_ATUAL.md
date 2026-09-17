@@ -107,8 +107,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa `unsafe-inline` porque as telas atuais contêm scripts e estilos inline; a política precisa ser endurecida depois da migração para nonces ou arquivos externos.
-- Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova contra o PostgreSQL/Supabase de produção e confirmar a aplicação efetiva do RLS em todas as tabelas.
-- O script `scripts/migrate_rls.py` agora cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A consulta somente leitura no PostgreSQL de produção confirmou RLS habilitado nas 11 tabelas, mas `document_export_purchases` está com zero políticas; falta aplicar a política de proprietário e repetir o teste.
+- Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
+- O script `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A migração foi aplicada no PostgreSQL de produção e a consulta somente leitura confirmou RLS habilitado e uma política em cada tabela.
 - A aplicação usa `SUPABASE_PUBLISHABLE_KEY` e não há `SERVICE_ROLE_KEY` no código ou no `render.yaml`; ainda falta revisar no painel do Supabase e do Render se a chave mestra nunca foi exposta e se o acesso do banco segue o menor privilégio.
 - Currículo e arquivos de vaga já conferem assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central que imponha magic bytes em todos os uploads.
 - Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
@@ -168,7 +168,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. Validar no PostgreSQL/Supabase de produção o isolamento entre dois usuários, aplicar e verificar RLS em todas as tabelas, incluindo `document_export_purchases`, e exigir dono compatível e transação paga válida. Os testes locais de rotas e cobertura de tabelas já passam.
+1. Concluir a prova de isolamento com duas contas reais no PostgreSQL/Supabase de produção e verificar que a autorização exige dono compatível e transação paga válida. RLS já foi aplicado e verificado nas 11 tabelas; os testes locais de rotas e cobertura de tabelas passam.
 2. Corrigir a exposição dos webhooks de pagamento ao provedor e validar assinatura, consulta server-to-server e idempotência atômica contra replays; uma transição já paga não deve ser reaplicada.
 3. Validar MFA de ponta a ponta, incluindo desafio no login, recuperação, revogação e expiração de sessões.
 4. Centralizar validação de tamanho, extensão, MIME e assinatura real (magic bytes) dos uploads, incluindo foto de perfil.
@@ -225,6 +225,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após instalar a dependência declarada `psycopg[binary]`: **74 testes aprovados em 3,904 s**, incluindo os testes novos de RLS/IDOR. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
 
@@ -233,8 +234,8 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.8** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Implementado; endurecimento da CSP segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
-| Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; não houve ainda prova contra o Supabase de produção | Código e testes locais aprovados; validação de produção em **P0.1** |
-| RLS e menor privilégio | Consulta somente leitura confirmou RLS habilitado nas 11 tabelas; `document_export_purchases` tem 0 políticas, enquanto as demais têm 1. O script versionado já contém a política que falta | Aplicar a política e testar em **P0.1**; revisar chaves e papel do banco em **P0.14** |
+| Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
+| RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner` | RLS aplicado; repetir prova de isolamento em **P0.1** e revisar chaves/papel do banco em **P0.14** |
 | Uploads | PDF/DOCX e arquivos de vaga conferem assinatura e limites; foto de perfil aceita o MIME declarado | Centralização e magic bytes em **P0.4** |
 | Arquivos temporários | OCR remove temporários ao terminar; não há política uniforme para documentos gerados, rascunhos e expurgo | Área privada em **P0.13**; retenção automática em **P1.6** |
 | MFA | Há endpoints de inscrição, desafio e verificação TOTP para usuário já autenticado; não há desafio integrado ao login, recuperação, revogação e expiração | Validação ponta a ponta em **P0.3** |
