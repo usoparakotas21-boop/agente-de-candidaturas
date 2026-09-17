@@ -478,6 +478,16 @@ As recomendações de segurança recebidas foram incorporadas ao escopo. O que j
 2. Finalizar Política de Privacidade e Termos com responsável, canal de contato, retenção, subprocessadores e explicação do tratamento de currículos e e-mails; exibir links no rodapé global.
 3. Implementar exportação e exclusão de conta com confirmação forte, remoção de currículos, tokens, vagas, candidaturas, eventos e compras conforme a política de retenção.
 4. Criar rotação e recuperação operacional da chave de cifragem dos tokens OAuth, sem expor tokens em logs ou respostas.
+5. Criar rotina de retenção e expurgo automático para anexos temporários, prints e rascunhos abandonados, com prazo configurável de 30 ou 60 dias e registro da execução.
+
+### Novos itens de conformidade, monetização e parsing
+
+- **Consentimento no cadastro — já existente:** o formulário de criação de conta exige aceite dos Termos de Uso e da Política de Privacidade. Falta registrar versão/data do consentimento para auditoria.
+- **Recibo de pagamento — pendente:** o webhook do Mercado Pago já confirma a compra e persiste o recibo quando o provedor informa uma URL. Falta enviar automaticamente um comprovante simples por e-mail após a confirmação, com valor, identificador, data e status.
+- **Prompt injection — mantido como prioridade 1:** texto colado, OCR, PDF e conteúdo vindo de e-mail devem ser tratados como dados não confiáveis antes de qualquer chamada ao modelo. Adicionar sanitização, instruções de sistema fixas, limites de tamanho e testes com anúncios que contenham comandos maliciosos.
+- **Modalidade — parcialmente existente:** o parser já reconhece Presencial, Híbrido e Remoto em vários formatos. Falta normalizar variações e preservar a confiança da extração para a decisão.
+- **Regime de contratação — pendente:** adicionar campo estruturado para CLT, PJ, MEI, estágio e não informado, com extração explícita e exibição na análise da vaga.
+- **Pretensão salarial — parcialmente existente:** salário da vaga e preferências mínima/máxima já são usados pelo motor de decisão. Falta destacar a faixa extraída, distinguir salário da vaga de pretensão do candidato e sinalizar quando a informação estiver ausente ou ambígua.
 
 ### Prioridade 2 — infraestrutura de produção
 
