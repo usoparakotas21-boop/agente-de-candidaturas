@@ -1,3 +1,4 @@
+import asyncio
 import json
 import base64
 import hashlib
@@ -74,6 +75,27 @@ app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
+DOCUMENT_PROCESSING_TIMEOUT = 30
+
+
+async def _run_document_work(function, *args):
+    try:
+        return await asyncio.wait_for(
+            run_in_threadpool(function, *args),
+            timeout=DOCUMENT_PROCESSING_TIMEOUT,
+        )
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(504, "O processamento demorou mais que o limite seguro. Tente um arquivo menor ou novamente em instantes.") from exc
+
+
+async def _run_fetch_work(function, *args):
+    try:
+        return await asyncio.wait_for(
+            run_in_threadpool(function, *args),
+            timeout=DOCUMENT_PROCESSING_TIMEOUT,
+        )
+    except asyncio.TimeoutError as exc:
+        raise SourceFetchError("A leitura da página excedeu o limite seguro.") from exc
 DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
@@ -602,7 +624,7 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(authenticated
     filename = Path((file.filename or "curriculo.docx").replace("\\", "/")).name
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     await file.close()
-    try: parsed = parse_resume(content, filename)
+    try: parsed = await _run_document_work(parse_resume, content, filename)
     except ValueError as e: raise HTTPException(422, str(e))
     oid = _owner_id(user)
     if oid is None: raise HTTPException(409, "Importacao disponivel somente no modo autenticado.")
@@ -788,10 +810,14 @@ async def intake_file(file: UploadFile = File(...), source: str = "print", auto_
     content = await file.read(MAX_JOB_FILE_BYTES + 1)
     if len(content) > MAX_JOB_FILE_BYTES: raise HTTPException(413, "Arquivo excede 10 MB.")
     try:
-        ext = extract_job_file_text(content, file.filename or "")
+        ext = await _run_document_work(extract_job_file_text, content, file.filename or "")
     except (OCRUnavailableError, ValueError) as e:
         raise HTTPException(503 if isinstance(e, OCRUnavailableError) else 422, str(e))
-    result = intake_text(JobIntakeRequest(raw_text=ext["text"], source=source, auto_analyze=auto_analyze, reprocess_existing=False), user)
+    result = await _run_document_work(
+        intake_text,
+        JobIntakeRequest(raw_text=ext["text"], source=source, auto_analyze=auto_analyze, reprocess_existing=False),
+        user,
+    )
     result["extraction"] = {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}
     return result
 
@@ -800,7 +826,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
     content = await file.read(MAX_JOB_FILE_BYTES + 1)
     if len(content) > MAX_JOB_FILE_BYTES: raise HTTPException(413, "Arquivo excede 10 MB.")
     try:
-        ext = extract_job_file_text(content, file.filename or "")
+        ext = await _run_document_work(extract_job_file_text, content, file.filename or "")
         parsed = parse_job_text(ext["text"], source)
     except (OCRUnavailableError, ValueError) as e:
         raise HTTPException(503 if isinstance(e, OCRUnavailableError) else 422, str(e))
@@ -808,7 +834,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
     fetch_error = ""
     if parsed["url"]:
         try:
-            structured = await run_in_threadpool(fetch_job_posting, parsed["url"])
+            structured = await _run_fetch_work(fetch_job_posting, parsed["url"])
         except SourceFetchError as e:
             structured = None; fetch_error = str(e)
         if structured:
@@ -820,7 +846,11 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
     confidence = int(selected.get("confidence", 55))
     method = selected.get("method", "local_ocr")
     if confidence >= 85:
-        confirmed = await run_in_threadpool(confirm_job_intake, JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], salary=selected["salary"], url=selected["url"], description=selected["description"], auto_analyze=True), user)
+        confirmed = await _run_document_work(
+            confirm_job_intake,
+            JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], salary=selected["salary"], url=selected["url"], description=selected["description"], auto_analyze=True),
+            user,
+        )
         confirmed.update({"automatic": True, "confidence": confidence, "extraction_method": method})
         return confirmed
     return {"status": "REVISAO_NECESSARIA", "message": "Confianca abaixo do limite.", "external_id": parsed["external_id"], "source": parsed["source"], "company": selected["company"], "title": selected["title"], "location": selected["location"], "modality": selected["modality"], "salary": selected["salary"], "url": selected["url"], "description": selected["description"], "confidence": confidence, "extraction_method": method, "fetch_error": fetch_error, "extraction": {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}}

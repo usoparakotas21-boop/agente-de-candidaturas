@@ -179,7 +179,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 9. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
 10. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
 11. Concluir acessibilidade dos modais: script global agora registra o disparador, aplica foco inicial, devolve foco ao fechar, marca `aria-modal` e mantém o Tab dentro do diálogo, incluindo os drawers customizados.
-12. Isolar OCR/IA/leitura de e-mail em tarefas controladas, evitar bloquear o loop HTTP e impor limite total de 30 segundos e limites de concorrência/CPU por processamento.
+12. Concluir o isolamento operacional de OCR/IA/leitura de e-mail: uploads de currículo, OCR, confirmação e leitura de páginas já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
 13. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
 14. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
 15. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
@@ -244,7 +244,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Webhooks de pagamento | Rotas públicas para entrega do provedor; Mercado Pago valida `x-signature`/`x-request-id` com HMAC e janela de replay; ambos os handlers consultam o provedor e permitem uma única transição para `PAID`, rejeitando conflito de transação | Código e 77 testes locais aprovados; configurar segredo no Render, documentar assinatura da InfinitePay e executar replay controlado em **P0.2** |
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem uma compra `PAID` do proprietário; testes de acesso cruzado passam, mas a autorização ainda não está vinculada a uma transação/exportação específica | Teste local aprovado; refinamento transacional em **P0.1** |
 | Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Implementado; revisar endpoints operacionais restantes em **P0.7** |
-| Tarefas pesadas | OCR usa temporários removidos, mas `/intake/file` executa OCR síncrono na rota `async`; monitores rodam como tarefas no mesmo processo e falta limite total de 30 segundos | Isolamento, timeout total e concorrência em **P0.12** |
+| Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P0.12/P2** |
 | Backup e recuperação | O repositório não comprova backup diário, teste de restauração ou runbook de revogação/rotação de credenciais | Confirmar e testar em **P0.16** |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 87 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 88 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.11** |
 
 ## Variáveis e segredos
