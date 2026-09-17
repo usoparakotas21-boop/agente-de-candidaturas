@@ -306,7 +306,7 @@ class ApplicationEvent(Base):
 
 
 class DocumentExportPurchase(Base):
-    """Pedido de exportação pago via checkout InfinitePay."""
+    """Pedido de exportação pago por um checkout configurado."""
 
     __tablename__ = "document_export_purchases"
     __table_args__ = (UniqueConstraint("order_nsu", name="uq_document_export_order_nsu"),)

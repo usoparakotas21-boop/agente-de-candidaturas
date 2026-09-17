@@ -45,7 +45,11 @@ services:
         sync: false
       - key: DOCUMENT_EXPORT_CHECKOUT_URL
         sync: false
+      - key: DOCUMENT_EXPORT_PRICE_CENTS
+        sync: false
       - key: DOCUMENT_EXPORT_ALLOWED_EMAILS
+        sync: false
+      - key: MERCADOPAGO_ACCESS_TOKEN
         sync: false
       - key: INFINITEPAY_HANDLE
         sync: false
