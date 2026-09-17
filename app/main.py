@@ -33,6 +33,7 @@ from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
 from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, Experience, Job, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
+from .upload_validation import validate_image_upload
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -513,9 +514,11 @@ def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
 @app.post("/profile/photo")
 async def upload_profile_photo(file: UploadFile = File(...), user=Depends(authenticated_user)):
     content = await file.read()
-    if len(content) > 1_500_000: raise HTTPException(413, "A foto deve ter no máximo 1,5 MB.")
-    content_type = (file.content_type or "").lower()
-    if content_type not in {"image/jpeg", "image/png", "image/webp"}: raise HTTPException(415, "Use uma imagem JPG, PNG ou WebP.")
+    try:
+        filename = Path((file.filename or "foto.png").replace("\\", "/")).name
+        content_type = validate_image_upload(content, filename, max_bytes=1_500_000)
+    except ValueError as exc:
+        raise HTTPException(415, str(exc)) from exc
     db = SessionLocal()
     try:
         c = db.scalar(select(Candidate).where(Candidate.owner_id == _owner_id(user)).order_by(Candidate.id))

@@ -8,6 +8,8 @@ from typing import Any
 from docx import Document
 from pypdf import PdfReader
 
+from .upload_validation import validate_magic_bytes
+
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 25 * 1024 * 1024
@@ -24,6 +26,7 @@ def _validate_docx(content: bytes) -> None:
     if not content or len(content) > MAX_UPLOAD_BYTES:
         raise ValueError("O arquivo deve ter no maximo 5 MB.")
 
+    validate_magic_bytes(content, "curriculo.docx", allowed={".docx"})
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             entries = archive.infolist()
@@ -205,6 +208,7 @@ def parse_resume_docx(content: bytes, filename: str) -> dict[str, Any]:
 def parse_resume_pdf(content: bytes, filename: str) -> dict[str, Any]:
     if not content or len(content) > MAX_UPLOAD_BYTES:
         raise ValueError("O arquivo deve ter no maximo 5 MB.")
+    validate_magic_bytes(content, filename, allowed={".pdf"})
     try:
         reader = PdfReader(io.BytesIO(content), strict=True)
         if reader.is_encrypted:
