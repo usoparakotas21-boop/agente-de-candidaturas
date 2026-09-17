@@ -111,7 +111,7 @@ def _page(path: Path) -> HTMLResponse:
     label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
     crumb = f'<div class="breadcrumbs"><a class="back-link" href="/dashboard">← Voltar</a><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
-    extra = '<script src="/static/ui-feedback.js"></script>'
+    extra = '<script src="/static/modal-a11y.js"></script><script src="/static/ui-feedback.js"></script>'
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
@@ -411,7 +411,7 @@ def root():
     html = LANDING_PATH.read_text(encoding="utf-8")
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     nonce = current_csp_nonce()
-    return HTMLResponse(html.replace("</body>", f'<script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script></body>', 1))
+    return HTMLResponse(html.replace("</body>", f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script></body>', 1))
 
 @app.head("/", include_in_schema=False)
 def root_head():

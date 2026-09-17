@@ -178,7 +178,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 8. Validar em produção o gate de verificação de e-mail, os templates/redirecionamentos do Supabase e o reenvio limitado.
 9. Confirmar no painel da InfinitePay que a conta está habilitada, testar checkout/webhook controlado e registrar o resultado sem expor credenciais.
 10. Validar no Render o rate limiting publicado e preparar proteção distribuída na borda.
-11. Implementar retorno de foco ao botão que abriu cada modal e foco inicial previsível dentro do diálogo.
+11. Concluir acessibilidade dos modais: script global agora registra o disparador, aplica foco inicial, devolve foco ao fechar, marca `aria-modal` e mantém o Tab dentro do diálogo, incluindo os drawers customizados.
 12. Isolar OCR/IA/leitura de e-mail em tarefas controladas, evitar bloquear o loop HTTP e impor limite total de 30 segundos e limites de concorrência/CPU por processamento.
 13. Colocar todos os arquivos processados em área temporária privada e definir limpeza segura.
 14. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
@@ -231,7 +231,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
-| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; deploy `e84fd60` ativo | Implementado; validação com conta real e templates do Supabase permanece em **P0.8** |
+| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; testes de contas não confirmadas passam | Implementado no código; validação do template, redirect e recebimento real do Supabase permanece em **P0.8** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | `script-src` endurecido; migração de `style-src unsafe-inline` segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
@@ -253,8 +253,8 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 86 testes | **Concluído nesta verificação** |
-| Acessibilidade dos modais | Diálogos usam `<dialog>` e controles nomeados, mas os fechamentos chamam `.close()` sem retorno de foco sistemático ao disparador | **P0.11** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 87 testes | **Concluído nesta verificação** |
+| Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.11** |
 
 ## Variáveis e segredos
 

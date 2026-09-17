@@ -7,6 +7,7 @@ from starlette.requests import Request
 
 from app import auth
 from app.security import SecurityHeadersMiddleware
+from app import main as main_module
 
 
 def request_for(host: str = "198.51.100.10") -> Request:
@@ -25,6 +26,10 @@ def request_for(host: str = "198.51.100.10") -> Request:
 
 
 class SecurityControlsTest(unittest.TestCase):
+    def test_modal_accessibility_script_is_injected_into_pages(self):
+        dashboard = main_module.dashboard()
+        self.assertIn('/static/modal-a11y.js', dashboard.body.decode('utf-8'))
+
     def test_security_headers_are_added_and_hsts_requires_https(self):
         app = FastAPI()
         app.add_middleware(SecurityHeadersMiddleware)
