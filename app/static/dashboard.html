@@ -93,13 +93,20 @@
       border-radius: 12px; color: var(--navy); background: var(--paper); font-weight: 700;
       box-shadow: 0 4px 12px rgba(24,49,83,.05);
     }
-    .hero-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+    .hero-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; position: relative; }
     .new-job {
       min-width: 130px; padding: 11px 16px; border: 1px solid var(--blue);
       border-radius: 12px; color: white; background: var(--blue); font-weight: 800;
       box-shadow: 0 8px 20px rgba(47,111,237,.2);
     }
     .hero-actions a { text-decoration: none; text-align: center; }
+    .hero-menu { position: relative; }
+    .hero-menu summary { list-style: none; cursor: pointer; text-align: center; }
+    .hero-menu summary::-webkit-details-marker { display: none; }
+    .hero-menu-panel { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; display: grid; gap: 6px; min-width: 235px; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); box-shadow: 0 18px 42px rgba(24,49,83,.17); }
+    .hero-menu-panel button, .hero-menu-panel a { width: 100%; min-width: 0; padding: 10px 11px; border: 0; border-radius: 9px; color: var(--navy); background: transparent; font-size: 12px; font-weight: 750; text-align: left; }
+    .hero-menu-panel button:hover, .hero-menu-panel a:hover { background: var(--blue-soft); }
+    .hero-menu-panel .gmail-status { color: var(--muted); font-size: 11px; }
 
     .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
     .metric { padding: 23px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: 0 6px 20px rgba(24,49,83,.04); }
@@ -122,6 +129,18 @@
     .queue-bulk { display: flex; align-items: center; gap: 9px; padding: 12px 22px; border-bottom: 1px solid var(--line); }
     .queue-bulk span { margin-right: auto; color: var(--muted); font-size: 12px; }
     .queue-check { width: 17px; height: 17px; accent-color: var(--blue); }
+    .queue-search { min-width: 190px; }
+    .queue-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 20px; border-top: 1px solid var(--line); background: #fafbfc; }
+    .queue-footer-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .queue-page-summary { color: var(--muted); font-size: 12px; }
+    .queue-page-size { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .queue-page-size select { min-height: 32px; padding: 0 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); background: var(--paper); }
+    .queue-pagination { display: flex; align-items: center; gap: 5px; }
+    .queue-page-button { min-width: 34px; height: 34px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); background: var(--paper); font-size: 12px; font-weight: 800; }
+    .queue-page-button[aria-current="page"] { border-color: var(--blue); color: #fff; background: var(--blue); }
+    .queue-page-button:disabled { cursor: not-allowed; opacity: .45; }
+    .queue-page-ellipsis { padding: 0 2px; color: var(--muted); }
+    .empty-action { display: inline-flex; margin-top: 13px; padding: 9px 13px; border: 1px solid var(--blue); border-radius: 9px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 800; }
 
     .workspace { display: block; }
     .workspace > .panel + .panel { margin-top: 26px; }
@@ -288,8 +307,12 @@
       main { width: 100%; max-width: 100%; min-width: 0; margin: 22px 0 42px; padding: 0 16px; }
       .app-layout, .workspace, .panel { min-width: 0; }
       .hero { align-items: stretch; flex-direction: column; }
-      .hero-actions { width: 100%; }
-      .refresh, .new-job { width: 50%; min-width: 0; }
+      .hero-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+      .hero-actions > .new-job { width: 100%; grid-column: 1 / -1; }
+      .hero-menu { width: 100%; }
+      .hero-menu summary { width: 100%; }
+      .hero-menu-panel { left: 0; right: 0; }
+      .refresh, .new-job { min-width: 0; }
       .metrics { grid-template-columns: 1fr 1fr; gap: 9px; }
       .metric { padding: 15px; }
       .metric-value { font-size: 24px; }
@@ -297,6 +320,8 @@
       .filters { flex-direction: column; }
       .filters input, .filters select { width: 100%; }
       .queue-summary { grid-template-columns: 1fr 1fr; }
+      .queue-footer { align-items: stretch; flex-direction: column; }
+      .queue-pagination { justify-content: center; }
       .distribution { display: block; }
       th:nth-child(3), td:nth-child(3) { display: none; }
       td, th { padding-left: 12px; padding-right: 12px; }
@@ -392,14 +417,19 @@
           <p>Acompanhe aderência, documentos e cada avanço do processo seletivo.</p>
         </div>
         <div class="hero-actions">
-          <button class="refresh" id="gmailButton" type="button">Conectar Gmail</button>
-          <button class="refresh" id="gmailSyncButton" type="button" hidden>Buscar e-mails</button>
-          <button class="refresh" id="profileButton">Meu currículo</button>
-          <a class="new-job" id="documentStudioButton" href="/criar-documentos">Criar currículo + carta</a>
-          <button class="refresh" id="preferencesButton">Preferências</button>
-          <button class="new-job" id="captureJobButton">Captar vaga</button>
+          <button class="new-job" id="captureJobButton">+ Captar vaga</button>
+          <details class="hero-menu">
+            <summary class="refresh">Ações ▾</summary>
+            <div class="hero-menu-panel">
+              <a id="documentStudioButton" href="/criar-documentos">✦ Criar currículo + carta</a>
+              <button id="profileButton" type="button">▤ Meu currículo</button>
+              <button id="gmailButton" class="gmail-status" type="button">Conectar Gmail</button>
+              <button id="gmailSyncButton" type="button" hidden>↻ Buscar e-mails</button>
+              <button id="refreshButton" type="button">↻ Atualizar dados</button>
+            </div>
+          </details>
+          <button class="refresh" id="preferencesButton">⚙ Preferências</button>
           <button class="new-job" id="newJobButton">Nova vaga</button>
-          <button class="refresh" id="refreshButton">Atualizar dados</button>
         </div>
       </section>
 
@@ -414,6 +444,7 @@
         <div class="panel-head">
           <div><h2>Fila de decisão</h2><p>Revise oportunidades captadas antes que avancem para candidaturas.</p></div>
           <div class="filters">
+            <input class="queue-search" id="queueSearchInput" type="search" placeholder="Buscar cargo ou empresa" aria-label="Buscar na fila de decisão">
             <select id="queueDecisionFilter" aria-label="Filtrar decisão da fila"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="CAPTURAR">Capturar</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
             <select id="queueStatusFilter" aria-label="Filtrar status da fila"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="PROMOVIDO">Aprovado</option><option value="RECUSADO">Recusado</option><option value="EXPIRADO">Expirado</option></select>
             <button class="refresh" id="queueRefreshButton" type="button">Atualizar fila</button>
@@ -435,7 +466,11 @@
             <thead><tr><th><input class="queue-check" id="queueSelectAll" type="checkbox" aria-label="Selecionar todos"></th><th>Oportunidade</th><th>Decisão</th><th>Confiança</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody id="queueRows"></tbody>
           </table>
-          <div class="empty" id="queueEmptyState" hidden><strong>Nenhum item nesta fila</strong>Novas oportunidades captadas aparecerão aqui.</div>
+          <div class="empty" id="queueEmptyState" hidden><strong>Nenhum item nesta fila</strong><span id="queueEmptyMessage">Novas oportunidades captadas aparecerão aqui.</span><button class="empty-action" id="queueEmptyCapture" type="button">+ Captar vaga</button></div>
+        </div>
+        <div class="queue-footer">
+          <div class="queue-footer-left"><span class="queue-page-summary" id="queuePageSummary">Nenhuma vaga para exibir</span><label class="queue-page-size">Exibir <select id="queuePageSize" aria-label="Quantidade de itens por página"><option value="5">5</option><option value="10" selected>10</option><option value="25">25</option></select> itens</label></div>
+          <div class="queue-pagination" id="queuePagination" aria-label="Paginação da fila"></div>
         </div>
       </section>
 
@@ -1010,6 +1045,9 @@
     const statuses = Object.keys(statusLabels);
     let applications = [];
     let queueItems = [];
+    let queuePage = 1;
+    let queuePageSize = 10;
+    let queueSummary = {};
     const selectedQueueIds = new Set();
     let selectedId = null;
     let capturePreview = null;
@@ -1099,12 +1137,42 @@
       }
     }
 
+    function filteredQueueItems() {
+      const query = $("queueSearchInput").value.trim().toLocaleLowerCase("pt-BR");
+      if (!query) return queueItems;
+      return queueItems.filter(item => `${item.title || ""} ${item.company || ""} ${(item.decision_reasons || []).join(" ")}`.toLocaleLowerCase("pt-BR").includes(query));
+    }
+
+    function renderQueuePagination(total, totalPages) {
+      const pagination = $("queuePagination");
+      if (!total) { pagination.innerHTML = ""; return; }
+      const pages = [];
+      const start = Math.max(1, Math.min(queuePage - 2, totalPages - 4));
+      const end = Math.min(totalPages, Math.max(5, queuePage + 2));
+      for (let page = start; page <= end; page += 1) pages.push(page);
+      pagination.innerHTML = `<button class="queue-page-button" type="button" data-queue-page="1" aria-label="Primeira página" ${queuePage === 1 ? "disabled" : ""}>|&lt;</button><button class="queue-page-button" type="button" data-queue-page="${queuePage - 1}" aria-label="Página anterior" ${queuePage === 1 ? "disabled" : ""}>&lt;</button>${pages.map(page => `<button class="queue-page-button" type="button" data-queue-page="${page}" aria-label="Página ${page}" ${page === queuePage ? 'aria-current="page"' : ""}>${page}</button>`).join("")}<button class="queue-page-button" type="button" data-queue-page="${queuePage + 1}" aria-label="Próxima página" ${queuePage === totalPages ? "disabled" : ""}>&gt;</button><button class="queue-page-button" type="button" data-queue-page="${totalPages}" aria-label="Última página" ${queuePage === totalPages ? "disabled" : ""}>&gt;|</button>`;
+      pagination.querySelectorAll("[data-queue-page]").forEach(button => button.addEventListener("click", () => {
+        const nextPage = Number(button.dataset.queuePage);
+        if (nextPage < 1 || nextPage > totalPages || nextPage === queuePage) return;
+        queuePage = nextPage;
+        selectedQueueIds.clear();
+        renderQueue(queueSummary);
+      }));
+    }
+
     function renderQueue(summary) {
+      queueSummary = summary;
       $("queueAutomaticToday").textContent = summary.automatica?.hoje || 0;
       $("queueReviewPending").textContent = summary.revisar?.pendente || 0;
       $("queueDiscardPending").textContent = summary.descartar?.pendente || 0;
       $("queueExpiredTotal").textContent = summary.expirado?.total || 0;
-      $("queueRows").innerHTML = queueItems.map(item => {
+      const filtered = filteredQueueItems();
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / queuePageSize));
+      queuePage = Math.min(queuePage, totalPages);
+      const first = total ? ((queuePage - 1) * queuePageSize) : 0;
+      const visible = filtered.slice(first, first + queuePageSize);
+      $("queueRows").innerHTML = visible.map(item => {
         const pending = item.status === "PENDENTE";
         const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
         const title = escapeHtml(item.title || "Cargo não identificado");
@@ -1124,7 +1192,16 @@
             ` : "Resolvido"}</div></td>
           </tr>`;
       }).join("");
-      $("queueEmptyState").hidden = queueItems.length > 0;
+      $("queueEmptyState").hidden = total > 0;
+      $("queueEmptyMessage").textContent = queueItems.length && !total ? "Nenhuma vaga corresponde aos filtros atuais." : "Novas oportunidades captadas aparecerão aqui.";
+      $("queueEmptyCapture").hidden = queueItems.length > 0;
+      if (total) {
+        const last = Math.min(first + queuePageSize, total);
+        $("queuePageSummary").textContent = `Mostrando ${first + 1}–${last} de ${total} vaga${total === 1 ? "" : "s"}`;
+      } else {
+        $("queuePageSummary").textContent = "Nenhuma vaga para exibir";
+      }
+      renderQueuePagination(total, totalPages);
       $("queueSelectAll").checked = false;
       updateQueueBulkBar();
 
@@ -1897,8 +1974,15 @@ async function downloadCoverLetterDocument() {
       toast("Dados atualizados.");
     });
     $("queueRefreshButton").addEventListener("click", () => loadQueue(true));
-    $("queueDecisionFilter").addEventListener("change", () => loadQueue());
-    $("queueStatusFilter").addEventListener("change", () => loadQueue());
+    $("queueDecisionFilter").addEventListener("change", () => { queuePage = 1; loadQueue(); });
+    $("queueStatusFilter").addEventListener("change", () => { queuePage = 1; loadQueue(); });
+    $("queueSearchInput").addEventListener("input", () => { queuePage = 1; selectedQueueIds.clear(); renderQueue(queueSummary); });
+    $("queuePageSize").addEventListener("change", event => { queuePageSize = Number(event.currentTarget.value) || 10; queuePage = 1; selectedQueueIds.clear(); renderQueue(queueSummary); });
+    $("queueEmptyCapture").addEventListener("click", () => {
+      document.querySelector(".hero-menu")?.removeAttribute("open");
+      resetCaptureReview();
+      $("captureJobDialog").showModal();
+    });
     $("queueSelectAll").addEventListener("change", event => {
       selectedQueueIds.clear();
       document.querySelectorAll(".queue-item-check:not(:disabled)").forEach(input => {
@@ -1913,8 +1997,8 @@ async function downloadCoverLetterDocument() {
       window.location.assign("/auth/gmail/start");
     });
     $("gmailSyncButton").addEventListener("click", syncGmailNow);
-    $("profileButton").addEventListener("click", openProfile);
-    $("preferencesButton").addEventListener("click", openPreferences);
+    $("profileButton").addEventListener("click", () => { document.querySelector(".hero-menu")?.removeAttribute("open"); openProfile(); });
+    $("preferencesButton").addEventListener("click", () => { document.querySelector(".hero-menu")?.removeAttribute("open"); openPreferences(); });
     $("closePreferencesDialog").addEventListener("click", () => $("preferencesDialog").close());
     $("cancelPreferences").addEventListener("click", () => $("preferencesDialog").close());
     $("preferencesForm").addEventListener("submit", savePreferences);
@@ -1922,6 +2006,7 @@ async function downloadCoverLetterDocument() {
     $("cancelProfile").addEventListener("click", () => $("profileDialog").close());
     $("profileForm").addEventListener("submit", uploadProfile);
     $("captureJobButton").addEventListener("click", () => {
+      document.querySelector(".hero-menu")?.removeAttribute("open");
       resetCaptureReview();
       $("captureJobDialog").showModal();
     });
