@@ -286,3 +286,15 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 Não liberar candidatura automática geral nem aceitar usuários pagantes antes de concluir o P0, testar o isolamento de dados e validar os webhooks. Não registrar senhas, tokens, chaves ou URLs privadas em commits, Markdown, logs ou conversas.
 
 Toda nova recomendação deve ser comparada com esta fila antes de virar tarefa. Se já existir, atualiza-se o item correspondente; se for nova, entra na prioridade que corresponde ao risco e à dependência. Uma etapa só sai da fila depois de código, teste e validação operacional compatíveis com o seu status.
+
+### Protocolo para novas mensagens
+
+Qualquer nova mensagem, print, documento ou sugestão relacionada ao produto passa primeiro por uma análise de impacto. O fluxo é:
+
+1. identificar o que já existe e o que já foi concluído;
+2. verificar se a sugestão duplica, altera ou bloqueia uma tarefa existente;
+3. classificar a entrada em P0, P1 ou P2 conforme risco, dependência e valor;
+4. atualizar esta fila e o status correspondente;
+5. continuar pelo próximo item executável da fila, sem interromper o restante do plano para tratar somente a última mensagem.
+
+Quando a etapa depender de uma conta, credencial, painel externo ou validação manual, ela permanece marcada como bloqueio externo e a solicitação de acesso é feita apenas nesse ponto.
