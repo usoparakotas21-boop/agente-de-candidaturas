@@ -461,14 +461,16 @@ As recomendações de segurança recebidas foram incorporadas ao escopo. O que j
 - Refresh tokens de Gmail e Outlook são cifrados com Fernet usando `TOKEN_ENCRYPTION_KEY`; ainda falta documentar rotação da chave e validar o segredo apenas no ambiente do Render.
 - Uploads têm limites de tamanho e os parsers rejeitam formatos inválidos em vários fluxos; falta uma validação central de extensão, MIME real e assinatura do arquivo para PDF, DOCX e imagens.
 - A senha exige mínimo de 10 caracteres com complexidade no formulário e no fluxo de alteração; falta limitar tentativas nos endpoints de login, recuperação e alteração de senha.
+- Uma primeira camada de rate limiting em memória agora cobre login, cadastro, recuperação, reenvio de confirmação, alteração de senha e alteração de e-mail; falta validar o comportamento no Render e complementar com limite distribuído na borda.
+- O middleware de segurança agora adiciona CSP, HSTS em HTTPS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`; falta revisar a política com todos os fluxos externos em produção.
 - Há páginas de Termos, Privacidade e Segurança, mas os links precisam ficar visíveis no rodapé da experiência principal.
 
 ### Prioridade 0 — antes de aceitar usuários pagantes
 
-1. Adicionar rate limiting por IP e por conta em `/auth/login`, recuperação/reset de senha e endpoints sensíveis, com resposta `429` e logs sem expor credenciais.
+1. Validar no Render o rate limiting por IP e por conta implementado em `/auth/login`, cadastro, recuperação/reset de senha e endpoints sensíveis; complementar com limite distribuído na borda quando houver múltiplas instâncias.
 2. Criar teste de isolamento entre dois usuários para todas as rotas que recebem IDs de vaga, candidatura, documento, fila e compra.
 3. Aplicar validação centralizada de MIME, extensão, tamanho e assinatura do conteúdo dos uploads; processar os arquivos em área temporária privada, fora de diretórios públicos.
-4. Adicionar middleware de cabeçalhos de segurança: CSP compatível com a aplicação, HSTS somente em HTTPS, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e proteção de framing.
+4. Validar os cabeçalhos de segurança já adicionados pelo middleware, incluindo CSP compatível com OAuth e checkout, HSTS somente em HTTPS, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e proteção de framing.
 5. Auditar variáveis do Render e o histórico Git para garantir que OAuth, IA, banco e chaves de cifragem nunca sejam versionados.
 6. Validar 2FA no backend com o provedor de autenticação, incluindo recuperação e revogação; a tela de Segurança existente é apenas uma camada de configuração.
 7. Verificar senhas comprometidas no fluxo de cadastro/alteração usando uma consulta que não revele a senha, e combinar isso com limite de tentativas e mensagens que não permitam enumeração de e-mails.

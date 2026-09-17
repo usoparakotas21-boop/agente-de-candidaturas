@@ -35,9 +35,11 @@ from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
 from .queue_service import enqueue
 from .ai_provider import AIProviderError, evaluate_interview_answer
+from .security import SecurityHeadersMiddleware
 
 app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
 logger = logging.getLogger(__name__)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)

@@ -1,6 +1,9 @@
 import os
 import re
 import logging
+import threading
+import time
+from collections import deque
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -31,6 +34,67 @@ ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"
 APP_BASE_URL = _app_base_url()
 logger = logging.getLogger(__name__)
+
+# A small in-process limiter protects the public auth endpoints even when the
+# Supabase project is configured without its own throttling. Render can run
+# more than one instance later, so this remains a first layer; the production
+# deployment should also enforce limits at the edge/provider level.
+_RATE_LIMITS = {
+    "login": (10, 10 * 60),
+    "signup": (5, 15 * 60),
+    "forgot-password": (5, 15 * 60),
+    "resend-confirmation": (3, 15 * 60),
+    "password": (5, 15 * 60),
+    "email": (5, 15 * 60),
+}
+_rate_attempts: dict[str, deque[float]] = {}
+_rate_lock = threading.Lock()
+
+
+def _request_client_key(request: Request | None) -> str:
+    client = getattr(request, "client", None)
+    return str(getattr(client, "host", "unknown") or "unknown")
+
+
+def _enforce_rate_limit(
+    request: Request | None,
+    scope: str,
+    account: str = "",
+) -> None:
+    """Limit an auth operation by both source address and account identifier."""
+    limit, window = _RATE_LIMITS[scope]
+    now = time.monotonic()
+    keys = [f"{scope}:ip:{_request_client_key(request)}"]
+    normalized_account = str(account or "").strip().casefold()
+    if normalized_account:
+        keys.append(f"{scope}:account:{normalized_account}")
+
+    retry_after = 0
+    with _rate_lock:
+        for key in keys:
+            attempts = _rate_attempts.setdefault(key, deque())
+            while attempts and now - attempts[0] >= window:
+                attempts.popleft()
+            if len(attempts) >= limit:
+                retry_after = max(retry_after, int(window - (now - attempts[0])) + 1)
+        if retry_after:
+            raise HTTPException(
+                429,
+                "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        for key in keys:
+            _rate_attempts[key].append(now)
+
+        # Keep this bounded on a long-lived worker when many addresses rotate.
+        if len(_rate_attempts) > 5000:
+            stale = [
+                key
+                for key, attempts in _rate_attempts.items()
+                if not attempts or now - attempts[-1] >= window
+            ]
+            for key in stale[:1000]:
+                _rate_attempts.pop(key, None)
 
 router = APIRouter(prefix="/auth", tags=["autenticacao"])
 
@@ -220,8 +284,9 @@ async def authenticated_user(request: Request) -> dict:
 
 
 @router.post("/login")
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, request: Request = None):
     email = _validated_email(payload.email)
+    _enforce_rate_limit(request, "login", email)
     try:
         response = await _supabase_request(
             "POST",
@@ -252,8 +317,9 @@ async def login(payload: LoginRequest):
 
 
 @router.post("/signup")
-async def signup(payload: SignupRequest):
+async def signup(payload: SignupRequest, request: Request = None):
     email = _validated_email(payload.email)
+    _enforce_rate_limit(request, "signup", email)
     password = _validated_password(payload.password)
     redirect_to = quote(_auth_redirect_url(), safe="")
     try:
@@ -330,8 +396,9 @@ async def accept_session(payload: SessionRequest):
 
 
 @router.post("/forgot-password")
-async def forgot_password(payload: EmailRequest):
+async def forgot_password(payload: EmailRequest, request: Request = None):
     email = _validated_email(payload.email)
+    _enforce_rate_limit(request, "forgot-password", email)
     redirect_to = quote(_auth_redirect_url(), safe="")
     try:
         response = await _supabase_request(
@@ -354,8 +421,9 @@ async def forgot_password(payload: EmailRequest):
 
 
 @router.post("/resend-confirmation")
-async def resend_confirmation(payload: EmailRequest):
+async def resend_confirmation(payload: EmailRequest, request: Request = None):
     email = _validated_email(payload.email)
+    _enforce_rate_limit(request, "resend-confirmation", email)
     redirect_to = quote(_auth_redirect_url(), safe="")
     try:
         response = await _supabase_request(
@@ -383,6 +451,7 @@ async def update_password(
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")
+    _enforce_rate_limit(request, "password", str(user.get("id")))
     try:
         response = await _supabase_request(
             "PUT",
@@ -410,6 +479,7 @@ async def update_email(
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")
+    _enforce_rate_limit(request, "email", str(user.get("id")))
     try:
         response = await _supabase_request(
             "PUT",
