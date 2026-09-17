@@ -10,20 +10,28 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 LOCAL_DATABASE_URL = f"sqlite:///{DATA_DIR / 'agente.db'}"
-DATABASE_URL = os.getenv("DATABASE_URL", LOCAL_DATABASE_URL).strip()
 
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgres://",
-        "postgresql+psycopg://",
-        1,
-    )
-elif DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgresql://",
-        "postgresql+psycopg://",
-        1,
-    )
+
+def _normalize_database_url(value: str) -> str:
+    database_url = value.strip()
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql+psycopg://",
+            1,
+        )
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace(
+            "postgresql://",
+            "postgresql+psycopg://",
+            1,
+        )
+    if not database_url.startswith("sqlite") and "sslmode=" not in database_url.casefold():
+        database_url += "&sslmode=require" if "?" in database_url else "?sslmode=require"
+    return database_url
+
+
+DATABASE_URL = _normalize_database_url(os.getenv("DATABASE_URL", LOCAL_DATABASE_URL))
 
 engine_options = {"pool_pre_ping": True}
 

@@ -79,8 +79,8 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Dados de negócio filtrados por `owner_id` nas rotas principais.
 - Testes de isolamento entre dois usuários cobrem listagem, consulta, atualização e downloads de vagas/candidaturas; o teste de cobertura garante que a migração RLS inclui todas as 11 tabelas do modelo.
 - Refresh tokens de Gmail e Outlook cifrados com Fernet usando `TOKEN_ENCRYPTION_KEY`.
-- Uploads têm limites de tamanho no backend: 5 MB para currículo e 10 MB para arquivos de vaga.
-- Frontend usa `textContent` ou escape em vários pontos que exibem conteúdo de vaga.
+- Uploads têm limites de tamanho no backend: 5 MB para currículo e 10 MB para arquivos de vaga, com validação central de assinatura/magic bytes e decodificação de imagens.
+- Conteúdo de vagas, e-mails e OCR passa por sanitização central antes de persistência ou análise; o frontend continua usando `textContent`/escape nas superfícies de exibição.
 - Segredos são configurados por variáveis de ambiente e não devem ser colocados no Git.
 
 ### Legal e privacidade já existentes
@@ -110,16 +110,16 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
 - O script `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A migração foi aplicada no PostgreSQL de produção e a consulta somente leitura confirmou RLS habilitado e uma política em cada tabela.
 - A aplicação usa `SUPABASE_PUBLISHABLE_KEY` e não há `SERVICE_ROLE_KEY` no código ou no `render.yaml`; ainda falta revisar no painel do Supabase e do Render se a chave mestra nunca foi exposta e se o acesso do banco segue o menor privilégio.
-- Currículo e arquivos de vaga já conferem assinatura/formato em seus parsers; a foto de perfil ainda confia no `content_type` declarado e falta uma camada central que imponha magic bytes em todos os uploads.
-- Falta garantir área temporária privada para todos os processamentos de arquivo e expurgo automático de anexos/rascunhos antigos.
-- Falta sanitização central no backend para conteúdo de vaga, e-mail e OCR que possa voltar para HTML.
+- A validação central de upload já confere extensão, tamanho, magic bytes e estrutura/decodificação; a validação em produção continua no P0.4.
+- Processamentos temporários são removidos no fluxo e documentos gerados ficam fora da raiz em diretório `0700`; falta ligar expurgo de rascunhos/objetos do Storage.
+- A sanitização central de texto já cobre captura, e-mail/OCR, confirmação e análise; superfícies de renderização restantes continuam na revisão do P0.6.
 - O avaliador que envia pergunta, resposta e contexto para a Gemini ainda precisa de uma fronteira explícita de dados não confiáveis e testes contra prompt injection.
-- Falta verificação contra senhas comprometidas e fluxo completo de MFA no login, recuperação, revogação e expiração de sessões.
-- Os handlers de webhook consultam o provedor antes de liberar a compra, mas as rotas de webhook ainda não estão na lista pública do middleware de autenticação; também falta assinatura/verificação equivalente e idempotência explícita contra replay.
+- Falta verificação contra senhas comprometidas; o fluxo MFA de login, desafio, revogação e expiração já está implementado, aguardando validação real do Supabase.
+- As rotas de webhook são públicas, consultam o provedor e fazem transição idempotente para `PAID`; Mercado Pago já tem HMAC e janela de replay. Falta validar a assinatura específica da InfinitePay e executar replay controlado em produção.
 - As rotas de download verificam o `owner_id` da candidatura e exigem uma compra `PAID` para o usuário, mas ainda falta amarrar a autorização a uma transação/exportação específica e validar esse cenário com dois usuários.
-- A conexão PostgreSQL é criada a partir de `DATABASE_URL`, mas o código não força `sslmode=require`; falta confirmar no Render que a URL de produção exige TLS.
-- Não há handler global para exceções inesperadas; o endpoint `/health` ainda devolve `str(exc)` no campo `detail`, e alguns erros de integração podem propagar mensagens técnicas. Falta padronizar respostas públicas e manter detalhes somente nos logs internos.
-- O OCR do endpoint `/intake/file` é chamado de forma síncrona dentro de uma rota `async`; monitores Gmail/Outlook usam tarefas no mesmo processo e as chamadas externas têm timeouts individuais, mas não há limite total de 30 segundos nem isolamento de recursos para OCR/IA.
+- O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
+- Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
+- OCR, parsing, confirmação e busca externa já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
 - Não há evidência versionada de backup diário, teste de restauração ou runbook de revogação/rotação de tokens OAuth e chaves de API após exposição.
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
@@ -130,7 +130,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
 - O monitor UptimeRobot não é controlado pelo código; alterações de intervalo, URL ou alertas precisam ser feitas no painel do UptimeRobot.
 - A busca de páginas públicas já bloqueia hosts e IPs não globais, valida cada redirecionamento e limita o corpo recebido; a proteção contra SSRF precisa permanecer coberta por testes de regressão.
-- O OCR usa arquivos temporários e os remove em `finally`; documentos gerados e outros fluxos ainda precisam de uma política uniforme de diretório privado e expurgo.
+- O OCR usa arquivos temporários e os remove em `finally`; documentos gerados usam diretório privado e retenção configurável. Expurgo de Storage/rascunhos ainda falta.
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
 - O produto ainda não fecha o ciclo de resultado: não há atribuição confiável entre versão do currículo, canal, candidatura e entrevista qualificada.
@@ -181,7 +181,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 11. Concluir acessibilidade dos modais: script global agora registra o disparador, aplica foco inicial, devolve foco ao fechar, marca `aria-modal` e mantém o Tab dentro do diálogo, incluindo os drawers customizados.
 12. Concluir o isolamento operacional de OCR/IA/leitura de e-mail: uploads de currículo, OCR, confirmação e leitura de páginas já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
 13. Concluir armazenamento privado e retenção: documentos gerados agora ficam em diretório temporário privado (permissão `0700`) fora da raiz do projeto, e a inicialização remove artefatos antigos conforme `DOCUMENT_RETENTION_DAYS` (60 dias por padrão). Uploads de OCR continuam sendo apagados imediatamente; falta ligar expurgo de rascunhos/objetos do Storage.
-14. Auditar variáveis do Render, o histórico Git, o uso exclusivo da `SUPABASE_PUBLISHABLE_KEY`, a ausência de `SERVICE_ROLE_KEY` no cliente e `sslmode=require` na conexão PostgreSQL.
+14. Fechar a auditoria de variáveis e menor privilégio: a revisão do código, `render.yaml` e histórico rastreado confirmou ausência de `SERVICE_ROLE_KEY` no cliente e o banco agora força `sslmode=require`; falta confirmar no painel do Render/Supabase, executar scanner de segredos e verificar a conexão efetiva de produção.
 15. Adicionar consulta segura contra senhas comprometidas sem enviar a senha completa a terceiros.
 16. Confirmar backups diários do Supabase, executar um teste de restauração e documentar a revogação/rotação emergencial de tokens OAuth e chaves de API.
 
@@ -235,8 +235,8 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | `script-src` endurecido; migração de `style-src unsafe-inline` segue em **P0.6** |
 | Rate limiting | Limites por IP/conta e testes de 429 aprovados; armazenamento é local ao processo | Proteção distribuída segue em **P0.10** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
-| RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner` | RLS aplicado; repetir prova de isolamento em **P0.1** e revisar chaves/papel do banco em **P0.14** |
-| Uploads | Validador central confirma magic bytes e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura; arquivos de vaga já tinham validação própria | Código e testes locais aprovados; isolamento/limpeza operacional continua em **P0.13** |
+| RLS e menor privilégio | Consulta de produção confirmou RLS ativo nas 11 tabelas e uma política por tabela, incluindo `document_export_purchases_owner`; código cliente usa a chave publicável | RLS aplicado; prova real de isolamento e conferência de chaves no painel permanecem em **P0.1/P0.14** |
+| Uploads | Validador central confirma magic bytes, estrutura e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura | Código e testes locais aprovados; validação operacional e expurgo externo seguem em **P0.4/P0.13** |
 | Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P0.13/P1.6** |
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente | Código e testes locais aprovados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
@@ -253,7 +253,7 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.9** |
 | InfinitePay | Variáveis `INFINITEPAY_HANDLE` e `INFINITEPAY_EXPORT_PRICE_CENTS` presentes no Render; não houve teste de checkout real nem confirmação independente do painel da conta | Configuração presente; validação do provedor em **P0.9** |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 89 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 93 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.11** |
 
 ## Variáveis e segredos
@@ -266,7 +266,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
 - `TOKEN_ENCRYPTION_KEY`;
 - `GEMINI_API_KEY`;
-- credenciais, tokens e chaves dos webhooks Mercado Pago/InfinitePay.
+- `MERCADOPAGO_WEBHOOK_SECRET` e credenciais/tokens da InfinitePay.
 
 ## Histórico recente de entregas
 
