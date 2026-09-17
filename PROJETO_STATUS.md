@@ -471,6 +471,9 @@ As recomendações de segurança recebidas foram incorporadas ao escopo. O que j
 4. Adicionar middleware de cabeçalhos de segurança: CSP compatível com a aplicação, HSTS somente em HTTPS, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e proteção de framing.
 5. Auditar variáveis do Render e o histórico Git para garantir que OAuth, IA, banco e chaves de cifragem nunca sejam versionados.
 6. Validar 2FA no backend com o provedor de autenticação, incluindo recuperação e revogação; a tela de Segurança existente é apenas uma camada de configuração.
+7. Verificar senhas comprometidas no fluxo de cadastro/alteração usando uma consulta que não revele a senha, e combinar isso com limite de tentativas e mensagens que não permitam enumeração de e-mails.
+8. Escapar ou sanitizar no backend todo conteúdo de vaga, e-mail e OCR que possa voltar para HTML; manter `textContent`/escape também nas prévias do frontend para evitar XSS armazenado.
+9. Exigir assinatura/verificação equivalente nos webhooks de pagamento e tornar a atualização de compras idempotente contra replays.
 
 ### Prioridade 1 — privacidade, IA e operação
 
@@ -494,6 +497,11 @@ As recomendações de segurança recebidas foram incorporadas ao escopo. O que j
 - Confirmar HTTPS e `COOKIE_SECURE=true` no Render.
 - Ao usar domínio próprio, revisar DNS, registrar pelo menos dois servidores autoritativos e documentar renovação e recuperação.
 - Separar o worker de Gmail/Outlook do processo web e monitorar falhas de sincronização.
+
+### Ajustes de experiência identificados na revisão
+
+- **Logout:** já existe no shell autenticado como botão `Sair` e também no fluxo de Segurança; tornar a ação acessível pelo cabeçalho global ou por um menu de conta para que fique óbvia em qualquer tela.
+- **Onboarding:** o card “Próximo passo” ainda é estático no dashboard. Sincronizar sua visibilidade com `/profile` e `/preferences`, ocultando-o ou trocando a mensagem quando o mapeamento e as preferências já estiverem completos.
 
 ### v0.22.0 — Motor de decisão
 
