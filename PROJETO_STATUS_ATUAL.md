@@ -89,6 +89,15 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - `/seguranca` com alteração de e-mail, alteração de senha, integrações e configuração de autenticador.
 - O cadastro exige aceite dos Termos e da Política.
 
+### Operação e serviços externos já configurados
+
+- Render Web Service com `autoDeploy: true` e `healthCheckPath: /health` definido em `render.yaml`.
+- Supabase PostgreSQL e Supabase Auth são os serviços de dados e autenticação da produção.
+- Google Cloud OAuth/Gmail e Microsoft Graph/Outlook são integrações externas autorizadas pelo usuário.
+- Mercado Pago e InfinitePay são os provedores externos de checkout.
+- UptimeRobot é usado como monitor externo de disponibilidade do serviço público/health check. O monitor, intervalo e contatos de alerta não são armazenados no Git; devem ser conferidos diretamente na conta UptimeRobot quando houver auditoria operacional.
+- Nenhuma dessas configurações externas deve ser recriada como se estivesse ausente sem antes verificar o painel do respectivo provedor.
+
 ## O que está parcial ou ainda não existe
 
 - Verificação de e-mail ainda não é um gate uniforme para todas as operações; o Supabase pode retornar confirmação pendente, mas falta uma experiência e uma regra de backend consistentes.
@@ -109,6 +118,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Falta exportação/portabilidade e exclusão definitiva da conta no mesmo fluxo LGPD.
 - Falta registrar versão e data do consentimento aceito pelo usuário.
 - O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
+- O monitor UptimeRobot não é controlado pelo código; alterações de intervalo, URL ou alertas precisam ser feitas no painel do UptimeRobot.
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
 - Não existe visão Kanban, extensão de navegador ou exportação operacional para CSV/Excel.
@@ -156,6 +166,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - 20 testes de autenticação e controles de segurança aprovados.
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `cad91fb` confirmado como ativo no Render.
+- Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - O conjunto histórico registrava 59 testes aprovados em 15/09/2026; a suíte completa precisa ser reexecutada no ambiente com todas as dependências instaladas.
 
 ## Variáveis e segredos
