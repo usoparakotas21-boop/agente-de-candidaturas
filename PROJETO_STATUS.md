@@ -474,12 +474,13 @@ As recomendações de segurança recebidas foram incorporadas ao escopo. O que j
 7. Verificar senhas comprometidas no fluxo de cadastro/alteração usando uma consulta que não revele a senha, e combinar isso com limite de tentativas e mensagens que não permitam enumeração de e-mails.
 8. Escapar ou sanitizar no backend todo conteúdo de vaga, e-mail e OCR que possa voltar para HTML; manter `textContent`/escape também nas prévias do frontend para evitar XSS armazenado.
 9. Exigir assinatura/verificação equivalente nos webhooks de pagamento e tornar a atualização de compras idempotente contra replays.
+10. Exigir verificação de e-mail antes de liberar a sessão e as operações sensíveis, tratar confirmação pendente com uma tela clara e permitir reenviar a confirmação com limite de tentativas.
 
 ### Prioridade 1 — privacidade, IA e operação
 
 1. Delimitar conteúdo externo como dados não confiáveis no fluxo de análise de vagas e adicionar testes contra prompt injection; instruções encontradas no texto da vaga não podem alterar regras do sistema.
 2. Finalizar Política de Privacidade e Termos com responsável, canal de contato, retenção, subprocessadores e explicação do tratamento de currículos e e-mails; exibir links no rodapé global.
-3. Implementar exportação e exclusão de conta com confirmação forte, remoção de currículos, tokens, vagas, candidaturas, eventos e compras conforme a política de retenção.
+3. Implementar no mesmo sprint LGPD a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte e remoção de currículos, tokens, vagas, candidaturas, eventos e compras conforme a política de retenção.
 4. Criar rotação e recuperação operacional da chave de cifragem dos tokens OAuth, sem expor tokens em logs ou respostas.
 5. Criar rotina de retenção e expurgo automático para anexos temporários, prints e rascunhos abandonados, com prazo configurável de 30 ou 60 dias e registro da execução.
 
