@@ -1,6 +1,6 @@
 # Projeto — Agente de Candidaturas
 
-Última atualização: 15/09/2026
+Última atualização: 17/09/2026
 Versão atual confirmada no código: **0.24.0**  
 Diretório principal: `C:\agente_curriculos`  
 Estado: aplicação local funcional, com autenticação, banco Supabase, importação e personalização de currículo, captação de vagas por texto/arquivo e leitura automática do Gmail.
@@ -448,6 +448,42 @@ Ao receber este documento:
 - O redesign visual será feito depois da consolidação do fluxo principal.
 - Automação de alto volume não será o diferencial principal.
 - O diferencial pretendido é autonomia com qualidade, explicação, contexto brasileiro e informações profissionais comprovadas.
+
+## 18. Fila de segurança e boas práticas
+
+As recomendações de segurança recebidas foram incorporadas ao escopo. O que já existe no código não será tratado como concluído sem uma validação específica em produção.
+
+### Já coberto ou parcialmente coberto
+
+- Cookies de sessão usam `HttpOnly`, `SameSite=Lax` e `Secure` controlado por `COOKIE_SECURE`; falta validar a configuração final e a renovação em produção.
+- As rotas autenticadas filtram dados por `owner_id`, inclusive vagas, candidaturas, fila e integrações; ainda falta um teste sistemático de IDOR com dois usuários.
+- O Gmail usa somente `gmail.readonly`, com estado OAuth vinculado ao usuário.
+- Refresh tokens de Gmail e Outlook são cifrados com Fernet usando `TOKEN_ENCRYPTION_KEY`; ainda falta documentar rotação da chave e validar o segredo apenas no ambiente do Render.
+- Uploads têm limites de tamanho e os parsers rejeitam formatos inválidos em vários fluxos; falta uma validação central de extensão, MIME real e assinatura do arquivo para PDF, DOCX e imagens.
+- A senha exige mínimo de 10 caracteres com complexidade no formulário e no fluxo de alteração; falta limitar tentativas nos endpoints de login, recuperação e alteração de senha.
+- Há páginas de Termos, Privacidade e Segurança, mas os links precisam ficar visíveis no rodapé da experiência principal.
+
+### Prioridade 0 — antes de aceitar usuários pagantes
+
+1. Adicionar rate limiting por IP e por conta em `/auth/login`, recuperação/reset de senha e endpoints sensíveis, com resposta `429` e logs sem expor credenciais.
+2. Criar teste de isolamento entre dois usuários para todas as rotas que recebem IDs de vaga, candidatura, documento, fila e compra.
+3. Aplicar validação centralizada de MIME, extensão, tamanho e assinatura do conteúdo dos uploads; processar os arquivos em área temporária privada, fora de diretórios públicos.
+4. Adicionar middleware de cabeçalhos de segurança: CSP compatível com a aplicação, HSTS somente em HTTPS, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e proteção de framing.
+5. Auditar variáveis do Render e o histórico Git para garantir que OAuth, IA, banco e chaves de cifragem nunca sejam versionados.
+6. Validar 2FA no backend com o provedor de autenticação, incluindo recuperação e revogação; a tela de Segurança existente é apenas uma camada de configuração.
+
+### Prioridade 1 — privacidade, IA e operação
+
+1. Delimitar conteúdo externo como dados não confiáveis no fluxo de análise de vagas e adicionar testes contra prompt injection; instruções encontradas no texto da vaga não podem alterar regras do sistema.
+2. Finalizar Política de Privacidade e Termos com responsável, canal de contato, retenção, subprocessadores e explicação do tratamento de currículos e e-mails; exibir links no rodapé global.
+3. Implementar exportação e exclusão de conta com confirmação forte, remoção de currículos, tokens, vagas, candidaturas, eventos e compras conforme a política de retenção.
+4. Criar rotação e recuperação operacional da chave de cifragem dos tokens OAuth, sem expor tokens em logs ou respostas.
+
+### Prioridade 2 — infraestrutura de produção
+
+- Confirmar HTTPS e `COOKIE_SECURE=true` no Render.
+- Ao usar domínio próprio, revisar DNS, registrar pelo menos dois servidores autoritativos e documentar renovação e recuperação.
+- Separar o worker de Gmail/Outlook do processo web e monitorar falhas de sincronização.
 
 ### v0.22.0 — Motor de decisão
 
