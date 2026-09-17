@@ -156,6 +156,12 @@ As orientações de produto foram lidas junto com o histórico técnico e foram 
 - **Conhecimento de RH como regra do produto:** transformar critérios de triagem, ATS, pretensão salarial, regime e sinais de vaga fantasma em heurísticas versionadas, justificadas e testáveis, complementando a IA.
 - **Prova antes de promessa:** qualquer alegação de aumento de conversão deverá vir de dados observados no produto; não será apresentada como promessa antes de haver amostra e atribuição suficientes.
 
+## Visão de evolução do produto
+
+| O que o site é hoje | O que o site será após a Prioridade 0 | O que faz o site dominar o mercado |
+| --- | --- | --- |
+| Painel operacional com boa base visual e segurança em consolidação. | SaaS estável e seguro, com P0 concluído, checkout funcional e UX redonda. | Copiloto completo de carreira: análise, documentos, preparação para entrevistas e extensão de navegador. |
+
 ## Próximas prioridades
 
 ### P0 — antes de aceitar usuários pagantes
