@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `08d7602` — `feat: version Brazilian hiring heuristics`
+**Commit publicado:** `4648eee` — `feat: add interview preparation from application gaps`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
