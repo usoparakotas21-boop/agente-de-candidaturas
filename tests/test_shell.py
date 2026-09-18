@@ -66,6 +66,14 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("Carregando seu perfil...", resume)
         self.assertIn("Não foi possível carregar seu perfil. Tente novamente.", resume)
         self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", preferences)
+        self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", preferences)
+
+    def test_applications_page_surfaces_retry_on_load_failure(self):
+        html = (Path(main_module.STATIC_DIR) / "candidaturas.html").read_text(encoding="utf-8")
+        self.assertIn('role="status" aria-live="polite"', html)
+        self.assertIn('id="retryApplications"', html)
+        self.assertIn("Não foi possível carregar as candidaturas agora.", html)
+        self.assertIn("Tentar novamente", html)
 
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
