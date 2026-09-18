@@ -335,7 +335,7 @@
       td, th { padding-left: 12px; padding-right: 12px; }
       .form-grid, .analysis-columns { grid-template-columns: 1fr; }
     }
-  </style>
+  .auto-checkbox{width:auto}.capture-textarea{min-height:220px}.cover-letter-textarea{min-height:360px}.bar-fill-0{width:0}.bar-fill-10{width:10%}.bar-fill-20{width:20%}.bar-fill-30{width:30%}.bar-fill-40{width:40%}.bar-fill-50{width:50%}.bar-fill-60{width:60%}.bar-fill-70{width:70%}.bar-fill-80{width:80%}.bar-fill-90{width:90%}.bar-fill-100{width:100%}</style>
 </head>
 <body>
   <section class="auth-gate" id="authGate" hidden>
@@ -533,7 +533,7 @@
         <div class="field"><label for="minimumScore">Score mínimo</label><input id="minimumScore" type="number" min="0" max="100" value="65"></div>
         <div class="field"><label for="automaticScore">Score para fila automática</label><input id="automaticScore" type="number" min="0" max="100" value="85"></div>
         <div class="field"><label for="maxDailyApplications">Limite diário futuro</label><input id="maxDailyApplications" type="number" min="1" max="50" value="5"></div>
-        <div class="field"><label><input id="allowAutomatic" type="checkbox" style="width:auto"> Autorizar classificação como automática</label></div>
+        <div class="field"><label><input id="allowAutomatic" class="auto-checkbox" type="checkbox"> Autorizar classificação como automática</label></div>
       </div>
       <p class="metric-note" id="preferencesStatus">Carregando preferências...</p>
       <div class="dialog-actions"><button class="secondary" id="cancelPreferences" type="button">Cancelar</button><button class="submit-job" id="savePreferences" type="submit">Salvar preferências</button></div>
@@ -579,7 +579,7 @@
       </div>
       <div class="field" id="captureTextField">
         <label for="captureText">Conteúdo completo da oportunidade</label>
-        <textarea id="captureText" name="raw_text" style="min-height: 220px" placeholder="Se preferir, cole aqui o título, empresa, localização, requisitos, atividades e o link da vaga."></textarea>
+        <textarea id="captureText" class="capture-textarea" name="raw_text" placeholder="Se preferir, cole aqui o título, empresa, localização, requisitos, atividades e o link da vaga."></textarea>
       </div>
       <section id="captureReview" hidden>
         <p class="metric-note">Confira principalmente empresa e cargo. O score só será calculado depois da confirmação.</p>
@@ -590,7 +590,7 @@
           <div class="field"><label for="reviewModality">Modalidade</label><input id="reviewModality"></div>
           <div class="field"><label for="reviewSalary">Salário</label><input id="reviewSalary"></div>
           <div class="field"><label for="reviewUrl">Link</label><input id="reviewUrl"></div>
-          <div class="field full"><label for="reviewDescription">Texto reconhecido</label><textarea id="reviewDescription" style="min-height: 220px"></textarea></div>
+          <div class="field full"><label for="reviewDescription">Texto reconhecido</label><textarea id="reviewDescription" class="capture-textarea"></textarea></div>
         </div>
       </section>
       <p class="metric-note" id="captureStatus">A vaga será cadastrada, filtrada e analisada.</p>
@@ -715,7 +715,7 @@
       <textarea
         id="coverLetterText"
         readonly
-        style="min-height: 360px"
+        class="cover-letter-textarea"
       ></textarea>
     </div>
 
@@ -1342,7 +1342,7 @@
       const max = Math.max(...active.map(item => item.count), 1);
       $("distribution").innerHTML = active.length ? active.map(item => `
         <div class="dist-row"><div class="dist-meta"><span>${statusLabels[item.status]}</span><strong>${item.count}</strong></div>
-        <div class="bar"><span style="width:${(item.count / max) * 100}%"></span></div></div>`).join("") : '<div class="empty">Sem dados para exibir.</div>';
+        <div class="bar"><span class="bar-fill-${Math.round(((item.count / max) * 100) / 10) * 10}"></span></div></div>`).join("") : '<div class="empty">Sem dados para exibir.</div>';
     }
 
     function renderTable() {

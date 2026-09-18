@@ -54,6 +54,7 @@ class SecurityControlsTest(unittest.TestCase):
         self.assertNotIn("script-src 'self' 'unsafe-inline'", response.headers["content-security-policy"])
         self.assertIn("style-src 'self' 'nonce-", response.headers["content-security-policy"])
         self.assertIn("style-src-elem 'self' 'nonce-", response.headers["content-security-policy"])
+        self.assertNotIn("style-src-attr 'unsafe-inline'", response.headers["content-security-policy"])
 
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
