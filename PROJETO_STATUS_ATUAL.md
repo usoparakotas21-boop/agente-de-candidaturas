@@ -70,7 +70,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Webhooks consultam o status no provedor antes de liberar a exportação.
 - Compras são associadas ao usuário e ao `order_nsu`.
 - `receipt_url` é persistida quando o provedor informa o endereço do recibo.
-- Ainda não existe envio automático de comprovante por e-mail.
+- O checkout grava o e-mail do pagador e o webhook confirmado tenta enviar um recibo transacional SMTP; o estado `SENT`, `FAILED` ou `SKIPPED` evita duplicidade e permite retry idempotente. As variáveis `SMTP_*` permanecem opcionais até o SMTP transacional ser configurado no Render.
 
 ### Segurança já publicada
 
@@ -255,7 +255,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 8. **Primeira camada entregue:** expurgo periódico de documentos gerados no armazenamento privado, com prazo configurável por `DOCUMENT_RETENTION_DAYS` e intervalo por `DOCUMENT_CLEANUP_INTERVAL_SECONDS`; expurgo de Storage/prints/rascunhos depende da adoção de bucket e de registros persistidos para esses artefatos.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
 10. **Persistência estruturada entregue:** parser de intake classifica CLT/PJ/MEI/estágio/temporário/freelance, retorna confiança de regime, modalidade e salário e grava esses campos na fila, na vaga promovida e nas respostas da API; separar pretensão salarial da remuneração oferecida continua pendente.
-11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
+11. **Recibo pós-pagamento implementado:** checkout grava o destinatário e o webhook Mercado Pago envia comprovante SMTP uma única vez após a transição idempotente para `PAID`; falta apenas configurar/testar o SMTP transacional em produção.
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
@@ -287,6 +287,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - A suíte automatizada em `tests/` foi reexecutada após a persistência estruturada de regime/modalidade/salário: **114 testes aprovados em 5,00 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
 - A primeira entrega de P1.2 foi validada na suíte completa: **107 testes aprovados em 5,68 s**. A fila passa a expor faixa/score de risco e sinais resumidos de golpe; o motor continua forçando descarte ou revisão conforme a banda, sem liberar automaticamente uma vaga suspeita.
 - P1.3 recebeu versionamento explícito das heurísticas brasileiras: decisões manuais e alertas Gmail registram `br-rh-1` junto da versão do motor; a suíte completa permaneceu em **107 testes aprovados**.

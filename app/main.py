@@ -6,8 +6,10 @@ import hmac
 import logging
 import os
 import re
+import smtplib
 import time
 import uuid
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
 
@@ -518,6 +520,14 @@ def startup():
         }.items():
             if col not in queue_columns:
                 db.execute(text(f"ALTER TABLE queue_items ADD COLUMN {col} {ddl}"))
+        purchase_columns = {c["name"] for c in inspect(engine).get_columns("document_export_purchases")}
+        for col, ddl in {
+            "payer_email": "VARCHAR(320)",
+            "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL",
+            "receipt_email_sent_at": "TIMESTAMP",
+        }.items():
+            if col not in purchase_columns:
+                db.execute(text(f"ALTER TABLE document_export_purchases ADD COLUMN {col} {ddl}"))
         for col in ["cover_letter_text", "cover_letter_path", "analysis_data", "decision_reasons", "field_confidence"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("applications")}:
                 db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} TEXT"))
@@ -1349,6 +1359,52 @@ def _mark_purchase_paid(
     return "idempotent" if purchase.status == "PAID" and purchase.transaction_nsu == transaction_nsu else "conflict"
 
 
+def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
+    """Send one plain-text receipt when SMTP is configured; retries stay idempotent."""
+    if purchase.receipt_email_status == "SENT":
+        return "sent"
+    recipient = str(purchase.payer_email or "").strip()
+    host = os.getenv("SMTP_HOST", "").strip()
+    sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
+    if not recipient or not host or not sender:
+        purchase.receipt_email_status = "SKIPPED"
+        db.commit()
+        return "skipped"
+    try:
+        port = int(os.getenv("SMTP_PORT", "587"))
+    except ValueError:
+        port = 587
+    message = EmailMessage()
+    message["Subject"] = "Comprovante da exportação — Agente de Candidaturas"
+    message["From"] = sender
+    message["To"] = recipient
+    amount = f"R$ {int(purchase.paid_amount or purchase.amount) / 100:.2f}".replace(".", ",")
+    message.set_content(
+        "Pagamento confirmado no Agente de Candidaturas.\n\n"
+        f"Pedido: {purchase.order_nsu}\nValor: {amount}\n"
+        f"Transação: {purchase.transaction_nsu or 'confirmada'}\n\n"
+        "O download do currículo e da carta já pode ser liberado no painel."
+    )
+    try:
+        username = os.getenv("SMTP_USERNAME", "").strip()
+        password = os.getenv("SMTP_PASSWORD", "")
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            if os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false":
+                smtp.starttls()
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.warning("Nao foi possivel enviar recibo order_nsu=%s: %s", purchase.order_nsu, exc)
+        purchase.receipt_email_status = "FAILED"
+        db.commit()
+        return "failed"
+    purchase.receipt_email_status = "SENT"
+    purchase.receipt_email_sent_at = utc_now()
+    db.commit()
+    return "sent"
+
+
 @app.post("/billing/document-export/checkout")
 async def create_document_export_checkout(user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
@@ -1374,7 +1430,7 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
     }
     db = SessionLocal()
     try:
-        db.add(DocumentExportPurchase(owner_id=owner_id, order_nsu=order_nsu, amount=price_cents))
+        db.add(DocumentExportPurchase(owner_id=owner_id, payer_email=str(user.get("email") or "").strip(), order_nsu=order_nsu, amount=price_cents))
         db.commit()
     finally:
         db.close()
@@ -1457,11 +1513,13 @@ async def mercadopago_webhook(request: Request):
                 transaction_nsu=payment_id,
                 paid_amount=int(round(float(payment.get("transaction_amount") or 0) * 100)),
             )
+            receipt = _send_purchase_receipt(db, purchase) if outcome in {"paid", "idempotent"} else "not_sent"
             return {
                 "received": True,
                 "verified": outcome in {"paid", "idempotent"},
                 "idempotent": outcome == "idempotent",
                 "status": payment.get("status"),
+                "receipt": receipt,
             }
         return {"received": True, "verified": bool(purchase), "status": payment.get("status")}
     finally:

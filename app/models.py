@@ -317,6 +317,7 @@ class DocumentExportPurchase(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payer_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     order_nsu: Mapped[str] = mapped_column(String(120), nullable=False)
     invoice_slug: Mapped[str | None] = mapped_column(String(200), nullable=True)
     transaction_nsu: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -326,6 +327,8 @@ class DocumentExportPurchase(Base):
     receipt_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    receipt_email_status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    receipt_email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ============================================================

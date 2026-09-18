@@ -129,6 +129,26 @@ class WebhookSecurityTest(unittest.TestCase):
         session.close()
         engine.dispose()
 
+    @patch.object(main_module.smtplib, "SMTP")
+    def test_receipt_is_sent_once_when_smtp_is_configured(self, smtp_mock):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(bind=engine)
+        session = sessionmaker(bind=engine)()
+        purchase = DocumentExportPurchase(
+            owner_id="owner-a", payer_email="pessoa@example.com", order_nsu="order-a", amount=990,
+            status="PAID", paid_amount=990, transaction_nsu="payment-1",
+        )
+        session.add(purchase)
+        session.commit()
+        with patch.dict("os.environ", {"SMTP_HOST": "smtp.test", "SMTP_FROM_EMAIL": "no-reply@test", "SMTP_USERNAME": "user", "SMTP_PASSWORD": "secret"}, clear=False):
+            self.assertEqual(main_module._send_purchase_receipt(session, purchase), "sent")
+            session.refresh(purchase)
+            self.assertEqual(purchase.receipt_email_status, "SENT")
+            self.assertEqual(main_module._send_purchase_receipt(session, purchase), "sent")
+        smtp_mock.assert_called_once()
+        session.close()
+        engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main()
