@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `c0b0af3` — `feat: clarify landing pricing and faq`
+**Commit publicado:** `3ec0220` — `feat: add global logout action to authenticated pages`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -106,7 +106,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O gate de confirmação de e-mail está implementado; as rotas públicas `/termos` e `/privacidade` retornaram 200 em produção, mas ainda falta validar as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
-- Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
+- Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
 - Rate limiting é local ao processo; a verificação externa com 11 logins sintéticos retornou 10 respostas 401 e a 11ª 429. Ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa nonce para scripts e agora também para elementos `<style>`, além de HSTS/nosniff/frame-ancestors confirmados em `/health`, `/termos` e `/privacidade`; atributos `style="..."` continuam permitidos temporariamente para compatibilidade com os templates legados e são a próxima etapa de migração.
 - Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
@@ -258,7 +258,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
-14. Exibir links legais e logout no cabeçalho/rodapé global.
+14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
 15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; continuam pendentes `Limpar` como ação neutra com confirmação e a validação visual completa do retry do Banco de vagas.
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
 
