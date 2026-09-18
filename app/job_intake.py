@@ -253,6 +253,21 @@ def _extract_salary(lines: list[str], text: str) -> str:
     return match.group(0) if match else ""
 
 
+def _salary_bounds(value: str) -> tuple[int | None, int | None]:
+    """Return offered salary bounds in whole BRL, keeping candidate preferences separate."""
+    numbers: list[int] = []
+    for raw in re.findall(r"\d[\d.]*", value or ""):
+        try:
+            parsed = int(raw.replace(".", ""))
+        except ValueError:
+            continue
+        if parsed >= 100:
+            numbers.append(parsed)
+    if not numbers:
+        return None, None
+    return min(numbers), max(numbers)
+
+
 def _extract_contract_type(lines: list[str], text: str) -> str:
     """Classifica o regime brasileiro mais explícito no anúncio."""
     labeled = _labeled_value(lines, ("Regime", "Tipo de contrato", "Contrato", "Modelo de contratação"))
@@ -306,6 +321,7 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
     location = _extract_location(lines, text)
     modality = _extract_modality(lines, text)
     salary = _extract_salary(lines, text)
+    salary_min, salary_max = _salary_bounds(salary)
     contract_type = _extract_contract_type(lines, text)
     description = text
 
@@ -323,6 +339,8 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
         "modality": modality,
         "modality_confidence": _field_confidence(lines, ("Modalidade", "Modelo de trabalho"), modality, text),
         "salary": salary,
+        "salary_min": salary_min,
+        "salary_max": salary_max,
         "salary_confidence": _field_confidence(lines, ("Salario", "Faixa salarial", "Remuneracao"), salary, text),
         "contract_type": contract_type,
         "contract_confidence": _field_confidence(lines, ("Regime", "Tipo de contrato", "Contrato", "Modelo de contratação"), contract_type, text),

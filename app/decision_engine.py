@@ -163,16 +163,21 @@ def decide_opportunity(
         values = [_normalized(value) for value in prefs.get(field, [])]
         if values and not any(value in searchable for value in values):
             review_reasons.append(f"{label} fora das preferências")
-    salary_text = str(job.get("salary", ""))
-    salary_values = []
-    for raw in re.findall(r"\d[\d.]*", salary_text):
-        try:
-            salary_values.append(float(raw.replace(".", "")))
-        except ValueError:
-            pass
-    if salary_values and prefs.get("salary_min") is not None and max(salary_values) < prefs["salary_min"]:
+    salary_min = job.get("salary_min")
+    salary_max = job.get("salary_max")
+    if salary_min is None and salary_max is None:
+        salary_text = str(job.get("salary", ""))
+        salary_values = []
+        for raw in re.findall(r"\d[\d.]*", salary_text):
+            try:
+                salary_values.append(float(raw.replace(".", "")))
+            except ValueError:
+                pass
+        if salary_values:
+            salary_min, salary_max = min(salary_values), max(salary_values)
+    if salary_max is not None and prefs.get("salary_min") is not None and salary_max < prefs["salary_min"]:
         review_reasons.append("faixa salarial abaixo da preferência")
-    if salary_values and prefs.get("salary_max") is not None and min(salary_values) > prefs["salary_max"]:
+    if salary_min is not None and prefs.get("salary_max") is not None and salary_min > prefs["salary_max"]:
         review_reasons.append("faixa salarial acima da preferência")
 
     if analysis is None:

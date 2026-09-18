@@ -107,6 +107,8 @@ class Job(Base):
     salary_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     contract_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary: Mapped[str] = mapped_column(String(200), default="")
+    salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     url: Mapped[str] = mapped_column(String(1000))
     description: Mapped[str] = mapped_column(Text)
 
@@ -376,6 +378,8 @@ class QueueItem(Base):
     modality_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     contract_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)

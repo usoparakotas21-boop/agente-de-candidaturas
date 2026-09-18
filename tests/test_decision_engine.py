@@ -60,6 +60,15 @@ class DecisionEngineTest(unittest.TestCase):
         self.assertEqual(result["decision"], "REVISAR")
         self.assertIn("localizacao fora das preferencias", result["reasons"])
 
+    def test_uses_structured_salary_bounds_before_raw_text(self):
+        job = {**JOB, "salary": "R$ 8.000 a R$ 10.000", "salary_min": 8000, "salary_max": 10000}
+        result = decide_opportunity(
+            job,
+            {"score": 90},
+            normalize_preferences({"salary_min": 12000}),
+        )
+        self.assertIn("faixa salarial abaixo da preferência", result["reasons"])
+
 
 if __name__ == "__main__":
     unittest.main()

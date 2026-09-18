@@ -87,6 +87,8 @@ def enqueue(
         modality_confidence=captured.get("modality_confidence"),
         salary_confidence=captured.get("salary_confidence"),
         contract_confidence=captured.get("contract_confidence"),
+        salary_min=captured.get("salary_min"),
+        salary_max=captured.get("salary_max"),
         url=captured.get("url"),
         description=captured.get("description"),
         raw_excerpt=captured.get("raw_excerpt"),
@@ -142,6 +144,8 @@ def _promote_item(session: Session, item: QueueItem, owner_id: Optional[str]) ->
         modality_confidence=item.modality_confidence,
         salary_confidence=item.salary_confidence,
         contract_confidence=item.contract_confidence,
+        salary_min=item.salary_min,
+        salary_max=item.salary_max,
         url=item.url or "",
         description=item.description or "",
     )

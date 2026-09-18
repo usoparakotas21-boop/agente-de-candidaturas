@@ -74,6 +74,8 @@ class JobIntakeParserTest(unittest.TestCase):
         self.assertEqual(result["modality"], "Hibrido")
         self.assertEqual(result["modality_confidence"], 95)
         self.assertEqual(result["salary_confidence"], 95)
+        self.assertEqual(result["salary_min"], 8000)
+        self.assertEqual(result["salary_max"], 10000)
         self.assertEqual(result["contract_type"], "")
         self.assertEqual(result["url"], "https://exemplo.gupy.io/jobs/12345")
         self.assertTrue(result["external_id"].startswith("intake-"))
@@ -112,6 +114,15 @@ class JobIntakeParserTest(unittest.TestCase):
         self.assertEqual(result["contract_type"], "CLT")
         self.assertEqual(result["contract_confidence"], 95)
         self.assertEqual(result["modality"], "Remoto")
+
+    def test_salary_bounds_are_empty_when_salary_is_not_disclosed(self):
+        result = parse_job_text(
+            "Cargo: Analista de Recursos Humanos\n"
+            "Empresa: Exemplo\n"
+            "Descricao completa com responsabilidades, requisitos e experiencia para a vaga."
+        )
+        self.assertIsNone(result["salary_min"])
+        self.assertIsNone(result["salary_max"])
 
     def test_rejects_short_text(self):
         with self.assertRaises(ValueError):
