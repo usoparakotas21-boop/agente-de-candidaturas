@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `3fca7f7` — `feat: add confirmed account deletion flow`
+**Commit publicado:** `602c0b4` — `fix Mercado Pago return and document generation`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -517,6 +517,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 | `4f00417` | Checkout de exportação via InfinitePay |
 | `14b0e8f` | Checkout reserva a aba no clique, expõe erro no próprio bloco e estúdio reutiliza vaga captada; suíte 168/168 |
 | `cef6302` | Preço avulso do checkout configurado em R$ 9,90 no Blueprint do Render |
+| `602c0b4` | Retorno do Mercado Pago restaura a candidatura, aguarda webhook e gera currículo/carta pagos de forma idempotente; suíte 169/169 |
 
 ### Preparação dos cinco gates externos do P0 — 18/09/2026
 
@@ -540,7 +541,11 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
   informa que o Pix aparece quando habilitado na conta Mercado Pago. O estúdio
   oferece preenchimento manual ou seleção de uma candidatura captada, reutiliza
   a candidatura vinculada e não cria uma vaga duplicada.
-- A suíte oficial foi reexecutada após essas mudanças: **168 testes aprovados,
+- O retorno do pagamento agora redireciona diretamente para o estúdio com a vaga vinculada;
+  a confirmação exata da compra é consultada por candidatura, o webhook pode chegar depois
+  do redirecionamento e a geração idempotente persiste os dois arquivos antes de mostrar os
+  botões de download. Selecionar novamente uma candidatura já paga restaura o mesmo fluxo.
+- A suíte oficial foi reexecutada após essas mudanças: **169 testes aprovados,
   0 falhas**, com 6 avisos de depreciação já conhecidos.
 
 ## Regra para continuar o projeto
