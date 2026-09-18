@@ -104,6 +104,14 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("/configuracoes#preferencias", html)
         self.assertIn("/ajuda", main_module.AuthMiddleware.PUBLIC_PATHS)
 
+    def test_settings_persist_lifecycle_email_preferences(self):
+        html = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn('id="notificationFrequency"', html)
+        self.assertIn('id="notifyInterviews"', html)
+        self.assertIn('id="notifyFollowups"', html)
+        self.assertIn('notification_frequency:', html)
+        self.assertIn('notify_expiring:', html)
+
 
 if __name__ == "__main__":
     unittest.main()

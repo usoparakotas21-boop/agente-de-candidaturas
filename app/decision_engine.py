@@ -52,6 +52,10 @@ def default_preferences(
         "max_daily_applications": 5,
         "salary_min": None,
         "salary_max": None,
+        "notification_frequency": "daily",
+        "notify_interviews": True,
+        "notify_expiring": False,
+        "notify_followups": True,
     }
 
 
@@ -91,6 +95,11 @@ def normalize_preferences(
         result["minimum_score"],
     )
     result["allow_automatic"] = bool(supplied.get("allow_automatic", False))
+    frequency = str(supplied.get("notification_frequency", "daily")).strip().casefold()
+    result["notification_frequency"] = frequency if frequency in {"daily", "immediate", "weekly", "none"} else "daily"
+    result["notify_interviews"] = bool(supplied.get("notify_interviews", True))
+    result["notify_expiring"] = bool(supplied.get("notify_expiring", False))
+    result["notify_followups"] = bool(supplied.get("notify_followups", True))
     for field in ("salary_min", "salary_max"):
         try:
             value = supplied.get(field)

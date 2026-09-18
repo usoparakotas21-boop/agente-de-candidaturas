@@ -69,6 +69,24 @@ class DecisionEngineTest(unittest.TestCase):
         )
         self.assertIn("faixa salarial abaixo da preferência", result["reasons"])
 
+    def test_notification_preferences_are_normalized_for_lifecycle_emails(self):
+        preferences = normalize_preferences(
+            {
+                "notification_frequency": "immediate",
+                "notify_interviews": False,
+                "notify_expiring": True,
+                "notify_followups": False,
+            }
+        )
+        self.assertEqual(preferences["notification_frequency"], "immediate")
+        self.assertFalse(preferences["notify_interviews"])
+        self.assertTrue(preferences["notify_expiring"])
+        self.assertFalse(preferences["notify_followups"])
+        self.assertEqual(
+            normalize_preferences({"notification_frequency": "unknown"})["notification_frequency"],
+            "daily",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
