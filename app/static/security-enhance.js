@@ -82,5 +82,35 @@
 
   action.addEventListener('click',()=>factorId?disableMfa():configureMfa());
   grid.querySelector('#logoutAll').addEventListener('click',()=>{fetch('/auth/logout',{method:'POST'}).finally(()=>location.href='/')});
+
+  const exportButton=document.querySelector('#exportData');
+  const exportStatus=document.querySelector('#exportStatus');
+  if(exportButton){
+    exportButton.addEventListener('click',async()=>{
+      exportButton.disabled=true;
+      if(exportStatus)exportStatus.textContent='Preparando seus dados…';
+      try{
+        const response=await fetch('/api/privacy/export',{credentials:'same-origin'});
+        if(!response.ok){
+          const payload=await response.json().catch(()=>({}));
+          throw Error(payload.detail||'Não foi possível exportar seus dados agora.');
+        }
+        const blob=await response.blob();
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='agente-de-candidaturas-dados.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        if(exportStatus)exportStatus.textContent='Download iniciado.';
+      }catch(error){
+        if(exportStatus)exportStatus.textContent=error.message||'Não foi possível exportar seus dados agora.';
+      }finally{
+        exportButton.disabled=false;
+      }
+    });
+  }
   loadMfaStatus();
 })();
