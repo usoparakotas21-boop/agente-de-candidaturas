@@ -361,6 +361,13 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `75a72aa` | Validação pós-deploy do webhook Mercado Pago e registro de configuração ativa |
+| `f75f07f` | Webhook Mercado Pago fail-closed para Access Token ausente e assinatura inválida; testes 123/123 |
+| `d7cf3c1` | Registro da limitação do plano Free para proteção nativa contra senhas vazadas |
+| `3c6862e` | Validação de produção do Banco de vagas sem crash |
+| `12e9c65` | Confirmação direta no Supabase de Email habilitado e `Confirm email` ativo |
+| `579ee2c` | CSP endurecido sem `style-src-attr unsafe-inline` |
+| `e293c8c` | Exports vinculados à candidatura e compra paga exata |
 | `cad91fb` | Cabeçalhos de segurança e rate limiting de autenticação |
 | `863f9e8` | Verificação de e-mail e portabilidade/exclusão agrupadas no planejamento P0/P1 |
 | `66f5c7d` | Retenção, recibos, prompt injection e parsing de regime/modalidade/salário no planejamento |
