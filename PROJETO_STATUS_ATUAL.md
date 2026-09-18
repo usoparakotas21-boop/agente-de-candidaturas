@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `942078d` — `docs: record production security header validation`
+**Commit publicado:** `9bf8eb7` — `security: remove legacy external checkout path`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -65,7 +65,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ### Pagamentos
 
-- Checkout de exportação integrado com Mercado Pago, que é o único provedor de pagamento no escopo ativo.
+- Checkout de exportação integrado exclusivamente com Mercado Pago; o fallback de URL externa legado foi removido e toda compra avulsa exige candidatura vinculada.
 - Rotas, permissões e variáveis de InfinitePay foram removidas do fluxo ativo; o checkout e o webhook aceitos são exclusivamente do Mercado Pago.
 - Webhooks consultam o status no provedor antes de liberar a exportação.
 - Compras são associadas ao usuário e ao `order_nsu`.
