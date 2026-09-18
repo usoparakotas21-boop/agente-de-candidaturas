@@ -528,7 +528,7 @@ def startup():
         for col, ddl in {
             "payer_email": "VARCHAR(320)",
             "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL",
-            "receipt_email_sent_at": "TIMESTAMP",
+            "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
         }.items():
             if col not in purchase_columns:
                 db.execute(text(f"ALTER TABLE document_export_purchases ADD COLUMN {col} {ddl}"))
