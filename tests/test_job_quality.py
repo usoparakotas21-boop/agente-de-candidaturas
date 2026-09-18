@@ -1,7 +1,12 @@
 import unittest
 
 from app.job_intake import parse_job_text
-from app.job_quality import assess_job_capture, is_grouped_job_summary, split_job_alert
+from app.job_quality import (
+    assess_job_capture,
+    is_grouped_job_summary,
+    is_probable_job_url,
+    split_job_alert,
+)
 
 
 class JobQualityTest(unittest.TestCase):
@@ -52,6 +57,11 @@ class JobQualityTest(unittest.TestCase):
             "https://br.indeed.com/rc/clk?jk=abc123"
         )
         self.assertEqual(len(split_job_alert("Nova vaga", content)), 1)
+
+    def test_recognizes_provider_specific_job_urls(self):
+        self.assertTrue(is_probable_job_url("https://www.glassdoor.com.br/partner/jobListing.htm?pos=1"))
+        self.assertTrue(is_probable_job_url("https://www.jobbol.com.br/cargos/analista-administrativo"))
+        self.assertTrue(is_probable_job_url("https://www.linkedin.com/jobs/view/123"))
 
     def test_marks_multi_vacancy_summary_without_individual_cards(self):
         content = "27 vagas abertas de coordenador de recursos humanos - Brasil\nVeja as oportunidades no portal."

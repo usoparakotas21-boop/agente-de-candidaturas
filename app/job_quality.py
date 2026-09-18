@@ -76,9 +76,12 @@ IGNORED_URL_MARKERS = (
 JOB_URL_MARKERS = (
     "/jobs/",
     "/job/",
+    "/job-listing/",
+    "/joblisting",
     "/jobs/view/",
     "/vaga/",
     "/vagas/",
+    "/cargos/",
     "/vacancy/",
     "/position/",
     "/rc/clk",
