@@ -363,9 +363,9 @@ def _application_for_user(db, app_id, user):
     return db.scalar(q)
 
 class JobRequest(BaseModel): title: str; description: str
-class JobCreateRequest(BaseModel): source: str = "manual"; external_id: str; company: str; title: str; location: str = ""; modality: str = ""; salary: str = ""; url: str = ""; description: str
+class JobCreateRequest(BaseModel): source: str = "manual"; external_id: str; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; url: str = ""; description: str
 class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_analyze: bool = True; reprocess_existing: bool = False
-class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; salary: str = ""; url: str = ""; description: str; auto_analyze: bool = True
+class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentStudioRequest(BaseModel):
     title: str = Field(min_length=2, max_length=200)
@@ -500,6 +500,24 @@ def startup():
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
         if "owner_id" not in {c["name"] for c in inspect(engine).get_columns("jobs")}:
             db.execute(text("ALTER TABLE jobs ADD COLUMN owner_id VARCHAR(36)"))
+        job_columns = {c["name"] for c in inspect(engine).get_columns("jobs")}
+        for col, ddl in {
+            "contract_type": "VARCHAR(50) DEFAULT ''",
+            "modality_confidence": "INTEGER",
+            "salary_confidence": "INTEGER",
+            "contract_confidence": "INTEGER",
+        }.items():
+            if col not in job_columns:
+                db.execute(text(f"ALTER TABLE jobs ADD COLUMN {col} {ddl}"))
+        queue_columns = {c["name"] for c in inspect(engine).get_columns("queue_items")}
+        for col, ddl in {
+            "contract_type": "VARCHAR(50)",
+            "modality_confidence": "INTEGER",
+            "salary_confidence": "INTEGER",
+            "contract_confidence": "INTEGER",
+        }.items():
+            if col not in queue_columns:
+                db.execute(text(f"ALTER TABLE queue_items ADD COLUMN {col} {ddl}"))
         for col in ["cover_letter_text", "cover_letter_path", "analysis_data", "decision_reasons", "field_confidence"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("applications")}:
                 db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} TEXT"))
@@ -785,7 +803,7 @@ def create_job(req: JobCreateRequest, user=Depends(authenticated_user)):
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         if db.scalar(select(Job).where(Job.external_id == ext_id)): raise HTTPException(409, "Vaga ja cadastrada.")
         data = req.model_dump(); data["external_id"] = ext_id
-        for field, limit in (("source", 50), ("company", 200), ("title", 200), ("location", 200), ("modality", 50), ("salary", 100), ("description", 80_000)):
+        for field, limit in (("source", 50), ("company", 200), ("title", 200), ("location", 200), ("modality", 50), ("contract_type", 50), ("salary", 100), ("description", 80_000)):
             data[field] = sanitize_untrusted_text(data.get(field, ""), max_chars=limit).strip()
         data["url"] = str(data.get("url") or "").strip()[:1000]
         job = Job(owner_id=oid, **data)
@@ -796,7 +814,7 @@ def create_job(req: JobCreateRequest, user=Depends(authenticated_user)):
         _save_quality(app, quality)
         _apply_decision(app, c, None)
         db.commit(); db.refresh(job); db.refresh(app)
-        return {"status": "VAGA_CADASTRADA", "job": {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url}, "application": {"id": app.id, "status": app.status}}
+        return {"status": "VAGA_CADASTRADA", "job": {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "url": job.url}, "application": {"id": app.id, "status": app.status}}
     finally: db.close()
 
 @app.post("/intake/text")
@@ -823,8 +841,11 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
                 existing.company = parsed["company"]
                 existing.title = parsed["title"]
                 existing.description = parsed["description"]
-                for f in ("location", "modality", "salary", "url"):
+                for f in ("location", "modality", "contract_type", "salary", "url"):
                     if parsed[f]:
+                        setattr(existing, f, parsed[f])
+                for f in ("modality_confidence", "salary_confidence", "contract_confidence"):
+                    if parsed.get(f) is not None:
                         setattr(existing, f, parsed[f])
                 if req.auto_analyze:
                     arts = _build_application(existing, c)
@@ -981,7 +1002,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
     if confidence >= 85:
         confirmed = await _run_document_work(
             confirm_job_intake,
-            JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], salary=selected["salary"], url=selected["url"], description=selected["description"], auto_analyze=True),
+            JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], contract_type=selected.get("contract_type", parsed.get("contract_type", "")), modality_confidence=selected.get("modality_confidence", parsed.get("modality_confidence")), salary_confidence=selected.get("salary_confidence", parsed.get("salary_confidence")), contract_confidence=selected.get("contract_confidence", parsed.get("contract_confidence")), salary=selected["salary"], url=selected["url"], description=selected["description"], auto_analyze=True),
             user,
         )
         confirmed.update({
@@ -1008,7 +1029,7 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         job = db.scalar(select(Job).where(Job.external_id == ext_id))
         updated = job is not None
-        vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "url": req.url.strip()[:1000], "description": safe_description}
+        vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "contract_type": sanitize_untrusted_text(req.contract_type, max_chars=50).strip(), "modality_confidence": req.modality_confidence, "salary_confidence": req.salary_confidence, "contract_confidence": req.contract_confidence, "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "url": req.url.strip()[:1000], "description": safe_description}
         if job is None:
             job = Job(owner_id=oid, external_id=ext_id, **vals); db.add(job); db.flush()
         else:
@@ -1043,7 +1064,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "salary": j.salary, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "contract_type": j.contract_type, "modality_confidence": j.modality_confidence, "salary_confidence": j.salary_confidence, "contract_confidence": j.contract_confidence, "salary": j.salary, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")
@@ -1052,7 +1073,7 @@ def get_job_endpoint(job_id: int, user=Depends(authenticated_user)):
     try:
         job = _job_for_user(db, job_id, user)
         if job is None: raise HTTPException(404, "Vaga nao encontrada.")
-        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url, "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None}
+        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "url": job.url, "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None}
     finally: db.close()
 
 @app.get("/applications")
@@ -1204,7 +1225,7 @@ def privacy_export(user=Depends(authenticated_user)):
             "export_version": "1",
             "generated_at": iso(utc_now()),
             "profile": profile,
-            "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url, "description": job.description} for job in jobs],
+            "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "url": job.url, "description": job.description} for job in jobs],
             "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
             "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})

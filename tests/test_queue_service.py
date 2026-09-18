@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Application, ApplicationEvent, utc_now
+from app.models import Application, ApplicationEvent, Job, utc_now
 from app.queue_service import (
     approve,
     enqueue,
@@ -126,3 +126,34 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(item.health_band, "SUSPEITA")
         self.assertTrue(item.fraud_suspected)
         self.assertEqual(item.health_signals[0]["code"], "PEDIDO_PAGAMENTO")
+
+    def test_structured_intake_fields_follow_item_into_job(self):
+        item = enqueue(
+            self.session,
+            None,
+            {
+                "title": "Analista de RH",
+                "company": "Empresa Teste",
+                "location": "Salvador/BA",
+                "modality": "Híbrido",
+                "contract_type": "CLT",
+                "modality_confidence": 95,
+                "salary_confidence": 80,
+                "contract_confidence": 90,
+                "url": "https://example.test/rh",
+            },
+            {"decision": "REVISAR", "reasons": [], "engine_version": "test"},
+            "texto",
+        )[0]
+
+        self.assertEqual(item.contract_type, "CLT")
+        self.assertEqual(item.modality_confidence, 95)
+        self.assertEqual(item.salary_confidence, 80)
+        self.assertEqual(item.contract_confidence, 90)
+
+        result = approve(self.session, None, item.id)
+        job = self.session.query(Job).filter_by(id=result["job_id"]).one()
+        self.assertEqual(job.contract_type, "CLT")
+        self.assertEqual(job.modality_confidence, 95)
+        self.assertEqual(job.salary_confidence, 80)
+        self.assertEqual(job.contract_confidence, 90)
