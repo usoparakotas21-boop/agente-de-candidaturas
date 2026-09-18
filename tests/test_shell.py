@@ -75,6 +75,12 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("Não foi possível carregar as candidaturas agora.", html)
         self.assertIn("Tentar novamente", html)
 
+    def test_interviews_page_surfaces_retry_on_load_failure(self):
+        html = (Path(main_module.STATIC_DIR) / "entrevistas.html").read_text(encoding="utf-8")
+        self.assertIn('role="status" aria-live="polite"', html)
+        self.assertIn('id="retryInterviews"', html)
+        self.assertIn("Não foi possível carregar as entrevistas agora.", html)
+
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
