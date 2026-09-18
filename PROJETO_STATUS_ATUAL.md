@@ -232,7 +232,7 @@ As novas sugestões foram comparadas com o que já está publicado. Os percentua
 | --- | --- | ---: | --- |
 | Layout, estrutura responsiva, dashboards, perfil e funil | Dashboards essenciais, busca, paginação, estados vazios, perfil e funil de candidaturas existem; métricas de conversão estão instrumentadas em **P1.1** | **95%** | Sem nova tarefa; manter regressões |
 | Refinamento de componentes, microinterações e consistência visual | Ações do cabeçalho, botões neutros, skeleton do drawer, feedback de upload e foco dos modais já foram tratados; faltam microinterações gerais e uma revisão visual final | **80%** | **P1.17** |
-| Favicon e identidade visual na aba do navegador | Favicon `AC` em SVG publicado e injetado no shell público, páginas legais e páginas autenticadas | **100%** | **Concluído em P1.17**; validar a aba após o próximo deploy |
+| Favicon e identidade visual na aba do navegador | Favicon `AC` em SVG publicado e injetado no shell público, páginas legais e páginas autenticadas; o arquivo e o shell foram confirmados no Render | **100%** | **Concluído em P1.17** |
 | Hierarquia dos dados complexos do OCR durante a edição | A tela de Currículos agora agrupa experiências, competências, formação e idiomas em um resumo revisável; ainda falta uma edição inline mais rica dos campos extraídos | **80%** | **P1.17** |
 | Onboarding guiado em três passos | A sincronização do card com perfil/preferências está entregue em **P1.13**; não há tour guiado de primeiro acesso | **35%** | **P1.17** |
 | Feedback assíncrono de OCR e validação de arquivos | Mensagens específicas, região de status acessível e skeleton do drawer existem; faltam estados de progresso mais claros para todos os processamentos longos | **75%** | **P1.17** |
@@ -366,6 +366,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 - A tela publicada de Configurações mostrou os controles de frequência e categorias de aviso no Render após o deploy `bab87b5`; nenhuma mensagem foi enviada durante a validação.
 - A correção dos alertas passou em `node --check` e na suíte completa: **150 testes aprovados, 0 falhas**; a validação local confirma que o script não recria controles, mantém o badge crítico separado e não contém `mailto` de suporte não configurado.
 - O favicon `AC` foi publicado no shell público, páginas legais e páginas autenticadas; o SVG foi validado como XML, `app/main.py` compilou e a suíte completa passou para **151 testes aprovados, 0 falhas**, incluindo 15 regressões de shell.
+- A validação externa no Render confirmou HTTP acessível para `/static/favicon.svg` e a referência do favicon no dashboard publicado.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
