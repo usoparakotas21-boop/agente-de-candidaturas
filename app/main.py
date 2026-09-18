@@ -1487,13 +1487,16 @@ async def mercadopago_webhook(request: Request):
     """Verify Mercado Pago payment notifications server-to-server."""
     token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not token:
-        return {"received": True, "verified": False}
+        # A webhook without the server-to-server credential cannot be verified
+        # safely. Surface the deployment/configuration error instead of
+        # acknowledging the event as if it had been processed.
+        raise HTTPException(503, "Integração Mercado Pago indisponível.")
     try:
         payload = await request.json()
     except Exception:
         payload = {}
     if not _mercadopago_signature_is_valid(request, payload):
-        return {"received": True, "verified": False}
+        raise HTTPException(401, "Webhook Mercado Pago não autorizado.")
     payment_id = str((payload.get("data") or {}).get("id") or payload.get("id") or request.query_params.get("data.id") or "").strip()
     notification_type = str(payload.get("type") or payload.get("topic") or "").strip().casefold()
     if not payment_id or notification_type not in {"payment", "payments", ""}:

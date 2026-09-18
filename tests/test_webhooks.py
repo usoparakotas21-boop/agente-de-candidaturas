@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import asyncio
 import time
 import unittest
 from unittest.mock import patch
@@ -80,6 +81,20 @@ class WebhookSecurityTest(unittest.TestCase):
             self.assertFalse(main_module._mercadopago_signature_is_valid(stale, payload))
             unsigned = webhook_request("payment-123", "")
             self.assertFalse(main_module._mercadopago_signature_is_valid(unsigned, payload))
+
+    def test_webhook_fails_closed_when_provider_token_is_missing(self):
+        request = webhook_request("payment-123", "")
+        with patch.dict("os.environ", {}, clear=True):
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(main_module.mercadopago_webhook(request))
+        self.assertEqual(raised.exception.status_code, 503)
+
+    def test_webhook_rejects_unsigned_delivery_when_provider_is_configured(self):
+        request = webhook_request("payment-123", "")
+        with patch.dict("os.environ", {"MERCADOPAGO_ACCESS_TOKEN": "token"}, clear=False):
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(main_module.mercadopago_webhook(request))
+        self.assertEqual(raised.exception.status_code, 401)
 
     def test_export_checkout_does_not_fallback_to_legacy_provider(self):
         with patch.dict(
