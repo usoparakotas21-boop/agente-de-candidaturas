@@ -177,7 +177,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Kanban, donut de score e exportação CSV/Excel operacional | Faz sentido, mas não é gate | **P2**; exportação de dados pessoais para LGPD é separada e permanece em **P1.6** |
 | Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.13**; dispensar é melhoria opcional depois da sincronização |
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
-| Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
+| Foco, `aria-modal` e retorno de foco dos modais | Validado em produção | Modais de captação, preferências, segurança e drawer de candidatura abriram com foco inicial, mantiveram o Tab dentro da superfície e devolveram o foco ao disparador |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
 | IDOR e RLS obrigatório | Validação real parcial aprovada | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A, e compras pagas agora são vinculadas à candidatura exata. Falta testar a rota de exportação/download com duas contas reais em **P0.1** |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
@@ -240,7 +240,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 9. **Rate limiting — código local concluído:** validar os limites publicados e configurar proteção distribuída na borda antes de múltiplas instâncias.
 10. **Senhas comprometidas — código concluído, configuração externa pendente:** o teste k-anonimizado está no código e a variável do Render existe; o Security Advisor do Supabase ainda indica `Leaked Password Protection Disabled`, que deve ser ativado no painel e retestado.
 11. **Backup e recuperação — automação preparada:** `scripts/backup_supabase.py` usa `DATABASE_URL` via ambiente, valida o dump e gera checksum/manifesto privado. O check real confirmou que faltam `pg_dump` e `pg_restore`; depois da instalação, executar/agendar o backup e testar a restauração isolada conforme `DISASTER_RECOVERY.md`.
-12. **Acessibilidade de modais — validação parcial:** em produção, os modais “Captar vaga” e “Preferências” abriram com foco inicial, fecharam com `Esc` e devolveram o foco ao botão disparador; a ordem de foco da tela de Segurança alcançou navegação, logout, MFA e sessões. Ainda falta validar o drawer de candidatura e o ciclo completo de Tab em **P0.12**.
+12. **Acessibilidade de modais — concluído:** em produção, os modais “Captar vaga” e “Preferências”, a tela de Segurança e o drawer de candidatura abriram com foco inicial, fecharam com `Esc`, mantiveram o ciclo de Tab dentro da superfície e devolveram o foco ao disparador. O commit `8cc11fa` foi publicado e validado no Render.
 13. **Páginas legais públicas — validado:** `/termos` e `/privacidade` retornaram 200 sem sessão em produção, antes do cadastro, com headers de segurança ativos.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
@@ -330,7 +330,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
 | Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 133 testes | **Concluído nesta verificação** |
-| Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou abertura/fechamento por teclado nos modais de captação e preferências | Parcialmente validado; falta o drawer de candidatura e o ciclo completo de Tab em **P0.12** |
+| Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou captação, preferências, Segurança e drawer de candidatura | Validado em produção; foco inicial, `Esc`, retorno ao disparador e ciclo de Tab concluídos |
 
 ### Verificação direta do Supabase — 17/09/2026
 
@@ -356,8 +356,15 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 - A extensão do Chrome foi conectada ao Codex e permitiu controlar uma segunda sessão real, separada da conta A no navegador interno.
 - Na conta B, o enrollment TOTP foi concluído na produção: a API gerou o fator, o código de seis dígitos foi verificado e a tela passou a indicar o autenticador como ativo. O MFA continua opcional porque `MFA_LOGIN_ENFORCE=false`.
-- A interface de Segurança tinha uma lacuna: após ativar o fator, não consultava `/auth/mfa/status` ao recarregar e não oferecia revogação, embora `DELETE /auth/mfa/{factor_id}` já existisse no backend. O script foi ajustado para carregar o estado real, mostrar erro sem falso “Não configurado” e permitir desativar o autenticador com confirmação.`r`n- Após a primeira publicação, o status ainda consultava uma rota REST de fatores inexistente neste projeto. O backend passou a ler `factors` da resposta autenticada de `/auth/v1/user`, atualizando enrollment, status e login opcional sem depender do schema REST do banco; o deploy `de55ee4` foi confirmado como **Live** e a conta B exibiu `Ativo` com `Desativar autenticador`.
+- A interface de Segurança tinha uma lacuna: após ativar o fator, não consultava `/auth/mfa/status` ao recarregar e não oferecia revogação, embora `DELETE /auth/mfa/{factor_id}` já existisse no backend. O script foi ajustado para carregar o estado real, mostrar erro sem falso “Não configurado” e permitir desativar o autenticador com confirmação.
+- Após a primeira publicação, o status ainda consultava uma rota REST de fatores inexistente neste projeto. O backend passou a ler `factors` da resposta autenticada de `/auth/v1/user`, atualizando enrollment, status e login opcional sem depender do schema REST do banco; o deploy `de55ee4` foi confirmado como **Live** e a conta B exibiu `Ativo` com `Desativar autenticador`.
 - Ainda falta o teste de ponta a ponta do desafio durante um novo login, incluindo expiração, código inválido, limite de tentativas, recuperação e revogação efetiva. Esse restante continua em **P0.3**; não reativar a exigência global antes dele.
+
+### Validação de acessibilidade do drawer — 18/09/2026
+
+- O deploy `8cc11fa` foi confirmado como **Deployed** no Render.
+- Em produção, a abertura da candidatura colocou o foco no botão `Fechar`; `Esc` fechou o drawer e devolveu o foco à linha que o abriu.
+- Após 18 avanços de `Tab`, o foco permaneceu dentro dos controles do drawer, sem escapar para a navegação ou para o conteúdo atrás do overlay.
 
 ## Variáveis e segredos
 
