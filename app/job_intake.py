@@ -142,12 +142,35 @@ def _normalize_company_name(value: str) -> str:
     return normalized or original
 
 
+def _clean_alert_title(value: str) -> str:
+    """Remove saudações e frases de alerta que antecedem o cargo real."""
+    title = (value or "").strip()
+    normalized = _normalized(title)
+    alert_prefixes = (
+        "ola ",
+        "olá ",
+        "temos novas vagas",
+        "novas vagas de",
+        "vagas recomendadas",
+        "veja vagas",
+    )
+    if not any(prefix in normalized for prefix in alert_prefixes):
+        return title
+    match = re.search(
+        r"\b(?:analista|assistente|auxiliar|coordenador(?:a)?|supervisor(?:a)?|gerente|especialista|consultor(?:a)?|business partner|head|diretor(?:a)?|recruiter)\b.*",
+        title,
+        flags=re.I,
+    )
+    return match.group(0).strip(" -:,") if match else title
+
+
 def _fallback_title(lines: list[str]) -> str:
     for line in lines[:40]:
         normalized = _normalized(line)
         if 3 <= len(line) <= 120 and any(word in normalized for word in ROLE_WORDS):
             if not any(prefix in normalized for prefix in ("experiencia como", "procuramos por", "requisitos")):
-                return re.sub(r"^(vaga|oportunidade)\s*[:\-]\s*", "", line, flags=re.I).strip()
+                title = re.sub(r"^(vaga|oportunidade)\s*[:\-]\s*", "", line, flags=re.I).strip()
+                return _clean_alert_title(title)
     return "Oportunidade profissional"
 
 
@@ -312,7 +335,7 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
 
     if not title:
         title = _fallback_title(lines)
-    title = _title_from_url(title) or title
+    title = _title_from_url(title) or _clean_alert_title(title)
     title = _extend_title(lines, title)
     if not company:
         company = _fallback_company(lines, title, url)

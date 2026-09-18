@@ -94,6 +94,15 @@ class JobIntakeParserTest(unittest.TestCase):
         )
         self.assertEqual(result["title"], "Analista Administrativo")
 
+    def test_alert_greeting_is_removed_before_saving_the_job_title(self):
+        result = parse_job_text(
+            "Olá Paulo, temos novas vagas de Analista de Recursos Humanos\n"
+            "Empresa Alpha\n"
+            "Descrição com responsabilidades, requisitos e experiência para a vaga.\n"
+            "https://example.com/jobs/123"
+        )
+        self.assertEqual(result["title"], "Analista de Recursos Humanos")
+
     def test_company_prefix_cnpj_is_hidden(self):
         result = parse_job_text(
             "Cargo: Analista de Inovacao\n"
