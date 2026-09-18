@@ -25,6 +25,29 @@ def request_with_cookies(cookie_header: str = "") -> Request:
 
 
 class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
+    async def test_verified_factor_does_not_block_login_when_mfa_is_optional(self):
+        login_session = {
+            "access_token": "optional-access",
+            "refresh_token": "optional-refresh",
+            "expires_in": 3600,
+            "user": {
+                "id": "owner-a",
+                "email": "a@example.com",
+                "email_confirmed_at": "2026-09-18T12:00:00Z",
+            },
+        }
+        with (
+            patch.dict("os.environ", {"MFA_LOGIN_ENFORCE": "false"}, clear=False),
+            patch.object(auth, "_supabase_request", AsyncMock(return_value=httpx.Response(200, json=login_session))) as request_mock,
+        ):
+            response = await auth.login(auth.LoginRequest(email="a@example.com", password="Senha-segura1!"))
+
+        body = json.loads(response.body)
+        self.assertTrue(body["authenticated"])
+        self.assertNotIn("mfa_required", body)
+        self.assertTrue(any(auth.ACCESS_COOKIE_NAME + "=optional-access" in value for value in response.headers.getlist("set-cookie")))
+        request_mock.assert_awaited_once()
+
     async def test_login_requires_totp_and_complete_promotes_session(self):
         login_session = {
             "access_token": "aal1-access",
