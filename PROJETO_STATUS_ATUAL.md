@@ -256,11 +256,11 @@ As sugestões de raspagem foram comparadas com a implementação atual e classif
 | Fetcher → parser → deduplicador → enriquecedor | As peças existem de forma síncrona para intake e Gmail; não há pipeline de descoberta contínua | **P2.3**; consolidar uma interface de ingestão para reuso das peças atuais e incluir senioridade, modalidade, regime, salário e proveniência |
 | Agendamento e workers assíncronos | OCR/IA e monitores ainda compartilham o processo web; workers separados e limites distribuídos já estão no P2 | **P2.4**; incluir scheduler, filas, concorrência por fonte, backoff e timeout. Não é requisito para o primeiro ciclo pago |
 | Saúde dos conectores e alerta abaixo de 80% | UptimeRobot cobre a saúde do serviço, mas não mede sucesso por fonte/conector | **P2.5 novo**; registrar tentativas, sucesso, bloqueios, latência e parsing inválido, com alerta e pausa automática quando a qualidade cair |
-| Anti-bot, stealth browser e proxies rotativos | Não existe e não deve ser adicionado por padrão | **Fora da fila atual**; só avaliar em decisão posterior, depois de licença/Termos/robots e necessidade comprovada. Respeitar bloqueios e desligar a fonte é o comportamento padrão |
+| Anti-bot, browser stealth e proxies rotativos | Não existe atualmente | **P2.6 condicional**; manter na fila como capacidade opcional para fontes autorizadas, depois de licença/Termos/robots e necessidade comprovada. Usar limites, identidade transparente, sem contornar CAPTCHA ou bloqueios deliberados, com desligamento por fonte |
 | Rate limit e proteção da origem | Rate limiting da aplicação está no P0; falta orçamento específico por fonte para uma coleta futura | **P2.3/P2.4**; aplicar intervalos, User-Agent identificável, backoff e teto por domínio antes de qualquer coleta agendada |
 | Legalidade, robots/Termos, atribuição e retenção do dado bruto | A LGPD e a retenção de artefatos já estão mapeadas, mas ainda não há um registro de fonte com base legal, licença, robots, atribuição e prazo de descarte | **P1.20 novo, antes de P2.1/P2.2**; aprovar cada fonte, registrar proveniência e limitar a retenção do HTML/texto bruto |
 
-O desenho aprovado para a fila é, portanto: **P1.20** (legalidade e proveniência) → **P2.1** (APIs autorizadas) → **P2.2** (piloto ATS público) → **P2.3/P2.4** (pipeline, limites, scheduler e workers) → **P2.5** (observabilidade por fonte) → expansão gradual. A proposta de proxies rotativos e stealth fica explicitamente fora do escopo até existir justificativa legal e operacional documentada.
+O desenho aprovado para a fila é, portanto: **P1.20** (legalidade e proveniência) → **P2.1** (APIs autorizadas) → **P2.2** (piloto ATS público) → **P2.3/P2.4** (pipeline, limites, scheduler e workers) → **P2.5** (observabilidade por fonte) → **P2.6** (proxies/stealth condicionados) → expansão gradual. Essa capacidade permanece planejada, mas só será ativada para fontes autorizadas e após os critérios legais, operacionais e de desligamento serem atendidos.
 
 ### Auditoria da proposta de DDL e worker de ingestão — 18/09/2026
 
@@ -334,11 +334,12 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 3. **P2.3 — Pipeline e orçamento por fonte:** consolidar fetcher, parser, deduplicador, enriquecedor e proveniência, com `external_id`/URL canônica/fingerprint, rate limit, backoff e limites de conteúdo.
 4. **P2.4 — Workers e agendamento:** separar Gmail/Outlook, OCR/IA/documentos e ingestão de fontes em workers com filas, timeout, concorrência distribuída e retry controlado.
 5. **P2.5 — Saúde dos conectores:** medir sucesso de busca, bloqueio, latência, parse válido e duplicidade por fonte; pausar e alertar quando a taxa cair abaixo do limite definido (referência inicial: 80%).
-6. Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
-7. Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
-8. Criar extensão de navegador para captação autorizada.
-9. Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
-10. Adicionar aprendizado baseado nos resultados das candidaturas depois que houver volume e atribuição confiáveis.
+6. **P2.6 — Proxies e browser stealth condicionados:** avaliar rotação de saída e automação compatível somente para fontes autorizadas, com orçamento por domínio, limites de requisição, auditoria, respeito a robots/Termos e desligamento quando houver bloqueio ou queda de qualidade. Não contornar CAPTCHA nem controles de acesso.
+7. Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
+8. Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
+9. Criar extensão de navegador para captação autorizada.
+10. Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
+11. Adicionar aprendizado baseado nos resultados das candidaturas depois que houver volume e atribuição confiáveis.
 
 ## Validações recentes
 
