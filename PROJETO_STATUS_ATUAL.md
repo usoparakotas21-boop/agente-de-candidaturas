@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `7c68d57` — `feat: add application follow-up tracking`
+**Commit publicado:** `3474bc0` — `feat: add LGPD data export`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
