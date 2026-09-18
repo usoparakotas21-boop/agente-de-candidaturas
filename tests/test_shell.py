@@ -112,6 +112,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('notification_frequency:', html)
         self.assertIn('notify_expiring:', html)
 
+    def test_alerts_enhancement_does_not_duplicate_persisted_controls(self):
+        script = (Path(main_module.STATIC_DIR) / "alerts-enhance.js").read_text(encoding="utf-8")
+        self.assertIn("#notifyInterviews", script)
+        self.assertIn("#notificationFrequency", script)
+        self.assertNotIn("innerHTML", script)
+        self.assertNotIn("mailto:", script)
+
 
 if __name__ == "__main__":
     unittest.main()
