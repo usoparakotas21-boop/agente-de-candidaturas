@@ -1,9 +1,11 @@
 import json
+import asyncio
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.requests import Request
 
 from app import main as main_module
 from app.database import Base
@@ -60,6 +62,32 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual([item["order_nsu"] for item in payload["purchases"]], ["export-purchase-a"])
         self.assertNotIn("access_token", payload)
         self.assertIn("attachment;", response.headers["content-disposition"])
+
+    def test_delete_account_requires_exact_confirmation(self):
+        request = Request({"type": "http", "method": "POST", "path": "/api/privacy/delete-account", "headers": [], "query_string": b"", "client": ("testclient", 50000), "server": ("testserver", 80), "scheme": "https"})
+        with patch.object(main_module, "_delete_supabase_auth_user", new=AsyncMock()) as provider_delete:
+            with self.assertRaises(main_module.HTTPException) as raised:
+                asyncio.run(main_module.delete_account(main_module.AccountDeletionRequest(confirmation="excluir"), request, {"id": "owner-a"}))
+        self.assertEqual(raised.exception.status_code, 422)
+        provider_delete.assert_not_awaited()
+
+    def test_delete_account_removes_local_owner_data_after_provider_confirmation(self):
+        request = Request({"type": "http", "method": "POST", "path": "/api/privacy/delete-account", "headers": [], "query_string": b"", "client": ("testclient", 50000), "server": ("testserver", 80), "scheme": "https"})
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_delete_supabase_auth_user", new=AsyncMock()) as provider_delete,
+        ):
+            response = asyncio.run(main_module.delete_account(main_module.AccountDeletionRequest(confirmation="EXCLUIR MINHA CONTA"), request, {"id": "owner-a"}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.body)["deleted"], True)
+        provider_delete.assert_awaited_once()
+        db = self.session_factory()
+        self.assertEqual(db.query(Job).filter(Job.owner_id == "owner-a").count(), 0)
+        self.assertEqual(db.query(Candidate).filter(Candidate.owner_id == "owner-a").count(), 0)
+        self.assertEqual(db.query(DocumentExportPurchase).filter(DocumentExportPurchase.owner_id == "owner-a").count(), 0)
+        self.assertEqual(db.query(Job).filter(Job.owner_id == "owner-b").count(), 1)
+        db.close()
 
 
 if __name__ == "__main__":

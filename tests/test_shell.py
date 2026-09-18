@@ -164,6 +164,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('notification_frequency:', html)
         self.assertIn('notify_expiring:', html)
 
+    def test_security_page_exposes_confirmed_account_deletion(self):
+        html = (Path(main_module.STATIC_DIR) / "security.html").read_text(encoding="utf-8")
+        self.assertIn('id="deleteAccountForm"', html)
+        self.assertIn('id="deleteConfirmation"', html)
+        self.assertIn("EXCLUIR MINHA CONTA", html)
+        self.assertIn("/api/privacy/delete-account", html)
+
     def test_alerts_enhancement_does_not_duplicate_persisted_controls(self):
         script = (Path(main_module.STATIC_DIR) / "alerts-enhance.js").read_text(encoding="utf-8")
         self.assertIn("#notifyInterviews", script)

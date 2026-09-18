@@ -12,6 +12,7 @@ import uuid
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
@@ -21,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text, update
 from starlette.concurrency import run_in_threadpool
 
-from .auth import AuthMiddleware, authenticated_user, router as auth_router
+from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
 from .outlook_integration import router as outlook_router
 from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
@@ -35,7 +36,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, Experience, Job, Skill, utc_now
+from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, EmailIntegration, Experience, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -1394,6 +1395,101 @@ def privacy_export(user=Depends(authenticated_user)):
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
         db.close()
+
+
+class AccountDeletionRequest(BaseModel):
+    confirmation: str
+
+
+ACCOUNT_DELETION_CONFIRMATION = "EXCLUIR MINHA CONTA"
+
+
+def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
+    """Stage deletion of every local record owned by an account."""
+    jobs = db.scalars(select(Job).where(Job.owner_id == owner_id)).unique().all()
+    applications = [job.application for job in jobs if job.application is not None]
+    paths: list[Path] = []
+    for application in applications:
+        for raw_path in (application.document_path, application.cover_letter_path):
+            if not raw_path:
+                continue
+            try:
+                paths.append(resolve_document_path(raw_path))
+            except ValueError:
+                logger.warning("Ignorando caminho de documento fora do armazenamento privado durante exclusao")
+
+    for model, column in (
+        (DocumentExportPurchase, DocumentExportPurchase.owner_id),
+        (ProcessedEmailMessage, ProcessedEmailMessage.owner_id),
+        (EmailIntegration, EmailIntegration.owner_id),
+        (QueueItem, QueueItem.owner_id),
+    ):
+        for row in db.scalars(select(model).where(column == owner_id)).all():
+            db.delete(row)
+    for job in jobs:
+        db.delete(job)
+    for candidate in db.scalars(select(Candidate).where(Candidate.owner_id == owner_id)).all():
+        db.delete(candidate)
+    db.flush()
+    return paths
+
+
+async def _delete_supabase_auth_user(request: Request, user: dict) -> None:
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    user_id = str(user.get("id") or "").strip()
+    if not service_key or not supabase_url or not user_id:
+        raise HTTPException(503, "A exclusao definitiva ainda nao esta configurada no servidor.")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.delete(
+                f"{supabase_url}/auth/v1/admin/users/{quote(user_id, safe='')}",
+                headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Nao foi possivel confirmar a exclusao no provedor de autenticacao.") from exc
+    if response.status_code not in {200, 204}:
+        logger.warning("Supabase recusou exclusao de conta status=%s", response.status_code)
+        raise HTTPException(503, "Nao foi possivel confirmar a exclusao no provedor de autenticacao.")
+
+
+@app.post("/api/privacy/delete-account")
+async def delete_account(
+    payload: AccountDeletionRequest,
+    request: Request,
+    user=Depends(authenticated_user),
+):
+    if payload.confirmation.strip().upper() != ACCOUNT_DELETION_CONFIRMATION:
+        raise HTTPException(422, f"Digite exatamente: {ACCOUNT_DELETION_CONFIRMATION}.")
+    owner_id = _owner_id(user)
+    if not owner_id:
+        raise HTTPException(401, "Login necessario.")
+
+    db = SessionLocal()
+    paths: list[Path] = []
+    try:
+        paths = _delete_local_owner_data(db, owner_id)
+        await _delete_supabase_auth_user(request, user)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Falha na exclusao definitiva da conta")
+        raise HTTPException(503, "Nao foi possivel excluir a conta agora. Tente novamente.") from exc
+    finally:
+        db.close()
+
+    for path in set(paths):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Nao foi possivel remover documento privado apos exclusao: %s", path.name)
+    response = JSONResponse({"deleted": True, "message": "Conta e dados excluidos."})
+    response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
+    response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
+    return response
 
 @app.get("/applications/{app_id}")
 def get_app(app_id: int, user=Depends(authenticated_user)):
