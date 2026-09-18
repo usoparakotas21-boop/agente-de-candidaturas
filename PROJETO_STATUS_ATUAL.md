@@ -317,6 +317,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 - A Central de Ajuda pública foi publicada em `/ajuda`, incluída na lista de rotas sem autenticação e ligada ao menu de Ações do dashboard; o teste de shell confirma conteúdo sobre formatos, privacidade, pagamentos e recuperação de erros. A suíte completa passou para **145 testes aprovados, 0 falhas**.
 - A verificação externa pós-deploy confirmou `/ajuda` com HTTP 200 e conteúdo de formatos, privacidade e pagamentos no Render; a rota continua pública para leitura antes do login.
 - O resumo hierárquico da importação de currículo passou nos testes de shell, na verificação de sintaxe JavaScript e na suíte completa: **146 testes aprovados, 0 falhas**.
+- O Render marcou o deploy do commit `34c47b4` como **Live**; `/health` continua retornando HTTP 200 após a publicação da tela de Currículos.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
