@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `1235e7f` — `Confirm Supabase SSL enforcement`
+**Commit publicado:** `db5b2f4` — `Update current status commit`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -110,7 +110,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - CSP usa nonce para scripts, HSTS/nosniff/frame-ancestors foram confirmados em `/health`, `/termos` e `/privacidade`; `style-src 'unsafe-inline'` permanece porque as telas atuais contêm estilos inline e precisa ser endurecido depois da migração para arquivos externos.
 - Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
 - O script `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A migração foi aplicada no PostgreSQL de produção e a consulta somente leitura confirmou RLS habilitado e uma política em cada tabela.
-- A aplicação usa `SUPABASE_PUBLISHABLE_KEY`, não há `SERVICE_ROLE_KEY` no código, no `render.yaml` ou na lista de variáveis exibida no Render; ainda falta a conferência equivalente no painel do Supabase e a verificação da conexão efetiva de produção.
+- A aplicação usa `SUPABASE_PUBLISHABLE_KEY`, não há `SERVICE_ROLE_KEY` no código, no `render.yaml` ou na lista de variáveis exibida no Render; o painel do Supabase separa as chaves e os valores permaneceram mascarados durante a auditoria; a conexão efetiva de produção foi verificada após o reinício com `Enforce SSL` ativo.
 - A validação central de upload já confere extensão, tamanho, magic bytes e estrutura/decodificação; a validação em produção continua no P0.2.
 - Processamentos temporários são removidos no fluxo e documentos gerados ficam fora da raiz em diretório `0700`; falta ligar expurgo de rascunhos/objetos do Storage.
 - A sanitização central de texto já cobre captura, e-mail/OCR, confirmação e análise; superfícies de renderização restantes continuam na revisão do P0.7.
@@ -179,7 +179,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
 | IDOR e RLS obrigatório | Validação parcial | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem. Falta testar acesso direto por ID e exportação em **P0.1** |
-| `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco | **P0.6** confirmado para chaves e TLS; não criar nem expor chave mestra |
+| `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
@@ -329,6 +329,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Storage: não há buckets criados no projeto. A aplicação continua usando armazenamento privado local; expurgo de objetos externos só entra quando um bucket for adotado em **P1.8**.
 - Chaves: o painel separa chave publicável de chave secreta e mantém os valores mascarados. Não foi criada, revelada, copiada ou alterada nenhuma chave durante a auditoria.
 - Banco: `Enforce SSL` está ativo no Supabase e a aplicação reconectou ao painel após o reinício; o código continua forçando `sslmode=require`.
+- Security Advisor: após revogar `EXECUTE` de `PUBLIC`, `anon` e `authenticated` na função auxiliar `public.rls_auto_enable()`, a verificação efetiva retornou `false/false` para os dois papéis e os dois avisos de função desapareceram. Resta apenas o aviso nativo de proteção contra senhas vazadas desativada, que permanece em **P0.10** porque o plano atual não oferece esse recurso nativo.
 - Backups: o painel confirma que o plano Free não oferece backups diários agendados; PITR também exige plano Pro. Manter **P0.11** aberto até escolher upgrade ou dump externo automatizado.
 
 ## Variáveis e segredos
