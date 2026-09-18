@@ -381,6 +381,7 @@ async def _verified_mfa_factor(access_token: str) -> dict | None:
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
     if response.status_code != 200:
+        logger.warning("Supabase MFA factors request returned HTTP %s", response.status_code)
         raise HTTPException(503, "Nao foi possivel verificar o segundo fator agora.")
     try:
         payload = response.json()
@@ -745,6 +746,7 @@ async def mfa_status(request: Request, user: dict = Depends(authenticated_user))
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
     if response.status_code != 200:
+        logger.warning("Supabase MFA status request returned HTTP %s", response.status_code)
         raise HTTPException(503, "Nao foi possivel consultar o segundo fator agora.")
     try:
         payload = response.json()
