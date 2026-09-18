@@ -528,7 +528,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - **Backup:** o script agora pode restaurar explicitamente em uma URL de banco
   descartável (`--restore-to`), sem expor a `DATABASE_URL` nos argumentos; o
   agendamento e a restauração real ainda precisam de ambiente externo.
-- A suíte oficial foi reexecutada após essas mudanças: **165 testes aprovados,
+- A suíte oficial foi reexecutada após essas mudanças: **166 testes aprovados,
   0 falhas**, com 6 avisos de depreciação já conhecidos.
 
 ## Regra para continuar o projeto
