@@ -347,6 +347,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 ### Verificação externa do Render — 18/09/2026
 
+- O deploy `cfb1c74` foi concluído com sucesso. O log do Render registrou `Application startup complete`, health checks `200` e serviço Live; a inicialização não executa mais a reflexão de colunas do PostgreSQL que causava timeout.
 - `/health` retornou `200` com banco conectado; `/termos`, `/privacidade` e `/dashboard` retornaram `200` sem stack trace e com CSP nonceado, HSTS e `nosniff`.
 - `/webhooks/mercadopago` retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura, confirmando a rejeição pública após o deploy `75a72aa`.
 - As rotas `/applications/1`, `/jobs/1`, `/vagas/1`, `/billing/document-export`, `/api/profile` e `/api/preferences` retornaram `401 Login necessario.` sem sessão. Isso confirma a barreira de autenticação, mas não substitui o teste IDOR com duas contas reais em **P0.1**.
