@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `84aba3c` — `feat: expose structured job intake signals`
+**Commit publicado:** `e1d3747` — `feat: sync onboarding state with user setup`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -105,7 +105,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 - O gate de confirmação de e-mail está implementado; as rotas públicas `/termos` e `/privacidade` retornaram 200 em produção, mas ainda falta validar as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
-- O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
+- O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; a verificação externa com 11 logins sintéticos retornou 10 respostas 401 e a 11ª 429. Ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
 - CSP usa nonce para scripts e agora também para elementos `<style>`, além de HSTS/nosniff/frame-ancestors confirmados em `/health`, `/termos` e `/privacidade`; atributos `style="..."` continuam permitidos temporariamente para compatibilidade com os templates legados e são a próxima etapa de migração.
@@ -257,7 +257,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 10. **Primeira camada entregue:** parser de intake classifica CLT/PJ/MEI/estágio/temporário/freelance e retorna confiança de regime, modalidade e salário nas prévias; persistir os campos na vaga e separar pretensão salarial da remuneração oferecida continua pendente.
 11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
-13. Sincronizar o card de onboarding com o perfil e as preferências reais.
+13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. Exibir links legais e logout no cabeçalho/rodapé global.
 15. Finalizar estados de carregamento e ações destrutivas de UX: skeleton no detalhe, `Limpar` como ação neutra com confirmação, teste visual do retry do Banco de vagas e controle mostrar/ocultar senha nos formulários de autenticação.
 16. Ajustar a landing sem inventar prova social: explicitar o download avulso de R$ 9,90 e publicar FAQ somente com comportamentos realmente suportados.
