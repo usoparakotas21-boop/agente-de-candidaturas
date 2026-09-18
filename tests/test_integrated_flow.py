@@ -191,6 +191,8 @@ class IntegratedFlowTest(unittest.TestCase):
         request = main_module.ApplicationStatusRequest(
             status="CANDIDATURA_ENVIADA",
             note="Candidatura enviada pelo portal da empresa.",
+            channel="site_empresa",
+            external_result="SEM_RETORNO",
         )
         payload = main_module.update_application_status(1, request)
 
@@ -200,6 +202,9 @@ class IntegratedFlowTest(unittest.TestCase):
             payload["events"][-1]["note"],
             "Candidatura enviada pelo portal da empresa.",
         )
+        self.assertEqual(payload["events"][-1]["channel"], "site_empresa")
+        self.assertEqual(payload["events"][-1]["external_result"], "SEM_RETORNO")
+        self.assertTrue(payload["events"][-1]["resume_version"].startswith("cv-"))
 
     def test_dashboard_is_available(self):
         response = main_module.dashboard()

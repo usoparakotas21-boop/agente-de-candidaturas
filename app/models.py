@@ -271,6 +271,8 @@ class Application(Base):
     document_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_letter_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_letter_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resume_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cover_letter_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -302,6 +304,10 @@ class ApplicationEvent(Base):
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    external_result: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    resume_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cover_letter_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

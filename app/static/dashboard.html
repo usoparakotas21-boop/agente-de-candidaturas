@@ -217,6 +217,9 @@
     .form-card { padding: 17px; border: 1px solid var(--line); border-radius: 16px; }
     .form-card label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
     .form-card select, .form-card textarea { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px; outline: none; }
+    .outcome-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .outcome-fields label { margin-bottom: 6px; }
+    @media (max-width: 430px) { .outcome-fields { grid-template-columns: 1fr; } }
     .form-card textarea { min-height: 74px; margin-top: 10px; resize: vertical; }
     .primary { width: 100%; margin-top: 10px; padding: 11px 14px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
     .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 18px; }
@@ -667,6 +670,10 @@
     <div class="form-card">
       <label for="newStatus">Atualizar andamento</label>
       <select id="newStatus"></select>
+      <div class="outcome-fields">
+        <div><label for="statusChannel">Canal da candidatura</label><select id="statusChannel"><option value="">Não informado</option><option value="linkedin">LinkedIn</option><option value="gupy">Gupy</option><option value="indeed">Indeed</option><option value="gmail">E-mail</option><option value="site_empresa">Site da empresa</option><option value="indicacao">Indicação</option><option value="manual">Manual</option><option value="outro">Outro</option></select></div>
+        <div><label for="externalResult">Retorno externo</label><select id="externalResult"><option value="">Sem retorno registrado</option><option value="CONTATO_RECRUTADOR">Contato do recrutador</option><option value="ENTREVISTA">Convite para entrevista</option><option value="RECUSADO">Recusa</option><option value="PROPOSTA">Proposta</option></select></div>
+      </div>
       <textarea id="statusNote" placeholder="Observação opcional"></textarea>
       <button class="primary" id="saveStatus">Salvar atualização</button>
     </div>
@@ -1399,9 +1406,12 @@
       $("downloadCoverLetter").hidden = !documentExport.allowed;
       $("newStatus").value = item.status;
       $("statusNote").value = "";
+      const latestTracking = [...item.events].reverse().find(event => event.channel || event.external_result) || {};
+      $("statusChannel").value = latestTracking.channel || "";
+      $("externalResult").value = latestTracking.external_result || "";
       $("timeline").innerHTML = [...item.events].reverse().map(event => `
         <div class="event"><strong>${statusLabels[event.status] || escapeHtml(event.status)}</strong>
-        <time>${formatDate(event.created_at)}</time>${event.note ? `<p>${escapeHtml(event.note)}</p>` : ""}</div>`).join("");
+        <time>${formatDate(event.created_at)}</time>${event.note ? `<p>${escapeHtml(event.note)}</p>` : ""}${event.channel || event.external_result ? `<p class="muted">${event.channel ? `Canal: ${escapeHtml(event.channel)}` : ""}${event.channel && event.external_result ? " · " : ""}${event.external_result ? `Retorno: ${escapeHtml(event.external_result.replaceAll("_", " ").toLowerCase())}` : ""}</p>` : ""}</div>`).join("");
       renderAnalysis(item.id);
       $("drawer").classList.add("open"); $("backdrop").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
     }
@@ -1421,6 +1431,8 @@
       $("startApplicationButton").disabled = loading;
       $("markApplicationSentButton").disabled = loading || $("markApplicationSentButton").hidden;
       $("newStatus").disabled = loading;
+      $("statusChannel").disabled = loading;
+      $("externalResult").disabled = loading;
       $("statusNote").disabled = loading;
     }
 
@@ -1520,7 +1532,7 @@
       try {
         const response = await fetch(`/applications/${selectedId}/status`, {
           method: "PATCH", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({status: $("newStatus").value, note: $("statusNote").value.trim()})
+          body: JSON.stringify({status: $("newStatus").value, note: $("statusNote").value.trim(), channel: $("statusChannel").value, external_result: $("externalResult").value})
         });
         if (!response.ok) throw new Error("Não foi possível atualizar a candidatura.");
         const updated = await response.json();

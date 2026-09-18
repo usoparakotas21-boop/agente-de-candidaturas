@@ -21,15 +21,15 @@ class ApplicationMetricsTest(unittest.TestCase):
         job_other = Job(owner_id="owner-b", source="Gmail", external_id="b-1", company="Empresa C", title="RH", location="Sao Paulo", modality="presencial", url="https://example.test/c", description="")
         db.add_all([job_a, job_b, job_other])
         db.flush()
-        app_a = Application(job_id=job_a.id, status="ENTREVISTA")
+        app_a = Application(job_id=job_a.id, status="ENTREVISTA", resume_version="cv-a1b2c3d4", cover_letter_version="carta-e5f6g7h8")
         app_b = Application(job_id=job_b.id, status="ANALISADA")
         app_other = Application(job_id=job_other.id, status="ENTREVISTA")
         db.add_all([app_a, app_b, app_other])
         db.flush()
         db.add_all([
             ApplicationEvent(application_id=app_a.id, status="IDENTIFICADA", note="capturada"),
-            ApplicationEvent(application_id=app_a.id, status="CANDIDATURA_ENVIADA", note="enviada"),
-            ApplicationEvent(application_id=app_a.id, status="ENTREVISTA", note="entrevista confirmada"),
+            ApplicationEvent(application_id=app_a.id, status="CANDIDATURA_ENVIADA", note="enviada", channel="linkedin", resume_version="cv-a1b2c3d4", cover_letter_version="carta-e5f6g7h8"),
+            ApplicationEvent(application_id=app_a.id, status="ENTREVISTA", note="entrevista confirmada", external_result="ENTREVISTA"),
             ApplicationEvent(application_id=app_b.id, status="IDENTIFICADA", note="capturada"),
             ApplicationEvent(application_id=app_other.id, status="CANDIDATURA_ENVIADA"),
             ApplicationEvent(application_id=app_other.id, status="ENTREVISTA"),
@@ -52,6 +52,9 @@ class ApplicationMetricsTest(unittest.TestCase):
         gmail = next(item for item in metrics["by_source"] if item["source"] == "gmail")
         self.assertEqual(gmail["submitted"], 1)
         self.assertEqual(gmail["interviews"], 1)
+        self.assertEqual(metrics["by_channel"], [{"channel": "linkedin", "submitted": 1, "interviews": 1, "interview_rate_per_100": 100.0, "sample_sufficient": False}])
+        self.assertEqual(metrics["by_document_version"][0]["resume_version"], "cv-a1b2c3d4")
+        self.assertEqual(metrics["by_document_version"][0]["cover_letter_version"], "carta-e5f6g7h8")
 
 
 if __name__ == "__main__":

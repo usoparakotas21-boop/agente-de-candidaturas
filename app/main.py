@@ -381,7 +381,11 @@ class DocumentStudioRequest(BaseModel):
     details: str = Field(min_length=20, max_length=16000)
     location: str = Field(default="", max_length=300)
     url: str = Field(default="", max_length=1000)
-class ApplicationStatusRequest(BaseModel): status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]; note: str = ""
+class ApplicationStatusRequest(BaseModel):
+    status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]
+    note: str = Field(default="", max_length=2000)
+    channel: Literal["", "manual", "gmail", "linkedin", "gupy", "indeed", "site_empresa", "indicacao", "outro"] = ""
+    external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
 class InterviewAnswerRequest(BaseModel): question: str = Field(min_length=3, max_length=500); answer: str = Field(min_length=5, max_length=12000); context: str = Field(default="", max_length=4000)
@@ -455,9 +459,24 @@ def _build_application(job, cand):
     r = generate_resume(rc, pers)
     r["target"] = job.title
     return {"profile": p, "analysis": a, "personalization": pers, "resume": r}
-def _add_event(db, app, status, note=""):
+def _content_version(prefix: str, value: Any) -> str:
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}-{digest}"
+
+
+def _add_event(db, app, status, note="", channel="", external_result=""):
     app.status = status
-    db.add(ApplicationEvent(application_id=app.id, status=status, note=note or None))
+    db.add(ApplicationEvent(
+        application_id=app.id,
+        status=status,
+        note=note or None,
+        channel=channel or None,
+        external_result=external_result or None,
+        resume_version=app.resume_version,
+        cover_letter_version=app.cover_letter_version,
+    ))
 def _ensure_app(db, job, cand):
     a = db.scalar(select(Application).where(Application.job_id == job.id))
     if a: return a
@@ -477,7 +496,7 @@ def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_
     except: dr = []
     try: fc = json.loads(a.field_confidence or "{}")
     except: fc = {}
-    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "created_at": e.created_at.isoformat()} for e in a.events]}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
 def _cand_prefs(cand):
     s = {}
     if cand and cand.preferences_data:
@@ -539,13 +558,24 @@ def startup():
         }.items():
             if col not in purchase_columns:
                 db.execute(text(f"ALTER TABLE document_export_purchases ADD COLUMN {col} {ddl}"))
+        application_columns = {c["name"] for c in inspect(engine).get_columns("applications")}
         for col in ["cover_letter_text", "cover_letter_path", "analysis_data", "decision_reasons", "field_confidence"]:
-            if col not in {c["name"] for c in inspect(engine).get_columns("applications")}:
+            if col not in application_columns:
                 db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} TEXT"))
+        for col in ["resume_version", "cover_letter_version"]:
+            if col not in application_columns:
+                db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} VARCHAR(32)"))
         if "queue_decision" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
             db.execute(text("ALTER TABLE applications ADD COLUMN queue_decision VARCHAR(20) DEFAULT 'REVISAR' NOT NULL"))
         if "capture_confidence" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
             db.execute(text("ALTER TABLE applications ADD COLUMN capture_confidence INTEGER"))
+        event_columns = {c["name"] for c in inspect(engine).get_columns("application_events")}
+        for col in ["channel", "external_result"]:
+            if col not in event_columns:
+                db.execute(text(f"ALTER TABLE application_events ADD COLUMN {col} VARCHAR(50)"))
+        for col in ["resume_version", "cover_letter_version"]:
+            if col not in event_columns:
+                db.execute(text(f"ALTER TABLE application_events ADD COLUMN {col} VARCHAR(32)"))
         for idx in ["idx_applications_status", "idx_applications_updated_at", "idx_applications_queue_decision", "idx_candidates_owner_id", "idx_jobs_owner_id"]:
             db.execute(text(f"CREATE INDEX IF NOT EXISTS {idx} ON {'applications' if 'applications' in idx else 'candidates' if 'candidates' in idx else 'jobs'} ({'status' if 'status' in idx else 'updated_at' if 'updated' in idx else 'queue_decision' if 'queue' in idx else 'owner_id'})"))
         for job in db.scalars(select(Job)).all():
@@ -1126,14 +1156,18 @@ def application_metrics(user=Depends(authenticated_user)):
             q = q.where(Job.owner_id == oid)
         apps = db.scalars(q).all()
 
-        submitted_statuses = {"CANDIDATURA_ENVIADA", "ENTREVISTA", "RECUSADO", "ARQUIVADA"}
+        submitted_statuses = {"CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"}
         submitted = 0
         interviews = 0
         by_source: dict[str, dict[str, int]] = {}
+        by_channel: dict[str, dict[str, int]] = {}
+        by_document_version: dict[tuple[str, str], dict[str, int]] = {}
         for item in apps:
             event_statuses = {event.status for event in item.events}
-            sent = bool(event_statuses & submitted_statuses) or item.status in submitted_statuses
-            qualified = "ENTREVISTA" in event_statuses or item.status == "ENTREVISTA"
+            sent_events = [event for event in item.events if event.status in submitted_statuses]
+            submission_event = next((event for event in sent_events if event.status == "CANDIDATURA_ENVIADA"), sent_events[0] if sent_events else None)
+            sent = submission_event is not None or item.status in submitted_statuses
+            qualified = "ENTREVISTA" in event_statuses or any(event.external_result == "ENTREVISTA" for event in item.events) or item.status == "ENTREVISTA"
             if sent:
                 submitted += 1
             if qualified:
@@ -1145,6 +1179,18 @@ def application_metrics(user=Depends(authenticated_user)):
                 bucket["submitted"] += 1
             if qualified:
                 bucket["interviews"] += 1
+            if sent:
+                channel = ((submission_event.channel if submission_event else None) or source).strip().lower() or "nao_informado"
+                channel_bucket = by_channel.setdefault(channel, {"submitted": 0, "interviews": 0})
+                channel_bucket["submitted"] += 1
+                if qualified:
+                    channel_bucket["interviews"] += 1
+                resume_version = (submission_event.resume_version if submission_event else None) or item.resume_version or "sem-versao"
+                cover_letter_version = (submission_event.cover_letter_version if submission_event else None) or item.cover_letter_version or "sem-versao"
+                version_bucket = by_document_version.setdefault((resume_version, cover_letter_version), {"submitted": 0, "interviews": 0})
+                version_bucket["submitted"] += 1
+                if qualified:
+                    version_bucket["interviews"] += 1
 
         def rate(value: int, base: int) -> float:
             return round((value / base) * 100, 1) if base else 0.0
@@ -1156,12 +1202,27 @@ def application_metrics(user=Depends(authenticated_user)):
                 **values,
                 "interview_rate_per_100": rate(values["interviews"], values["submitted"]),
             })
+        channels = [{
+            "channel": channel,
+            **values,
+            "interview_rate_per_100": rate(values["interviews"], values["submitted"]),
+            "sample_sufficient": values["submitted"] >= 5,
+        } for channel, values in sorted(by_channel.items())]
+        versions = [{
+            "resume_version": version[0],
+            "cover_letter_version": version[1],
+            **values,
+            "interview_rate_per_100": rate(values["interviews"], values["submitted"]),
+            "sample_sufficient": values["submitted"] >= 5,
+        } for version, values in sorted(by_document_version.items())]
         return {
             "captured": len(apps),
             "submitted": submitted,
             "qualified_interviews": interviews,
             "interview_rate_per_100": rate(interviews, submitted),
             "by_source": sources,
+            "by_channel": channels,
+            "by_document_version": versions,
         }
     finally:
         db.close()
@@ -1249,7 +1310,7 @@ def privacy_export(user=Depends(authenticated_user)):
             "generated_at": iso(utc_now()),
             "profile": profile,
             "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "description": job.description} for job in jobs],
-            "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
+            "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "resume_version": item.resume_version, "cover_letter_version": item.cover_letter_version, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "channel": event.channel, "external_result": event.external_result, "resume_version": event.resume_version, "cover_letter_version": event.cover_letter_version, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
             "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
@@ -1572,8 +1633,8 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
     try:
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
-        if app.status != req.status or req.note:
-            _add_event(db, app, req.status, req.note)
+        if app.status != req.status or req.note or req.channel or req.external_result:
+            _add_event(db, app, req.status, req.note, req.channel, req.external_result)
         db.commit(); db.refresh(app)
         allowed = _document_export_metadata(user)["allowed"]
         return _serialize_app(app, allowed, allowed)
@@ -1607,6 +1668,7 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
         app = _ensure_app(db, job, c)
         _save_analysis(app, arts["analysis"], c)
         app.cover_letter_text = letter
+        app.cover_letter_version = _content_version("carta", letter)
         db.commit(); db.refresh(app)
         export = _document_export_metadata(user, app.id)
         return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso." if not export["allowed"] else "Carta completa liberada."}
@@ -1628,7 +1690,8 @@ def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
         _save_analysis(app, arts["analysis"], c)
         app.cover_letter_text = letter
         app.cover_letter_path = str(path)
-        db.add(ApplicationEvent(application_id=app.id, status=app.status, note="Carta de apresentacao gerada."))
+        app.cover_letter_version = _content_version("carta", letter)
+        _add_event(db, app, app.status, "Carta de apresentacao gerada.")
         db.commit()
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name)
     finally: db.close()
@@ -1678,6 +1741,7 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
         _save_analysis(app, arts["analysis"], c)
         app.personalization_score = arts["personalization"]["personalization_score"]
         app.document_path = str(path)
+        app.resume_version = _content_version("cv", arts["resume"])
         _advance_app(db, app, "CURRICULO_GERADO", "Curriculo personalizado gerado.")
         db.commit()
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name, headers={"X-Application-Id": str(app.id), "X-Application-Status": app.status, "X-Analysis-Score": str(arts["analysis"]["score"]), "X-Personalization-Score": str(arts["personalization"]["personalization_score"])})
@@ -1715,6 +1779,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
         arts = _build_application(job, candidate)
         _save_analysis(app_record, arts["analysis"], candidate)
         app_record.personalization_score = arts["personalization"].get("personalization_score", 0)
+        app_record.resume_version = _content_version("cv", arts["resume"])
         app_record.cover_letter_text = generate_cover_letter(
             job_title=title,
             company=company,
@@ -1722,6 +1787,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
             analysis=arts["analysis"],
             personalization=arts["personalization"],
         )
+        app_record.cover_letter_version = _content_version("carta", app_record.cover_letter_text)
         _advance_app(db, app_record, "ANALISADA", "Documento personalizado criado no Criador de documentos.")
         db.commit()
         db.refresh(job)
