@@ -224,6 +224,7 @@
     .analysis-card { margin: 0 0 18px; padding: 16px; border-radius: 15px; background: var(--blue-soft); }
     .analysis-card[hidden] { display: none; }
     .analysis-card h3 { margin: 0 0 10px; font-size: 14px; }
+    .analysis-card .muted { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
     .decision-card { margin: 0 0 18px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--soft); }
     .decision-card strong { display: block; margin-bottom: 7px; font-size: 13px; }
     .decision-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
@@ -629,6 +630,10 @@
     Gerar carta de apresentação
   </button>
 
+  <button class="action-button" id="interviewPrepButton" hidden>
+    Preparar entrevista
+  </button>
+
   <button class="action-button" id="downloadButton" hidden>
     Baixar último currículo
   </button>
@@ -649,6 +654,12 @@
         <summary>Como os requisitos foram avaliados</summary>
         <div class="requirement-rows" id="requirementRows"></div>
       </details>
+    </div>
+    <div class="analysis-card" id="interviewPrepCard" hidden>
+      <h3>Preparação para entrevista</h3>
+      <p id="interviewPrepIntro">Roteiro baseado nos pontos desta vaga.</p>
+      <ul id="interviewQuestionList"></ul>
+      <p class="muted" id="interviewAnswerFramework"></p>
     </div>
     <div class="form-card">
       <label for="newStatus">Atualizar andamento</label>
@@ -1394,6 +1405,8 @@
       $("decisionReasons").innerHTML = "<li>Buscando os dados da candidatura…</li>";
       $("timeline").innerHTML = "<div class=\"event\"><strong>Carregando detalhes</strong><p>A candidatura será exibida aqui em instantes.</p></div>";
       $("analysisCard").hidden = true;
+      $("interviewPrepButton").hidden = true;
+      $("interviewPrepCard").hidden = true;
       $("drawer").classList.add("open");
       $("backdrop").classList.add("open");
       $("drawer").setAttribute("aria-hidden", "false");
@@ -1404,6 +1417,7 @@
       const item = applications.find(entry => entry.id === applicationId);
       const analysis = analysisCache[applicationId] || item?.analysis;
       $("analysisCard").hidden = !analysis;
+      $("interviewPrepButton").hidden = !analysis;
       if (!analysis) return;
       const strengths = analysis.strengths || [];
       const gaps = analysis.gaps || [];
@@ -1434,6 +1448,25 @@
             return `<div class="requirement-row"><span>${escapeHtml(item.requirement)}</span><span class="evidence ${evidence[1]}">${evidence[0]}</span></div>`;
           }).join("")
         : '<div class="requirement-row"><span>Nenhum requisito específico identificado.</span></div>';
+    }
+
+    async function loadInterviewPrep() {
+      if (!selectedId) return;
+      const button = $("interviewPrepButton");
+      button.disabled = true;
+      try {
+        const response = await fetch(`/api/interviews/prep/${selectedId}`);
+        if (!response.ok) throw new Error("Não foi possível montar a preparação agora.");
+        const prep = await response.json();
+        $("interviewPrepIntro").textContent = `${prep.job_title || "Esta vaga"}: revise as perguntas abaixo e responda com fatos comprovados.`;
+        $("interviewQuestionList").innerHTML = (prep.questions || []).map(question => `<li>${escapeHtml(question)}</li>`).join("");
+        $("interviewAnswerFramework").textContent = prep.answer_framework || "Use contexto, ação e resultado.";
+        $("interviewPrepCard").hidden = false;
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        button.disabled = false;
+      }
     }
 
     function closeDrawer() {
@@ -2062,6 +2095,7 @@ async function downloadCoverLetterDocument() {
     });
     $("analyzeButton").addEventListener("click", analyzeApplication);
     $("generateButton").addEventListener("click", generateDocument);
+    $("interviewPrepButton").addEventListener("click", loadInterviewPrep);
    $("coverLetterButton").addEventListener(
   "click",
   generateCoverLetter

@@ -368,6 +368,46 @@ async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authentic
         logger.warning("Provedor de IA indisponivel na avaliacao de entrevista: %s", exc)
         raise HTTPException(503, "A analise nao esta disponivel agora. Tente novamente em instantes.") from exc
 
+
+@app.get("/api/interviews/prep/{app_id}")
+def interview_prep(app_id: int, user=Depends(authenticated_user)):
+    """Monta um roteiro inicial de entrevista com base nos gaps da candidatura."""
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, app_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        analysis: dict[str, Any] = {}
+        if application.analysis_data:
+            try:
+                analysis = json.loads(application.analysis_data)
+            except (TypeError, ValueError):
+                analysis = {}
+        gaps = [str(value) for value in (analysis.get("gaps") or []) if str(value).strip()][:6]
+        strengths = [str(value) for value in (analysis.get("strengths") or []) if str(value).strip()][:6]
+        questions = [
+            f"Conte uma situação em que você aplicou {gap} e qual foi o resultado."
+            for gap in gaps
+        ]
+        if not questions:
+            questions = [
+                "Conte uma realização profissional relevante para esta vaga.",
+                "Descreva uma situação difícil que você resolveu e o que aprendeu.",
+                "Como você mede a qualidade do seu trabalho nesta área?",
+            ]
+        return {
+            "application_id": application.id,
+            "job_title": application.job.title,
+            "company": application.job.company,
+            "analysis_score": application.analysis_score,
+            "gaps": gaps,
+            "strengths": strengths,
+            "questions": questions,
+            "answer_framework": "Use contexto, ação e resultado; não invente experiências para preencher um gap.",
+        }
+    finally:
+        db.close()
+
 def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
 def _fallback_profile():
     exps = [{"company": e["company"], "role": e["role"], "description": " ".join(e["bullets"])} for e in MASTER_PROFILE["experiences"]]
