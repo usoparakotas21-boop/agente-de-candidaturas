@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 
 from .auth import authenticated_user
+from .decision_engine import HEURISTICS_VERSION
 from .database import SessionLocal
 from .gmail_integration import (
     GOOGLE_TOKEN_URL,
@@ -420,7 +421,7 @@ async def sync_integration(
                     decision_result = {
                         "decision": quality.get("decision", "REVISAR"),
                         "reasons": quality.get("reasons", []),
-                        "engine_version": "0.23.0",
+                        "engine_version": f"0.24.0/{quality.get('heuristics_version', HEURISTICS_VERSION)}",
                         "score": quality.get("score"),
                     }
                     

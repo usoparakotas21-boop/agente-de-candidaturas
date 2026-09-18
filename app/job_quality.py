@@ -3,6 +3,7 @@ import unicodedata
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from .decision_engine import HEURISTICS_VERSION
 from .job_health import JobHealthEvaluator
 from .job_health_integration import (
     evaluate_job_health,
@@ -221,6 +222,7 @@ def assess_job_capture(parsed: dict[str, Any], history: dict[str, Any] | None = 
             },
             "decision": "DESCARTAR",
             "reasons": ["Saúde da vaga suspeita - possível golpe ou vaga fantasma"],
+            "heuristics_version": HEURISTICS_VERSION,
             "health": {
                 "score": health_result.score,
                 "band": health_result.band,
@@ -311,6 +313,7 @@ def assess_job_capture(parsed: dict[str, Any], history: dict[str, Any] | None = 
         "field_confidence": field_confidence,
         "decision": decision,
         "reasons": reasons,
+        "heuristics_version": HEURISTICS_VERSION,
         "health": {
             "score": health_result.score,
             "band": health_result.band,

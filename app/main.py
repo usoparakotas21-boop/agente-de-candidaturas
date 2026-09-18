@@ -27,7 +27,7 @@ from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_m
 from .queue_routes import router as queue_router
 from .analyzer import analyze_job
 from .cover_letter import generate_cover_letter, generate_cover_letter_docx
-from .decision_engine import decide_opportunity, normalize_preferences
+from .decision_engine import HEURISTICS_VERSION, decide_opportunity, normalize_preferences
 from .database import Base, SessionLocal, engine
 from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
@@ -810,7 +810,7 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
         decision_result = {
             "decision": quality.get("decision", "REVISAR"),
             "reasons": quality.get("reasons", []),
-            "engine_version": "0.24.0",
+            "engine_version": f"0.24.0/{quality.get('heuristics_version', HEURISTICS_VERSION)}",
             "score": None,
         }
         

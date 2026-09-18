@@ -1,6 +1,6 @@
 import unittest
 
-from app.decision_engine import decide_opportunity, normalize_preferences
+from app.decision_engine import HEURISTICS_VERSION, decide_opportunity, normalize_preferences
 
 
 JOB = {
@@ -17,6 +17,7 @@ class DecisionEngineTest(unittest.TestCase):
         result = decide_opportunity(JOB, {"score": 91}, normalize_preferences({}))
         self.assertEqual(result["decision"], "REVISAR")
         self.assertIn("automacao desativada pelo usuario", result["reasons"])
+        self.assertEqual(result["heuristics_version"], HEURISTICS_VERSION)
 
     def test_marks_high_score_match_as_automatic_when_authorized(self):
         preferences = normalize_preferences(

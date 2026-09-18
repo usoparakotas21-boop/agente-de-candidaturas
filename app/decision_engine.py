@@ -5,6 +5,16 @@ from typing import Any
 
 DEFAULT_MINIMUM_SCORE = 65
 DEFAULT_AUTOMATIC_SCORE = 85
+HEURISTICS_VERSION = "br-rh-1"
+
+
+def _decision_result(decision: str, reasons: list[str]) -> dict[str, Any]:
+    """Retorna a decisão com a versão das heurísticas que a produziu."""
+    return {
+        "decision": decision,
+        "reasons": reasons,
+        "heuristics_version": HEURISTICS_VERSION,
+    }
 
 
 def _normalized(value: str) -> str:
@@ -130,7 +140,7 @@ def decide_opportunity(
             f"score {round(score)} abaixo do minimo {prefs['minimum_score']}"
         )
     if discard_reasons:
-        return {"decision": "DESCARTAR", "reasons": discard_reasons}
+        return _decision_result("DESCARTAR", discard_reasons)
 
     roles = [_normalized(value) for value in prefs["target_roles"]]
     if roles and not any(role in title or title in role for role in roles):
@@ -177,13 +187,13 @@ def decide_opportunity(
         and not review_reasons
     )
     if can_be_automatic:
-        return {
-            "decision": "AUTOMATICA",
-            "reasons": [
+        return _decision_result(
+            "AUTOMATICA",
+            [
                 f"score {round(score)} atingiu o limite automatico "
                 f"de {prefs['automatic_score']}"
             ],
-        }
+        )
 
     if not prefs["allow_automatic"]:
         review_reasons.append("automacao desativada pelo usuario")
@@ -192,4 +202,4 @@ def decide_opportunity(
             f"score {round(score)} abaixo do limite automatico "
             f"{prefs['automatic_score']}"
         )
-    return {"decision": "REVISAR", "reasons": review_reasons}
+    return _decision_result("REVISAR", review_reasons)
