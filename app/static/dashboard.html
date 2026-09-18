@@ -412,7 +412,7 @@
           <button class="sidebar-link" data-nav="settings" type="button"><span class="nav-icon">⚙</span>Configurações</button>
           <button class="sidebar-link" data-nav="support" type="button"><span class="nav-icon">?</span>Suporte Pro</button>
         </div>
-        <div class="sidebar-note"><strong>Próximo passo</strong><span>Mapeie sua carreira e defina preferências para receber matches mais relevantes.</span><a href="/onboarding">Começar mapeamento →</a></div>
+        <div class="sidebar-note" id="onboardingNote"><strong>Próximo passo</strong><span>Mapeie sua carreira e defina preferências para receber matches mais relevantes.</span><a href="/onboarding">Começar mapeamento →</a></div>
       </aside>
       <main>
       <section class="hero">
@@ -809,6 +809,7 @@
           window.history.replaceState({}, "", "/dashboard");
         }
         await Promise.all([loadApplications(), loadQueue(), loadGmailStatus(), loadDocumentExport()]);
+        await syncOnboardingCard();
         const requestedItem = applications.find(item => String(item.id) === String(requestedApplication || ""));
         if (requestedItem) {
           openApplication(requestedItem.id);
@@ -1096,6 +1097,36 @@
         if (host.includes("linkedin")) return ["LinkedIn", "Confira os campos e conclua o envio na página do LinkedIn."];
         return [host.replace(/^www\./, "") || "site da vaga", "Confira os campos e conclua o envio na página da empresa."];
       } catch { return ["site da vaga", "Confira os campos e conclua o envio na página da empresa."]; }
+    }
+
+    async function syncOnboardingCard() {
+      const note = $("onboardingNote");
+      if (!note) return;
+      try {
+        const [profileResponse, preferencesResponse] = await Promise.all([
+          fetch("/profile"),
+          fetch("/preferences"),
+        ]);
+        if (!profileResponse.ok || !preferencesResponse.ok) return;
+        const profile = await profileResponse.json();
+        const preferences = await preferencesResponse.json();
+        const hasProfile = Boolean(profile.configured && (profile.name || profile.resume_filename));
+        const hasPreferences = Boolean(
+          (preferences.target_roles || []).length ||
+          (preferences.locations || []).length ||
+          (preferences.modalities || []).length
+        );
+        if (hasProfile && hasPreferences) {
+          note.hidden = true;
+        } else if (hasProfile) {
+          note.querySelector("strong").textContent = "Defina suas preferências";
+          note.querySelector("span").textContent = "Ajuste cargos, locais e modalidades para receber matches mais relevantes.";
+          note.querySelector("a").textContent = "Abrir preferências →";
+          note.querySelector("a").href = "/configuracoes#preferencias";
+        }
+      } catch {
+        // O card estático continua como fallback se uma consulta falhar.
+      }
     }
 
     function populateStatusOptions() {
