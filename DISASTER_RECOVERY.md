@@ -17,6 +17,28 @@ segredos. Os valores reais ficam apenas no Supabase, Render e provedores OAuth.
 4. Confirmar que o UptimeRobot monitora `/health` e que o alerta chega ao canal
    operacional definido.
 
+No plano Free, a rotina externa já está preparada em
+`scripts/backup_supabase.py`. Ela usa `DATABASE_URL` somente pelo ambiente do
+processo filho (`PGDATABASE`), produz um dump customizado, valida o arquivo com
+`pg_restore --list` e grava checksum SHA-256 e manifesto sem segredos em
+`backups/database/` (diretório ignorado pelo Git).
+
+Antes de agendar, instale os PostgreSQL client tools e valide os pré-requisitos:
+
+```powershell
+uv run python scripts/backup_supabase.py --check
+```
+
+Para criar um backup verificado:
+
+```powershell
+uv run python scripts/backup_supabase.py
+```
+
+O script não apaga backups antigos automaticamente. A retenção deve ser
+configurada no destino privado depois que o primeiro teste de restauração for
+aprovado.
+
 ## Teste de restauração
 
 O teste deve usar uma cópia isolada, nunca o banco de produção. Depois de
