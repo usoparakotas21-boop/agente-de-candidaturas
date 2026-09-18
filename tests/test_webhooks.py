@@ -62,6 +62,7 @@ class WebhookSecurityTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("javascript", response.headers.get("content-type", ""))
+        self.assertIn(".security-item strong,.security-item small{display:block}", response.text)
 
     def test_payment_webhooks_are_public_for_provider_delivery(self):
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
