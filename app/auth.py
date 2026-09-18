@@ -87,8 +87,14 @@ def _enforce_rate_limit(
 
     if distributed_rate_limit.is_configured():
         try:
+            # Keep e-mail addresses and source IPs out of the external Redis
+            # keyspace while retaining deterministic counters per scope.
+            shared_keys = [
+                f"agente-rate:{hashlib.sha256(key.encode('utf-8')).hexdigest()}"
+                for key in keys
+            ]
             blocked, distributed_retry_after = distributed_rate_limit.check(
-                keys,
+                shared_keys,
                 limit,
                 window,
             )

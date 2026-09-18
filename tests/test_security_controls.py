@@ -59,6 +59,25 @@ class SecurityControlsTest(unittest.TestCase):
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
         auth._rate_attempts.clear()
+
+    def test_distributed_limiter_hashes_ip_and_account_keys(self):
+        request = request_for()
+        with (
+            patch.object(auth.distributed_rate_limit, "is_configured", return_value=True),
+            patch.object(
+                auth.distributed_rate_limit,
+                "check",
+                return_value=(False, 0),
+            ) as check,
+        ):
+            auth._enforce_rate_limit(request, "login", "pessoa@example.com")
+
+        shared_keys = check.call_args.args[0]
+        self.assertEqual(len(shared_keys), 2)
+        self.assertTrue(all(key.startswith("agente-rate:") for key in shared_keys))
+        self.assertNotIn("pessoa@example.com", shared_keys)
+        self.assertNotIn("198.51.100.10", shared_keys)
+        auth._rate_attempts.clear()
         with patch.dict(auth._RATE_LIMITS, {"login": (2, 60)}, clear=False):
             auth._enforce_rate_limit(request, "login", "pessoa@example.com")
             auth._enforce_rate_limit(request, "login", "pessoa@example.com")
