@@ -18,7 +18,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     CONTENT_SECURITY_POLICY = (
         "default-src 'self'; "
         "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        "script-src 'self' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; "
+        # Inline style attributes remain allowed for the legacy templates, but
+        # every <style> element must carry the per-response nonce.
+        "script-src 'self' 'nonce-{nonce}'; "
+        "style-src 'self' 'nonce-{nonce}'; "
+        "style-src-elem 'self' 'nonce-{nonce}'; "
+        "style-src-attr 'unsafe-inline'; "
         "img-src 'self' data: blob:; font-src 'self' data:; "
         "connect-src 'self'; form-action 'self' https://*.mercadopago.com"
     )

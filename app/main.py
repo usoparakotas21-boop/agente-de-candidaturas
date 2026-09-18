@@ -129,6 +129,29 @@ async def static_asset(asset_path: str):
         raise HTTPException(status_code=404, detail="Arquivo nao encontrado.")
     return FileResponse(candidate)
 
+
+def _nonce_styles(html: str, nonce: str) -> str:
+    """Attach the response nonce to inline style elements in a template."""
+    return re.sub(
+        r"<style(?![^>]*\bnonce=)([^>]*)>",
+        lambda match: f'<style nonce="{nonce}"{match.group(1)}>',
+        html,
+        flags=re.I,
+    )
+
+
+def _style_nonce_bootstrap(nonce: str) -> str:
+    """Allow trusted external enhancements to create nonce-bearing styles."""
+    return (
+        f'<meta name="csp-nonce" content="{nonce}">'
+        f'<script nonce="{nonce}">'
+        '(function(){const n=document.querySelector(\'meta[name="csp-nonce"]\')?.content;'
+        'if(!n)return;const c=document.createElement.bind(document);'
+        'document.createElement=function(t){const e=c(t);if(String(t).toLowerCase()==="style")e.nonce=n;return e;};})();'
+        '</script>'
+    )
+
+
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
     if path.name == "settings.html":
@@ -159,15 +182,18 @@ def _page(path: Path) -> HTMLResponse:
     if path.name == "settings.html": extra += '<script src="/static/settings-enhance.js?v=2"></script>'
     if path.name == "settings.html": extra += '<script src="/static/outlook-enhance.js?v=3"></script>'
     if path.name == "security.html": extra = '<script src="/static/security-enhance.js?v=3"></script>'
-    html = html.replace("</body>", extra + "</body>", 1)
     nonce = current_csp_nonce()
+    html = _nonce_styles(html, nonce)
+    html = html.replace("</body>", extra + "</body>", 1)
     html = re.sub(
         r"<script(?![^>]*\bsrc=)([^>]*)>",
         lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
         html,
         flags=re.I,
     )
-    return HTMLResponse(html.replace("<body>", "<body>" + nav + crumb, 1))
+    rendered = html.replace("<body>", "<body>" + _style_nonce_bootstrap(nonce) + nav + crumb, 1)
+    rendered = _nonce_styles(rendered, nonce)
+    return HTMLResponse(rendered)
 
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 
@@ -446,7 +472,14 @@ def root():
     html = LANDING_PATH.read_text(encoding="utf-8")
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     nonce = current_csp_nonce()
-    return HTMLResponse(html.replace("</body>", f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script></body>', 1))
+    html = _nonce_styles(html, nonce)
+    rendered = html.replace(
+        "</body>",
+        _style_nonce_bootstrap(nonce)
+        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script></body>',
+        1,
+    )
+    return HTMLResponse(rendered)
 
 @app.head("/", include_in_schema=False)
 def root_head():
@@ -456,17 +489,20 @@ def root_head():
 
 @app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
 def terms_page():
-    return HTMLResponse(TERMS_PATH.read_text(encoding="utf-8"))
+    nonce = current_csp_nonce()
+    return HTMLResponse(_nonce_styles(TERMS_PATH.read_text(encoding="utf-8"), nonce))
 
 @app.get("/privacidade", response_class=HTMLResponse, include_in_schema=False)
 def privacy_page():
-    return HTMLResponse(PRIVACY_PATH.read_text(encoding="utf-8"))
+    nonce = current_csp_nonce()
+    return HTMLResponse(_nonce_styles(PRIVACY_PATH.read_text(encoding="utf-8"), nonce))
 
 @app.get("/auth/verification-required", response_class=HTMLResponse, include_in_schema=False)
 def email_verification_page():
     if not EMAIL_VERIFICATION_PATH.is_file():
         raise HTTPException(500, "Pagina de confirmacao nao encontrada.")
-    return HTMLResponse(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8"))
+    nonce = current_csp_nonce()
+    return HTMLResponse(_nonce_styles(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8"), nonce))
 
 @app.get("/health", include_in_schema=False)
 def health():
