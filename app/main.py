@@ -522,6 +522,48 @@ def startup():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        # PostgreSQL system-catalog reflection can exceed Supabase's statement
+        # timeout as the schema grows. Its native idempotent DDL is cheaper and
+        # avoids blocking a Render deployment on SQLAlchemy inspection.
+        if engine.dialect.name == "postgresql":
+            migrations = {
+                "candidates": {
+                    "owner_id": "VARCHAR(36)", "profile_data": "TEXT", "resume_filename": "TEXT", "preferences_data": "TEXT",
+                },
+                "jobs": {
+                    "owner_id": "VARCHAR(36)", "contract_type": "VARCHAR(50) DEFAULT ''", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
+                },
+                "queue_items": {
+                    "contract_type": "VARCHAR(50)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
+                },
+                "document_export_purchases": {
+                    "application_id": "INTEGER", "payer_email": "VARCHAR(320)", "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL", "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+                },
+                "applications": {
+                    "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER",
+                },
+                "application_events": {
+                    "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
+                },
+            }
+            for table, columns in migrations.items():
+                for column, ddl in columns.items():
+                    db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}"))
+            for statement in (
+                "CREATE INDEX IF NOT EXISTS idx_applications_status ON applications (status)",
+                "CREATE INDEX IF NOT EXISTS idx_applications_updated_at ON applications (updated_at)",
+                "CREATE INDEX IF NOT EXISTS idx_applications_queue_decision ON applications (queue_decision)",
+                "CREATE INDEX IF NOT EXISTS idx_candidates_owner_id ON candidates (owner_id)",
+                "CREATE INDEX IF NOT EXISTS idx_jobs_owner_id ON jobs (owner_id)",
+            ):
+                db.execute(text(statement))
+            db.commit()
+            cleanup_expired_documents()
+            if _retention_task is None or _retention_task.done():
+                _retention_task = asyncio.create_task(_document_retention_loop())
+            start_monitor()
+            start_outlook_monitor()
+            return
         for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
