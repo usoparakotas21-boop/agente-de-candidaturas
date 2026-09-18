@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `34c47b4` — `feat: organize extracted resume data`
+**Commit publicado:** `817249c` — `feat: show document generation progress`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -279,7 +279,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
 15. **Skeleton e proteção do formulário entregues:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; `Limpar formulário` agora é uma ação neutra e confirma a perda quando existe rascunho ou prévia. O Banco de vagas foi reaberto em produção e exibiu o estado vazio/contadores normalmente, sem reproduzir o crash.
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
-17. **UX de primeiro acesso e polimento final — entrega parcial publicada:** o dashboard agora oferece um tour guiado dispensável em três passos, com estado persistido no navegador e ações para currículos, preferências e captação. Também recebeu hover nos botões principais, pulso do status conectado, feedback de processamento na importação do currículo e respeito a `prefers-reduced-motion`. A tela de Currículos passou a agrupar o resultado do OCR por experiências, competências, formação e idiomas; ainda faltam estados de progresso mais completos nas demais telas e a revisão final das mensagens de recuperação.
+17. **UX de primeiro acesso e polimento final — entrega parcial publicada:** o dashboard agora oferece um tour guiado dispensável em três passos, com estado persistido no navegador e ações para currículos, preferências e captação. Também recebeu hover nos botões principais, pulso do status conectado, feedback de processamento na importação do currículo e respeito a `prefers-reduced-motion`. A tela de Currículos passou a agrupar o resultado do OCR por experiências, competências, formação e idiomas, e o estúdio mostra progresso com spinner e `aria-busy` ao gerar a prévia; ainda faltam estados de progresso mais completos nas demais telas e a revisão final das mensagens de recuperação.
 18. **Suporte e ajuda contextual — primeira entrega publicada:** `/ajuda` é uma central pública, acessível antes do login e também pelo menu de Ações do dashboard, com respostas sobre formatos, candidatura manual, privacidade, Mercado Pago, arquivos recusados e preferências. Faltam apenas um widget/canal de atendimento real e medir as dúvidas mais frequentes para evoluir a FAQ.
 19. **E-mails de ciclo de vida:** depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, sempre com preferências de recebimento e sem envio automático de candidatura.
 
@@ -318,6 +318,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 - A verificação externa pós-deploy confirmou `/ajuda` com HTTP 200 e conteúdo de formatos, privacidade e pagamentos no Render; a rota continua pública para leitura antes do login.
 - O resumo hierárquico da importação de currículo passou nos testes de shell, na verificação de sintaxe JavaScript e na suíte completa: **146 testes aprovados, 0 falhas**.
 - O Render marcou o deploy do commit `34c47b4` como **Live**; `/health` continua retornando HTTP 200 após a publicação da tela de Currículos.
+- O estúdio de documentos passou a sinalizar a geração assíncrona com botão ocupado, spinner e mensagem orientada; a suíte completa ficou em **147 testes aprovados, 0 falhas** e a sintaxe do script foi validada com `node --check`.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
