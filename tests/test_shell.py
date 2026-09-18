@@ -33,6 +33,7 @@ class ShellLayoutTest(unittest.TestCase):
     def test_global_fetch_feedback_preserves_http_error_responses(self):
         script = (Path(main_module.STATIC_DIR) / "ui-feedback.js").read_text(encoding="utf-8")
         self.assertNotIn("if(!r.ok)throw r", script)
+        self.assertIn("if(!r.ok){bar.classList.remove('visible');return r}", script)
         self.assertIn("return r", script)
 
     def test_resume_upload_dropzone_selector_is_valid(self):
