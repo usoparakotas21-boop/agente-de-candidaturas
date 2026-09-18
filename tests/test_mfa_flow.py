@@ -72,6 +72,13 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
         cookies = "; ".join(item.split(";", 1)[0] for item in response.headers.getlist("set-cookie"))
         self.assertIn(auth.MFA_PENDING_ACCESS_COOKIE_NAME, cookies)
         self.assertNotIn(auth.ACCESS_COOKIE_NAME + "=aal1-access", cookies)
+        pending_headers = response.headers.getlist("set-cookie")
+        pending_access_cookie = next(
+            value for value in pending_headers if value.startswith(auth.MFA_PENDING_ACCESS_COOKIE_NAME + "=")
+        )
+        self.assertIn("Max-Age=300", pending_access_cookie)
+        self.assertIn("HttpOnly", pending_access_cookie)
+        self.assertIn("SameSite=lax", pending_access_cookie)
 
         verified_session = {
             "access_token": "aal2-access",
