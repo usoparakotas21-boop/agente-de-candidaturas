@@ -27,8 +27,12 @@ def request_for(host: str = "198.51.100.10") -> Request:
 
 class SecurityControlsTest(unittest.TestCase):
     def test_modal_accessibility_script_is_injected_into_pages(self):
-        dashboard = main_module.dashboard()
-        self.assertIn('/static/modal-a11y.js', dashboard.body.decode('utf-8'))
+        with patch.object(main_module, "current_csp_nonce", return_value="testnonce"):
+            dashboard = main_module.dashboard()
+        body = dashboard.body.decode('utf-8')
+        self.assertIn('/static/modal-a11y.js', body)
+        self.assertRegex(body, r'<meta name="csp-nonce" content="[^"]+">')
+        self.assertRegex(body, r'<style nonce="[^"]+">')
 
     def test_security_headers_are_added_and_hsts_requires_https(self):
         app = FastAPI()
@@ -48,6 +52,8 @@ class SecurityControlsTest(unittest.TestCase):
         self.assertIn("max-age=31536000", response.headers["strict-transport-security"])
         self.assertIn("script-src 'self' 'nonce-", response.headers["content-security-policy"])
         self.assertNotIn("script-src 'self' 'unsafe-inline'", response.headers["content-security-policy"])
+        self.assertIn("style-src 'self' 'nonce-", response.headers["content-security-policy"])
+        self.assertIn("style-src-elem 'self' 'nonce-", response.headers["content-security-policy"])
 
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
