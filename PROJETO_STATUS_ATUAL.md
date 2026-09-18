@@ -425,7 +425,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 | Recibo por e-mail | Envio idempotente está implementado após confirmação do Mercado Pago; falta configurar e testar o SMTP transacional em produção | **P1.10 parcialmente entregue** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou 143 testes sem falhas | **Concluído nesta verificação** |
+| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou **158 testes sem falhas** nesta rodada | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou captação, preferências, Segurança e drawer de candidatura | Validado em produção; foco inicial, `Esc`, retorno ao disparador e ciclo de Tab concluídos |
 
 ### Verificação direta do Supabase — 17/09/2026
