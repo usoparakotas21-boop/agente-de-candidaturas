@@ -781,7 +781,7 @@ def get_profile(user=Depends(authenticated_user)):
         if c.profile_data:
             try: data = json.loads(c.profile_data)
             except: data = {}
-        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills)}
+        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills), "experience_items": [{"role": e.role, "company": e.company, "period": " - ".join([v for v in (e.start_date, e.end_date) if v])} for e in c.experiences[:6]], "skill_items": [s.name for s in c.skills[:12]], "education_items": data.get("education", [])[:6] if isinstance(data.get("education", []), list) else [], "language_items": data.get("languages", [])[:6] if isinstance(data.get("languages", []), list) else []}
     finally: db.close()
 
 @app.put("/profile")
