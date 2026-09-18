@@ -2,6 +2,8 @@
 Rotas da Fila - Endpoints para o dashboard acessar a fila de decisoes.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -14,6 +16,16 @@ from .decision_reasons import get_reason_labels
 
 
 router = APIRouter(prefix="/queue", tags=["queue"])
+logger = logging.getLogger(__name__)
+
+
+def _queue_action_error(exc: Exception) -> str:
+    """Keep implementation/database details out of queue responses."""
+    if isinstance(exc, ValueError):
+        # These are deliberate user-facing domain errors from queue_service.
+        return str(exc)
+    logger.exception("Falha interna ao processar item da fila")
+    return "Nao foi possivel concluir a acao agora. Tente novamente em instantes."
 
 
 class BulkActionRequest(BaseModel):
@@ -182,7 +194,9 @@ async def approve_queue_item(
         result = approve(db, owner_id, item_id)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=_queue_action_error(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=_queue_action_error(e)) from e
 
 
 @router.post("/{item_id}/reject")
@@ -201,7 +215,9 @@ async def reject_queue_item(
         result = reject(db, owner_id, item_id, request.reason)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=_queue_action_error(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=_queue_action_error(e)) from e
 
 
 @router.post("/bulk")
@@ -227,9 +243,9 @@ async def bulk_action(
                 result = reject(db, owner_id, item_id)
             results.append({"id": item_id, "success": True, "result": result})
         except ValueError as e:
-            results.append({"id": item_id, "success": False, "error": str(e)})
+            results.append({"id": item_id, "success": False, "error": _queue_action_error(e)})
         except Exception as e:
-            results.append({"id": item_id, "success": False, "error": str(e)})
+            results.append({"id": item_id, "success": False, "error": _queue_action_error(e)})
     
     return {
         "action": request.action,

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import main as main_module
+from app import queue_routes as queue_routes_module
 from app.auth import AuthMiddleware
 from app.database import Base
 from app.models import DocumentExportPurchase
@@ -69,6 +70,13 @@ class WebhookSecurityTest(unittest.TestCase):
 
     def test_payment_webhooks_are_public_for_provider_delivery(self):
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
+
+    def test_queue_internal_errors_use_generic_public_message(self):
+        error = RuntimeError("senha do banco super secreta")
+        self.assertEqual(
+            queue_routes_module._queue_action_error(error),
+            "Nao foi possivel concluir a acao agora. Tente novamente em instantes.",
+        )
 
     def test_mercadopago_hmac_signature_is_required_and_time_limited(self):
         secret = "test-webhook-secret"
