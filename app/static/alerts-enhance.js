@@ -9,7 +9,7 @@
       if(!label.querySelector('b')){
         const badge=document.createElement('b');
         badge.textContent='CRÍTICO';
-        label.appendChild(badge);
+        label.append(' ', badge);
       }
     }
   }
