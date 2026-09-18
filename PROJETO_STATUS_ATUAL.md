@@ -184,7 +184,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Magic bytes, MIME real, diretório privado e parsing isolado | Validação real aprovada para intake; fronteira de download reforçada | Em produção, um PDF falso sem assinatura `%PDF-` foi rejeitado sem criar vaga e um PDF válido foi reconhecido no preview, permanecendo sem salvar até confirmação. As rotas de download agora rejeitam caminhos fora do diretório privado; falta confirmar limpeza/isolamento final em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Implementado no código | Sanitização central, fronteira de prompts e CSP sem `style-src-attr unsafe-inline`; ampliar casos por origem permanece em **P1.8** |
-| Assinatura, replay e idempotência de webhook | Código reforçado e agora fail-closed | Mercado Pago exige HMAC com janela de 5 minutos, consulta server-to-server, moeda BRL, valor exato, `order_nsu`/`payment_id` e transição idempotente; falta replay/checkout real e confirmar `MERCADOPAGO_ACCESS_TOKEN` no ambiente publicado em **P0.5** |
+| Assinatura, replay e idempotência de webhook | Código reforçado e agora fail-closed | Mercado Pago exige HMAC com janela de 5 minutos, consulta server-to-server, moeda BRL, valor exato, `order_nsu`/`payment_id` e transição idempotente; credenciais e rejeição sem assinatura já foram validadas em produção, faltando replay/checkout real em **P0.5** |
 | Mensagens de erro genéricas | Feito no código | Apenas revisar endpoints legados em **P0.8**; não expor stack trace ou detalhes de provedor |
 | OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
 | Backup diário, restauração e revogação | Runbook feito | Evidência de backup e teste real permanecem em **P0.11** |
@@ -264,7 +264,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 ### Próximo ciclo prático já classificado
 
-1. **Gate de e-mail confirmado:** já implementado no backend; o próximo trabalho é somente validar a configuração real do Supabase, templates, redirecionamentos e reenvio em produção. Não é uma nova implementação P0.
+1. **Gate de e-mail confirmado:** já implementado no backend e conferido no Supabase (Email habilitado e `Confirm email` ligado); falta somente o recebimento/reenvio operacional em mais de um provedor. Não é uma nova implementação P0.
 2. **Idempotência de pagamentos:** permanece dentro do **P0.5**, junto da assinatura dos webhooks e da exposição pública correta das rotas. A chave deve registrar `order_nsu` e `payment_id` e permitir apenas uma transição válida para `PAID`.
 3. **Expurgo automático de uploads:** permanece em **P1.8**, depois da validação do armazenamento privado; a rotina deve cobrir temporários, prints e rascunhos abandonados com prazo configurável de 30/60 dias.
 
@@ -285,7 +285,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports e o fail-closed do webhook: **123 testes aprovados em 5,35 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard` e rejeição 401 do webhook sem assinatura; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports e do fail-closed do webhook: **123 testes aprovados em 5,35 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
 - A comparação salarial passou a usar limites estruturados da vaga quando disponíveis, com fallback para texto legado; Gmail também encaminha esses campos para a fila; a suíte completa ficou em **117 testes aprovados em 5,06 s**, com 6 avisos de depreciação sem falhas.
@@ -328,7 +328,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.10** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 103 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 123 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou abertura/fechamento por teclado nos modais de captação e preferências | Parcialmente validado; falta o drawer de candidatura e o ciclo completo de Tab em **P0.12** |
 
 ### Verificação direta do Supabase — 17/09/2026
