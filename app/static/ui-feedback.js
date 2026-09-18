@@ -4,5 +4,5 @@
   const label=bar.querySelector('.sync-label');let timer;
   function show(text,state,ms){label.textContent=text;bar.className='sync-indicator visible '+(state||'');clearTimeout(timer);if(ms)timer=setTimeout(()=>bar.classList.remove('visible'),ms)}
   window.addEventListener('offline',()=>show('Sem conexão','offline'));window.addEventListener('online',()=>show('Conexão restaurada','',2800));
-  const native=window.fetch;window.fetch=function(){show('Sincronizando…','busy');return native.apply(this,arguments).then(r=>{if(!r.ok)throw r;show('Dados atualizados','',1800);return r}).catch(e=>{show(e?.status?'Não foi possível concluir':'Sem conexão','error',4200);throw e})};
+  const native=window.fetch;window.fetch=function(){show('Sincronizando…','busy');return native.apply(this,arguments).then(r=>{show(r.ok?'Dados atualizados':'Não foi possível concluir',r.ok?'':'error',r.ok?1800:4200);return r}).catch(e=>{show('Sem conexão','error',4200);throw e})};
 })();

@@ -30,6 +30,16 @@ class ShellLayoutTest(unittest.TestCase):
                 msg=f"template ainda contém atributo style inline: {path.name}",
             )
 
+    def test_global_fetch_feedback_preserves_http_error_responses(self):
+        script = (Path(main_module.STATIC_DIR) / "ui-feedback.js").read_text(encoding="utf-8")
+        self.assertNotIn("if(!r.ok)throw r", script)
+        self.assertIn("return r", script)
+
+    def test_resume_upload_dropzone_selector_is_valid(self):
+        html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
+        self.assertIn(".upload{", html)
+        self.assertNotIn("..upload{", html)
+
 
 if __name__ == "__main__":
     unittest.main()
