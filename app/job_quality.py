@@ -133,6 +133,13 @@ def _probable_title_line(line: str) -> bool:
     return any(role in normalized for role in ROLE_WORDS)
 
 
+def is_grouped_job_summary(subject: str, content: str) -> bool:
+    """Identifica alertas que anunciam várias vagas sem entregar um anúncio único."""
+    sample = "\n".join([subject or "", *(content or "").splitlines()[:12]])
+    normalized = _normalized(sample)
+    return bool(re.search(r"\b(?:[2-9]|[1-9]\d+)\s+vagas?\s+abertas?\b", normalized))
+
+
 def split_job_alert(subject: str, content: str) -> list[str]:
     """Divide um alerta-resumo em blocos, mantendo uma vaga por bloco."""
     lines = _clean_lines(content)

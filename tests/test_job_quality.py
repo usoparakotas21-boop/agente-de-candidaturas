@@ -1,7 +1,7 @@
 import unittest
 
 from app.job_intake import parse_job_text
-from app.job_quality import assess_job_capture, split_job_alert
+from app.job_quality import assess_job_capture, is_grouped_job_summary, split_job_alert
 
 
 class JobQualityTest(unittest.TestCase):
@@ -52,6 +52,11 @@ class JobQualityTest(unittest.TestCase):
             "https://br.indeed.com/rc/clk?jk=abc123"
         )
         self.assertEqual(len(split_job_alert("Nova vaga", content)), 1)
+
+    def test_marks_multi_vacancy_summary_without_individual_cards(self):
+        content = "27 vagas abertas de coordenador de recursos humanos - Brasil\nVeja as oportunidades no portal."
+        self.assertTrue(is_grouped_job_summary("Novas vagas para você", content))
+        self.assertFalse(is_grouped_job_summary("1 vaga aberta", "Analista de RH\nEmpresa Alpha"))
 
     def test_approves_complete_capture(self):
         parsed = parse_job_text(

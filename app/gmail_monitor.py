@@ -23,7 +23,7 @@ from .gmail_integration import (
     _client_secret,
 )
 from .job_intake import parse_job_text
-from .job_quality import assess_job_capture, split_job_alert
+from .job_quality import assess_job_capture, is_grouped_job_summary, split_job_alert
 from .models import EmailIntegration, ProcessedEmailMessage
 from .queue_service import enqueue
 from .text_sanitization import sanitize_untrusted_text
@@ -379,6 +379,17 @@ async def sync_integration(
 
             source = _source_for(sender, content)
             blocks = split_job_alert(subject, content)
+            if is_grouped_job_summary(subject, content) and len(blocks) < 2:
+                _record_result(
+                    integration,
+                    message_id,
+                    subject,
+                    sender,
+                    "IGNORED_GROUPED_ALERT",
+                    error="Alerta agrupado sem vagas individuais identificáveis.",
+                )
+                counters["ignored"] += 1
+                continue
             counters["candidates"] += len(blocks)
             outcomes: list[str] = []
             job_ids: list[int] = []
