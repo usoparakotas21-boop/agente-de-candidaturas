@@ -344,6 +344,12 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Security Advisor: após revogar `EXECUTE` de `PUBLIC`, `anon` e `authenticated` na função auxiliar `public.rls_auto_enable()`, a verificação efetiva retornou `false/false` para os dois papéis e os dois avisos de função desapareceram. Resta apenas o aviso nativo de proteção contra senhas vazadas desativada, que permanece em **P0.10** porque o plano atual não oferece esse recurso nativo.
 - Backups: o painel confirma que o plano Free não oferece backups diários agendados; PITR também exige plano Pro. Manter **P0.11** aberto até escolher upgrade ou dump externo automatizado.
 
+### Verificação externa do Render — 18/09/2026
+
+- `/health` retornou `200` com banco conectado; `/termos`, `/privacidade` e `/dashboard` retornaram `200` sem stack trace e com CSP nonceado, HSTS e `nosniff`.
+- `/webhooks/mercadopago` retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura, confirmando a rejeição pública após o deploy `75a72aa`.
+- As rotas `/applications/1`, `/jobs/1`, `/vagas/1`, `/billing/document-export`, `/api/profile` e `/api/preferences` retornaram `401 Login necessario.` sem sessão. Isso confirma a barreira de autenticação, mas não substitui o teste IDOR com duas contas reais em **P0.1**.
+
 ## Variáveis e segredos
 
 Os valores reais não pertencem a este documento. Devem permanecer somente no painel do Render ou no ambiente local protegido:
