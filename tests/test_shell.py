@@ -121,6 +121,19 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("Gerando prévia...", html)
         self.assertIn("button.classList.remove('busy')", html)
 
+    def test_document_studio_supports_manual_or_captured_application_and_safe_checkout_open(self):
+        html = (Path(main_module.STATIC_DIR) / "document-studio.html").read_text(encoding="utf-8")
+        self.assertIn('id="applicationSelect"', html)
+        self.assertIn("/applications/${linkedApplicationId}", html)
+        self.assertIn("application_id:linkedApplicationId", html)
+        self.assertIn("const paymentWindow=window.open('about:blank','_blank')", html)
+        self.assertIn("O Pix aparece entre os métodos disponíveis da sua conta", html)
+
+    def test_dashboard_checkout_reserves_popup_before_fetch(self):
+        html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('const paymentWindow = window.open("about:blank", "_blank");', html)
+        self.assertIn("paymentWindow.location.href = payload.checkout_url", html)
+
     def test_dashboard_records_channel_and_external_result(self):
         html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
         self.assertIn('id="statusChannel"', html)

@@ -2123,12 +2123,20 @@ async function downloadCoverLetterDocument() {
       const checkout = $("resumePreviewCheckout");
       checkout.disabled = true;
       checkout.textContent = "Abrindo pagamento...";
+      const paymentWindow = window.open("about:blank", "_blank");
       try {
         const response = await fetch("/billing/document-export/checkout", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({application_id: selectedId})});
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.detail || "Não foi possível iniciar o pagamento.");
-        window.open(payload.checkout_url, "_blank", "noopener");
+        if (paymentWindow) {
+          paymentWindow.location.href = payload.checkout_url;
+          paymentWindow.focus?.();
+          toast("Checkout Mercado Pago aberto. O Pix aparece entre os métodos disponíveis da sua conta.");
+        } else {
+          toast("O navegador bloqueou a nova aba. Clique novamente para abrir o checkout.");
+        }
       } catch (error) {
+        if (paymentWindow) paymentWindow.close();
         toast(error.message);
       } finally {
         checkout.disabled = false;

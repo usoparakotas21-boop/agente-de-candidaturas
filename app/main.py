@@ -397,6 +397,7 @@ class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
 class DocumentStudioRequest(BaseModel):
+    application_id: int | None = Field(default=None, gt=0)
     title: str = Field(min_length=2, max_length=200)
     company: str = Field(default="", max_length=200)
     details: str = Field(min_length=20, max_length=16000)
@@ -1951,24 +1952,40 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
     try:
         candidate = _candidate_for_user(db, user)
         profile = _candidate_profile(candidate)
+        linked_application = None
+        if req.application_id is not None:
+            linked_application = _application_for_user(db, req.application_id, user)
+            if linked_application is None:
+                raise HTTPException(404, "Vaga vinculada não encontrada.")
         title = req.title.strip()
         company = req.company.strip() or "Empresa não informada"
         description = req.details.strip()
-        job_data = {
-            "source": "studio",
-            "external_id": f"{_owner_id(user) or 'local'}:studio:{uuid.uuid4().hex}",
-            "company": company,
-            "title": title,
-            "location": req.location.strip(),
-            "modality": "",
-            "salary": "",
-            "url": req.url.strip(),
-            "description": description,
-        }
-        job = Job(owner_id=_owner_id(user), **job_data)
-        db.add(job)
-        db.flush()
-        app_record = _ensure_app(db, job, candidate)
+        if linked_application is not None:
+            # Reuse the captured opportunity so a document preview never creates
+            # a duplicate job/application just because the user opened the studio.
+            job = linked_application.job
+            job.title = title
+            job.company = company
+            job.location = req.location.strip()
+            job.url = req.url.strip()
+            job.description = description
+            app_record = linked_application
+        else:
+            job_data = {
+                "source": "studio",
+                "external_id": f"{_owner_id(user) or 'local'}:studio:{uuid.uuid4().hex}",
+                "company": company,
+                "title": title,
+                "location": req.location.strip(),
+                "modality": "",
+                "salary": "",
+                "url": req.url.strip(),
+                "description": description,
+            }
+            job = Job(owner_id=_owner_id(user), **job_data)
+            db.add(job)
+            db.flush()
+            app_record = _ensure_app(db, job, candidate)
         arts = _build_application(job, candidate)
         _save_analysis(app_record, arts["analysis"], candidate)
         app_record.personalization_score = arts["personalization"].get("personalization_score", 0)
@@ -1990,6 +2007,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
             "status": "PREVIA_GERADA",
             "job_id": job.id,
             "application_id": app_record.id,
+            "linked_application": linked_application is not None,
             "company": company,
             "job_title": title,
             "analysis": arts["analysis"],

@@ -103,7 +103,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ## O que está parcial ou ainda não existe
 
-- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. A configuração do Supabase Auth foi conferida diretamente: `Confirm email` está ligado, o provedor Email está habilitado e o cadastro permanece permitido. O fluxo de reenvio agora tem regressão automatizada para normalização, URL pública, mensagem genérica e rate limit (a suíte oficial permanece em 163 testes aprovados); ainda falta apenas o teste operacional de recebimento/reenvio em mais de um provedor.
+- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. A configuração do Supabase Auth foi conferida diretamente: `Confirm email` está ligado, o provedor Email está habilitado e o cadastro permanece permitido. O fluxo de reenvio tem regressão automatizada para normalização, URL pública, mensagem genérica e rate limit. Em 18/09/2026, o recebimento e o reenvio foram confirmados em Gmail e Outlook; **P0.4 está concluído**.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
@@ -178,7 +178,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.13**; dispensar é melhoria opcional depois da sincronização |
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
 | Foco, `aria-modal` e retorno de foco dos modais | Validado em produção | Modais de captação, preferências, segurança e drawer de candidatura abriram com foco inicial, mantiveram o Tab dentro da superfície e devolveram o foco ao disparador |
-| Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
+| Verificação de e-mail, headers e rate limiting | Código principal feito | **P0.4** e **P0.7** estão validados; rate limiting distribuído segue em **P0.9** antes de múltiplas instâncias |
 | IDOR e RLS obrigatório | Concluído para as rotas atuais | Migração RLS, testes locais e prova real com duas contas cobrem listagem, consulta, atualização, exportação JSON e downloads de currículo/carta; a conta B recebeu 404 ao tentar usar a candidatura da conta A |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Validação real aprovada para intake; fronteira de download reforçada | Em produção, um PDF falso sem assinatura `%PDF-` foi rejeitado sem criar vaga, um PDF válido foi reconhecido no preview e o currículo importado apareceu como pronto na tela de Currículos. As rotas de download rejeitam caminhos fora do diretório privado; a limpeza periódica de artefatos permanece em **P1.8** |
@@ -288,8 +288,8 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 1. **IDOR/RLS real — concluído para as rotas atuais:** duas sessões reais foram separadas no navegador conectado; a conta B exibiu zero vagas/candidaturas, a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A e as rotas de exportação/download cruzadas retornaram 404 sem conteúdo pessoal. O download exige compra `PAID` vinculada à candidatura exata. Manter a regressão ao criar novas rotas.
 2. **Uploads e arquivos — concluído para o gate P0.2:** PDF falso rejeitado, PDF válido reconhecido no preview, currículo importado com sucesso em produção e rotas de download confinadas ao diretório privado. O feedback global preserva respostas HTTP de erro para exibir a mensagem segura e específica do validador. A limpeza periódica de artefatos segue classificada em **P1.8**.
 3. **MFA — enrollment real concluído e opcionalidade confirmada:** uma conta sem fator acessou normalmente a área autenticada; numa segunda conta real, o enrollment TOTP e a confirmação do código foram concluídos. A interface agora consulta o status real e oferece desativação com confirmação. O login da conta com TOTP ativo não pediu código porque `MFA_LOGIN_ENFORCE=false`, comportamento coberto por regressão automatizada; challenge com código real, recuperação e expiração só devem ser exercitados se a exigência global for ativada em uma janela controlada.
-4. **E-mail confirmado — código e configuração conferidos:** o Supabase mostra `Confirm email` ligado e Email habilitado; login/signup bloqueiam sessão não confirmada, o reenvio usa a URL pública e aplica resposta genérica/rate limit, com regressão automatizada coberta na suíte de 163 testes. Permanece somente o teste operacional de recebimento/reenvio em mais de um provedor.
-5. **Webhook Mercado Pago — código e configuração publicados:** endpoint de produção, evento Pagamentos, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` estão ativos; o código rejeita valor divergente e moeda diferente de BRL, exige HMAC/replay/idempotência, retorna 503 se o Access Token faltar e 401 para assinatura inválida. A validação externa pós-deploy retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura. Falta replay/checkout controlado.
+4. **E-mail confirmado — concluído:** o Supabase mostra `Confirm email` ligado e Email habilitado; login/signup bloqueiam sessão não confirmada, o reenvio usa a URL pública e aplica resposta genérica/rate limit. O recebimento e o reenvio foram confirmados operacionalmente em Gmail e Outlook em 18/09/2026.
+5. **Webhook Mercado Pago — código e configuração publicados:** endpoint de produção, evento Pagamentos, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` estão ativos; o código rejeita valor divergente e moeda diferente de BRL, exige HMAC/replay/idempotência, retorna 503 se o Access Token faltar e 401 para assinatura inválida. O checkout foi ajustado para reservar a aba no clique e mostrar erro no próprio bloco, e o Mercado Pago continua livre para exibir Pix, cartão e outros meios habilitados na conta. Ainda falta o checkout/replay controlado em produção.
 6. **Segredos, menor privilégio e TLS — concluído para o ambiente atual:** painel Supabase/Render sem chave mestra exposta, scanner do código versionado sem padrões de segredo, `Enforce SSL` ativo e aplicação forçando `sslmode=require`. Repetir a auditoria somente quando novas integrações forem adicionadas.
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
 8. **Erros públicos — validado:** handlers globais e rotas sensíveis retornam mensagens estáveis; checagem externa sem sessão em `/applications/1`, `/preferences` e `/billing/document-export` retornou 401 sem stack trace.
@@ -321,10 +321,11 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 18. **Suporte e ajuda contextual — primeira entrega publicada:** `/ajuda` é uma central pública, acessível antes do login e também pelo menu de Ações do dashboard, com respostas sobre formatos, candidatura manual, privacidade, Mercado Pago, arquivos recusados e preferências. Faltam apenas um widget/canal de atendimento real e medir as dúvidas mais frequentes para evoluir a FAQ.
 19. **E-mails de ciclo de vida — preparação publicada:** as preferências de frequência (`diário`, `imediato`, `semanal` ou `nenhum`) e os tipos de aviso para entrevistas, follow-up e expiração agora são persistidos junto às preferências da conta. A duplicidade antiga de controles foi removida e nenhum canal de suporte fictício é exibido. Depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, respeitando essas escolhas e sem envio automático de candidatura.
 20. **Legalidade e proveniência de fontes de vagas — novo item de preparação:** antes de adicionar APIs, ATS ou qualquer coleta agendada, manter uma allowlist com Termos/robots/licença, base legal, atribuição, limites por domínio, origem do registro e prazo para apagar conteúdo bruto. Fontes bloqueadas ou sem autorização ficam fora; este gate antecede o P2 de escala.
+21. **Estúdio de documentos ligado à fila:** o usuário pode escolher uma candidatura já captada ou preencher manualmente. A opção automática carrega cargo, empresa, modalidade, URL e descrição, reaproveita a candidatura existente e evita duplicidade; permanece como melhoria P1 do fluxo de documentos, sem alterar o gate de pagamento.
 
 ### Próximo ciclo prático já classificado
 
-1. **Gate de e-mail confirmado:** já implementado no backend e conferido no Supabase (Email habilitado e `Confirm email` ligado); falta somente o recebimento/reenvio operacional em mais de um provedor. Não é uma nova implementação P0.
+1. **Gate de e-mail confirmado:** implementado no backend e conferido no Supabase (Email habilitado e `Confirm email` ligado); recebimento e reenvio operacional confirmados em Gmail e Outlook. Não há nova implementação P0 neste item.
 2. **Idempotência de pagamentos:** permanece dentro do **P0.5**, junto da assinatura dos webhooks e da exposição pública correta das rotas. A chave deve registrar `order_nsu` e `payment_id` e permitir apenas uma transição válida para `PAID`.
 3. **Expurgo automático de uploads:** a camada local de documentos e dados brutos já está em **P1.8**, com prazo configurável de 30/60 dias; prints/rascunhos em Storage continuam aguardando a adoção de bucket e registros persistidos.
 
@@ -382,7 +383,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 - No painel do Render, as variáveis legadas `INFINITEPAY_EXPORT_PRICE_CENTS` e `INFINITEPAY_HANDLE` foram removidas e o novo deploy do commit `69d033d` ficou ativo; Mercado Pago permanece como o único checkout configurado.
 - A inspeção do ambiente de produção não encontrou variáveis `SMTP_*`; por isso o recibo pós-pagamento continua implementado no código, mas o envio transacional ainda aguarda a configuração do SMTP no Render (**P1.10**).
 - A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup, da proteção contra limpeza acidental e da atribuição de resultado: **129 testes aprovados em 5,11 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
-- A suíte oficial em `tests/` foi reexecutada no ambiente virtual local após a configuração do deploy atual: **163 testes aprovados, 0 falhas em 5,33 s**, com apenas 6 avisos de depreciação. A execução ampla da raiz continua separada porque inclui scripts legados que tentam chamar servidores locais em 8001/8002 e também cópias de dependências em `tmp/`; esses erros de coleta não afetam a suíte oficial.
+- A suíte oficial em `tests/` foi reexecutada no ambiente virtual local após a configuração do deploy atual: **166 testes aprovados, 0 falhas**, com apenas 6 avisos de depreciação. A execução ampla da raiz continua separada porque inclui scripts legados que tentam chamar servidores locais em 8001/8002 e também cópias de dependências em `tmp/`; esses erros de coleta não afetam a suíte oficial.
 - Verificação pública pós-deploy: `/health`, `/termos` e `/privacidade` retornaram HTTP 200; `/api/profile` sem sessão retornou 401; e o webhook do Mercado Pago sem assinatura retornou 401. Nenhum pagamento, login ou alteração de dados foi executado.
 - O indicador `Sistema conectado` da navegação global passou a usar ponto verde pulsante também nas subpáginas, com desativação para `prefers-reduced-motion`; o deploy `d50f3d0` ficou **Live** e a tela de Segurança foi conferida visualmente.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
@@ -404,7 +405,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
-| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o provedor Email está habilitado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Código/configuração conferidos e regressão automatizada coberta; falta recebimento real em mais de um provedor em **P0.4** |
+| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o provedor Email está habilitado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Código/configuração conferidos, regressão automatizada coberta e recebimento/reenvio confirmados em Gmail e Outlook em 18/09/2026; **P0.4 concluído** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; CSP nonceado sem `style-src-attr unsafe-inline`, HSTS, `nosniff`, `DENY` e políticas complementares | Código e header real validados em `/health`, `/termos`, `/privacidade` e `/dashboard` em produção |
 | Rate limiting | Limites por IP/conta, testes locais de 429 e validação publicada com 10 respostas 401 e 11ª resposta 429; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; duas contas reais confirmaram a exportação JSON owner-scoped e receberam 404 nos downloads cruzados de currículo/carta | Código, testes locais, RLS e validação real das rotas atuais concluídos; manter a regressão em novas rotas |
@@ -434,7 +435,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 ### Verificação direta do Supabase — 17/09/2026
 
 - Projeto de produção identificado como `agente de candidaturas`, região São Paulo, plano Free; o painel voltou a exibir **Healthy** após o carregamento e o Advisor informou não haver problemas de segurança ou performance.
-- Auth: confirmação de e-mail ligada; Site URL `https://agente-de-candidaturas.onrender.com`; redirect permitido para `https://agente-de-candidaturas.onrender.com/dashboard`; template de confirmação usa `{{ .ConfirmationURL }}`; SMTP customizado do Brevo está ativo. O recebimento real do e-mail ainda precisa de teste operacional.
+- Auth: confirmação de e-mail ligada; Site URL `https://agente-de-candidaturas.onrender.com`; redirect permitido para `https://agente-de-candidaturas.onrender.com/dashboard`; template de confirmação usa `{{ .ConfirmationURL }}`; SMTP customizado do Brevo está ativo. O recebimento e o reenvio foram confirmados em Gmail e Outlook em 18/09/2026.
 - MFA: TOTP (aplicativo autenticador) habilitado; SMS MFA desabilitado. Isso mantém MFA como opção por conta, de acordo com `MFA_LOGIN_ENFORCE=false` no Render.
 - Auth nativo: limites de cadastro/login, refresh, verificação de token e envio de e-mail estão configurados no painel. A proteção contra CAPTCHA está desligada e a opção nativa de bloquear senhas vazadas aparece desabilitada; o aplicativo mantém a checagem k-anonimizada externa em **P0.10**.
 - RLS: 11 tabelas do schema `public` aparecem com RLS ativo e uma política de proprietário para o papel `authenticated`. Não alterar nem recriar essas políticas; o próximo teste é tentar acesso cruzado por ID/download com duas contas reais.
@@ -516,8 +517,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 ### Preparação dos cinco gates externos do P0 — 18/09/2026
 
-- **E-mail:** o gate continua reduzido a um teste manual com duas contas e
-  provedores diferentes; o roteiro está em `scripts/README_OPERACIONAL_P0.md`.
+- **E-mail:** recebimento e reenvio confirmados em Gmail e Outlook em
+  18/09/2026; o roteiro permanece em `scripts/README_OPERACIONAL_P0.md` para
+  regressão futura.
 - **Mercado Pago:** o checkout e a assinatura/idempotência já estão no código;
   `scripts/replay_mercadopago_webhook.py` repete a mesma entrega assinada duas
   vezes usando um `payment_id` real, sem criar pagamento.
@@ -528,6 +530,13 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - **Backup:** o script agora pode restaurar explicitamente em uma URL de banco
   descartável (`--restore-to`), sem expor a `DATABASE_URL` nos argumentos; o
   agendamento e a restauração real ainda precisam de ambiente externo.
+- **E-mail:** o usuário confirmou recebimento e reenvio em Gmail e Outlook;
+  este gate operacional foi encerrado.
+- **Checkout/documentos:** o botão de liberação agora abre a aba do Mercado
+  Pago no próprio gesto do clique, mostra o erro no bloco de pagamento e
+  informa que o Pix aparece quando habilitado na conta Mercado Pago. O estúdio
+  oferece preenchimento manual ou seleção de uma candidatura captada, reutiliza
+  a candidatura vinculada e não cria uma vaga duplicada.
 - A suíte oficial foi reexecutada após essas mudanças: **166 testes aprovados,
   0 falhas**, com 6 avisos de depreciação já conhecidos.
 
