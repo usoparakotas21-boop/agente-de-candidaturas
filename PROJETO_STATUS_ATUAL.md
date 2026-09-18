@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `9620e51` — `feat: show skeleton while loading application drawer`
+**Commit publicado:** `c0b0af3` — `feat: clarify landing pricing and faq`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -260,7 +260,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. Exibir links legais e logout no cabeçalho/rodapé global.
 15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; continuam pendentes `Limpar` como ação neutra com confirmação e a validação visual completa do retry do Banco de vagas.
-16. Ajustar a landing sem inventar prova social: explicitar o download avulso de R$ 9,90 e publicar FAQ somente com comportamentos realmente suportados.
+16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
 
 ### Próximo ciclo prático já classificado
 
