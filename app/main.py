@@ -979,6 +979,57 @@ def list_apps(status: str = None, decision: str = None, user=Depends(authenticat
         return {"total": len(apps), "applications": [_serialize_app(a, allowed, allowed) for a in apps]}
     finally: db.close()
 
+@app.get("/applications/metrics")
+def application_metrics(user=Depends(authenticated_user)):
+    """Return an owner-scoped funnel from captured jobs to qualified interviews."""
+    db = SessionLocal()
+    try:
+        q = select(Application).join(Application.job).order_by(Application.created_at.asc())
+        oid = _owner_id(user)
+        if oid:
+            q = q.where(Job.owner_id == oid)
+        apps = db.scalars(q).all()
+
+        submitted_statuses = {"CANDIDATURA_ENVIADA", "ENTREVISTA", "RECUSADO", "ARQUIVADA"}
+        submitted = 0
+        interviews = 0
+        by_source: dict[str, dict[str, int]] = {}
+        for item in apps:
+            event_statuses = {event.status for event in item.events}
+            sent = bool(event_statuses & submitted_statuses) or item.status in submitted_statuses
+            qualified = "ENTREVISTA" in event_statuses or item.status == "ENTREVISTA"
+            if sent:
+                submitted += 1
+            if qualified:
+                interviews += 1
+            source = (item.job.source or "manual").strip().lower() or "manual"
+            bucket = by_source.setdefault(source, {"captured": 0, "submitted": 0, "interviews": 0})
+            bucket["captured"] += 1
+            if sent:
+                bucket["submitted"] += 1
+            if qualified:
+                bucket["interviews"] += 1
+
+        def rate(value: int, base: int) -> float:
+            return round((value / base) * 100, 1) if base else 0.0
+
+        sources = []
+        for source, values in sorted(by_source.items()):
+            sources.append({
+                "source": source,
+                **values,
+                "interview_rate_per_100": rate(values["interviews"], values["submitted"]),
+            })
+        return {
+            "captured": len(apps),
+            "submitted": submitted,
+            "qualified_interviews": interviews,
+            "interview_rate_per_100": rate(interviews, submitted),
+            "by_source": sources,
+        }
+    finally:
+        db.close()
+
 @app.get("/applications/{app_id}")
 def get_app(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
