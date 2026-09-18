@@ -131,6 +131,7 @@ APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
 INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
+HELP_PAGE_PATH = Path(__file__).parent / "static" / "ajuda.html"
 TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
@@ -192,7 +193,7 @@ def _page(path: Path) -> HTMLResponse:
         nav = nav[:style_end]
         nav += '<style>#newJobButton{display:none!important}.hero{display:grid;grid-template-columns:minmax(300px,1fr) auto;align-items:end;gap:32px}.hero h1{max-width:520px;font-size:clamp(32px,3.8vw,44px)}.hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:560px}.hero-actions button{width:auto;white-space:nowrap}@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-actions{justify-content:flex-start;max-width:none}}@media(max-width:700px){main{margin:24px 12px 60px}.metrics{grid-template-columns:1fr}.queue-summary{grid-template-columns:1fr 1fr}.hero{display:block}.hero-actions{margin-top:20px;display:grid;grid-template-columns:1fr 1fr}.hero-actions button{width:100%}.queue-actions{gap:8px}.queue-actions button{min-height:42px;padding:9px 11px}}</style>'
         dashboard_insert += '<script>document.addEventListener("DOMContentLoaded",()=>{const s=document.querySelector("#queueStatusFilter");if(s){s.options[0].text="Status da oportunidade";s.title="Filtra em que ponto da análise a oportunidade está."}const d=document.querySelector("#queueDecisionFilter");if(d)d.title="Decisão sugerida pelo agente: avançar, revisar ou descartar.";const cards=document.querySelectorAll(".metric");if(cards.length>=4){cards[0].querySelector(".metric-label").textContent="Novas vagas para você";cards[1].querySelector(".metric-label").textContent="Compatibilidade média";cards[2].querySelector(".metric-label").textContent="Pendentes de ação";cards[3].querySelector(".metric-label").textContent="Resolvidas"}Promise.all([fetch("/jobs").then(r=>r.json()),fetch("/applications").then(r=>r.json())]).then(([j,a])=>{const apps=a.applications||[],scores=apps.map(x=>Number(x.analysis_score)).filter(Number.isFinite),pending=apps.filter(x=>x.queue_decision==="REVISAR").length,resolved=apps.filter(x=>["APROVADO","RECUSADO","ARQUIVADA"].includes(x.status)).length;if(cards.length>=4){cards[0].querySelector(".metric-value").textContent=(j.jobs||[]).length;cards[0].querySelector(".metric-note").textContent="oportunidades capturadas";cards[1].querySelector(".metric-value").textContent=scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length)+"%":"—";cards[1].querySelector(".metric-note").textContent="média das vagas analisadas";cards[2].querySelector(".metric-value").textContent=pending;cards[2].querySelector(".metric-note").textContent=pending?"Revisar "+pending+" pendentes":"Nenhuma pendência";cards[3].querySelector(".metric-value").textContent=resolved;cards[3].querySelector(".metric-note").textContent="já processadas"}})}).catch(()=>{})})</script>'
-    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento"}.get(path.name, "")
+    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento", "ajuda.html":"Ajuda"}.get(path.name, "")
     crumb = f'<div class="breadcrumbs"><a class="back-link" href="/dashboard">← Voltar</a><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
     extra = '<script src="/static/modal-a11y.js"></script><script src="/static/ui-feedback.js"></script>'
@@ -729,6 +730,11 @@ def security_page():
 def onboarding_page():
     if not ONBOARDING_PATH.is_file(): raise HTTPException(500, "Onboarding nao encontrado.")
     return _page(ONBOARDING_PATH)
+
+@app.get("/ajuda", response_class=HTMLResponse, include_in_schema=False)
+def help_page():
+    if not HELP_PAGE_PATH.is_file(): raise HTTPException(500, "Pagina de ajuda nao encontrada.")
+    return _page(HELP_PAGE_PATH)
 
 @app.get("/curriculos", response_class=HTMLResponse, include_in_schema=False)
 def resumes_page():

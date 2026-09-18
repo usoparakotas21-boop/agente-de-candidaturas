@@ -894,6 +894,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/mfa/complete",
         "/webhooks/mercadopago",
         "/auth/verification-required",
+        "/ajuda",
         # Documentos legais precisam ser legíveis antes do cadastro e do
         # consentimento; não podem cair no bloqueio de sessão.
         "/termos",

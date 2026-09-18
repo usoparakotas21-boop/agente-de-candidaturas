@@ -78,6 +78,16 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="skipGuidedOnboarding"', html)
         self.assertIn('id="guidedCaptureButton"', html)
 
+    def test_help_page_is_public_and_covers_core_questions(self):
+        response = main_module._page(Path(main_module.STATIC_DIR) / "ajuda.html")
+        html = response.body.decode("utf-8")
+        self.assertIn("Central de ajuda", html)
+        self.assertIn("Quais formatos de currículo posso importar?", html)
+        self.assertIn("Como meus dados são tratados?", html)
+        self.assertIn("/privacidade", html)
+        self.assertIn("/configuracoes#preferencias", html)
+        self.assertIn("/ajuda", main_module.AuthMiddleware.PUBLIC_PATHS)
+
 
 if __name__ == "__main__":
     unittest.main()
