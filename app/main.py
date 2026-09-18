@@ -1110,6 +1110,55 @@ def application_followups(user=Depends(authenticated_user)):
     finally:
         db.close()
 
+
+@app.get("/api/privacy/export")
+def privacy_export(user=Depends(authenticated_user)):
+    """Exporta os dados pessoais do usuário sem tokens ou segredos de integração."""
+    db = SessionLocal()
+    try:
+        oid = _owner_id(user)
+        candidate_query = select(Candidate)
+        jobs_query = select(Job).order_by(Job.id.asc())
+        purchases_query = select(DocumentExportPurchase).order_by(DocumentExportPurchase.created_at.asc())
+        if oid:
+            candidate_query = candidate_query.where(Candidate.owner_id == oid)
+            jobs_query = jobs_query.where(Job.owner_id == oid)
+            purchases_query = purchases_query.where(DocumentExportPurchase.owner_id == oid)
+        candidate = db.scalar(candidate_query)
+        jobs = db.scalars(jobs_query).all()
+        applications = [job.application for job in jobs if job.application is not None]
+        purchases = db.scalars(purchases_query).all()
+
+        def iso(value):
+            return value.isoformat() if value else None
+
+        profile = None
+        if candidate:
+            profile = {
+                "name": candidate.name,
+                "location": candidate.location,
+                "email": candidate.email,
+                "phone": candidate.phone,
+                "linkedin": candidate.linkedin,
+                "target_roles": candidate.target_roles,
+                "summary": candidate.summary,
+                "profile_data": candidate.profile_data,
+                "resume_filename": candidate.resume_filename,
+                "preferences_data": candidate.preferences_data,
+                "experiences": [{"company": item.company, "role": item.role, "start_date": item.start_date, "end_date": item.end_date, "description": item.description} for item in candidate.experiences],
+                "skills": [{"name": item.name, "category": item.category, "proficiency": item.proficiency} for item in candidate.skills],
+            }
+        return JSONResponse({
+            "export_version": "1",
+            "generated_at": iso(utc_now()),
+            "profile": profile,
+            "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "salary": job.salary, "url": job.url, "description": job.description} for job in jobs],
+            "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
+            "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
+        }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
+    finally:
+        db.close()
+
 @app.get("/applications/{app_id}")
 def get_app(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
