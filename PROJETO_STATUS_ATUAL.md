@@ -1,8 +1,8 @@
 # Agente de Candidaturas — status atual
 
-**Atualizado em:** 17/09/2026  
+**Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `3474bc0` — `feat: add LGPD data export`
+**Commit publicado:** `6369417` — `feat: record versioned legal consent at signup`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -19,6 +19,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Cookies de sessão com `HttpOnly`, `SameSite=Lax` e `Secure` configurável por `COOKIE_SECURE`.
 - Cookie de acesso e refresh renovados pelo middleware quando necessário.
 - Formulário de cadastro com aceite obrigatório dos Termos de Uso e da Política de Privacidade.
+- O cadastro registra no metadata do usuário as versões dos Termos/Privacidade e o instante UTC do aceite; o backend rejeita chamadas sem os dois aceites explícitos.
 - Confirmação de e-mail é um gate explícito: sessão, login, callback de confirmação e rotas protegidas recusam contas pendentes; há página própria e reenvio limitado.
 - O botão `Sair` existe no shell autenticado e na área de Segurança.
 
@@ -127,7 +128,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Falta envio de recibo por e-mail após pagamento confirmado.
 - Falta retenção configurável e expurgo automático após 30/60 dias para temporários, prints e rascunhos abandonados.
 - Falta exportação/portabilidade e exclusão definitiva da conta no mesmo fluxo LGPD.
-- Falta registrar versão e data do consentimento aceito pelo usuário.
+- Consentimento de Termos/Privacidade agora é versionado e recebe data UTC no cadastro; uma trilha imutável administrativa continua opcional para uma etapa futura.
 - O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
 - O monitor UptimeRobot não é controlado pelo código; alterações de intervalo, URL ou alertas precisam ser feitas no painel do UptimeRobot.
 - A busca de páginas públicas já bloqueia hosts e IPs não globais, valida cada redirecionamento e limita o corpo recebido; a proteção contra SSRF precisa permanecer coberta por testes de regressão.
@@ -250,7 +251,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 4. Criar o copiloto de entrevistas baseado nos gaps: **primeira versão entregue** em `/api/interviews/prep/{app_id}` e no detalhe da candidatura, com perguntas por gap, pontos fortes e orientação para responder apenas com fatos comprovados; avaliação de respostas pela IA continua como segunda camada.
 5. Implementar o acompanhamento da zona morta: **primeira versão entregue** em `/api/applications/followups` e em `Minhas candidaturas`, identificando candidaturas sem retorno há 7 dias e preparando uma mensagem para revisão; envio e registro do retorno continuam manuais.
 6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção. **A exportação JSON owner-scoped já está disponível na área de Segurança; exclusão definitiva e expurgo em Storage continuam pendentes.**
-7. Registrar versão, data e evidência do consentimento de Termos e Privacidade.
+7. **Consentimento versionado entregue:** o cadastro exige os dois aceites, registra `terms_version`, `privacy_version` e `consented_at` no metadata enviado ao Supabase Auth; uma trilha imutável administrativa continua opcional.
 8. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
 10. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
@@ -285,7 +286,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
-- A suíte automatizada em `tests/` foi reexecutada em um Python 3.12 temporário após isolar o banco e o armazenamento dos testes: **105 testes aprovados em 5,48 s**, com 5 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- A suíte automatizada em `tests/` foi reexecutada após a exigência de consentimento versionado: **112 testes aprovados em 5,34 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
 - A primeira entrega de P1.2 foi validada na suíte completa: **107 testes aprovados em 5,68 s**. A fila passa a expor faixa/score de risco e sinais resumidos de golpe; o motor continua forçando descarte ou revisão conforme a banda, sem liberar automaticamente uma vaga suspeita.
 - P1.3 recebeu versionamento explícito das heurísticas brasileiras: decisões manuais e alertas Gmail registram `br-rh-1` junto da versão do motor; a suíte completa permaneceu em **107 testes aprovados**.
@@ -319,7 +320,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Backup e recuperação | `DISASTER_RECOVERY.md` cobre restauração isolada, validação de RLS, UptimeRobot e revogação/rotação sem registrar segredos; painel do Supabase informa que o plano Free não inclui backups agendados nem PITR | Runbook concluído, mas backup gerenciado não está disponível no plano atual; **P0.11** exige upgrade para Pro ou rotina externa de dump e teste de restauração |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
-| Termos, privacidade e consentimento | Páginas e checkbox existem; versão/data/evidência do consentimento não são persistidas | Consentimento em **P1.7**; textos legais em **P1.11** |
+| Termos, privacidade e consentimento | Páginas e checkbox existem; o cadastro agora exige os dois aceites e registra versões/data UTC no metadata do usuário | Implementado em **P1.7**; trilha imutável administrativa é melhoria posterior; textos legais em **P1.11** |
 | Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.6** |
 | Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.10** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
