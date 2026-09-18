@@ -103,7 +103,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ## O que está parcial ou ainda não existe
 
-- O gate de confirmação de e-mail está implementado; as rotas públicas `/termos` e `/privacidade` retornaram 200 em produção, mas ainda falta validar as configurações de confirmação, os templates/redirecionamentos do Supabase e o fluxo em mais de um provedor de e-mail.
+- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. Ainda falta validar as configurações de confirmação, templates/redirecionamentos do Supabase e recebimento em mais de um provedor.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
@@ -190,7 +190,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Backup diário, restauração e revogação | Runbook feito | Evidência de backup e teste real permanecem em **P0.11** |
 | Cloudflare, DNS redundante e DDoS | Condicional | Só entram em **P2** quando houver domínio próprio e necessidade de borda; Render e UptimeRobot já cobrem a operação atual |
 | Termos, privacidade, consentimento, portabilidade e exclusão | Parcialmente feito | Páginas e aceite existem; consentimento versionado é **P1.7**, exportação/exclusão no mesmo fluxo é **P1.6**, textos legais em **P1.11** |
-| Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído no código; validar as URLs públicas no deploy |
+| Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído e validado em produção |
 | Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
 | Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
 | CLT/PJ/MEI, modalidade, salário e pretensão | A prévia agora devolve modalidade, regime e confiança; a vaga persistida ainda não guarda o regime como campo próprio | **P1.9** em andamento; separar salário oferecido de pretensão do candidato e persistir a confiança |
@@ -235,13 +235,13 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
 5. **Webhook Mercado Pago — código reforçado e configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; o código agora rejeita valor divergente e moeda diferente de BRL, além de HMAC/replay/idempotência. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — revisão de código concluída:** confirmar no Supabase/Render a ausência de chave mestra exposta, executar scanner de segredos e verificar a conexão PostgreSQL efetiva com TLS.
-7. **CSP e superfícies de renderização — código concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes e a exceção `style-src-attr unsafe-inline` foi removida. A revisão visual em produção segue como validação operacional.
+7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
 8. **Erros públicos — código concluído:** revisar endpoints operacionais legados para garantir mensagens estáveis e detalhes somente nos logs.
 9. **Rate limiting — código local concluído:** validar os limites publicados e configurar proteção distribuída na borda antes de múltiplas instâncias.
 10. **Senhas comprometidas — código e configuração do Render concluídos:** executar o teste controlado no serviço publicado sem registrar a senha usada.
 11. **Backup e recuperação — runbook concluído:** confirmar backup diário, retenção e teste de restauração isolada conforme `DISASTER_RECOVERY.md`.
 12. **Acessibilidade de modais — validação parcial:** em produção, os modais “Captar vaga” e “Preferências” abriram com foco inicial, fecharam com `Esc` e devolveram o foco ao botão disparador; ainda falta validar o drawer de candidatura e o ciclo completo de Tab em **P0.12**.
-13. **Páginas legais públicas — código concluído:** validar no deploy que `/termos` e `/privacidade` retornam HTML sem sessão e antes do cadastro.
+13. **Páginas legais públicas — validado:** `/termos` e `/privacidade` retornaram 200 sem sessão em produção, antes do cadastro, com headers de segurança ativos.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
@@ -306,7 +306,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Implementado no código e configuração principal conferida; falta recebimento real em mais de um provedor em **P0.4** |
-| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts e elementos `<style>`, sem `style-src-attr unsafe-inline`, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | Código endurecido; falta apenas validação visual final no deploy |
+| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; CSP nonceado sem `style-src-attr unsafe-inline`, HSTS, `nosniff`, `DENY` e políticas complementares | Código e header real validados em `/health`, `/termos`, `/privacidade` e `/dashboard` em produção |
 | Rate limiting | Limites por IP/conta, testes locais de 429 e validação publicada com 10 respostas 401 e 11ª resposta 429; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Painel do Supabase confirma RLS ativo e uma política `ALL` para cada uma das 11 tabelas, incluindo `document_export_purchases_owner`; a política `applications_owner` exige relação com `jobs.owner_id = auth.uid()`; código cliente usa a chave publicável e o Render não exibe chave mestra | RLS aplicado e conferido no painel; prova real de isolamento por ID/download permanece em **P0.1**; não criar nova chave em **P0.6** |
