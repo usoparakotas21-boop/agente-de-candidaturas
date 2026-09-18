@@ -136,6 +136,7 @@ TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
 STATIC_DIR = Path(__file__).parent / "static"
+FAVICON_TAG = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">'
 
 
 @app.get("/static/{asset_path:path}", include_in_schema=False)
@@ -161,6 +162,13 @@ def _nonce_styles(html: str, nonce: str) -> str:
     )
 
 
+def _with_favicon(html: str) -> str:
+    """Attach the product favicon to every active HTML shell."""
+    if 'rel="icon"' in html.casefold():
+        return html
+    return html.replace("</head>", FAVICON_TAG + "</head>", 1)
+
+
 def _style_nonce_bootstrap(nonce: str) -> str:
     """Allow trusted external enhancements to create nonce-bearing styles."""
     return (
@@ -175,6 +183,7 @@ def _style_nonce_bootstrap(nonce: str) -> str:
 
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
+    html = _with_favicon(html)
     if path.name == "settings.html":
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
@@ -660,6 +669,7 @@ def root():
     if not LANDING_PATH.is_file():
         return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
     html = LANDING_PATH.read_text(encoding="utf-8")
+    html = _with_favicon(html)
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     nonce = current_csp_nonce()
     html = _nonce_styles(html, nonce)
@@ -680,19 +690,19 @@ def root_head():
 @app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
 def terms_page():
     nonce = current_csp_nonce()
-    return HTMLResponse(_nonce_styles(TERMS_PATH.read_text(encoding="utf-8"), nonce))
+    return HTMLResponse(_nonce_styles(_with_favicon(TERMS_PATH.read_text(encoding="utf-8")), nonce))
 
 @app.get("/privacidade", response_class=HTMLResponse, include_in_schema=False)
 def privacy_page():
     nonce = current_csp_nonce()
-    return HTMLResponse(_nonce_styles(PRIVACY_PATH.read_text(encoding="utf-8"), nonce))
+    return HTMLResponse(_nonce_styles(_with_favicon(PRIVACY_PATH.read_text(encoding="utf-8")), nonce))
 
 @app.get("/auth/verification-required", response_class=HTMLResponse, include_in_schema=False)
 def email_verification_page():
     if not EMAIL_VERIFICATION_PATH.is_file():
         raise HTTPException(500, "Pagina de confirmacao nao encontrada.")
     nonce = current_csp_nonce()
-    return HTMLResponse(_nonce_styles(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8"), nonce))
+    return HTMLResponse(_nonce_styles(_with_favicon(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8")), nonce))
 
 @app.get("/health", include_in_schema=False)
 def health():
