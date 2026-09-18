@@ -77,6 +77,11 @@ app.include_router(queue_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
+DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
+    300,
+    int(os.getenv("DOCUMENT_CLEANUP_INTERVAL_SECONDS", str(24 * 60 * 60))),
+)
+_retention_task: asyncio.Task | None = None
 
 
 async def _run_document_work(function, *args):
@@ -87,6 +92,19 @@ async def _run_document_work(function, *args):
         )
     except asyncio.TimeoutError as exc:
         raise HTTPException(504, "O processamento demorou mais que o limite seguro. Tente um arquivo menor ou novamente em instantes.") from exc
+
+
+async def _document_retention_loop():
+    """Sweep private generated files periodically while the web worker lives."""
+    while True:
+        try:
+            await asyncio.to_thread(cleanup_expired_documents)
+            await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falha na limpeza periódica de documentos")
+            await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
 
 
 async def _run_fetch_work(function, *args):
@@ -473,6 +491,7 @@ def _save_analysis(app, analysis, cand):
 
 @app.on_event("startup")
 def startup():
+    global _retention_task
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -497,11 +516,21 @@ def startup():
     finally:
         db.close()
     cleanup_expired_documents()
+    if _retention_task is None or _retention_task.done():
+        _retention_task = asyncio.create_task(_document_retention_loop())
     start_monitor()
     start_outlook_monitor()
 
 @app.on_event("shutdown")
 async def shutdown():
+    global _retention_task
+    if _retention_task is not None:
+        _retention_task.cancel()
+        try:
+            await _retention_task
+        except asyncio.CancelledError:
+            pass
+        _retention_task = None
     await stop_monitor()
     await stop_outlook_monitor()
 
