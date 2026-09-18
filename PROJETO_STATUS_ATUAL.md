@@ -183,7 +183,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Magic bytes, MIME real, diretório privado e parsing isolado | Validação real aprovada para intake; fronteira de download reforçada | Em produção, um PDF falso sem assinatura `%PDF-` foi rejeitado sem criar vaga e um PDF válido foi reconhecido no preview, permanecendo sem salvar até confirmação. As rotas de download agora rejeitam caminhos fora do diretório privado; falta confirmar limpeza/isolamento final em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
-| Assinatura, replay e idempotência de webhook | Parcialmente feito | Mercado Pago tem HMAC no código, mas falta segredo e replay real. Tudo fica em **P0.5** |
+| Assinatura, replay e idempotência de webhook | Código reforçado; validação operacional pendente | Mercado Pago exige HMAC com janela de 5 minutos, consulta server-to-server, moeda BRL, valor exato, `order_nsu`/`payment_id` e transição idempotente; falta replay/checkout real em **P0.5** |
 | Mensagens de erro genéricas | Feito no código | Apenas revisar endpoints legados em **P0.8**; não expor stack trace ou detalhes de provedor |
 | OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
 | Backup diário, restauração e revogação | Runbook feito | Evidência de backup e teste real permanecem em **P0.11** |
@@ -232,7 +232,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 2. **Uploads e arquivos — validação parcial:** PDF falso rejeitado e PDF válido reconhecido no preview sem salvar; rotas de download agora confinam o caminho ao diretório privado. Ainda conferir limpeza de temporários em **P0.2**.
 3. **MFA — interface publicada e validação parcial:** a tela de segurança em produção exibe configuração, sessões e mostrar/ocultar senha; ainda testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
-5. **Webhook Mercado Pago — configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; falta validar HMAC/replay e executar checkout controlado.
+5. **Webhook Mercado Pago — código reforçado e configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; o código agora rejeita valor divergente e moeda diferente de BRL, além de HMAC/replay/idempotência. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — revisão de código concluída:** confirmar no Supabase/Render a ausência de chave mestra exposta, executar scanner de segredos e verificar a conexão PostgreSQL efetiva com TLS.
 7. **CSP e superfícies de renderização — código parcial:** concluir a migração de `style-src 'unsafe-inline'` e revisar as telas restantes após a sanitização central.
 8. **Erros públicos — código concluído:** revisar endpoints operacionais legados para garantir mensagens estáveis e detalhes somente nos logs.

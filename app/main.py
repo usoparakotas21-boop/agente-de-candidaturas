@@ -1156,6 +1156,8 @@ async def mercadopago_webhook(request: Request):
     order_nsu = str(payment.get("external_reference") or "").strip()
     if not order_nsu:
         return {"received": True, "verified": False}
+    if str(payment.get("currency_id") or "").strip().upper() != "BRL":
+        return {"received": True, "verified": False}
     db = SessionLocal()
     try:
         purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
