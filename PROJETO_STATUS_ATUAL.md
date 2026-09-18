@@ -218,7 +218,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Modal abre com textos repetidos “Carregando...” | Ainda não há skeleton screen; trocar por blocos de carregamento é melhoria de percepção, sem impacto de segurança | P1.15 |
 | Cabeçalho escuro duplicado no dashboard e subpáginas | Dashboard mantém seu cabeçalho próprio; subpáginas, incluindo `/seguranca`, mantêm somente a navegação global e o breadcrumb | **P1.15 concluído e validado em produção** |
 | Botões Aprovar/Recusar genéricos e subtítulo de alerta repetido | Decisão e status são dados distintos; renomear ações e reduzir o subtítulo exige revisar copy e transições | P1.3, junto do modelo de decisão; não implementar só por aparência |
-| Botão Limpar próximo da ação principal | Ação continua disponível, mas deve virar link/ação neutra com confirmação quando houver conteúdo | P1.15 |
+| Botão Limpar próximo da ação principal | Corrigido: virou `Limpar formulário`, com aparência neutra, confirmação quando há rascunho/prévia e retorno de foco ao primeiro campo | **P1.15 concluído e validado em produção** |
 | Visualização da senha no login/cadastro/alteração | Controles mostrar/ocultar já existem; a tela de Segurança também teve o texto auxiliar do MFA corrigido para ficar em linha própria | P1.15 |
 | Placeholders de salário ausentes | Adicionados exemplos `Ex.: 8.000` e `Ex.: 12.000` nas configurações | P1.9 concluído no código |
 | R$ 9,90 avulso, FAQ e prova social na landing | A linha do avulso pode ser adicionada com o preço real; FAQ é copy útil; números de prova social só entram quando vierem de métricas observadas | P1.16; métricas de conversão permanecem P1.1 |
@@ -259,7 +259,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
-15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; `Limpar` como ação neutra com confirmação continua pendente. O Banco de vagas foi reaberto em produção e exibiu o estado vazio/contadores normalmente, sem reproduzir o crash.
+15. **Skeleton e proteção do formulário entregues:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; `Limpar formulário` agora é uma ação neutra e confirma a perda quando existe rascunho ou prévia. O Banco de vagas foi reaberto em produção e exibiu o estado vazio/contadores normalmente, sem reproduzir o crash.
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
 
 ### Próximo ciclo prático já classificado
@@ -285,8 +285,8 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports, o fail-closed do webhook, a preservação de respostas HTTP no feedback global e a rotina segura de backup: **127 testes aprovados em 5,03 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard` e rejeição 401 do webhook sem assinatura; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
-- A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload e da automação de backup: **127 testes aprovados em 5,03 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports, o fail-closed do webhook, a preservação de respostas HTTP no feedback global, a rotina segura de backup e a proteção do rascunho no estúdio: **128 testes aprovados em 5,04 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard`, rejeição 401 do webhook sem assinatura e o diálogo de confirmação ao limpar um formulário preenchido; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup e da proteção contra limpeza acidental: **128 testes aprovados em 5,04 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
 - A comparação salarial passou a usar limites estruturados da vaga quando disponíveis, com fallback para texto legado; Gmail também encaminha esses campos para a fila; a suíte completa ficou em **117 testes aprovados em 5,06 s**, com 6 avisos de depreciação sem falhas.
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
@@ -325,11 +325,11 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; o cadastro agora exige os dois aceites e registra versões/data UTC no metadata do usuário | Implementado em **P1.7**; trilha imutável administrativa é melhoria posterior; textos legais em **P1.11** |
-| Exportação e exclusão LGPD | Não há fluxo de portabilidade e exclusão definitiva | **P1.6** |
-| Recibo por e-mail | `receipt_url` pode ser persistida, mas não há envio automático | **P1.10** |
+| Exportação e exclusão LGPD | Exportação JSON owner-scoped está disponível na área de Segurança; exclusão definitiva, cascata e expurgo de objetos permanecem pendentes | **P1.6 parcialmente entregue** |
+| Recibo por e-mail | Envio idempotente está implementado após confirmação do Mercado Pago; falta configurar e testar o SMTP transacional em produção | **P1.10 parcialmente entregue** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 127 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 128 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou abertura/fechamento por teclado nos modais de captação e preferências | Parcialmente validado; falta o drawer de candidatura e o ciclo completo de Tab em **P0.12** |
 
 ### Verificação direta do Supabase — 17/09/2026
@@ -368,6 +368,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `4cddd50` | Ação neutra `Limpar formulário` com confirmação contra perda acidental, validada em produção; testes 128/128 |
 | `2315bfc` | Remoção do segundo cabeçalho da tela de Segurança, validada em produção |
 | `0f9f6e2` | Rotina segura e verificável de backup externo do Supabase Free |
 | `f75c99c` | Feedback de upload acessível, sem status global obsoleto |
