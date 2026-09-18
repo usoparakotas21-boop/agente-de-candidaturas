@@ -262,6 +262,23 @@ As sugestões de raspagem foram comparadas com a implementação atual e classif
 
 O desenho aprovado para a fila é, portanto: **P1.20** (legalidade e proveniência) → **P2.1** (APIs autorizadas) → **P2.2** (piloto ATS público) → **P2.3/P2.4** (pipeline, limites, scheduler e workers) → **P2.5** (observabilidade por fonte) → expansão gradual. A proposta de proxies rotativos e stealth fica explicitamente fora do escopo até existir justificativa legal e operacional documentada.
 
+### Auditoria da proposta de DDL e worker de ingestão — 18/09/2026
+
+Esta proposta foi tratada como desenho técnico para a fila, não como autorização para criar a tabela ou iniciar coletas. O modelo atual usa `jobs` para oportunidades do usuário e `queue_items` para a fila de decisão; ambos já têm proprietário, campos estruturados, sanitização e RLS. A proposta de `job_listings` representa um catálogo externo compartilhado e só deve ser adotada se essa distinção for necessária.
+
+| Requisito técnico | O que já existe | Classificação e forma correta de completar |
+| --- | --- | --- |
+| Tabela `job_listings` com título, empresa, local, modalidade, regime, salário, URL, descrição e status | Não existe uma tabela separada; os campos equivalentes já estão em `jobs`/`queue_items`, com `contract_type`, `modality`, limites salariais, URL e descrição | **P2.3**; primeiro decidir se haverá catálogo compartilhado. Se a ingestão continuar por usuário, reutilizar os modelos existentes. Se houver catálogo global, criar uma tabela própria com `visibility`, `source_url/canonical_url`, proveniência, `first_seen_at/last_seen_at` e retenção, sem duplicar dados por acidente |
+| Índice único `(source_name, external_id)` | `Job.external_id` é único e a fila usa `dedup_hash` por proprietário; não há chave composta por fonte e identificador externo | **P2.3 novo**; o catálogo global deve usar essa chave composta (ou constraint equivalente), normalização de fonte e tratamento explícito de identificador ausente |
+| Valores controlados para `work_mode`, `contract_type` e `status` | O parser já normaliza modalidade, CLT/PJ/MEI e outros regimes, com confiança por campo; a fila registra a decisão e o status operacional | **P1.9/P2.3**; manter enumeração/validação no banco e separar `active/expired` da decisão da fila e do status da candidatura |
+| RLS com leitura pública/autenticada e escrita só por serviço/admin | RLS está ativo nas 11 tabelas atuais, com políticas owner-scoped; não existe política para um catálogo público | **P0.1/P0.6 como gates de aceite da nova tabela, dentro da entrega P2.3**; preferir leitura autenticada ou uma view pública mínima. Escrita deve ocorrer apenas no backend/worker com segredo server-side; nunca expor chave de serviço no cliente |
+| Worker que busca ATS/API pública | O `job_source_fetcher` lê JSON-LD de uma URL pública fornecida pelo usuário; Gmail/Outlook e intake funcionam no processo web | **P2.2/P2.4**; criar adaptadores por fonte e worker agendado somente após P1.20 e aprovação da fonte |
+| Sanitização e extração de palavras-chave | `sanitize_untrusted_text`, parser de título/empresa e classificadores de modalidade, regime e salário já existem; casos de alerta e HTML têm regressão | **P1.9/P1.3 parcialmente coberto**; o worker deve reutilizar o mesmo parser central, sem uma segunda regra divergente |
+| Upsert por `(source_name, external_id)` | `queue_service.enqueue` faz deduplicação por URL/hash e incrementa reaparições, mas não faz upsert de um catálogo por chave externa; o `external_id` de jobs promovidos é gerado de outra forma | **P2.3 novo**; implementar upsert transacional na constraint composta, atualizar `updated_at/last_seen_at`, marcar expiração e preservar histórico de origem |
+| DDL/migração pronta para aplicação | Não há migração `job_listings` nem contrato de fonte ativo | **Não implementar agora**; elaborar a migração somente junto do primeiro conector aprovado, incluindo índices, constraints, RLS, teste IDOR e estratégia de rollback |
+
+Decisão registrada: não criar `job_listings` apenas para satisfazer o formato sugerido. A ordem é **P1.20** (legalidade/proveniência) → **P2.1/P2.2** (fonte autorizada e piloto) → **P2.3** (modelo, constraint composta, upsert, parser reutilizado e deduplicação) → **P2.4** (worker/scheduler) → **P2.5** (saúde por fonte). Ao introduzir a tabela, a validação de RLS/IDOR e a revisão de segredos voltam a ser obrigatórias antes de publicar.
+
 
 ## Próximas prioridades
 
