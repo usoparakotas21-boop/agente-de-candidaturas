@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `806af91` — `feat: schedule private document retention sweeps`
+**Commit publicado:** `84aba3c` — `feat: expose structured job intake signals`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -44,7 +44,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Integração Outlook/Microsoft Graph com escopo de leitura e monitor equivalente.
 - Detecção de duplicidade e registro de mensagens já processadas.
 - Parser de localização, modalidade e salário em vários formatos.
-- Modalidades Presencial, Híbrido e Remoto já são reconhecidas parcialmente.
+- Modalidades Presencial, Híbrido e Remoto já são reconhecidas; a prévia de intake agora também devolve confiança de modalidade, salário e regime.
 - Análise de aderência com score, pontos fortes, lacunas, recomendação e justificativa.
 - Motor de decisão com `AUTOMATICA`, `REVISAR` e `DESCARTAR`.
 - Confiança de captura abaixo de 80%, localização/modalidade ausentes e pendências relevantes levam a revisão.
@@ -123,7 +123,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
 - OCR, parsing, confirmação e busca externa já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
 - O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial; ainda falta confirmar os backups do projeto Supabase, executar o teste real e registrar a evidência fora do Git.
-- Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
+- A prévia de intake já classifica CLT, PJ, MEI, estágio, temporário e freelance e informa confiança para modalidade, salário e regime; persistência desses campos no modelo de vaga e regras completas de pretensão salarial continuam pendentes.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
 - A retenção local de documentos gerados usa prazo configurável e agora roda no startup e em rotina periódica; expurgo de Storage, prints persistidos e rascunhos abandonados continua pendente porque não há bucket ativo.
@@ -193,7 +193,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído no código; validar as URLs públicas no deploy |
 | Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
 | Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
-| CLT/PJ/MEI, modalidade, salário e pretensão | Necessário para análise brasileira | **P1.9**; separar salário oferecido de pretensão do candidato e exibir confiança da extração |
+| CLT/PJ/MEI, modalidade, salário e pretensão | A prévia agora devolve modalidade, regime e confiança; a vaga persistida ainda não guarda o regime como campo próprio | **P1.9** em andamento; separar salário oferecido de pretensão do candidato e persistir a confiança |
 | Métrica de entrevistas por 100 candidaturas | Divisor de águas | **P1.1**, antes de prometer aumento de conversão; exige atribuição por canal e versão do documento |
 | Proteção contra golpes | Deve ser destaque de produto | **P1.2**; transformar sinais atuais em decisão de risco visível antes da candidatura |
 | Heurísticas de RH brasileiro | Diferencial válido | **P1.3**, versionadas, explicáveis e testadas junto da IA |
@@ -254,7 +254,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 7. **Consentimento versionado entregue:** o cadastro exige os dois aceites, registra `terms_version`, `privacy_version` e `consented_at` no metadata enviado ao Supabase Auth; uma trilha imutável administrativa continua opcional.
 8. **Primeira camada entregue:** expurgo periódico de documentos gerados no armazenamento privado, com prazo configurável por `DOCUMENT_RETENTION_DAYS` e intervalo por `DOCUMENT_CLEANUP_INTERVAL_SECONDS`; expurgo de Storage/prints/rascunhos depende da adoção de bucket e de registros persistidos para esses artefatos.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
-10. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
+10. **Primeira camada entregue:** parser de intake classifica CLT/PJ/MEI/estágio/temporário/freelance e retorna confiança de regime, modalidade e salário nas prévias; persistir os campos na vaga e separar pretensão salarial da remuneração oferecida continua pendente.
 11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. Sincronizar o card de onboarding com o perfil e as preferências reais.
@@ -286,7 +286,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
-- A suíte automatizada em `tests/` foi reexecutada após a rotina periódica de retenção: **112 testes aprovados em 5,14 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- A suíte automatizada em `tests/` foi reexecutada após o parsing estruturado de regime: **113 testes aprovados em 4,98 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
 - A primeira entrega de P1.2 foi validada na suíte completa: **107 testes aprovados em 5,68 s**. A fila passa a expor faixa/score de risco e sinais resumidos de golpe; o motor continua forçando descarte ou revisão conforme a banda, sem liberar automaticamente uma vaga suspeita.
 - P1.3 recebeu versionamento explícito das heurísticas brasileiras: decisões manuais e alertas Gmail registram `br-rh-1` junto da versão do motor; a suíte completa permaneceu em **107 testes aprovados**.
