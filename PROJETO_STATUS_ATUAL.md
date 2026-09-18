@@ -242,6 +242,26 @@ As novas sugestões foram comparadas com o que já está publicado. Os percentua
 
 Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de isolamento, uploads, MFA, confirmação de e-mail, Mercado Pago, senhas comprometidas e backup. O suporte e os e-mails entram depois desses gates porque dependem de uma operação pagante estável.
 
+### Auditoria de job scraping e ingestão de fontes — 18/09/2026
+
+As sugestões de raspagem foram comparadas com a implementação atual e classificadas por dependência, risco legal e necessidade operacional. A conclusão não autoriza scraping de plataformas protegidas nem uso imediato de proxies: primeiro entram fontes licenciadas ou páginas públicas permitidas, com limites claros e possibilidade de desligar cada conector.
+
+| Proposta | Estado atual | Conclusão e prioridade |
+| --- | --- | --- |
+| Captura por Gmail/Outlook e entrada manual por texto/arquivo | Já existe; o monitor identifica fontes, separa alertas agrupados, sanitiza o conteúdo e envia o resultado para a fila. A captação manual pode buscar uma página HTML pública com SSRF, redirecionamento, tamanho e timeout limitados | **Coberto em P0/P1**; manter regressões e ampliar amostras por provedor em **P1.3/P1.8** |
+| Parser estruturado de modalidade, CLT/PJ/MEI, salário e senioridade | Já existe no intake e na vaga promovida, com confiança por campo e distinção entre salário da vaga e preferências do candidato | **P1.9 em andamento**; enriquecer por fonte quando novos conectores forem aceitos |
+| Deduplicação de vagas | Parcialmente existe: `QueueItem` usa hash de URL limpa ou cargo/empresa/local, com contagem de reaparições; o intake também cria `external_id` determinístico | **P2 — completar identidade canônica** com `external_id` da fonte, URL canônica e fingerprint de conteúdo; fuzzy matching só como fallback revisável |
+| APIs oficiais ou agregadores (por exemplo Jooble/Adzuna) | Não há adaptadores nem contrato ativo mapeado | **P2.1 novo**; comparar licença, custo, cobertura Brasil, limites e atribuição antes de desenvolver. Só fontes autorizadas entram |
+| Conectores para ATS públicos (Gupy e portais de carreira) | Os links são reconhecidos e podem ser lidos quando fornecidos pelo usuário, mas não existe coleta agendada por ATS | **P2.2 novo**; piloto de duas ou três fontes públicas estáveis, cada uma com parser e chave de desligamento próprios |
+| Fetcher → parser → deduplicador → enriquecedor | As peças existem de forma síncrona para intake e Gmail; não há pipeline de descoberta contínua | **P2.3**; consolidar uma interface de ingestão para reuso das peças atuais e incluir senioridade, modalidade, regime, salário e proveniência |
+| Agendamento e workers assíncronos | OCR/IA e monitores ainda compartilham o processo web; workers separados e limites distribuídos já estão no P2 | **P2.4**; incluir scheduler, filas, concorrência por fonte, backoff e timeout. Não é requisito para o primeiro ciclo pago |
+| Saúde dos conectores e alerta abaixo de 80% | UptimeRobot cobre a saúde do serviço, mas não mede sucesso por fonte/conector | **P2.5 novo**; registrar tentativas, sucesso, bloqueios, latência e parsing inválido, com alerta e pausa automática quando a qualidade cair |
+| Anti-bot, stealth browser e proxies rotativos | Não existe e não deve ser adicionado por padrão | **Fora da fila atual**; só avaliar em decisão posterior, depois de licença/Termos/robots e necessidade comprovada. Respeitar bloqueios e desligar a fonte é o comportamento padrão |
+| Rate limit e proteção da origem | Rate limiting da aplicação está no P0; falta orçamento específico por fonte para uma coleta futura | **P2.3/P2.4**; aplicar intervalos, User-Agent identificável, backoff e teto por domínio antes de qualquer coleta agendada |
+| Legalidade, robots/Termos, atribuição e retenção do dado bruto | A LGPD e a retenção de artefatos já estão mapeadas, mas ainda não há um registro de fonte com base legal, licença, robots, atribuição e prazo de descarte | **P1.20 novo, antes de P2.1/P2.2**; aprovar cada fonte, registrar proveniência e limitar a retenção do HTML/texto bruto |
+
+O desenho aprovado para a fila é, portanto: **P1.20** (legalidade e proveniência) → **P2.1** (APIs autorizadas) → **P2.2** (piloto ATS público) → **P2.3/P2.4** (pipeline, limites, scheduler e workers) → **P2.5** (observabilidade por fonte) → expansão gradual. A proposta de proxies rotativos e stealth fica explicitamente fora do escopo até existir justificativa legal e operacional documentada.
+
 
 ## Próximas prioridades
 
@@ -282,6 +302,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 17. **UX de primeiro acesso e polimento final — entrega parcial publicada:** o dashboard agora oferece um tour guiado dispensável em três passos, com estado persistido no navegador e ações para currículos, preferências e captação. Também recebeu hover nos botões principais, pulso do status conectado, feedback de processamento na importação do currículo e respeito a `prefers-reduced-motion`. A tela de Currículos passou a agrupar o resultado do OCR por experiências, competências, formação e idiomas, e o estúdio mostra progresso com spinner e `aria-busy` ao gerar a prévia; ainda faltam estados de progresso mais completos nas demais telas e a revisão final das mensagens de recuperação.
 18. **Suporte e ajuda contextual — primeira entrega publicada:** `/ajuda` é uma central pública, acessível antes do login e também pelo menu de Ações do dashboard, com respostas sobre formatos, candidatura manual, privacidade, Mercado Pago, arquivos recusados e preferências. Faltam apenas um widget/canal de atendimento real e medir as dúvidas mais frequentes para evoluir a FAQ.
 19. **E-mails de ciclo de vida — preparação publicada:** as preferências de frequência (`diário`, `imediato`, `semanal` ou `nenhum`) e os tipos de aviso para entrevistas, follow-up e expiração agora são persistidos junto às preferências da conta. A duplicidade antiga de controles foi removida e nenhum canal de suporte fictício é exibido. Depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, respeitando essas escolhas e sem envio automático de candidatura.
+20. **Legalidade e proveniência de fontes de vagas — novo item de preparação:** antes de adicionar APIs, ATS ou qualquer coleta agendada, manter uma allowlist com Termos/robots/licença, base legal, atribuição, limites por domínio, origem do registro e prazo para apagar conteúdo bruto. Fontes bloqueadas ou sem autorização ficam fora; este gate antecede o P2 de escala.
 
 ### Próximo ciclo prático já classificado
 
@@ -291,13 +312,16 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 
 ### P2 — escala e diferenciação
 
-- Separar Gmail/Outlook em worker próprio e monitorar falhas.
-- Separar OCR/IA e tarefas de documentos em worker próprio com limites distribuídos de concorrência/CPU; os timeouts HTTP atuais continuam sendo a proteção do P0.
-- Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
-- Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
-- Criar extensão de navegador para captação autorizada.
-- Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
-- Adicionar aprendizado baseado nos resultados das candidaturas depois que houver volume e atribuição confiáveis.
+1. **P2.1 — APIs autorizadas de vagas:** avaliar e integrar agregadores/parceiros somente após o gate P1.20, com licença, cobertura, custo, limites e atribuição documentados.
+2. **P2.2 — Piloto de ATS públicos:** começar com duas ou três fontes públicas estáveis, como Gupy e portais de carreira, usando adaptadores pequenos e desligáveis; não iniciar por LinkedIn/Catho protegidos.
+3. **P2.3 — Pipeline e orçamento por fonte:** consolidar fetcher, parser, deduplicador, enriquecedor e proveniência, com `external_id`/URL canônica/fingerprint, rate limit, backoff e limites de conteúdo.
+4. **P2.4 — Workers e agendamento:** separar Gmail/Outlook, OCR/IA/documentos e ingestão de fontes em workers com filas, timeout, concorrência distribuída e retry controlado.
+5. **P2.5 — Saúde dos conectores:** medir sucesso de busca, bloqueio, latência, parse válido e duplicidade por fonte; pausar e alertar quando a taxa cair abaixo do limite definido (referência inicial: 80%).
+6. Configurar domínio próprio, DNS autoritativo redundante e recuperação operacional; quando o domínio definitivo existir, avaliar proxy da Cloudflare para filtrar tráfego L7 antes do Render.
+7. Adicionar Kanban de candidaturas e exportação CSV/Excel/JSON.
+8. Criar extensão de navegador para captação autorizada.
+9. Criar painel administrativo para acompanhar a operação e as métricas já instrumentadas.
+10. Adicionar aprendizado baseado nos resultados das candidaturas depois que houver volume e atribuição confiáveis.
 
 ## Validações recentes
 
