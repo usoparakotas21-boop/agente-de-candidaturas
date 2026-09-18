@@ -1,6 +1,12 @@
+import io
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from PIL import Image
+
+from app import job_file_intake
 from app.job_file_intake import MAX_JOB_FILE_BYTES, extract_job_file_text
 
 
@@ -32,6 +38,30 @@ class JobFileIntakeTest(unittest.TestCase):
         result = extract_job_file_text(b"imagem", "vaga.png")
         self.assertEqual(result["method"], "local_ocr")
         self.assertIn("Coordenador", result["text"])
+
+    def test_ocr_removes_temporary_files_when_engine_fails(self):
+        image = io.BytesIO()
+        Image.new("RGB", (2, 2), "white").save(image, format="PNG")
+        created: list[Path] = []
+        real_named_temporary_file = tempfile.NamedTemporaryFile
+
+        def tracked_named_temporary_file(*args, **kwargs):
+            handle = real_named_temporary_file(*args, **kwargs)
+            created.append(Path(handle.name))
+            return handle
+
+        class FailingEngine:
+            def __call__(self, _path):
+                raise RuntimeError("falha simulada do OCR")
+
+        with patch.object(job_file_intake.tempfile, "NamedTemporaryFile", tracked_named_temporary_file), patch.object(
+            job_file_intake, "_ocr_engine", return_value=FailingEngine()
+        ):
+            with self.assertRaisesRegex(RuntimeError, "falha simulada"):
+                job_file_intake._ocr_text(image.getvalue(), ".png")
+
+        self.assertTrue(created)
+        self.assertTrue(all(not path.exists() for path in created))
 
 
 if __name__ == "__main__":
