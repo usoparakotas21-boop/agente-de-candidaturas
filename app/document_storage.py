@@ -23,6 +23,18 @@ def _output_dir() -> Path:
 OUTPUT_DIR = _output_dir()
 
 
+def resolve_document_path(raw_path: str | os.PathLike[str] | None) -> Path:
+    """Resolve a generated document only when it stays inside private storage."""
+    if not raw_path:
+        raise ValueError("Caminho de documento ausente.")
+    candidate = Path(raw_path).expanduser().resolve()
+    try:
+        candidate.relative_to(OUTPUT_DIR.resolve())
+    except ValueError as exc:
+        raise ValueError("Caminho de documento fora do armazenamento privado.") from exc
+    return candidate
+
+
 def cleanup_expired_documents(*, max_age_days: int | None = None) -> int:
     try:
         age_days = int(max_age_days or os.getenv("DOCUMENT_RETENTION_DAYS", "60"))

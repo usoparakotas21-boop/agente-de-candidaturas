@@ -8,6 +8,18 @@ from app import document_storage
 
 
 class DocumentStorageTest(unittest.TestCase):
+    def test_resolve_document_path_rejects_paths_outside_private_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            private = root / "documents"
+            private.mkdir()
+            inside = private / "curriculo.docx"
+            outside = root / "segredo.txt"
+            with patch.object(document_storage, "OUTPUT_DIR", private):
+                self.assertEqual(document_storage.resolve_document_path(str(inside)), inside.resolve())
+                with self.assertRaisesRegex(ValueError, "fora do armazenamento privado"):
+                    document_storage.resolve_document_path(str(outside))
+
     def test_cleanup_removes_only_expired_document_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

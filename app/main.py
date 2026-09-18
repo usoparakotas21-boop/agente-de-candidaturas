@@ -37,7 +37,7 @@ from .models import Application, ApplicationEvent, Candidate, DocumentExportPurc
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
-from .document_storage import cleanup_expired_documents
+from .document_storage import cleanup_expired_documents, resolve_document_path
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -1177,7 +1177,10 @@ def download_doc(app_id: int, user=Depends(authenticated_user)):
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
         if not app.document_path: raise HTTPException(404, "Nao possui curriculo gerado.")
-        path = Path(app.document_path).resolve()
+        try:
+            path = resolve_document_path(app.document_path)
+        except ValueError as exc:
+            raise HTTPException(404, "Arquivo nao encontrado.") from exc
         if not path.is_file(): raise HTTPException(404, "Arquivo nao encontrado.")
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name)
     finally: db.close()
@@ -1257,7 +1260,10 @@ def download_cover_letter(app_id: int, user=Depends(authenticated_user)):
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
         if not app.cover_letter_path: raise HTTPException(404, "Nao possui carta gerada.")
-        path = Path(app.cover_letter_path).resolve()
+        try:
+            path = resolve_document_path(app.cover_letter_path)
+        except ValueError as exc:
+            raise HTTPException(404, "Arquivo nao encontrado.") from exc
         if not path.is_file(): raise HTTPException(404, "Arquivo nao encontrado.")
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name)
     finally: db.close()
