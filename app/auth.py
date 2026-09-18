@@ -376,21 +376,37 @@ def _mfa_login_enforced() -> bool:
 
 
 async def _verified_mfa_factor(access_token: str) -> dict | None:
+    """Return the user's verified MFA factor from the authenticated user payload.
+
+    Supabase exposes enrolled factors as part of ``GET /auth/v1/user`` (the same
+    response used by ``auth.getUser``/``mfa.listFactors``).  Keeping this lookup
+    on the Auth API avoids relying on the project database REST schema, where
+    ``/rest/v1/auth/factors`` is not available.
+    """
     try:
-        response = await _supabase_request("GET", "/rest/v1/auth/factors", token=access_token)
+        response = await _supabase_request("GET", "/auth/v1/user", token=access_token)
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
     if response.status_code != 200:
-        logger.warning("Supabase MFA factors request returned HTTP %s", response.status_code)
+        logger.warning("Supabase user MFA lookup returned HTTP %s", response.status_code)
         raise HTTPException(503, "Nao foi possivel verificar o segundo fator agora.")
     try:
         payload = response.json()
     except ValueError as exc:
         raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
-    factors = payload.get("totp") if isinstance(payload, dict) else []
+    factors = payload.get("factors") if isinstance(payload, dict) else []
     if not isinstance(factors, list):
         factors = []
-    return next((factor for factor in factors if factor.get("status") == "verified"), None)
+    return next(
+        (
+            factor
+            for factor in factors
+            if isinstance(factor, dict)
+            and (factor.get("factor_type") or factor.get("type")) == "totp"
+            and factor.get("status") == "verified"
+        ),
+        None,
+    )
 
 
 async def _resolve_session(request: Request) -> tuple[dict | None, dict | None]:
@@ -741,18 +757,7 @@ async def mfa_status(request: Request, user: dict = Depends(authenticated_user))
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")
-    try:
-        response = await _supabase_request("GET", "/rest/v1/auth/factors", token=access_token)
-    except httpx.HTTPError as exc:
-        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
-    if response.status_code != 200:
-        logger.warning("Supabase MFA status request returned HTTP %s", response.status_code)
-        raise HTTPException(503, "Nao foi possivel consultar o segundo fator agora.")
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
-    factors = payload.get("totp") if isinstance(payload, dict) else []
+    factors = user.get("factors") if isinstance(user, dict) else []
     if not isinstance(factors, list):
         factors = []
     return {
@@ -764,8 +769,14 @@ async def mfa_status(request: Request, user: dict = Depends(authenticated_user))
                 "friendly_name": factor.get("friendly_name"),
             }
             for factor in factors
+            if isinstance(factor, dict)
         ],
-        "enabled": any(factor.get("status") == "verified" for factor in factors),
+        "enabled": any(
+            isinstance(factor, dict)
+            and (factor.get("factor_type") or factor.get("type")) == "totp"
+            and factor.get("status") == "verified"
+            for factor in factors
+        ),
     }
 
 

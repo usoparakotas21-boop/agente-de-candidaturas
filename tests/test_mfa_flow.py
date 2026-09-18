@@ -34,7 +34,7 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
         }
         responses = [
             httpx.Response(200, json=login_session),
-            httpx.Response(200, json={"totp": [{"id": "factor-1", "status": "verified"}]}),
+            httpx.Response(200, json={"id": "owner-a", "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}]}),
             httpx.Response(200, json={"id": "challenge-1"}),
         ]
         with (
