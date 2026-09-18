@@ -178,7 +178,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
 | Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
-| IDOR e RLS obrigatório | Validação parcial | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem. Falta testar acesso direto por ID e exportação em **P0.1** |
+| IDOR e RLS obrigatório | Validação real parcial aprovada | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem e a tentativa direta de abrir `/dashboard?application_id=15` não revelou a candidatura. Falta testar a rota de exportação/download em **P0.1** |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
@@ -228,7 +228,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. **IDOR/RLS real — validação parcial concluída:** a conta B ficou sem as vagas/candidaturas da conta A na listagem. Ainda é necessário testar acesso direto por ID e exportação/download de recurso pertencente à outra conta no Supabase/PostgreSQL de produção.
+1. **IDOR/RLS real — validação parcial concluída:** a conta B ficou sem as vagas/candidaturas da conta A na listagem e a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A. Ainda é necessário testar a rota de exportação/download de recurso pertencente à outra conta no Supabase/PostgreSQL de produção.
 2. **Uploads e arquivos — código concluído, validação externa pendente:** executar casos reais de PDF/DOCX/imagem, conferir magic bytes, diretório privado e remoção de temporários.
 3. **MFA — interface publicada e validação parcial:** a tela de segurança em produção exibe configuração, sessões e mostrar/ocultar senha; ainda testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
