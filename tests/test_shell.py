@@ -53,6 +53,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("current=null", html)
         self.assertIn("$('title').focus()", html)
 
+    def test_dashboard_records_channel_and_external_result(self):
+        html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="statusChannel"', html)
+        self.assertIn('id="externalResult"', html)
+        self.assertIn("external_result: $(\"externalResult\").value", html)
+        self.assertIn("latestTracking", html)
+
 
 if __name__ == "__main__":
     unittest.main()
