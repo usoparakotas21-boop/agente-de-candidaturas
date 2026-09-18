@@ -62,6 +62,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("current=null", html)
         self.assertIn("$('title').focus()", html)
 
+    def test_document_studio_shows_generation_progress(self):
+        html = (Path(main_module.STATIC_DIR) / "document-studio.html").read_text(encoding="utf-8")
+        self.assertIn(".primary.busy", html)
+        self.assertIn("aria-busy", html)
+        self.assertIn("Gerando prévia...", html)
+        self.assertIn("button.classList.remove('busy')", html)
+
     def test_dashboard_records_channel_and_external_result(self):
         html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
         self.assertIn('id="statusChannel"', html)
