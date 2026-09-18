@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `eae1fe3` — `feat: harden profile settings recovery states`
+**Commit publicado:** `4172b1e` — `test: cover confirmation email resend flow`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
