@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `bab87b5` — `feat: persist lifecycle email preferences`
+**Commit publicado:** `9169e8e` — `fix: remove duplicated alert controls`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -281,7 +281,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
 17. **UX de primeiro acesso e polimento final — entrega parcial publicada:** o dashboard agora oferece um tour guiado dispensável em três passos, com estado persistido no navegador e ações para currículos, preferências e captação. Também recebeu hover nos botões principais, pulso do status conectado, feedback de processamento na importação do currículo e respeito a `prefers-reduced-motion`. A tela de Currículos passou a agrupar o resultado do OCR por experiências, competências, formação e idiomas, e o estúdio mostra progresso com spinner e `aria-busy` ao gerar a prévia; ainda faltam estados de progresso mais completos nas demais telas e a revisão final das mensagens de recuperação.
 18. **Suporte e ajuda contextual — primeira entrega publicada:** `/ajuda` é uma central pública, acessível antes do login e também pelo menu de Ações do dashboard, com respostas sobre formatos, candidatura manual, privacidade, Mercado Pago, arquivos recusados e preferências. Faltam apenas um widget/canal de atendimento real e medir as dúvidas mais frequentes para evoluir a FAQ.
-19. **E-mails de ciclo de vida — preparação publicada:** as preferências de frequência (`diário`, `imediato`, `semanal` ou `nenhum`) e os tipos de aviso para entrevistas, follow-up e expiração agora são persistidos junto às preferências da conta. Depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, respeitando essas escolhas e sem envio automático de candidatura.
+19. **E-mails de ciclo de vida — preparação publicada:** as preferências de frequência (`diário`, `imediato`, `semanal` ou `nenhum`) e os tipos de aviso para entrevistas, follow-up e expiração agora são persistidos junto às preferências da conta. A duplicidade antiga de controles foi removida e nenhum canal de suporte fictício é exibido. Depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, respeitando essas escolhas e sem envio automático de candidatura.
 
 ### Próximo ciclo prático já classificado
 
@@ -321,6 +321,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 - O estúdio de documentos passou a sinalizar a geração assíncrona com botão ocupado, spinner e mensagem orientada; a suíte completa ficou em **147 testes aprovados, 0 falhas** e a sintaxe do script foi validada com `node --check`.
 - As preferências de e-mail de ciclo de vida passaram na suíte direcionada e na suíte completa: **149 testes aprovados, 0 falhas**; valores fora da lista são normalizados para `daily` e as escolhas não disparam mensagens sem SMTP configurado.
 - A tela publicada de Configurações mostrou os controles de frequência e categorias de aviso no Render após o deploy `bab87b5`; nenhuma mensagem foi enviada durante a validação.
+- A correção dos alertas passou em `node --check` e na suíte completa: **150 testes aprovados, 0 falhas**; a validação local confirma que o script não recria controles nem contém `mailto` de suporte não configurado.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
