@@ -40,6 +40,7 @@ from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
+from .data_retention import cleanup_expired_raw_data
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -101,12 +102,21 @@ async def _document_retention_loop():
     while True:
         try:
             await asyncio.to_thread(cleanup_expired_documents)
+            await asyncio.to_thread(_cleanup_raw_intake_data)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception("Falha na limpeza periódica de documentos")
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
+
+
+def _cleanup_raw_intake_data() -> dict[str, int]:
+    db = SessionLocal()
+    try:
+        return cleanup_expired_raw_data(db)
+    finally:
+        db.close()
 
 
 async def _run_fetch_work(function, *args):
@@ -569,6 +579,7 @@ def startup():
                 db.execute(text(statement))
             db.commit()
             cleanup_expired_documents()
+            _cleanup_raw_intake_data()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
             start_monitor()
@@ -646,6 +657,7 @@ def startup():
     finally:
         db.close()
     cleanup_expired_documents()
+    _cleanup_raw_intake_data()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
     start_monitor()
