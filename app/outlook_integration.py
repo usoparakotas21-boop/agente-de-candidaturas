@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import time
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/auth/outlook", tags=["outlook"])
 AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 GRAPH_URL = "https://graph.microsoft.com/v1.0/me"
+logger = logging.getLogger(__name__)
 
 
 def _secret():
@@ -76,7 +78,11 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
     user = await authenticated_user(request)
     oid = _owner(user)
     if error:
-        raise HTTPException(400, f"Microsoft recusou a autorizacao: {error}")
+        logger.warning("Microsoft recusou a autorizacao Outlook: %s", error[:200])
+        raise HTTPException(
+            400,
+            "A Microsoft recusou a autorizacao. Tente conectar novamente.",
+        )
     if not code or not state:
         raise HTTPException(400, "Resposta OAuth incompleta.")
     _validate_state(state, oid)
@@ -88,7 +94,11 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
             except ValueError:
                 details = {}
             reason = details.get("error_description") or details.get("error") or "verifique Client Secret e Redirect URI."
-            raise HTTPException(400, f"A Microsoft recusou o token: {reason}")
+            logger.warning("Microsoft recusou o token OAuth: %s", str(reason)[:300])
+            raise HTTPException(
+                400,
+                "A Microsoft recusou o token de autorizacao. Tente conectar novamente.",
+            )
         tokens = token_response.json()
         graph = await client.get(GRAPH_URL, headers={"Authorization": f"Bearer {tokens.get('access_token', '')}"})
     if graph.status_code != 200:

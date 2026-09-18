@@ -3,6 +3,7 @@ import binascii
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import time
@@ -25,6 +26,7 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL_PROFILE_URL = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+logger = logging.getLogger(__name__)
 
 
 def _client_id() -> str:
@@ -169,7 +171,11 @@ async def gmail_authorization_callback(
     _require_configuration()
     owner_id = _owner_id(user)
     if error:
-        raise HTTPException(status_code=400, detail=f"Google recusou a autorizacao: {error}")
+        logger.warning("Google recusou a autorizacao Gmail: %s", error[:200])
+        raise HTTPException(
+            status_code=400,
+            detail="O Google recusou a autorizacao. Tente conectar novamente.",
+        )
     if not code or not state:
         raise HTTPException(status_code=400, detail="Resposta OAuth incompleta.")
     _validate_state(state, owner_id)

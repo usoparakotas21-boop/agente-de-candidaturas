@@ -3,7 +3,7 @@ import hmac
 import asyncio
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -14,6 +14,8 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import main as main_module
+from app import gmail_integration as gmail_integration_module
+from app import outlook_integration as outlook_integration_module
 from app import queue_routes as queue_routes_module
 from app.auth import AuthMiddleware
 from app.database import Base
@@ -77,6 +79,45 @@ class WebhookSecurityTest(unittest.TestCase):
             queue_routes_module._queue_action_error(error),
             "Nao foi possivel concluir a acao agora. Tente novamente em instantes.",
         )
+
+    def test_oauth_denials_do_not_echo_provider_details(self):
+        with patch.object(gmail_integration_module, "_require_configuration"):
+            with self.assertRaises(HTTPException) as gmail_error:
+                asyncio.run(
+                    gmail_integration_module.gmail_authorization_callback(
+                        error="access_denied&error_description=token-secreto",
+                        user={"id": "owner-a"},
+                    )
+                )
+        self.assertEqual(gmail_error.exception.status_code, 400)
+        self.assertNotIn("token-secreto", str(gmail_error.exception.detail))
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/auth/outlook/callback",
+                "headers": [],
+                "query_string": b"",
+                "server": ("testserver", 80),
+                "client": ("198.51.100.10", 50000),
+                "scheme": "https",
+            }
+        )
+        with patch.object(
+            outlook_integration_module,
+            "authenticated_user",
+            new=AsyncMock(return_value={"id": "owner-a"}),
+        ):
+            with self.assertRaises(HTTPException) as outlook_error:
+                asyncio.run(
+                    outlook_integration_module.callback(
+                        request,
+                        error="access_denied&error_description=token-secreto",
+                    )
+                )
+        self.assertEqual(outlook_error.exception.status_code, 400)
+        self.assertNotIn("token-secreto", str(outlook_error.exception.detail))
 
     def test_mercadopago_hmac_signature_is_required_and_time_limited(self):
         secret = "test-webhook-secret"
