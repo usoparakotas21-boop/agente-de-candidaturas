@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `4bfd7a4` — `test: preserve optional MFA login behavior`
+**Commit publicado:** `691e036` — `feat: add contextual help center`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -315,6 +315,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 - O polimento visual do dashboard foi validado com a suíte de shell, verificação de sintaxe JavaScript e a suíte completa em **144 testes aprovados, 0 falhas**; transições e o pulso do status são desativados para usuários que preferem movimento reduzido.
 - A importação em `/curriculos` passou a indicar processamento com spinner, `aria-busy` e mensagem orientada à etapa; a sintaxe do script, os testes de shell e a suíte completa permaneceram aprovados (**144/144**).
 - A Central de Ajuda pública foi publicada em `/ajuda`, incluída na lista de rotas sem autenticação e ligada ao menu de Ações do dashboard; o teste de shell confirma conteúdo sobre formatos, privacidade, pagamentos e recuperação de erros. A suíte completa passou para **145 testes aprovados, 0 falhas**.
+- A verificação externa pós-deploy confirmou `/ajuda` com HTTP 200 e conteúdo de formatos, privacidade e pagamentos no Render; a rota continua pública para leitura antes do login.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
