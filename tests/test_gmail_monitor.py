@@ -1,7 +1,7 @@
 import base64
 import unittest
 
-from app.gmail_monitor import _message_content
+from app.gmail_monitor import _capture_source, _message_content
 from app.job_quality import split_job_alert
 
 
@@ -10,6 +10,14 @@ def _encoded(value: str) -> str:
 
 
 class GmailMonitorContentTest(unittest.TestCase):
+    def test_keeps_detected_platform_as_queue_source(self):
+        self.assertEqual(_capture_source("gmail", "linkedin"), "linkedin")
+        self.assertEqual(_capture_source("outlook", "indeed"), "indeed")
+
+    def test_keeps_mail_channel_when_platform_is_unknown(self):
+        self.assertEqual(_capture_source("gmail", "gmail"), "gmail")
+        self.assertEqual(_capture_source("outlook", "gmail"), "outlook")
+
     def test_converts_html_cards_to_readable_text_with_positioned_links(self):
         rich = """
         <html><body>

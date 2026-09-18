@@ -209,6 +209,16 @@ def _source_for(sender: str, content: str) -> str:
     return "gmail"
 
 
+def _capture_source(source_name: str, detected_source: str) -> str:
+    """Mantém a plataforma do alerta quando ela for conhecida.
+
+    Gmail e Outlook são o canal de chegada. Para a fila, filtros e métricas,
+    porém, LinkedIn/Indeed/Gupy são a origem que explica a oportunidade.
+    Alertas sem uma plataforma identificável continuam associados ao canal.
+    """
+    return detected_source if detected_source in KNOWN_SOURCES.values() else source_name
+
+
 def _looks_like_job(subject: str, sender: str, content: str) -> bool:
     subject_lower = subject.casefold()
     searchable = f"{subject}\n{sender}\n{content[:12000]}".casefold()
@@ -378,6 +388,7 @@ async def sync_integration(
                 continue
 
             source = _source_for(sender, content)
+            capture_source = _capture_source(source_name, source)
             blocks = split_job_alert(subject, content)
             if is_grouped_job_summary(subject, content) and len(blocks) < 2:
                 _record_result(
@@ -456,7 +467,7 @@ async def sync_integration(
                         owner_id=integration.owner_id,
                         captured=captured_data,
                         decision_result=decision_result,
-                        source=source_name,
+                        source=capture_source,
                         source_ref=message_id,
                     )
                     db.commit()
