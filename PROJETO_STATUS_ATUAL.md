@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `9bf8eb7` — `security: remove legacy external checkout path`
+**Commit publicado:** `2c913ca` — `fix: hide provider details from oauth errors`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -287,6 +287,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports, o fail-closed do webhook, a preservação de respostas HTTP no feedback global, a rotina segura de backup, a proteção do rascunho no estúdio, a atribuição de resultado, a porta de risco antes da candidatura, o filtro de alertas agrupados, a limpeza de assuntos de alerta, a preservação da origem da plataforma e o reconhecimento dos links por provedor: **139 testes aprovados em 4,56 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago, rastreamento de canal/retorno/versão, isolamento da revisão de risco e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard`, rejeição 401 do webhook sem assinatura e o diálogo de confirmação ao limpar um formulário preenchido; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - A suíte foi repetida nesta rodada com todas as dependências de `requirements.txt` resolvidas em ambiente isolado: **141 testes passaram, 0 falhas**, incluindo cobertura de desafio MFA trocado, código inválido, status baseado no usuário autenticado, exportação publicada, mensagens seguras na fila e callbacks OAuth sem eco de detalhes do provedor.
+- A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **141 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
 - A exportação JSON foi validada em produção nas duas sessões autenticadas: o botão `Baixar meus dados` iniciou o download com mensagem de estado e cada sessão recebeu apenas o próprio escopo; o commit `9b0211d` publicou o listener que faltava no frontend. A prova direta de exportação/download cruzado por URL continua bloqueada pelo navegador conectado e permanece em **P0.1**.

@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app import main as main_module
 from app.database import Base
-from app.models import Application, Candidate, Job
+from app.models import Application, Candidate, DocumentExportPurchase, Job
 
 
 class PrivacyExportTest(unittest.TestCase):
@@ -27,6 +27,22 @@ class PrivacyExportTest(unittest.TestCase):
         db.flush()
         db.add(Application(job_id=own_job.id, candidate_id=candidate.id, status="IDENTIFICADA"))
         db.add(Application(job_id=other_job.id, status="ENTREVISTA"))
+        db.add_all([
+            DocumentExportPurchase(
+                owner_id="owner-a",
+                order_nsu="export-purchase-a",
+                amount=990,
+                paid_amount=990,
+                status="PAID",
+            ),
+            DocumentExportPurchase(
+                owner_id="owner-b",
+                order_nsu="export-purchase-b",
+                amount=990,
+                paid_amount=990,
+                status="PAID",
+            ),
+        ])
         db.commit()
         db.close()
 
@@ -41,6 +57,7 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual(payload["profile"]["name"], "Pessoa A")
         self.assertEqual([item["company"] for item in payload["jobs"]], ["Empresa A"])
         self.assertEqual(len(payload["applications"]), 1)
+        self.assertEqual([item["order_nsu"] for item in payload["purchases"]], ["export-purchase-a"])
         self.assertNotIn("access_token", payload)
         self.assertIn("attachment;", response.headers["content-disposition"])
 
