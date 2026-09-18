@@ -60,6 +60,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="retryJobs"', html)
         self.assertIn("Não foi possível carregar os detalhes. Tente novamente.", html)
 
+    def test_async_profile_and_preferences_surfaces_recovery_messages(self):
+        resume = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
+        preferences = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn("Carregando seu perfil...", resume)
+        self.assertIn("Não foi possível carregar seu perfil. Tente novamente.", resume)
+        self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", preferences)
+
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
