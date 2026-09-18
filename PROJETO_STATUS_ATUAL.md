@@ -231,7 +231,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 1. **IDOR/RLS real — validação parcial concluída:** duas sessões reais foram separadas no navegador conectado; a conta B exibiu zero vagas/candidaturas e a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A, fechando o drawer sem detalhes. O download exige compra `PAID` vinculada à candidatura exata e o teste local cobre candidatura sem transação. Ainda é necessário concluir a tentativa direta das rotas de exportação/download com duas contas no Supabase/PostgreSQL de produção.
 2. **Uploads e arquivos — validação parcial:** PDF falso rejeitado e PDF válido reconhecido no preview sem salvar; rotas de download confinam o caminho ao diretório privado. O feedback global deixou de descartar respostas HTTP de erro, permitindo que a tela mostre a mensagem segura e específica do validador. Ainda conferir limpeza de temporários em **P0.2**.
-3. **MFA — opcional e interface validada:** uma conta sem fator acessou normalmente a área autenticada; `/seguranca` exibiu `Não configurado`, explicou o aplicativo autenticador e tornou o botão de configuração alcançável por teclado. Ainda testar enrollment/challenge TOTP, recuperação, expiração e revogação no Supabase real.
+3. **MFA — enrollment real concluído, desafio ainda pendente:** uma conta sem fator acessou normalmente a área autenticada; numa segunda conta real, o enrollment TOTP e a confirmação do código foram concluídos. A interface agora consulta o status real e oferece desativação com confirmação. Ainda testar challenge no login, recuperação, expiração, limite de tentativas e revogação no Supabase real.
 4. **E-mail confirmado — configuração conferida:** o Supabase mostra `Confirm email` ligado e Email habilitado; permanece somente o teste operacional de recebimento/reenvio em mais de um provedor.
 5. **Webhook Mercado Pago — código e configuração publicados:** endpoint de produção, evento Pagamentos, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` estão ativos; o código rejeita valor divergente e moeda diferente de BRL, exige HMAC/replay/idempotência, retorna 503 se o Access Token faltar e 401 para assinatura inválida. A validação externa pós-deploy retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — concluído para o ambiente atual:** painel Supabase/Render sem chave mestra exposta, scanner do código versionado sem padrões de segredo, `Enforce SSL` ativo e aplicação forçando `sslmode=require`. Repetir a auditoria somente quando novas integrações forem adicionadas.
@@ -351,6 +351,13 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - `/health` retornou `200` com banco conectado; `/termos`, `/privacidade` e `/dashboard` retornaram `200` sem stack trace e com CSP nonceado, HSTS e `nosniff`.
 - `/webhooks/mercadopago` retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura, confirmando a rejeição pública após o deploy `75a72aa`.
 - As rotas `/applications/1`, `/jobs/1`, `/vagas/1`, `/billing/document-export`, `/api/profile` e `/api/preferences` retornaram `401 Login necessario.` sem sessão. Isso confirma a barreira de autenticação, mas não substitui o teste IDOR com duas contas reais em **P0.1**.
+
+### Validação de MFA em conta de teste — 18/09/2026
+
+- A extensão do Chrome foi conectada ao Codex e permitiu controlar uma segunda sessão real, separada da conta A no navegador interno.
+- Na conta B, o enrollment TOTP foi concluído na produção: a API gerou o fator, o código de seis dígitos foi verificado e a tela passou a indicar o autenticador como ativo. O MFA continua opcional porque `MFA_LOGIN_ENFORCE=false`.
+- A interface de Segurança tinha uma lacuna: após ativar o fator, não consultava `/auth/mfa/status` ao recarregar e não oferecia revogação, embora `DELETE /auth/mfa/{factor_id}` já existisse no backend. O script foi ajustado para carregar o estado real, mostrar erro sem falso “Não configurado” e permitir desativar o autenticador com confirmação.
+- Ainda falta o teste de ponta a ponta do desafio durante um novo login, incluindo expiração, código inválido, limite de tentativas, recuperação e revogação efetiva. Esse restante continua em **P0.3**; não reativar a exigência global antes dele.
 
 ## Variáveis e segredos
 
