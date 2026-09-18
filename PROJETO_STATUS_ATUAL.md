@@ -135,7 +135,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O OCR usa arquivos temporários e os remove em `finally`; documentos gerados usam diretório privado e retenção configurável. Expurgo de Storage/rascunhos ainda falta.
 - Não existe painel administrativo multiusuário.
 - Não existe aprendizado baseado em entrevistas, aprovações e reprovações.
-- O produto ainda não fecha o ciclo de resultado: não há atribuição confiável entre versão do currículo, canal, candidatura e entrevista qualificada.
+- O ciclo de resultado agora registra canal, retorno externo e identificadores de versão do currículo/carta no evento de candidatura enviada; falta acumular uma amostra real para atribuição estatisticamente confiável.
 - O avaliador de entrevistas já existe, mas ainda não transforma os gaps da vaga em um roteiro de preparação contextualizado para cada candidatura.
 - Não há acompanhamento automático da zona morta após a candidatura, com prazo, lembrete e sugestão de follow-up apropriado ao canal.
 - A proteção contra golpes já aparece como sinal na análise, mas ainda não é uma porta de entrada claramente posicionada nem um fluxo completo de risco antes da candidatura.
@@ -194,7 +194,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
 | Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
 | CLT/PJ/MEI, modalidade, salário e pretensão | A prévia agora devolve modalidade, regime e confiança; a vaga persistida ainda não guarda o regime como campo próprio | **P1.9** em andamento; separar salário oferecido de pretensão do candidato e persistir a confiança |
-| Métrica de entrevistas por 100 candidaturas | Divisor de águas | **P1.1**, antes de prometer aumento de conversão; exige atribuição por canal e versão do documento |
+| Métrica de entrevistas por 100 candidaturas | Divisor de águas | **P1.1 entregue no código**: registra canal, retorno externo e versão do documento; o painel só aponta melhor canal/versão após cinco envios na mesma amostra |
 | Proteção contra golpes | Deve ser destaque de produto | **P1.2**; transformar sinais atuais em decisão de risco visível antes da candidatura |
 | Heurísticas de RH brasileiro | Diferencial válido | **P1.3**, versionadas, explicáveis e testadas junto da IA |
 | Copiloto de entrevistas e follow-up da zona morta | Faz sentido após medir eventos | **P1.4/P1.5**, dependem do registro correto de candidatura, retorno e entrevista |
@@ -245,7 +245,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
 
-1. Fechar o loop de resultado: **base de eventos e primeira visão de conversão implementadas** em `/applications/metrics`, com escopo por usuário, segmentação por origem e taxa de entrevistas por 100 candidaturas; permanecem pendentes o registro de retorno externo e a atribuição por versão de currículo/carta.
+1. Fechar o loop de resultado: **atualização principal entregue no código** em `/applications/metrics`, com escopo por usuário, segmentação por origem/canal, registro de retorno externo e vínculo do envio à versão de currículo/carta. A interface só apresenta melhor canal/versão após cinco envios na mesma amostra. Falta validar o deploy e acumular dados reais antes de qualquer promessa de melhoria de conversão.
 2. Transformar proteção contra golpe em etapa explícita de risco: **motor heurístico e bloqueio/revisão já existentes; sinais de saúde agora aparecem na fila**, com faixa, score e evidências preservadas; falta ampliar a cobertura por origem e registrar o resultado da decisão do usuário.
 3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; **a base já existe em `decision_engine`, `job_health` e no parser de captura**, com motivos explicáveis e testes parciais. Falta consolidar uma versão própria das heurísticas e ampliar casos por provedor antes de marcar concluído.
 4. Criar o copiloto de entrevistas baseado nos gaps: **primeira versão entregue** em `/api/interviews/prep/{app_id}` e no detalhe da candidatura, com perguntas por gap, pontos fortes e orientação para responder apenas com fatos comprovados; avaliação de respostas pela IA continua como segunda camada.
@@ -285,8 +285,8 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports, o fail-closed do webhook, a preservação de respostas HTTP no feedback global, a rotina segura de backup e a proteção do rascunho no estúdio: **128 testes aprovados em 5,04 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard`, rejeição 401 do webhook sem assinatura e o diálogo de confirmação ao limpar um formulário preenchido; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
-- A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup e da proteção contra limpeza acidental: **128 testes aprovados em 5,04 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado, o CSP endurecido, o vínculo transacional dos exports, o fail-closed do webhook, a preservação de respostas HTTP no feedback global, a rotina segura de backup, a proteção do rascunho no estúdio e a atribuição de resultado: **129 testes aprovados em 5,11 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago, rastreamento de canal/retorno/versão e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou. A verificação de produção confirmou `/health`, `/termos`, `/privacidade`, `/dashboard`, rejeição 401 do webhook sem assinatura e o diálogo de confirmação ao limpar um formulário preenchido; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup, da proteção contra limpeza acidental e da atribuição de resultado: **129 testes aprovados em 5,11 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
 - A comparação salarial passou a usar limites estruturados da vaga quando disponíveis, com fallback para texto legado; Gmail também encaminha esses campos para a fila; a suíte completa ficou em **117 testes aprovados em 5,06 s**, com 6 avisos de depreciação sem falhas.
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
@@ -329,7 +329,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Recibo por e-mail | Envio idempotente está implementado após confirmação do Mercado Pago; falta configurar e testar o SMTP transacional em produção | **P1.10 parcialmente entregue** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 128 testes | **Concluído nesta verificação** |
+| Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 129 testes | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou abertura/fechamento por teclado nos modais de captação e preferências | Parcialmente validado; falta o drawer de candidatura e o ciclo completo de Tab em **P0.12** |
 
 ### Verificação direta do Supabase — 17/09/2026
@@ -368,6 +368,8 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `fe2d92f` | Atribuição de candidatura por canal, retorno externo e versão de currículo/carta; proteção de amostra mínima no painel |
+| `61a4ab1` | Regressão do painel para os controles de canal e retorno; suíte 129/129 |
 | `4cddd50` | Ação neutra `Limpar formulário` com confirmação contra perda acidental, validada em produção; testes 128/128 |
 | `2315bfc` | Remoção do segundo cabeçalho da tela de Segurança, validada em produção |
 | `0f9f6e2` | Rotina segura e verificável de backup externo do Supabase Free |
