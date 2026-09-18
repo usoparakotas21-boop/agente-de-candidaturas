@@ -33,6 +33,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Prévia gratuita com conteúdo limitado; arquivos completos são liberados por plano ou compra avulsa.
 - Geração de DOCX do currículo e da carta após autorização de exportação.
 - Fluxo de importação mostra o estado concluído e permite substituir o currículo.
+- A tela `/curriculos` hoje representa o currículo principal importado e o resumo extraído; ainda não é uma biblioteca histórica das versões personalizadas geradas para cada candidatura.
 
 ### Captação e análise de vagas
 
@@ -72,6 +73,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O retorno do checkout agora leva a candidatura de volta para `/criar-documentos`; a tela consulta a compra exata, aguarda até 60 segundos pelo webhook e chama uma exportação paga idempotente que gera e persiste currículo e carta. Se o usuário voltar mais tarde, selecionar a mesma candidatura restaura o acesso sem nova cobrança.
 - `receipt_url` é persistida quando o provedor informa o endereço do recibo.
 - O checkout grava o e-mail do pagador e o webhook confirmado tenta enviar um recibo transacional SMTP; o estado `SENT`, `FAILED` ou `SKIPPED` evita duplicidade e permite retry idempotente. As variáveis `SMTP_*` permanecem opcionais até o SMTP transacional ser configurado no Render.
+- O envio automático do currículo e da carta por e-mail e a biblioteca histórica de documentos ainda não estão publicados; devem usar o mesmo evento de pagamento confirmado, geração concluída e escopo do proprietário.
 
 ### Segurança já publicada
 
@@ -126,7 +128,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial; `scripts/backup_supabase.py` já cria dump customizado, valida com `pg_restore`, gera checksum e não expõe a URL na linha de comando. O ambiente atual ainda não possui `pg_dump`/`pg_restore`, portanto execução, agendamento e restauração real continuam pendentes.
 - A prévia de intake classifica CLT, PJ, MEI, estágio, temporário e freelance e informa confiança para modalidade, salário e regime; esses campos agora persistem na fila, na vaga promovida, no monitor Gmail e nas respostas de vagas/exportação. A faixa salarial oferecida também é guardada em `salary_min/salary_max`, separada das preferências de pretensão do candidato.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
-- Falta envio de recibo por e-mail após pagamento confirmado.
+- O recibo pós-pagamento está implementado no código, mas falta configurar e testar o SMTP transacional no Render. O envio automático dos DOCX e a biblioteca histórica de versões ainda não existem; ambos pertencem à ampliação de **P1.10**, depois que a entrega paga atual estiver comprovada.
 - A retenção local de documentos gerados usa prazo configurável e agora roda no startup e em rotina periódica; expurgo de Storage, prints persistidos e rascunhos abandonados continua pendente porque não há bucket ativo.
 - A exportação/portabilidade JSON owner-scoped está disponível na área de Segurança; a exclusão definitiva agora exige frase de confirmação, remove os dados locais/documentos privados, solicita a remoção administrativa do usuário no Supabase e limpa os cookies de sessão. A chave server-side foi configurada no Render e o deploy `ef3b050` está Live; a validação não destrutiva com frase incorreta bloqueou a ação corretamente. Falta apenas o teste operacional com uma conta de teste designada; o expurgo de objetos do Storage segue dependente da adoção de bucket.
 - Consentimento de Termos/Privacidade agora é versionado e recebe data UTC no cadastro; uma trilha imutável administrativa continua opcional para uma etapa futura.
@@ -193,7 +195,9 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Termos, privacidade, consentimento, portabilidade e exclusão | Parcialmente feito | Páginas e aceite existem; consentimento versionado é **P1.7**, exportação/exclusão no mesmo fluxo é **P1.6**, textos legais em **P1.11** |
 | Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído e validado em produção |
 | Retenção de 30/60 dias | Necessário, mas não é gate de pagamento | Diretório privado e limpeza local já existem; expurgo de Storage, prints e rascunhos fica em **P1.8**, com prazo configurável e registro da exclusão |
-| Comprovante por e-mail | Faz sentido depois do checkout | **P1.10**, somente após webhook assinado, idempotente e pagamento confirmado |
+| Comprovante por e-mail | Envio idempotente já implementado após `PAID`; falta SMTP de produção e teste real | **P1.10**, sem nova prioridade |
+| Currículo e carta enviados por e-mail após a compra | Não existe; o retorno pago gera os DOCX no painel, mas não envia anexos/links | **P1.10**, junto do recibo, após geração concluída; registrar estado de envio, retry idempotente e evitar anexos por padrão quando um link autenticado/expirável for suficiente |
+| Aba de documentos e histórico de downloads | `/curriculos` mostra apenas o currículo principal importado; `Application` guarda somente os caminhos atuais do currículo/carta | **P1.10**, criar biblioteca owner-scoped por candidatura, versão, data e status, com download protegido e integração à exclusão/retenção LGPD |
 | CLT/PJ/MEI, modalidade, salário e pretensão | A prévia agora devolve modalidade, regime e confiança; a vaga persistida ainda não guarda o regime como campo próprio | **P1.9** em andamento; separar salário oferecido de pretensão do candidato e persistir a confiança |
 | Métrica de entrevistas por 100 candidaturas | Divisor de águas | **P1.1 entregue no código**: registra canal, retorno externo e versão do documento; o painel só aponta melhor canal/versão após cinco envios na mesma amostra |
 | Proteção contra golpes | Deve ser destaque de produto | **P1.2 entregue no código**: a decisão de risco acompanha a candidatura, bloqueia o avanço de risco alto e pede confirmação auditável para risco duvidoso; falta ampliar sinais por origem e validar o deploy |
@@ -240,7 +244,8 @@ As novas sugestões foram comparadas com o que já está publicado. Os percentua
 | Erros de validação orientados à ação | Handlers públicos e validações de upload já são seguros e específicos; falta revisar a cópia e a ação de recuperação em todas as telas assíncronas | **85%** | **P1.17** |
 | Widget de suporte ou canal direto | Não existe widget integrado nem canal contextual dentro do painel | **0%** | **P1.18** |
 | Central de ajuda e FAQ | FAQ básico já está na landing em **P1.16**; a central pública `/ajuda` agora cobre formatos aceitos, privacidade, pagamentos e solução de problemas | **80%** | **P1.18** |
-| E-mails de Customer Success | Preferências persistentes de frequência e tipos de aviso agora estão disponíveis; recibo pós-pagamento aguarda SMTP de produção em **P1.10**, e os envios de boas-vindas, lembretes e mudanças de status ainda não existem | **45%** | **P1.19** |
+| E-mails de Customer Success | Preferências persistentes de frequência e tipos de aviso agora estão disponíveis; recibo e entrega dos documentos pagos ficam em **P1.10**, e os envios de boas-vindas, lembretes e mudanças de status ainda não existem | **45%** | **P1.19**, sem duplicar o escopo de entrega paga |
+| Entrega paga e histórico de documentos | A compra confirmada já libera os dois DOCX no estúdio; falta SMTP de produção, envio idempotente dos arquivos/links e uma biblioteca histórica por candidatura e versão | **35%** | **P1.10** |
 
 Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de isolamento, uploads, MFA, confirmação de e-mail, Mercado Pago, senhas comprometidas e backup. O suporte e os e-mails entram depois desses gates porque dependem de uma operação pagante estável.
 
@@ -312,7 +317,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 8. **Expurgo local ampliado:** documentos gerados continuam sendo limpos por `DOCUMENT_RETENTION_DAYS`, e a rotina periódica agora remove mensagens processadas antigas e redige `raw_excerpt` de itens de fila após `RAW_DATA_RETENTION_DAYS` (padrão de 60 dias, mínimo de 30). Expurgo de Storage/prints/rascunhos depende da adoção de bucket e de registros persistidos para esses artefatos.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
 10. **Persistência estruturada entregue:** parser de intake classifica CLT/PJ/MEI/estágio/temporário/freelance, retorna confiança de regime, modalidade e salário, grava esses campos na fila e na vaga promovida e guarda os limites salariais oferecidos separados das preferências do candidato.
-11. **Recibo pós-pagamento implementado:** checkout grava o destinatário e o webhook Mercado Pago envia comprovante SMTP uma única vez após a transição idempotente para `PAID`; falta apenas configurar/testar o SMTP transacional em produção.
+11. **Entrega pós-pagamento — P1.10:** o checkout grava o destinatário e o webhook Mercado Pago envia comprovante SMTP uma única vez após a transição idempotente para `PAID`; falta configurar/testar o SMTP transacional em produção. Na mesma entrega, enviar o currículo e a carta somente depois da geração concluída, registrar `SENT/FAILED/SKIPPED` com retry idempotente e criar uma biblioteca owner-scoped de documentos por candidatura, versão e data. O histórico deve respeitar download autenticado, retenção e exclusão LGPD; não basta sobrescrever `Application.document_path` e `cover_letter_path`.
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
