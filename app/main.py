@@ -114,6 +114,20 @@ SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente
 TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/static/{asset_path:path}", include_in_schema=False)
+async def static_asset(asset_path: str):
+    """Serve frontend assets without allowing filesystem traversal."""
+    candidate = (STATIC_DIR / asset_path).resolve()
+    try:
+        candidate.relative_to(STATIC_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Arquivo nao encontrado.")
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo nao encontrado.")
+    return FileResponse(candidate)
 
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")

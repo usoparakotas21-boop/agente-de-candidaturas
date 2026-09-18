@@ -51,6 +51,13 @@ class WebhookSecurityTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_application_serves_existing_static_asset_without_auth(self):
+        with TestClient(main_module.app) as client:
+            response = client.get("/static/security-enhance.js?v=3")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("javascript", response.headers.get("content-type", ""))
+
     def test_payment_webhooks_are_public_for_provider_delivery(self):
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
 
