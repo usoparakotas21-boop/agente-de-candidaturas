@@ -383,7 +383,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 - No painel do Render, as variáveis legadas `INFINITEPAY_EXPORT_PRICE_CENTS` e `INFINITEPAY_HANDLE` foram removidas e o novo deploy do commit `69d033d` ficou ativo; Mercado Pago permanece como o único checkout configurado.
 - A inspeção do ambiente de produção não encontrou variáveis `SMTP_*`; por isso o recibo pós-pagamento continua implementado no código, mas o envio transacional ainda aguarda a configuração do SMTP no Render (**P1.10**).
 - A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup, da proteção contra limpeza acidental e da atribuição de resultado: **129 testes aprovados em 5,11 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
-- A suíte oficial em `tests/` foi reexecutada no ambiente virtual local após a configuração do deploy atual: **166 testes aprovados, 0 falhas**, com apenas 6 avisos de depreciação. A execução ampla da raiz continua separada porque inclui scripts legados que tentam chamar servidores locais em 8001/8002 e também cópias de dependências em `tmp/`; esses erros de coleta não afetam a suíte oficial.
+- A suíte oficial em `tests/` foi reexecutada no ambiente virtual local após a configuração do deploy atual: **168 testes aprovados, 0 falhas**, com apenas 6 avisos de depreciação. A execução ampla da raiz continua separada porque inclui scripts legados que tentam chamar servidores locais em 8001/8002 e também cópias de dependências em `tmp/`; esses erros de coleta não afetam a suíte oficial.
 - Verificação pública pós-deploy: `/health`, `/termos` e `/privacidade` retornaram HTTP 200; `/api/profile` sem sessão retornou 401; e o webhook do Mercado Pago sem assinatura retornou 401. Nenhum pagamento, login ou alteração de dados foi executado.
 - O indicador `Sistema conectado` da navegação global passou a usar ponto verde pulsante também nas subpáginas, com desativação para `prefers-reduced-motion`; o deploy `d50f3d0` ficou **Live** e a tela de Segurança foi conferida visualmente.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
@@ -514,6 +514,8 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 | `6c00d98` | Estúdio de currículo e carta adaptados |
 | `90aeccb` | Checkout de exportação via Mercado Pago |
 | `4f00417` | Checkout de exportação via InfinitePay |
+| `14b0e8f` | Checkout reserva a aba no clique, expõe erro no próprio bloco e estúdio reutiliza vaga captada; suíte 168/168 |
+| `cef6302` | Preço avulso do checkout configurado em R$ 9,90 no Blueprint do Render |
 
 ### Preparação dos cinco gates externos do P0 — 18/09/2026
 
@@ -537,7 +539,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
   informa que o Pix aparece quando habilitado na conta Mercado Pago. O estúdio
   oferece preenchimento manual ou seleção de uma candidatura captada, reutiliza
   a candidatura vinculada e não cria uma vaga duplicada.
-- A suíte oficial foi reexecutada após essas mudanças: **166 testes aprovados,
+- A suíte oficial foi reexecutada após essas mudanças: **168 testes aprovados,
   0 falhas**, com 6 avisos de depreciação já conhecidos.
 
 ## Regra para continuar o projeto
