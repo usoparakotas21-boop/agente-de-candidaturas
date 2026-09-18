@@ -86,6 +86,7 @@ async def list_queue_items(
             "job_id": item.job_id,
             "health_score": item.health_score,
             "health_band": item.health_band,
+            "health_signals": item.health_signals or [],
             "fraud_suspected": item.fraud_suspected,
         })
     

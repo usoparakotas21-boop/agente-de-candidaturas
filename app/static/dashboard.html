@@ -120,6 +120,10 @@
     .queue-summary-item span { display: block; color: var(--muted); font-size: 11px; }
     .queue-summary-item strong { display: block; margin-top: 5px; font-size: 20px; }
     .queue-reasons { max-width: 360px; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .queue-health { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+    .queue-health.safe { color: var(--green); background: var(--green-soft); }
+    .queue-health.review { color: #9a6400; background: #fff6df; }
+    .queue-health.risk { color: var(--red); background: var(--red-soft); }
     .queue-actions { display: flex; flex-wrap: wrap; gap: 7px; }
     .queue-job-link { color: inherit; text-decoration: none; }
     .queue-job-link:hover { text-decoration: underline; }
@@ -1049,6 +1053,7 @@
       ENTREVISTA: "Entrevista", APROVADO: "Aprovado", RECUSADO: "Recusado", ARQUIVADA: "Arquivada"
     };
     const decisionLabels = {AUTOMATICA: "Automática", CAPTURAR: "Capturar", REVISAR: "Revisar", DESCARTAR: "Descartar"};
+    const healthLabels = {SAUDAVEL: "Risco baixo", ACEITAVEL: "Risco baixo", DUVIDOSA: "Revisar risco", SUSPEITA: "Risco alto"};
     const statuses = Object.keys(statusLabels);
     let applications = [];
     let queueItems = [];
@@ -1067,6 +1072,7 @@
     const scoreClass = score => score == null ? "" : score >= 85 ? "high" : score >= 55 ? "mid" : "low";
     const badgeClass = status => ({APROVADO:"green", ENTREVISTA:"amber", RECUSADO:"red", ARQUIVADA:"gray", CURRICULO_GERADO:"blue", CANDIDATURA_ENVIADA:"blue"}[status] || "gray");
     const decisionBadgeClass = decision => ({AUTOMATICA:"green", CAPTURAR:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
+    const healthClass = band => ({SAUDAVEL:"safe", ACEITAVEL:"safe", DUVIDOSA:"review", SUSPEITA:"risk"}[band] || "review");
     const csvValues = value => String(value || "").split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
     function applicationPlatform(url) {
       try {
@@ -1182,6 +1188,7 @@
       $("queueRows").innerHTML = visible.map(item => {
         const pending = item.status === "PENDENTE";
         const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
+        const health = item.health_band ? `<span class="queue-health ${healthClass(item.health_band)}" title="${escapeHtml((item.health_signals || []).map(signal => signal.label).slice(0, 3).join("; "))}">● ${healthLabels[item.health_band] || "Risco a revisar"}${item.health_score == null ? "" : ` · ${item.health_score}/100`}</span>` : "";
         const title = escapeHtml(item.title || "Cargo não identificado");
         const titleMarkup = item.url
           ? `<a class="job-title queue-job-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${title}</a>`
@@ -1189,7 +1196,7 @@
         return `
           <tr>
             <td><input class="queue-check queue-item-check" type="checkbox" data-id="${item.id}" aria-label="Selecionar ${escapeHtml(item.title || "item")}" ${pending ? "" : "disabled"}></td>
-            <td>${titleMarkup}<div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div></td>
+            <td>${titleMarkup}<div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div>${health}</td>
             <td><span class="badge ${decisionBadgeClass(item.decision)}">${decisionLabels[item.decision] || escapeHtml(item.decision)}</span></td>
             <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "-" : item.confidence_overall + "%"}</span></td>
             <td><span class="badge ${queueStatusBadgeClass(item.status)}">${queueStatusLabel(item.status)}</span></td>

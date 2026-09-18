@@ -105,3 +105,24 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         summary = get_summary(self.session, None)
         self.assertEqual(summary["revisar"]["pendente"], 1)
         self.assertEqual(summary["capturar"]["total"], 1)
+
+    def test_health_risk_signals_are_preserved_for_review(self):
+        item = enqueue(
+            self.session,
+            None,
+            {
+                "title": "Oportunidade suspeita",
+                "company": "Empresa Teste",
+                "health_score": 10,
+                "health_band": "SUSPEITA",
+                "health_signals": [{"code": "PEDIDO_PAGAMENTO", "label": "Pede pagamento"}],
+                "fraud_suspected": True,
+            },
+            {"decision": "DESCARTAR", "reasons": ["SAUDE_SUSPEITA"], "engine_version": "test"},
+            "teste",
+        )[0]
+
+        self.assertEqual(item.health_score, 10)
+        self.assertEqual(item.health_band, "SUSPEITA")
+        self.assertTrue(item.fraud_suspected)
+        self.assertEqual(item.health_signals[0]["code"], "PEDIDO_PAGAMENTO")
