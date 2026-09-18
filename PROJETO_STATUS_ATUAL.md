@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `db5809e` — `test: cover export purchase isolation`
+**Commit publicado:** `69d033d` — `docs: close current export IDOR gate`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -292,6 +292,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
 - A exportação JSON foi validada em produção nas duas sessões autenticadas: o botão `Baixar meus dados` iniciou o download com mensagem de estado e cada sessão recebeu apenas o próprio escopo; o commit `9b0211d` publicou o listener que faltava no frontend.
 - A API de exportação foi exercitada diretamente no contexto autenticado das duas sessões reais: a conta A recebeu HTTP 200 com apenas seu perfil, 1 vaga, 1 candidatura e 5 compras; a conta B recebeu HTTP 200 com perfil ausente e zero vagas, candidaturas e compras. Em seguida, a conta B tentou baixar o currículo e a carta associados à candidatura da conta A e recebeu HTTP 404 nos dois endpoints, sem conteúdo pessoal. P0.1 fica concluído para as rotas atuais.
+- No painel do Render, as variáveis legadas `INFINITEPAY_EXPORT_PRICE_CENTS` e `INFINITEPAY_HANDLE` foram removidas e o novo deploy do commit `69d033d` ficou ativo; Mercado Pago permanece como o único checkout configurado.
 - A suíte automatizada em `tests/` foi reexecutada após o endurecimento do CSP, do vínculo transacional dos exports, do fail-closed do webhook, do feedback de upload, da automação de backup, da proteção contra limpeza acidental e da atribuição de resultado: **129 testes aprovados em 5,11 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - O recibo idempotente do Mercado Pago foi validado com SMTP simulado e retry sem duplicação; os testes direcionados de webhook/fila passaram (**13 testes**).
 - A comparação salarial passou a usar limites estruturados da vaga quando disponíveis, com fallback para texto legado; Gmail também encaminha esses campos para a fila; a suíte completa ficou em **117 testes aprovados em 5,06 s**, com 6 avisos de depreciação sem falhas.
