@@ -50,7 +50,7 @@ services:
       - key: DOCUMENT_EXPORT_CHECKOUT_URL
         sync: false
       - key: DOCUMENT_EXPORT_PRICE_CENTS
-        sync: false
+        value: "990"
       - key: DOCUMENT_EXPORT_ALLOWED_EMAILS
         sync: false
       - key: MERCADOPAGO_ACCESS_TOKEN
