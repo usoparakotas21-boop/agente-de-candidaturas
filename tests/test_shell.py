@@ -81,6 +81,14 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="retryInterviews"', html)
         self.assertIn("Não foi possível carregar as entrevistas agora.", html)
 
+    def test_profile_and_settings_surface_network_recovery(self):
+        profile = (Path(main_module.STATIC_DIR) / "profile.html").read_text(encoding="utf-8")
+        settings = (Path(main_module.STATIC_DIR) / "settings.html").read_text(encoding="utf-8")
+        self.assertIn("Não foi possível carregar seu perfil. Tente novamente.", profile)
+        self.assertIn("Não foi possível salvar seu perfil. Tente novamente.", profile)
+        self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", settings)
+        self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", settings)
+
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
