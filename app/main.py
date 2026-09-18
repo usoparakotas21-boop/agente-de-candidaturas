@@ -244,7 +244,7 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
     # Direct calls from internal compatibility helpers/tests do not represent a
     # browser request and keep the historical behavior of returning a file.
     if not isinstance(user, dict):
-        return {"allowed": True, "price": _document_export_price(), "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip()}
+        return {"allowed": True, "price": _document_export_price(), "checkout_url": ""}
 
     app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
     plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or "").strip().casefold()
@@ -277,7 +277,7 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
     return {
         "allowed": allowed,
         "price": _document_export_price(),
-        "checkout_url": os.getenv("DOCUMENT_EXPORT_CHECKOUT_URL", "").strip(),
+        "checkout_url": "",
         "checkout_ready": bool(os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()),
     }
 
