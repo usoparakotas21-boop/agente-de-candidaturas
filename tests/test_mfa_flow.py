@@ -82,6 +82,20 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(raised.exception.status_code, 401)
 
+    async def test_mfa_status_uses_factors_from_authenticated_user(self):
+        response = await auth.mfa_status(
+            request_with_cookies(f"{auth.ACCESS_COOKIE_NAME}=access-token"),
+            {"id": "owner-a", "factors": [{
+                "id": "factor-1",
+                "factor_type": "totp",
+                "status": "verified",
+                "friendly_name": "Agente de Candidaturas",
+            }]},
+        )
+
+        self.assertTrue(response["enabled"])
+        self.assertEqual(response["factors"][0]["id"], "factor-1")
+
 
 if __name__ == "__main__":
     unittest.main()
