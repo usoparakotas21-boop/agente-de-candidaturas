@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `e0c2bd3` — `security: enforce BRL payment validation`
+**Commit publicado:** `bbe0008` — `security: nonce inline style elements`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -107,7 +107,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O card de onboarding aparece de forma estática no dashboard e ainda não acompanha sempre o estado real de `/profile` e `/preferences`.
 - Logout existe, mas falta torná-lo mais óbvio no cabeçalho global em todas as telas.
 - Rate limiting é local ao processo; a verificação externa com 11 logins sintéticos retornou 10 respostas 401 e a 11ª 429. Ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
-- CSP usa nonce para scripts, HSTS/nosniff/frame-ancestors foram confirmados em `/health`, `/termos` e `/privacidade`; `style-src 'unsafe-inline'` permanece porque as telas atuais contêm estilos inline e precisa ser endurecido depois da migração para arquivos externos.
+- CSP usa nonce para scripts e agora também para elementos `<style>`, além de HSTS/nosniff/frame-ancestors confirmados em `/health`, `/termos` e `/privacidade`; atributos `style="..."` continuam permitidos temporariamente para compatibilidade com os templates legados e são a próxima etapa de migração.
 - Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
 - O script `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A migração foi aplicada no PostgreSQL de produção e a consulta somente leitura confirmou RLS habilitado e uma política em cada tabela.
 - A aplicação usa `SUPABASE_PUBLISHABLE_KEY`, não há `SERVICE_ROLE_KEY` no código, no `render.yaml` ou na lista de variáveis exibida no Render; o painel do Supabase separa as chaves e os valores permaneceram mascarados durante a auditoria; a conexão efetiva de produção foi verificada após o reinício com `Enforce SSL` ativo.
@@ -182,7 +182,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Validação real aprovada para intake; fronteira de download reforçada | Em produção, um PDF falso sem assinatura `%PDF-` foi rejeitado sem criar vaga e um PDF válido foi reconhecido no preview, permanecendo sem salvar até confirmação. As rotas de download agora rejeitam caminhos fora do diretório privado; falta confirmar limpeza/isolamento final em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
-| Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
+| Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; elementos `<style>` agora exigem nonce por resposta, ampliar casos por origem em **P1.8** e migrar atributos inline restantes em **P0.7** |
 | Assinatura, replay e idempotência de webhook | Código reforçado; validação operacional pendente | Mercado Pago exige HMAC com janela de 5 minutos, consulta server-to-server, moeda BRL, valor exato, `order_nsu`/`payment_id` e transição idempotente; falta replay/checkout real em **P0.5** |
 | Mensagens de erro genéricas | Feito no código | Apenas revisar endpoints legados em **P0.8**; não expor stack trace ou detalhes de provedor |
 | OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
@@ -234,7 +234,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
 5. **Webhook Mercado Pago — código reforçado e configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; o código agora rejeita valor divergente e moeda diferente de BRL, além de HMAC/replay/idempotência. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — revisão de código concluída:** confirmar no Supabase/Render a ausência de chave mestra exposta, executar scanner de segredos e verificar a conexão PostgreSQL efetiva com TLS.
-7. **CSP e superfícies de renderização — código parcial:** concluir a migração de `style-src 'unsafe-inline'` e revisar as telas restantes após a sanitização central.
+7. **CSP e superfícies de renderização — endurecimento em andamento:** elementos `<style>` já usam nonce por resposta; concluir a migração dos atributos `style="..."` legados e revisar as telas restantes após a sanitização central.
 8. **Erros públicos — código concluído:** revisar endpoints operacionais legados para garantir mensagens estáveis e detalhes somente nos logs.
 9. **Rate limiting — código local concluído:** validar os limites publicados e configurar proteção distribuída na borda antes de múltiplas instâncias.
 10. **Senhas comprometidas — código e configuração do Render concluídos:** executar o teste controlado no serviço publicado sem registrar a senha usada.
@@ -295,7 +295,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Implementado no código e configuração principal conferida; falta recebimento real em mais de um provedor em **P0.4** |
-| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | `script-src` endurecido; migração de `style-src unsafe-inline` segue em **P0.7** |
+| Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; middleware publica CSP com nonce por resposta para scripts e elementos `<style>`, HSTS em HTTPS, `nosniff`, `DENY` e políticas complementares | `script-src` e `style-src` (elementos) endurecidos; migração dos atributos `style` legados segue em **P0.7** |
 | Rate limiting | Limites por IP/conta, testes locais de 429 e validação publicada com 10 respostas 401 e 11ª resposta 429; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
 | RLS e menor privilégio | Painel do Supabase confirma RLS ativo e uma política `ALL` para cada uma das 11 tabelas, incluindo `document_export_purchases_owner`; a política `applications_owner` exige relação com `jobs.owner_id = auth.uid()`; código cliente usa a chave publicável e o Render não exibe chave mestra | RLS aplicado e conferido no painel; prova real de isolamento por ID/download permanece em **P0.1**; não criar nova chave em **P0.6** |
