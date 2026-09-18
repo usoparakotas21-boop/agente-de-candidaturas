@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `6369417` — `feat: record versioned legal consent at signup`
+**Commit publicado:** `806af91` — `feat: schedule private document retention sweeps`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -126,7 +126,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Modalidade, salário e localização têm parsing parcial; regime CLT, PJ, MEI, estágio e não informado ainda não são campos estruturados completos.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - Falta envio de recibo por e-mail após pagamento confirmado.
-- Falta retenção configurável e expurgo automático após 30/60 dias para temporários, prints e rascunhos abandonados.
+- A retenção local de documentos gerados usa prazo configurável e agora roda no startup e em rotina periódica; expurgo de Storage, prints persistidos e rascunhos abandonados continua pendente porque não há bucket ativo.
 - Falta exportação/portabilidade e exclusão definitiva da conta no mesmo fluxo LGPD.
 - Consentimento de Termos/Privacidade agora é versionado e recebe data UTC no cadastro; uma trilha imutável administrativa continua opcional para uma etapa futura.
 - O monitor Gmail/Outlook ainda roda junto do processo web; falta worker distribuído independente.
@@ -252,7 +252,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 5. Implementar o acompanhamento da zona morta: **primeira versão entregue** em `/api/applications/followups` e em `Minhas candidaturas`, identificando candidaturas sem retorno há 7 dias e preparando uma mensagem para revisão; envio e registro do retorno continuam manuais.
 6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção. **A exportação JSON owner-scoped já está disponível na área de Segurança; exclusão definitiva e expurgo em Storage continuam pendentes.**
 7. **Consentimento versionado entregue:** o cadastro exige os dois aceites, registra `terms_version`, `privacy_version` e `consented_at` no metadata enviado ao Supabase Auth; uma trilha imutável administrativa continua opcional.
-8. Criar rotina de expurgo automático de temporários, prints e rascunhos após prazo configurável de 30/60 dias.
+8. **Primeira camada entregue:** expurgo periódico de documentos gerados no armazenamento privado, com prazo configurável por `DOCUMENT_RETENTION_DAYS` e intervalo por `DOCUMENT_CLEANUP_INTERVAL_SECONDS`; expurgo de Storage/prints/rascunhos depende da adoção de bucket e de registros persistidos para esses artefatos.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
 10. Estruturar CLT/PJ/MEI/estágio, modalidade e salário com confiança de extração e exibição na análise.
 11. Enviar comprovante simples por e-mail depois da confirmação idempotente do pagamento.
@@ -286,7 +286,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
-- A suíte automatizada em `tests/` foi reexecutada após a exigência de consentimento versionado: **112 testes aprovados em 5,34 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
+- A suíte automatizada em `tests/` foi reexecutada após a rotina periódica de retenção: **112 testes aprovados em 5,14 s**, com 6 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - A entrega P1.1 de métricas foi validada na suíte completa: **106 testes aprovados em 6,12 s**. O novo cenário confirma isolamento por usuário, contagem de candidaturas enviadas, entrevistas qualificadas e segmentação por origem; a interface de `Minhas candidaturas` exibe o funil sem alterar o fluxo existente.
 - A primeira entrega de P1.2 foi validada na suíte completa: **107 testes aprovados em 5,68 s**. A fila passa a expor faixa/score de risco e sinais resumidos de golpe; o motor continua forçando descarte ou revisão conforme a banda, sem liberar automaticamente uma vaga suspeita.
 - P1.3 recebeu versionamento explícito das heurísticas brasileiras: decisões manuais e alertas Gmail registram `br-rh-1` junto da versão do motor; a suíte completa permaneceu em **107 testes aprovados**.
@@ -309,7 +309,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | RLS e menor privilégio | Painel do Supabase confirma RLS ativo e uma política `ALL` para cada uma das 11 tabelas, incluindo `document_export_purchases_owner`; a política `applications_owner` exige relação com `jobs.owner_id = auth.uid()`; código cliente usa a chave publicável e o Render não exibe chave mestra | RLS aplicado e conferido no painel; prova real de isolamento por ID/download permanece em **P0.1**; não criar nova chave em **P0.6** |
 | Senhas comprometidas | Consulta k-anonimizada envia apenas o prefixo do hash SHA-1 para o serviço de verificação; `PWNED_PASSWORD_CHECK` aparece no Render sem expor valor | Código e configuração do Render confirmados; testar comportamento do serviço publicado em **P0.10** |
 | Uploads | Validador central confirma magic bytes, estrutura e decodificação de fotos; PDF/DOCX conferem assinatura/estrutura | Código e testes locais aprovados; validação operacional em **P0.2** e expurgo externo em **P1.8** |
-| Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza de artefatos por idade; rascunhos/objetos externos ainda não têm rotina própria | Código e testes locais aprovados; expurgo de Storage/rascunhos em **P1.8** |
+| Arquivos temporários | OCR remove temporários ao terminar; documentos gerados usam diretório privado `0700` e limpeza periódica por idade; rascunhos/objetos externos ainda não têm rotina própria | Camada local implementada em **P1.8**; expurgo de Storage/rascunhos só após adoção de bucket |
 | MFA | Enrollment/status/unenroll e challenge/verify TOTP; login com fator verificado cria desafio temporário, conclusão promove a sessão e logout revoga sessão pendente; tela de segurança e controles foram confirmados em produção após correção dos assets estáticos | Código e interface publicados; validar TOTP, recuperação e expiração em produção em **P0.3** |
 | Gmail/Outlook | Gmail usa `gmail.readonly`; refresh tokens são cifrados com Fernet; OAuth usa `state` assinado e expirável | Implementado; manter auditoria de configuração do provedor |
 | XSS e prompt injection | Sanitizador central remove markup executável antes de persistir/analisar; prompt de entrevistas delimita dados não confiáveis e testes hostis verificam que tags/instruções não escapam | Sanitização e primeira fronteira implementadas; CSP/superfícies restantes em **P0.7**, ampliar cobertura por origem em **P1.8** |
