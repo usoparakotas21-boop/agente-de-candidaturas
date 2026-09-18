@@ -179,7 +179,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
 | IDOR e RLS obrigatório | Validação parcial | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem. Falta testar acesso direto por ID e exportação em **P0.1** |
-| `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita | Conferir painel do Supabase e conexão TLS em **P0.6**; não há motivo para adicionar essa chave ao app |
+| `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco | **P0.6** confirmado para chaves e TLS; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
@@ -328,7 +328,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - RLS: 11 tabelas do schema `public` aparecem com RLS ativo e uma política de proprietário para o papel `authenticated`. Não alterar nem recriar essas políticas; o próximo teste é tentar acesso cruzado por ID/download com duas contas reais.
 - Storage: não há buckets criados no projeto. A aplicação continua usando armazenamento privado local; expurgo de objetos externos só entra quando um bucket for adotado em **P1.8**.
 - Chaves: o painel separa chave publicável de chave secreta e mantém os valores mascarados. Não foi criada, revelada, copiada ou alterada nenhuma chave durante a auditoria.
-- Banco: o painel mostra `Enforce SSL` desligado. A aplicação já força `sslmode=require`; a ativação no Supabase foi preparada, mas o painel avisou que exige reinício e alguns minutos de indisponibilidade. A confirmação do usuário é necessária antes de clicar em **Enable SSL**.
+- Banco: `Enforce SSL` está ativo no Supabase e a aplicação reconectou ao painel após o reinício; o código continua forçando `sslmode=require`.
 - Backups: o painel confirma que o plano Free não oferece backups diários agendados; PITR também exige plano Pro. Manter **P0.11** aberto até escolher upgrade ou dump externo automatizado.
 
 ## Variáveis e segredos
