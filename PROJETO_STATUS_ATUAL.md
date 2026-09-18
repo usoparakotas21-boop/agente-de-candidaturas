@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `4172b1e` — `test: cover confirmation email resend flow`
+**Commit publicado:** `cc70099` — `fix: restore configuracoes page layout`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -103,7 +103,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ## O que está parcial ou ainda não existe
 
-- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. A configuração do Supabase Auth foi conferida diretamente: `Confirm email` está ligado, o provedor Email está habilitado e o cadastro permanece permitido. O fluxo de reenvio agora tem regressão automatizada para normalização, URL pública, mensagem genérica e rate limit (158 testes da suíte completa passam); ainda falta apenas o teste operacional de recebimento/reenvio em mais de um provedor.
+- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. A configuração do Supabase Auth foi conferida diretamente: `Confirm email` está ligado, o provedor Email está habilitado e o cadastro permanece permitido. O fluxo de reenvio agora tem regressão automatizada para normalização, URL pública, mensagem genérica e rate limit (159 testes da suíte completa passam); ainda falta apenas o teste operacional de recebimento/reenvio em mais de um provedor.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
@@ -288,7 +288,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 1. **IDOR/RLS real — concluído para as rotas atuais:** duas sessões reais foram separadas no navegador conectado; a conta B exibiu zero vagas/candidaturas, a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A e as rotas de exportação/download cruzadas retornaram 404 sem conteúdo pessoal. O download exige compra `PAID` vinculada à candidatura exata. Manter a regressão ao criar novas rotas.
 2. **Uploads e arquivos — concluído para o gate P0.2:** PDF falso rejeitado, PDF válido reconhecido no preview, currículo importado com sucesso em produção e rotas de download confinadas ao diretório privado. O feedback global preserva respostas HTTP de erro para exibir a mensagem segura e específica do validador. A limpeza periódica de artefatos segue classificada em **P1.8**.
 3. **MFA — enrollment real concluído e opcionalidade confirmada:** uma conta sem fator acessou normalmente a área autenticada; numa segunda conta real, o enrollment TOTP e a confirmação do código foram concluídos. A interface agora consulta o status real e oferece desativação com confirmação. O login da conta com TOTP ativo não pediu código porque `MFA_LOGIN_ENFORCE=false`, comportamento coberto por regressão automatizada; challenge com código real, recuperação e expiração só devem ser exercitados se a exigência global for ativada em uma janela controlada.
-4. **E-mail confirmado — código e configuração conferidos:** o Supabase mostra `Confirm email` ligado e Email habilitado; login/signup bloqueiam sessão não confirmada, o reenvio usa a URL pública e aplica resposta genérica/rate limit, com regressão automatizada coberta na suíte de 158 testes. Permanece somente o teste operacional de recebimento/reenvio em mais de um provedor.
+4. **E-mail confirmado — código e configuração conferidos:** o Supabase mostra `Confirm email` ligado e Email habilitado; login/signup bloqueiam sessão não confirmada, o reenvio usa a URL pública e aplica resposta genérica/rate limit, com regressão automatizada coberta na suíte de 159 testes. Permanece somente o teste operacional de recebimento/reenvio em mais de um provedor.
 5. **Webhook Mercado Pago — código e configuração publicados:** endpoint de produção, evento Pagamentos, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` estão ativos; o código rejeita valor divergente e moeda diferente de BRL, exige HMAC/replay/idempotência, retorna 503 se o Access Token faltar e 401 para assinatura inválida. A validação externa pós-deploy retornou `401 Webhook Mercado Pago não autorizado.` para uma entrega sem assinatura. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — concluído para o ambiente atual:** painel Supabase/Render sem chave mestra exposta, scanner do código versionado sem padrões de segredo, `Enforce SSL` ativo e aplicação forçando `sslmode=require`. Repetir a auditoria somente quando novas integrações forem adicionadas.
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
@@ -425,7 +425,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 | Recibo por e-mail | Envio idempotente está implementado após confirmação do Mercado Pago; falta configurar e testar o SMTP transacional em produção | **P1.10 parcialmente entregue** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou **158 testes sem falhas** nesta rodada | **Concluído nesta verificação** |
+| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou **159 testes sem falhas** nesta rodada | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou captação, preferências, Segurança e drawer de candidatura | Validado em produção; foco inicial, `Esc`, retorno ao disparador e ciclo de Tab concluídos |
 
 ### Verificação direta do Supabase — 17/09/2026
