@@ -44,6 +44,15 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertNotIn("..upload{", html)
         self.assertIn('id="status" role="status" aria-live="polite"', html)
 
+    def test_document_studio_clear_action_protects_filled_draft(self):
+        html = (Path(main_module.STATIC_DIR) / "document-studio.html").read_text(encoding="utf-8")
+        self.assertIn('class="clear-action" id="clear"', html)
+        self.assertIn("Limpar formulário", html)
+        self.assertIn("const hasDraft=", html)
+        self.assertIn("window.confirm('Limpar os dados preenchidos e a prévia gerada?')", html)
+        self.assertIn("current=null", html)
+        self.assertIn("$('title').focus()", html)
+
 
 if __name__ == "__main__":
     unittest.main()
