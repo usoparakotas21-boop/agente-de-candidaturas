@@ -246,7 +246,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 1. Fechar o loop de resultado: **base de eventos e primeira visão de conversão implementadas** em `/applications/metrics`, com escopo por usuário, segmentação por origem e taxa de entrevistas por 100 candidaturas; permanecem pendentes o registro de retorno externo e a atribuição por versão de currículo/carta.
 2. Transformar proteção contra golpe em etapa explícita de risco: **motor heurístico e bloqueio/revisão já existentes; sinais de saúde agora aparecem na fila**, com faixa, score e evidências preservadas; falta ampliar a cobertura por origem e registrar o resultado da decisão do usuário.
-3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; cada regra deve ser versionada, explicável e coberta por teste.
+3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; **a base já existe em `decision_engine`, `job_health` e no parser de captura**, com motivos explicáveis e testes parciais. Falta consolidar uma versão própria das heurísticas e ampliar casos por provedor antes de marcar concluído.
 4. Criar o copiloto de entrevistas baseado nos gaps: perguntas prováveis, roteiro de resposta com fatos comprovados e plano de preparação por vaga.
 5. Implementar o acompanhamento da zona morta: prazos, lembretes, follow-up por canal e registro do retorno ou encerramento.
 6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção.
