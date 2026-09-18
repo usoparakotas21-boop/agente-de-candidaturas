@@ -141,6 +141,9 @@ class QueueServiceLocalModeTest(unittest.TestCase):
                 "salary_confidence": 80,
                 "contract_confidence": 90,
                 "url": "https://example.test/rh",
+                "health_score": 58,
+                "health_band": "DUVIDOSA",
+                "health_signals": [{"code": "DOMINIO_NOVO", "label": "Domínio ainda não verificado"}],
             },
             {"decision": "REVISAR", "reasons": [], "engine_version": "test"},
             "texto",
@@ -157,3 +160,7 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(job.modality_confidence, 95)
         self.assertEqual(job.salary_confidence, 80)
         self.assertEqual(job.contract_confidence, 90)
+        application = self.session.query(Application).filter_by(job_id=job.id).one()
+        self.assertEqual(application.health_score, 58)
+        self.assertEqual(application.health_band, "DUVIDOSA")
+        self.assertEqual(application.health_signals[0]["code"], "DOMINIO_NOVO")

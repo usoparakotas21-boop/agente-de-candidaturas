@@ -242,6 +242,13 @@
     .application-action-card button.secondary-action { margin-top: 8px; color: var(--navy); border-color: var(--line); background: white; }
     .application-action-card button[hidden] { display: none; }
     .application-platform-note { margin: 0 0 11px !important; color: var(--ink) !important; font-size: 11px !important; }
+    .risk-check { margin: 0 0 12px; padding: 11px; border: 1px solid #f5cf84; border-radius: 10px; background: #fffaf0; }
+    .risk-check[hidden] { display: none; }
+    .risk-check strong { margin-bottom: 4px; color: #8a4b00; }
+    .risk-check p { margin-bottom: 7px; color: #6b4a17; }
+    .risk-check ul { margin: 0 0 8px; padding-left: 17px; color: #6b4a17; font-size: 11px; line-height: 1.45; }
+    .risk-check label { display: flex; gap: 7px; align-items: flex-start; color: var(--ink); font-size: 11px; line-height: 1.35; cursor: pointer; }
+    .risk-check input { margin: 1px 0 0; accent-color: var(--blue); }
     .analysis-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .analysis-columns strong { color: var(--muted); font-size: 11px; text-transform: uppercase; }
     .analysis-columns ul { margin: 7px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.5; }
@@ -618,6 +625,12 @@
       <strong>Próximo passo da candidatura</strong>
       <p>Abra o anúncio e siga o processo do site. Depois, atualize o andamento para acompanhar tudo aqui.</p>
       <p class="application-platform-note" id="applicationPlatformNote"></p>
+      <div class="risk-check" id="applicationRiskCheck" hidden>
+        <strong id="applicationRiskTitle"></strong>
+        <p id="applicationRiskMessage"></p>
+        <ul id="applicationRiskSignals"></ul>
+        <label id="applicationRiskAcknowledgement" hidden><input id="riskAcknowledged" type="checkbox"> Revisei os sinais e quero abrir o anúncio mesmo assim.</label>
+      </div>
       <button id="startApplicationButton" type="button">Abrir anúncio e iniciar candidatura</button>
       <button class="secondary-action" id="markApplicationSentButton" type="button" hidden disabled>Já enviei — marcar como enviada</button>
     </div>
@@ -1391,6 +1404,7 @@
       $("startApplicationButton").dataset.url = item.job_url || "";
       const [platform, platformMessage] = applicationPlatform(item.job_url);
       $("applicationPlatformNote").textContent = item.job_url ? `Plataforma detectada: ${platform}. ${platformMessage}` : "";
+      renderApplicationRisk(item);
       $("markApplicationSentButton").hidden = true;
       $("markApplicationSentButton").disabled = true;
       $("drawerScore").textContent = item.analysis_score == null ? "—" : Math.round(item.analysis_score);
@@ -1414,6 +1428,34 @@
         <time>${formatDate(event.created_at)}</time>${event.note ? `<p>${escapeHtml(event.note)}</p>` : ""}${event.channel || event.external_result ? `<p class="muted">${event.channel ? `Canal: ${escapeHtml(event.channel)}` : ""}${event.channel && event.external_result ? " · " : ""}${event.external_result ? `Retorno: ${escapeHtml(event.external_result.replaceAll("_", " ").toLowerCase())}` : ""}</p>` : ""}</div>`).join("");
       renderAnalysis(item.id);
       $("drawer").classList.add("open"); $("backdrop").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
+    }
+
+    function renderApplicationRisk(item) {
+      const check = $("applicationRiskCheck");
+      const acknowledgement = $("applicationRiskAcknowledgement");
+      const acknowledgementInput = $("riskAcknowledged");
+      const signals = item.health_signals || [];
+      const isReview = item.health_band === "DUVIDOSA";
+      const isRisk = item.health_band === "SUSPEITA" || item.fraud_suspected;
+      check.hidden = !item.health_band;
+      acknowledgement.hidden = !isReview;
+      acknowledgementInput.checked = Boolean(item.risk_reviewed_at);
+      acknowledgementInput.disabled = !isReview || Boolean(item.risk_reviewed_at);
+      $("applicationRiskSignals").innerHTML = signals.length
+        ? signals.slice(0, 4).map(signal => `<li>${escapeHtml(signal.label || signal.code || "Sinal identificado")}</li>`).join("")
+        : "";
+      if (!item.health_band) return;
+      if (isRisk) {
+        $("applicationRiskTitle").textContent = "Risco alto detectado";
+        $("applicationRiskMessage").textContent = "Não avance enquanto a origem, a empresa e qualquer pedido de pagamento não forem verificados por canais oficiais.";
+      } else if (isReview) {
+        $("applicationRiskTitle").textContent = "Revise a segurança da vaga";
+        $("applicationRiskMessage").textContent = "Encontramos sinais que merecem conferência. Verifique empresa, domínio e condições antes de abrir o anúncio.";
+      } else {
+        $("applicationRiskTitle").textContent = "Verificação de segurança concluída";
+        $("applicationRiskMessage").textContent = "Não identificamos sinais críticos nesta captura. Continue conferindo a vaga no site oficial.";
+      }
+      $("startApplicationButton").disabled = isRisk || (isReview && !item.risk_reviewed_at);
     }
 
     function setApplicationDrawerLoading(loading) {
@@ -1447,6 +1489,7 @@
       $("applicationActionCard").hidden = true;
       $("startApplicationButton").dataset.url = "";
       $("applicationPlatformNote").textContent = "";
+      $("applicationRiskCheck").hidden = true;
       $("markApplicationSentButton").hidden = true;
       $("markApplicationSentButton").disabled = true;
       $("drawerScore").textContent = "—";
@@ -2133,6 +2176,22 @@ async function downloadCoverLetterDocument() {
       $("markApplicationSentButton").hidden = false;
       $("markApplicationSentButton").disabled = false;
       toast("Anúncio aberto. Depois de enviar, atualize o andamento para Candidatura enviada.");
+    });
+    $("riskAcknowledged").addEventListener("change", async event => {
+      if (!event.target.checked || !selectedId) return;
+      event.target.disabled = true;
+      try {
+        const response = await fetch(`/applications/${selectedId}/risk-review`, {method: "POST"});
+        if (!response.ok) throw new Error(await responseError(response, "Não foi possível registrar a revisão de risco."));
+        const updated = await response.json();
+        applications = applications.map(item => item.id === updated.id ? updated : item);
+        openApplication(updated.id);
+        toast("Revisão de risco registrada. Confira o anúncio no site oficial.");
+      } catch (error) {
+        event.target.checked = false;
+        event.target.disabled = false;
+        toast(error.message);
+      }
     });
     $("markApplicationSentButton").addEventListener("click", () => {
       if (!selectedId) return;

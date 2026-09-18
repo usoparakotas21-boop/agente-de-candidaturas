@@ -496,7 +496,7 @@ def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_
     except: dr = []
     try: fc = json.loads(a.field_confidence or "{}")
     except: fc = {}
-    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "health_score": a.health_score, "health_band": a.health_band, "health_signals": a.health_signals or [], "fraud_suspected": a.fraud_suspected, "risk_reviewed_at": a.risk_reviewed_at.isoformat() if a.risk_reviewed_at else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
 def _cand_prefs(cand):
     s = {}
     if cand and cand.preferences_data:
@@ -565,6 +565,15 @@ def startup():
         for col in ["resume_version", "cover_letter_version"]:
             if col not in application_columns:
                 db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} VARCHAR(32)"))
+        for col, ddl in {
+            "health_score": "INTEGER",
+            "health_band": "VARCHAR(20)",
+            "health_signals": "JSON",
+            "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL",
+            "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE",
+        }.items():
+            if col not in application_columns:
+                db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} {ddl}"))
         if "queue_decision" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
             db.execute(text("ALTER TABLE applications ADD COLUMN queue_decision VARCHAR(20) DEFAULT 'REVISAR' NOT NULL"))
         if "capture_confidence" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
@@ -1639,6 +1648,24 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
         allowed = _document_export_metadata(user)["allowed"]
         return _serialize_app(app, allowed, allowed)
     finally: db.close()
+
+@app.post("/applications/{app_id}/risk-review")
+def review_application_risk(app_id: int, user=Depends(authenticated_user)):
+    """Registra uma revisão deliberada antes de abrir uma vaga duvidosa."""
+    db = SessionLocal()
+    try:
+        app = _application_for_user(db, app_id, user)
+        if app is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        if app.health_band != "DUVIDOSA":
+            raise HTTPException(409, "Esta vaga nao exige confirmacao adicional de risco.")
+        app.risk_reviewed_at = utc_now()
+        _add_event(db, app, app.status, "Sinais de risco revisados antes de abrir o anuncio.")
+        db.commit(); db.refresh(app)
+        allowed = _document_export_metadata(user)["allowed"]
+        return _serialize_app(app, allowed, allowed)
+    finally:
+        db.close()
 
 @app.post("/jobs/{job_id}/analyze")
 def analyze_job_saved(job_id: int, user=Depends(authenticated_user)):

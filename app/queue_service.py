@@ -165,6 +165,10 @@ def _promote_item(session: Session, item: QueueItem, owner_id: Optional[str]) ->
         queue_decision=item.decision,
         decision_reasons=json.dumps(item.decision_reasons or [], ensure_ascii=False),
         capture_confidence=item.confidence_overall,
+        health_score=item.health_score,
+        health_band=item.health_band,
+        health_signals=item.health_signals or [],
+        fraud_suspected=item.fraud_suspected,
     )
     session.add(application)
     session.flush()

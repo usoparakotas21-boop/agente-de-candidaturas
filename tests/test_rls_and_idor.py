@@ -149,6 +149,23 @@ class CrossUserIsolationTest(unittest.TestCase):
             main_module.download_cover_letter(foreign_application_id, self.user_b)
         self.assertEqual(letter_error.exception.status_code, 404)
 
+    def test_risk_review_is_owner_scoped_and_audited(self):
+        app_id = self.application_ids["owner-a"]
+        db = self.testing_session()
+        application = db.get(Application, app_id)
+        application.health_band = "DUVIDOSA"
+        application.health_signals = [{"code": "DOMINIO_NOVO", "label": "Domínio ainda não verificado"}]
+        db.commit()
+        db.close()
+
+        with self.assertRaises(HTTPException) as foreign_error:
+            main_module.review_application_risk(app_id, self.user_b)
+        self.assertEqual(foreign_error.exception.status_code, 404)
+
+        result = main_module.review_application_risk(app_id, self.user_a)
+        self.assertIsNotNone(result["risk_reviewed_at"])
+        self.assertIn("Sinais de risco revisados", result["events"][-1]["note"])
+
     def test_paid_entitlement_is_bound_to_the_application(self):
         db = self.testing_session()
         candidate = db.scalar(select(Candidate).where(Candidate.owner_id == "owner-a"))

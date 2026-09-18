@@ -60,6 +60,14 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("external_result: $(\"externalResult\").value", html)
         self.assertIn("latestTracking", html)
 
+    def test_dashboard_requires_risk_review_before_opening_doubtful_vacancy(self):
+        html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="applicationRiskCheck"', html)
+        self.assertIn('id="riskAcknowledged"', html)
+        self.assertIn("/risk-review", html)
+        self.assertIn('item.health_band === "DUVIDOSA"', html)
+        self.assertIn("isReview && !item.risk_reviewed_at", html)
+
 
 if __name__ == "__main__":
     unittest.main()

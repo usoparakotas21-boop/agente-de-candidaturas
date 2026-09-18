@@ -273,6 +273,11 @@ class Application(Base):
     cover_letter_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     resume_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     cover_letter_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    health_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    health_band: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    health_signals: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
+    fraud_suspected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    risk_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
