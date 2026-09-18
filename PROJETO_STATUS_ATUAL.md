@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `9a3af23` — `feat: purge expired raw intake data`
+**Commit publicado:** `3fca7f7` — `feat: add confirmed account deletion flow`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -306,7 +306,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 3. Formalizar heurísticas de RH brasileiro para triagem, ATS, pretensão salarial, regime e vaga fantasma; **a base já existe em `decision_engine`, `job_health` e no parser de captura**, com motivos explicáveis e testes parciais. Alertas Gmail agrupados sem vagas individuais agora são descartados como resumo, evitando filas artificiais; links de LinkedIn, Indeed, Gupy, Glassdoor e Jobbol são reconhecidos, e a plataforma detectada no alerta passa a ser a origem preservada da vaga, em vez de ficar genérica como Gmail/Outlook. Falta consolidar uma versão própria das heurísticas e ampliar casos por provedor antes de marcar concluído.
 4. Criar o copiloto de entrevistas baseado nos gaps: **primeira versão entregue** em `/api/interviews/prep/{app_id}` e no detalhe da candidatura, com perguntas por gap, pontos fortes e orientação para responder apenas com fatos comprovados; avaliação de respostas pela IA continua como segunda camada.
 5. Implementar o acompanhamento da zona morta: **primeira versão entregue** em `/api/applications/followups` e em `Minhas candidaturas`, identificando candidaturas sem retorno há 7 dias e preparando uma mensagem para revisão; envio e registro do retorno continuam manuais.
-6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção. **A exportação JSON owner-scoped já está disponível na área de Segurança; exclusão definitiva e expurgo em Storage continuam pendentes.**
+6. Implementar no mesmo sprint a exportação/portabilidade e a exclusão definitiva da conta, com confirmação forte, remoção de dados relacionados e política de retenção. **A exportação JSON owner-scoped já está disponível e a exclusão definitiva agora tem endpoint/UI com frase de confirmação, remoção dos registros locais, documentos privados e chamada administrativa ao Supabase; falta configurar `SUPABASE_SERVICE_ROLE_KEY` no Render e executar o teste operacional antes de marcar concluído. Expurgo de objetos em Storage segue dependente da adoção de bucket.**
 7. **Consentimento versionado entregue:** o cadastro exige os dois aceites, registra `terms_version`, `privacy_version` e `consented_at` no metadata enviado ao Supabase Auth; uma trilha imutável administrativa continua opcional.
 8. **Expurgo local ampliado:** documentos gerados continuam sendo limpos por `DOCUMENT_RETENTION_DAYS`, e a rotina periódica agora remove mensagens processadas antigas e redige `raw_excerpt` de itens de fila após `RAW_DATA_RETENTION_DAYS` (padrão de 60 dias, mínimo de 30). Expurgo de Storage/prints/rascunhos depende da adoção de bucket e de registros persistidos para esses artefatos.
 9. Ampliar a fronteira de dados não confiáveis para todos os prompts de vagas, OCR, Gmail e PDFs e adicionar casos hostis específicos por origem; o avaliador de entrevistas já está coberto.
@@ -421,11 +421,11 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; o cadastro agora exige os dois aceites e registra versões/data UTC no metadata do usuário | Implementado em **P1.7**; trilha imutável administrativa é melhoria posterior; textos legais em **P1.11** |
-| Exportação e exclusão LGPD | Exportação JSON owner-scoped está disponível na área de Segurança; exclusão definitiva, cascata e expurgo de objetos permanecem pendentes | **P1.6 parcialmente entregue** |
+| Exportação e exclusão LGPD | Exportação JSON owner-scoped está disponível; a exclusão exige `EXCLUIR MINHA CONTA`, remove dados locais/documentos e chama o endpoint administrativo do Supabase; objetos em Storage ainda não existem | **P1.6 parcialmente entregue**; falta configurar a chave server-side e validar em produção |
 | Recibo por e-mail | Envio idempotente está implementado após confirmação do Mercado Pago; falta configurar e testar o SMTP transacional em produção | **P1.10 parcialmente entregue** |
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
-| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou **160 testes sem falhas** nesta rodada | **Concluído nesta verificação** |
+| Suíte completa | Dependências de `requirements.txt` resolvidas em ambiente isolado; a suíte oficial em `tests/` executou **163 testes sem falhas** nesta rodada | **Concluído nesta verificação** |
 | Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou captação, preferências, Segurança e drawer de candidatura | Validado em produção; foco inicial, `Esc`, retorno ao disparador e ciclo de Tab concluídos |
 
 ### Verificação direta do Supabase — 17/09/2026
