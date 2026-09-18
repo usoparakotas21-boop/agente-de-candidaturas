@@ -1027,6 +1027,14 @@ def _mark_purchase_paid(
     """Apply one PAID transition and make repeated webhook delivery safe."""
     if purchase.status == "PAID":
         return "idempotent" if purchase.transaction_nsu == transaction_nsu else "conflict"
+    if int(paid_amount) != int(purchase.amount):
+        logger.warning(
+            "Pagamento Mercado Pago com valor divergente order_nsu=%s esperado=%s recebido=%s",
+            purchase.order_nsu,
+            purchase.amount,
+            paid_amount,
+        )
+        return "amount_mismatch"
     values: dict[str, Any] = {
         "status": "PAID",
         "transaction_nsu": transaction_nsu,
@@ -1158,7 +1166,12 @@ async def mercadopago_webhook(request: Request):
                 transaction_nsu=payment_id,
                 paid_amount=int(round(float(payment.get("transaction_amount") or 0) * 100)),
             )
-            return {"received": True, "verified": outcome != "conflict", "idempotent": outcome == "idempotent", "status": payment.get("status")}
+            return {
+                "received": True,
+                "verified": outcome in {"paid", "idempotent"},
+                "idempotent": outcome == "idempotent",
+                "status": payment.get("status"),
+            }
         return {"received": True, "verified": bool(purchase), "status": payment.get("status")}
     finally:
         db.close()

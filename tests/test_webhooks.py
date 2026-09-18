@@ -107,6 +107,23 @@ class WebhookSecurityTest(unittest.TestCase):
         session.close()
         engine.dispose()
 
+    def test_paid_transition_rejects_amount_mismatch(self):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(bind=engine)
+        session = sessionmaker(bind=engine)()
+        purchase = DocumentExportPurchase(owner_id="owner-a", order_nsu="order-a", amount=990)
+        session.add(purchase)
+        session.commit()
+        self.assertEqual(
+            main_module._mark_purchase_paid(session, purchase, transaction_nsu="payment-low", paid_amount=989),
+            "amount_mismatch",
+        )
+        session.refresh(purchase)
+        self.assertEqual(purchase.status, "PENDING")
+        self.assertIsNone(purchase.transaction_nsu)
+        session.close()
+        engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main()
