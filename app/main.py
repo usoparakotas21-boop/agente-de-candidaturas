@@ -1070,6 +1070,46 @@ def application_metrics(user=Depends(authenticated_user)):
     finally:
         db.close()
 
+
+@app.get("/api/applications/followups")
+def application_followups(user=Depends(authenticated_user)):
+    """Lista candidaturas sem retorno que já merecem acompanhamento."""
+    db = SessionLocal()
+    try:
+        oid = _owner_id(user)
+        query = select(Application).join(Application.job).order_by(Application.updated_at.asc())
+        if oid:
+            query = query.where(Job.owner_id == oid)
+        applications = db.scalars(query).unique().all()
+        now = utc_now()
+        terminal = {"ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"}
+        items = []
+        for application in applications:
+            if application.status in terminal:
+                continue
+            sent_events = [event for event in application.events if event.status == "CANDIDATURA_ENVIADA"]
+            sent_at = max((event.created_at for event in sent_events), default=None)
+            if sent_at is None and application.status == "CANDIDATURA_ENVIADA":
+                sent_at = application.updated_at or application.created_at
+            if sent_at is None:
+                continue
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=now.tzinfo)
+            elapsed_days = max(0, (now - sent_at).days)
+            if elapsed_days < 7:
+                continue
+            items.append({
+                "application_id": application.id,
+                "job_title": application.job.title,
+                "company": application.job.company,
+                "sent_at": sent_at.isoformat(),
+                "days_waiting": elapsed_days,
+                "message": "Olá, tudo bem? Gostaria de acompanhar o andamento da minha candidatura para esta oportunidade.",
+            })
+        return {"items": items, "followup_after_days": 7}
+    finally:
+        db.close()
+
 @app.get("/applications/{app_id}")
 def get_app(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
