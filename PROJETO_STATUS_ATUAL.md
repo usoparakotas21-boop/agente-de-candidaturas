@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `de45751` — `test: cover OCR temporary cleanup`
+**Commit publicado:** `4bfd7a4` — `test: preserve optional MFA login behavior`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -224,6 +224,24 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | R$ 9,90 avulso, FAQ e prova social na landing | A linha do avulso pode ser adicionada com o preço real; FAQ é copy útil; números de prova social só entram quando vierem de métricas observadas | P1.16; métricas de conversão permanecem P1.1 |
 | Queda da rota `/vagas` após o carregamento | Corrigido no `jobs-enhance.js`: o `MutationObserver` não reordena a lista em ciclo contínuo; a página foi revalidada em produção com lista, filtros, detalhes e análise carregados | P0.8 concluído para esta causa; manter teste de regressão operacional |
 
+### Auditoria de UX/UI e Customer Success — 18/09/2026
+
+As novas sugestões foram comparadas com o que já está publicado. Os percentuais abaixo medem implementação, teste e validação compatíveis com o escopo do item; não representam uma avaliação subjetiva de gosto visual.
+
+| Frente sugerida | Estado atual | Conclusão estimada | Destino correto |
+| --- | --- | ---: | --- |
+| Layout, estrutura responsiva, dashboards, perfil e funil | Dashboards essenciais, busca, paginação, estados vazios, perfil e funil de candidaturas existem; métricas de conversão estão instrumentadas em **P1.1** | **95%** | Sem nova tarefa; manter regressões |
+| Refinamento de componentes, microinterações e consistência visual | Ações do cabeçalho, botões neutros, skeleton do drawer, feedback de upload e foco dos modais já foram tratados; faltam microinterações gerais e uma revisão visual final | **80%** | **P1.17** |
+| Hierarquia dos dados complexos do OCR durante a edição | Extração e edição funcionam, mas ainda não existe uma revisão específica para agrupar campos, reduzir ruído e orientar a correção de dados extraídos | **60%** | **P1.17** |
+| Onboarding guiado em três passos | A sincronização do card com perfil/preferências está entregue em **P1.13**; não há tour guiado de primeiro acesso | **35%** | **P1.17** |
+| Feedback assíncrono de OCR e validação de arquivos | Mensagens específicas, região de status acessível e skeleton do drawer existem; faltam estados de progresso mais claros para todos os processamentos longos | **75%** | **P1.17** |
+| Erros de validação orientados à ação | Handlers públicos e validações de upload já são seguros e específicos; falta revisar a cópia e a ação de recuperação em todas as telas assíncronas | **85%** | **P1.17** |
+| Widget de suporte ou canal direto | Não existe widget integrado nem canal contextual dentro do painel | **0%** | **P1.18** |
+| Central de ajuda e FAQ | FAQ básico já está na landing em **P1.16**; falta uma área de ajuda com formatos aceitos, privacidade e solução de problemas | **45%** | **P1.18** |
+| E-mails de Customer Success | Recibo pós-pagamento está implementado, mas aguarda SMTP de produção em **P1.10**; boas-vindas, lembretes e mudanças de status ainda não existem | **25%** | **P1.19** |
+
+Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de isolamento, uploads, MFA, confirmação de e-mail, Mercado Pago, senhas comprometidas e backup. O suporte e os e-mails entram depois desses gates porque dependem de uma operação pagante estável.
+
 
 ## Próximas prioridades
 
@@ -261,6 +279,9 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
 15. **Skeleton e proteção do formulário entregues:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; `Limpar formulário` agora é uma ação neutra e confirma a perda quando existe rascunho ou prévia. O Banco de vagas foi reaberto em produção e exibiu o estado vazio/contadores normalmente, sem reproduzir o crash.
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
+17. **UX de primeiro acesso e polimento final:** criar tour guiado opcional em três passos, revisar a hierarquia dos dados extraídos por OCR, completar estados de progresso de processos assíncronos, padronizar microinterações e revisar mensagens de recuperação nas telas de validação. O card sincronizado de onboarding e os componentes já validados permanecem como base; não duplicar essas entregas.
+18. **Suporte e ajuda contextual:** adicionar um canal de suporte dentro do painel e uma central curta de ajuda com formatos de currículo, privacidade, pagamentos e resolução de erros. O FAQ da landing continua sendo a primeira camada, não um substituto para a ajuda contextual.
+19. **E-mails de ciclo de vida:** depois de configurar o SMTP de produção em **P1.10**, adicionar boas-vindas, lembretes de candidaturas sem retorno e notificações de mudança de etapa, sempre com preferências de recebimento e sem envio automático de candidatura.
 
 ### Próximo ciclo prático já classificado
 
