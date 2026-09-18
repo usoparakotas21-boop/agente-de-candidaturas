@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `9169e8e` — `fix: remove duplicated alert controls`
+**Commit publicado:** `9e417c1` — `fix: separate alert priority badge`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -321,7 +321,7 @@ Essas sugestões não alteram a ordem do P0: nenhuma delas substitui os gates de
 - O estúdio de documentos passou a sinalizar a geração assíncrona com botão ocupado, spinner e mensagem orientada; a suíte completa ficou em **147 testes aprovados, 0 falhas** e a sintaxe do script foi validada com `node --check`.
 - As preferências de e-mail de ciclo de vida passaram na suíte direcionada e na suíte completa: **149 testes aprovados, 0 falhas**; valores fora da lista são normalizados para `daily` e as escolhas não disparam mensagens sem SMTP configurado.
 - A tela publicada de Configurações mostrou os controles de frequência e categorias de aviso no Render após o deploy `bab87b5`; nenhuma mensagem foi enviada durante a validação.
-- A correção dos alertas passou em `node --check` e na suíte completa: **150 testes aprovados, 0 falhas**; a validação local confirma que o script não recria controles nem contém `mailto` de suporte não configurado.
+- A correção dos alertas passou em `node --check` e na suíte completa: **150 testes aprovados, 0 falhas**; a validação local confirma que o script não recria controles, mantém o badge crítico separado e não contém `mailto` de suporte não configurado.
 - A cobertura de P0.1 foi ampliada para garantir que a exportação de privacidade também exclua compras de outro proprietário; a suíte oficial permaneceu em **143 testes aprovados, 0 falhas**.
 - A fila deixou de devolver exceções internas em ações individuais e em lote: erros inesperados agora ficam apenas nos logs e chegam ao cliente como mensagem estável. O commit `9461640` cobre essa fronteira com regressão automatizada; o P0.8 permanece concluído para as rotas revisadas.
 - Os callbacks OAuth do Gmail e Outlook agora registram o motivo técnico somente no log e devolvem mensagens públicas estáveis; a suíte cobre que detalhes enviados pelo provedor não chegam ao navegador.
