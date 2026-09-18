@@ -56,6 +56,18 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(raised.exception.status_code, 422)
 
+    async def test_signup_requires_explicit_legal_consent(self):
+        with self.assertRaises(HTTPException) as raised:
+            await auth.signup(
+                auth.SignupRequest(
+                    name="Pessoa Teste",
+                    email="pessoa@example.com",
+                    password="Senha-segura1!",
+                )
+            )
+        self.assertEqual(raised.exception.status_code, 422)
+        self.assertIn("Termos", str(raised.exception.detail))
+
     def test_supabase_error_explains_existing_email(self):
         response = httpx.Response(
             422,
@@ -81,6 +93,8 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                     name="Pessoa Teste",
                     email="Pessoa@Example.com",
                     password="Senha-segura1!",
+                    terms_accepted=True,
+                    privacy_accepted=True,
                 )
             )
 
@@ -96,6 +110,12 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             request_mock.await_args.kwargs["json"]["email"],
             "pessoa@example.com",
         )
+        metadata = request_mock.await_args.kwargs["json"]["data"]
+        self.assertTrue(metadata["terms_accepted"])
+        self.assertTrue(metadata["privacy_accepted"])
+        self.assertEqual(metadata["terms_version"], auth.TERMS_VERSION)
+        self.assertEqual(metadata["privacy_version"], auth.PRIVACY_VERSION)
+        self.assertTrue(metadata["consented_at"].endswith("Z"))
 
     async def test_signup_sets_session_when_email_confirmation_is_disabled(self):
         session = {
@@ -117,6 +137,8 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                     name="Pessoa Teste",
                     email="pessoa@example.com",
                     password="Senha-segura1!",
+                    terms_accepted=True,
+                    privacy_accepted=True,
                 )
             )
 
@@ -152,6 +174,8 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                     name="Pessoa Teste",
                     email="pessoa@example.com",
                     password="Senha-segura1!",
+                    terms_accepted=True,
+                    privacy_accepted=True,
                 )
             )
 
@@ -292,6 +316,8 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
                         name="Pessoa Teste",
                         email="pessoa@example.com",
                         password="Senha-segura1!",
+                        terms_accepted=True,
+                        privacy_accepted=True,
                     )
                 )
         self.assertEqual(raised.exception.status_code, 503)

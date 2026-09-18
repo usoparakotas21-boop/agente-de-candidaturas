@@ -41,6 +41,11 @@ MFA_PENDING_MAX_AGE = 5 * 60
 APP_BASE_URL = _app_base_url()
 PWNED_PASSWORD_CHECK = os.getenv("PWNED_PASSWORD_CHECK", "false").lower() == "true"
 PWNED_PASSWORD_TIMEOUT = 4.0
+# Keep the legal text versioned so each signup records exactly what the user
+# accepted.  A future policy change can bump these values without changing the
+# authentication contract.
+TERMS_VERSION = "2026-09-10"
+PRIVACY_VERSION = "2026-09-10"
 logger = logging.getLogger(__name__)
 
 # A small in-process limiter protects the public auth endpoints even when the
@@ -115,6 +120,8 @@ class LoginRequest(BaseModel):
 
 class SignupRequest(LoginRequest):
     name: str = ""
+    terms_accepted: bool = False
+    privacy_accepted: bool = False
 
 
 class EmailRequest(BaseModel):
@@ -491,10 +498,16 @@ async def login(payload: LoginRequest, request: Request = None):
 @router.post("/signup")
 async def signup(payload: SignupRequest, request: Request = None):
     email = _validated_email(payload.email)
+    if not payload.terms_accepted or not payload.privacy_accepted:
+        raise HTTPException(
+            422,
+            "Leia e aceite os Termos de Uso e a Política de Privacidade para criar sua conta.",
+        )
     _enforce_rate_limit(request, "signup", email)
     password = _validated_password(payload.password)
     await _reject_compromised_password(password)
     redirect_to = quote(_auth_redirect_url(), safe="")
+    consented_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     try:
         response = await _supabase_request(
             "POST",
@@ -502,7 +515,14 @@ async def signup(payload: SignupRequest, request: Request = None):
             json={
                 "email": email,
                 "password": password,
-                "data": {"name": payload.name.strip()},
+                "data": {
+                    "name": payload.name.strip(),
+                    "terms_accepted": True,
+                    "privacy_accepted": True,
+                    "terms_version": TERMS_VERSION,
+                    "privacy_version": PRIVACY_VERSION,
+                    "consented_at": consented_at,
+                },
             },
         )
     except httpx.HTTPError:

@@ -363,7 +363,7 @@
         <input id="signupPassword" type="password" minlength="8" autocomplete="new-password" required>
         <label for="signupPasswordConfirm">Confirmar senha</label>
         <input id="signupPasswordConfirm" type="password" minlength="8" autocomplete="new-password" required>
-        <label class="terms"><input id="signupTerms" type="checkbox" required>Li e aceito os Termos de Uso e a Política de Privacidade.</label>
+        <label class="terms"><input id="signupTerms" type="checkbox" required>Li e aceito os <a href="/termos" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.</label>
         <button id="signupButton" type="submit">Criar minha conta</button>
         <button class="auth-link" id="resendConfirmationButton" type="button">Reenviar confirmação</button>
         <p class="auth-error" id="signupError" role="alert"></p>
@@ -962,6 +962,8 @@
             name: $("signupName").value.trim(),
             email: $("signupEmail").value.trim(),
             password: $("signupPassword").value,
+            terms_accepted: $("signupTerms").checked,
+            privacy_accepted: $("signupTerms").checked,
           }),
         });
         if (!response.ok) throw new Error(await responseError(response, "Não foi possível criar a conta."));
