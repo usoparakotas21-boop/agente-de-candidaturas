@@ -610,7 +610,7 @@
       </div>
     </form>
   </dialog>
-  <aside class="drawer" id="drawer" aria-label="Detalhes da candidatura" aria-hidden="true">
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Detalhes da candidatura" aria-hidden="true" tabindex="-1">
     <div class="drawer-top"><span class="badge blue" id="drawerStatus">STATUS</span><button class="close" id="closeDrawer" aria-label="Fechar">×</button></div>
     <h2 id="drawerTitle"></h2><p class="drawer-company" id="drawerCompany"></p>
     <p class="drawer-loading-message" id="drawerLoadingMessage" hidden>Estamos abrindo os detalhes desta candidatura…</p>
@@ -1099,6 +1099,7 @@
     let queueSummary = {};
     const selectedQueueIds = new Set();
     let selectedId = null;
+    let drawerOpener = null;
     let capturePreview = null;
     let documentExport = {allowed: false, price: "", checkout_url: "", checkout_ready: false};
     const analysisCache = {};
@@ -1383,13 +1384,16 @@
         </tr>`).join("");
       $("emptyState").hidden = filtered.length > 0;
       document.querySelectorAll("#applicationRows tr").forEach(row => {
-        row.addEventListener("click", () => openApplication(Number(row.dataset.id)));
-        row.addEventListener("keydown", event => { if (event.key === "Enter") openApplication(Number(row.dataset.id)); });
+        row.addEventListener("click", () => openApplication(Number(row.dataset.id), row));
+        row.addEventListener("keydown", event => { if (event.key === "Enter") openApplication(Number(row.dataset.id), row); });
       });
     }
 
-    function openApplication(id) {
+    function openApplication(id, opener = null) {
       const item = applications.find(entry => entry.id === id); if (!item) return;
+      if (!$('drawer').classList.contains('open')) {
+        drawerOpener = opener || document.activeElement;
+      }
       selectedId = id;
       setApplicationDrawerLoading(false);
       $("drawerStatus").textContent = statusLabels[item.status] || item.status;
@@ -1428,6 +1432,7 @@
         <time>${formatDate(event.created_at)}</time>${event.note ? `<p>${escapeHtml(event.note)}</p>` : ""}${event.channel || event.external_result ? `<p class="muted">${event.channel ? `Canal: ${escapeHtml(event.channel)}` : ""}${event.channel && event.external_result ? " · " : ""}${event.external_result ? `Retorno: ${escapeHtml(event.external_result.replaceAll("_", " ").toLowerCase())}` : ""}</p>` : ""}</div>`).join("");
       renderAnalysis(item.id);
       $("drawer").classList.add("open"); $("backdrop").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => $("closeDrawer").focus());
     }
 
     function renderApplicationRisk(item) {
@@ -1480,6 +1485,7 @@
 
     function showApplicationLoading() {
       selectedId = null;
+      drawerOpener = null;
       $("drawerStatus").textContent = "Abrindo…";
       $("drawerStatus").className = "badge blue";
       $("drawerTitle").textContent = "Abrindo candidatura";
@@ -1505,6 +1511,7 @@
       $("backdrop").classList.add("open");
       $("drawer").setAttribute("aria-hidden", "false");
       setApplicationDrawerLoading(true);
+      requestAnimationFrame(() => $("closeDrawer").focus());
     }
 
     function renderAnalysis(applicationId) {
@@ -1567,6 +1574,11 @@
       $("drawer").classList.remove("open"); $("backdrop").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true");
       $("drawer").removeAttribute("aria-busy");
       setApplicationDrawerLoading(false);
+      const opener = drawerOpener;
+      drawerOpener = null;
+      if (opener && document.contains(opener) && !opener.disabled) {
+        requestAnimationFrame(() => opener.focus());
+      }
     }
 
     async function saveStatus() {
@@ -2261,7 +2273,27 @@ $("copyCoverLetter").addEventListener(
       "click",
       downloadSavedCoverLetter
     );
-    document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
+    $("drawer").addEventListener("keydown", event => {
+      if (event.key !== "Tab" || !$("drawer").classList.contains("open")) return;
+      const focusable = [...$("drawer").querySelectorAll(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter(element => !element.hidden && element.getClientRects().length);
+      if (!focusable.length) {
+        event.preventDefault();
+        $("closeDrawer").focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    document.addEventListener("keydown", event => { if (event.key === "Escape" && $("drawer").classList.contains("open")) closeDrawer(); });
     bootstrapAuth();
   </script>
 <script src="/static/password-enhance.js?v=2"></script></body>
