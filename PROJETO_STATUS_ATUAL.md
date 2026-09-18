@@ -368,6 +368,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `8dd0f36` | Gmail ignora alertas agrupados sem vagas individuais, evitando criar oportunidades artificiais; testes 132/132 |
 | `9e01036` | Proteção contra golpes antes da candidatura: preserva sinais de risco, bloqueia risco alto e exige revisão auditável para vaga duvidosa; testes 131/131 |
 | `fe2d92f` | Atribuição de candidatura por canal, retorno externo e versão de currículo/carta; proteção de amostra mínima no painel |
 | `61a4ab1` | Regressão do painel para os controles de canal e retorno; suíte 129/129 |
