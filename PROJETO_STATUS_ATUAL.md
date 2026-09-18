@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `b247479` — `docs: record production verification of latest cycle`
+**Commit publicado:** `bc6973b` — `feat: persist structured job intake fields`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
