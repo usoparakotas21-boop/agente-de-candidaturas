@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `448bec5` — `feat: add application conversion metrics`
+**Commit publicado:** `e183802` — `feat: surface job scam risk in decision queue`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
