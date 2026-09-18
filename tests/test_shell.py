@@ -68,6 +68,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", preferences)
         self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", preferences)
 
+    def test_config_page_keeps_its_layout_styles(self):
+        html = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn(":root{--ink:", html)
+        self.assertIn(".layout{", html)
+        self.assertIn(".nav{", html)
+        self.assertIn(".card{", html)
+
     def test_applications_page_surfaces_retry_on_load_failure(self):
         html = (Path(main_module.STATIC_DIR) / "candidaturas.html").read_text(encoding="utf-8")
         self.assertIn('role="status" aria-live="polite"', html)
