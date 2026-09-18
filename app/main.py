@@ -234,7 +234,7 @@ def _document_export_price() -> str:
     return f"R$ {cents / 100:.2f}".replace(".", ",") if cents > 0 else ""
 
 
-def _document_export_metadata(user: dict | None) -> dict[str, Any]:
+def _document_export_metadata(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
     """Return the server-side entitlement metadata for DOCX exports.
 
     The payment provider/webhook can grant access through Supabase app_metadata
@@ -265,6 +265,7 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
                 select(DocumentExportPurchase.id).where(
                     DocumentExportPurchase.owner_id == owner_id,
                     DocumentExportPurchase.status == "PAID",
+                    *([DocumentExportPurchase.application_id == application_id] if application_id is not None else []),
                 ).limit(1)
             ) is not None
         except Exception:
@@ -281,8 +282,8 @@ def _document_export_metadata(user: dict | None) -> dict[str, Any]:
     }
 
 
-def _require_document_export(user: dict | None) -> dict[str, Any]:
-    offer = _document_export_metadata(user)
+def _require_document_export(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
+    offer = _document_export_metadata(user, application_id)
     if offer["allowed"]:
         return offer
     detail = {
@@ -373,6 +374,7 @@ class JobCreateRequest(BaseModel): source: str = "manual"; external_id: str; com
 class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_analyze: bool = True; reprocess_existing: bool = False
 class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
+class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
 class DocumentStudioRequest(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     company: str = Field(default="", max_length=200)
@@ -530,6 +532,7 @@ def startup():
                 db.execute(text(f"ALTER TABLE queue_items ADD COLUMN {col} {ddl}"))
         purchase_columns = {c["name"] for c in inspect(engine).get_columns("document_export_purchases")}
         for col, ddl in {
+            "application_id": "INTEGER",
             "payer_email": "VARCHAR(320)",
             "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL",
             "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
@@ -1416,7 +1419,7 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
 
 
 @app.post("/billing/document-export/checkout")
-async def create_document_export_checkout(user=Depends(authenticated_user)):
+async def create_document_export_checkout(req: DocumentExportCheckoutRequest, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
@@ -1440,7 +1443,10 @@ async def create_document_export_checkout(user=Depends(authenticated_user)):
     }
     db = SessionLocal()
     try:
-        db.add(DocumentExportPurchase(owner_id=owner_id, payer_email=str(user.get("email") or "").strip(), order_nsu=order_nsu, amount=price_cents))
+        application = _application_for_user(db, req.application_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        db.add(DocumentExportPurchase(owner_id=owner_id, application_id=application.id, payer_email=str(user.get("email") or "").strip(), order_nsu=order_nsu, amount=price_cents))
         db.commit()
     finally:
         db.close()
@@ -1545,9 +1551,9 @@ def mercadopago_success():
 def download_doc(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
-        _require_document_export(user)
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
+        _require_document_export(user, app.id)
         if not app.document_path: raise HTTPException(404, "Nao possui curriculo gerado.")
         try:
             path = resolve_document_path(app.document_path)
@@ -1599,7 +1605,7 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
         _save_analysis(app, arts["analysis"], c)
         app.cover_letter_text = letter
         db.commit(); db.refresh(app)
-        export = _document_export_metadata(user)
+        export = _document_export_metadata(user, app.id)
         return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso." if not export["allowed"] else "Carta completa liberada."}
     finally: db.close()
 
@@ -1607,15 +1613,15 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
 def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
-        _require_document_export(user)
         job = _job_for_user(db, job_id, user)
         if job is None: raise HTTPException(404, "Vaga nao encontrada.")
         c = _candidate_for_user(db, user)
+        app = _ensure_app(db, job, c)
+        _require_document_export(user, app.id)
         arts = _build_application(job, c)
         letter = generate_cover_letter(job_title=job.title, company=job.company, profile=arts["profile"], analysis=arts["analysis"], personalization=arts["personalization"])
         path = Path(generate_cover_letter_docx(letter=letter, company=job.company, job_title=job.title)).resolve()
         if not path.is_file(): raise HTTPException(500, "Carta nao foi criada.")
-        app = _ensure_app(db, job, c)
         _save_analysis(app, arts["analysis"], c)
         app.cover_letter_text = letter
         app.cover_letter_path = str(path)
@@ -1628,9 +1634,9 @@ def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
 def download_cover_letter(app_id: int, user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
-        _require_document_export(user)
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
+        _require_document_export(user, app.id)
         if not app.cover_letter_path: raise HTTPException(404, "Nao possui carta gerada.")
         try:
             path = resolve_document_path(app.cover_letter_path)
@@ -1648,8 +1654,8 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
         if job is None: raise HTTPException(404, "Vaga não encontrada.")
         c = _candidate_for_user(db, user)
         arts = _build_application(job, c)
-        if not _document_export_metadata(user)["allowed"]:
-            app = _ensure_app(db, job, c)
+        app = _ensure_app(db, job, c)
+        if not _document_export_metadata(user, app.id)["allowed"]:
             _save_analysis(app, arts["analysis"], c)
             app.personalization_score = arts["personalization"]["personalization_score"]
             if app.status == "IDENTIFICADA":
@@ -1666,7 +1672,6 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
             }
         path = Path(generate_docx(arts["resume"])).resolve()
         if not path.is_file(): raise HTTPException(500, "Documento nao foi criado.")
-        app = _ensure_app(db, job, c)
         _save_analysis(app, arts["analysis"], c)
         app.personalization_score = arts["personalization"]["personalization_score"]
         app.document_path = str(path)
@@ -1718,7 +1723,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
         db.commit()
         db.refresh(job)
         db.refresh(app_record)
-        export = _document_export_metadata(user)
+        export = _document_export_metadata(user, app_record.id)
         return {
             "status": "PREVIA_GERADA",
             "job_id": job.id,

@@ -319,6 +319,7 @@ class DocumentExportPurchase(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     payer_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     order_nsu: Mapped[str] = mapped_column(String(120), nullable=False)
     invoice_slug: Mapped[str | None] = mapped_column(String(200), nullable=True)

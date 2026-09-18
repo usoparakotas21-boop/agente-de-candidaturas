@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app import main as main_module
@@ -90,6 +90,7 @@ class CrossUserIsolationTest(unittest.TestCase):
             db.add(
                 DocumentExportPurchase(
                     owner_id=owner,
+                    application_id=application.id,
                     order_nsu=f"order-{owner}",
                     amount=990,
                     paid_amount=990,
@@ -147,6 +148,41 @@ class CrossUserIsolationTest(unittest.TestCase):
         with self.assertRaises(HTTPException) as letter_error:
             main_module.download_cover_letter(foreign_application_id, self.user_b)
         self.assertEqual(letter_error.exception.status_code, 404)
+
+    def test_paid_entitlement_is_bound_to_the_application(self):
+        db = self.testing_session()
+        candidate = db.scalar(select(Candidate).where(Candidate.owner_id == "owner-a"))
+        job = Job(
+            owner_id="owner-a",
+            source="teste",
+            external_id="vaga-owner-a-sem-compra",
+            company="Empresa A",
+            title="Outra oportunidade",
+            location="Salvador/BA",
+            modality="Híbrido",
+            salary="",
+            url="",
+            description="Outra oportunidade para testar o vínculo transacional.",
+        )
+        db.add(job)
+        db.flush()
+        document_path = Path(self.temp_dir.name) / "owner-a-second-curriculo.docx"
+        document_path.write_bytes(b"PK\\x03\\x04teste")
+        other = Application(
+            job_id=job.id,
+            candidate_id=candidate.id,
+            status="CURRICULO_GERADO",
+            document_path=str(document_path),
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+        db.close()
+
+        paid_user_without_plan = {"id": "owner-a", "email": "a@example.com", "app_metadata": {}}
+        with self.assertRaises(HTTPException) as export_error:
+            main_module.download_doc(other.id, paid_user_without_plan)
+        self.assertEqual(export_error.exception.status_code, 402)
 
 
 if __name__ == "__main__":

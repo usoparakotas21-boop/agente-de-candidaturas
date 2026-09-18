@@ -1976,7 +1976,7 @@ async function downloadCoverLetterDocument() {
           window.open(documentExport.checkout_url, "_blank", "noopener");
           return;
         }
-        const response = await fetch("/billing/document-export/checkout", {method: "POST"});
+        const response = await fetch("/billing/document-export/checkout", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({application_id: selectedId})});
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.detail || "Não foi possível iniciar o pagamento.");
         window.open(payload.checkout_url, "_blank", "noopener");
