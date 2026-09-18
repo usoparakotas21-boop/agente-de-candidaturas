@@ -17,6 +17,7 @@ class ShellLayoutTest(unittest.TestCase):
         response = main_module._page(Path(main_module.SECURITY_PAGE_PATH))
         html = response.body.decode("utf-8")
         self.assertEqual(html.count('<nav class="global-nav">'), 1)
+        self.assertNotIn('<header class="top">', html)
 
     def test_active_templates_do_not_require_inline_style_attributes(self):
         templates = [
