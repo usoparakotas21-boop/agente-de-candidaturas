@@ -299,7 +299,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 - Teste operacional com duas contas: conta A exibiu dados próprios e conta B exibiu zero vagas/candidaturas; a tentativa de abrir diretamente as rotas JSON por ID foi bloqueada pelo navegador de teste, portanto o acesso direto e os downloads cruzados permanecem em **P0.1**.
 - Testes direcionados reexecutados nesta rodada: isolamento/RLS/arquivos cruzados (**3 aprovados**), validação de uploads por assinatura/estrutura (**4 aprovados**), fluxo MFA (**2 aprovados**) e assets estáticos públicos (**2 aprovados**). Essas evidências são locais; as validações externas do P0 continuam separadas por item.
-- No avanço do P0.2, armazenamento privado/limpeza e intake de arquivos passaram (**5 testes**); em produção, um PDF falso e um DOCX falso foram rejeitados com mensagem de formato inválido, sem criar currículo. Ainda falta validar arquivos válidos, imagem, armazenamento privado e limpeza de temporários.
+- No avanço do P0.2, armazenamento privado/limpeza e intake de arquivos passaram (**5 testes**); em produção, um PDF falso e um DOCX falso foram rejeitados sem criar currículo. Após os commits `99c6019` e `f75c99c`, a tela passou a exibir somente a mensagem específica `O conteudo do arquivo nao corresponde ao formato informado.` e a região de status ficou acessível, sem o aviso global obsoleto. Ainda falta validar imagem, armazenamento privado e limpeza de temporários em operação.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
 
@@ -368,6 +368,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `f75c99c` | Feedback de upload acessível, sem status global obsoleto |
+| `ca85397` | Remoção do aviso HTTP genérico duplicado |
+| `99c6019` | Preservação da mensagem específica de validação de upload e correção visual da área de importação |
 | `75a72aa` | Validação pós-deploy do webhook Mercado Pago e registro de configuração ativa |
 | `f75f07f` | Webhook Mercado Pago fail-closed para Access Token ausente e assinatura inválida; testes 123/123 |
 | `d7cf3c1` | Registro da limitação do plano Free para proteção nativa contra senhas vazadas |
