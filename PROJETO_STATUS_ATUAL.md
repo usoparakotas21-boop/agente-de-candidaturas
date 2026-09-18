@@ -214,7 +214,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Razão social com prefixo numérico de CNPJ | Corrigido no intake removendo o prefixo sem apagar o sufixo societário | P0.2 concluído no código |
 | Alertas “27 vagas abertas...” salvos como uma vaga | O splitter atual já separa blocos por URLs/títulos detectáveis, mas não decompõe todo resumo sem links individuais | P1.3, junto das heurísticas de parsing por provedor; não duplicar como tarefa P0 |
 | Cards, badges, paginação, busca e estado vazio da fila | Já implementados; a incoerência textual entre “Aguardando revisão” e “Capturar” é nomenclatura de produto a revisar junto das heurísticas | P1.3 se houver mudança de decisão; sem novo P0 |
-| `/vagas` exibe erro sem ação | Corrigido com botão local `Tentar novamente`, sem exigir F5; backend já retorna mensagem pública estável | P1.15 concluído no código; testar no navegador durante a validação visual |
+| `/vagas` exibe erro sem ação | Corrigido com botão local `Tentar novamente`, sem exigir F5; backend já retorna mensagem pública estável | P1.15 concluído no código e a rota foi reaberta em produção sem erro, exibindo estado vazio e contadores `0` |
 | Modal abre com textos repetidos “Carregando...” | Ainda não há skeleton screen; trocar por blocos de carregamento é melhoria de percepção, sem impacto de segurança | P1.15 |
 | Cabeçalho escuro duplicado no dashboard e subpáginas | Dashboard mantém apenas seu cabeçalho próprio; subpáginas mantêm apenas a navegação global | P1.15 concluído no código |
 | Botões Aprovar/Recusar genéricos e subtítulo de alerta repetido | Decisão e status são dados distintos; renomear ações e reduzir o subtítulo exige revisar copy e transições | P1.3, junto do modelo de decisão; não implementar só por aparência |
@@ -259,7 +259,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. **Logout entregue no cabeçalho global:** subpáginas autenticadas agora exibem `Sair` por formulário POST; links legais continuam nas páginas públicas e no cadastro.
-15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; continuam pendentes `Limpar` como ação neutra com confirmação e a validação visual completa do retry do Banco de vagas.
+15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; `Limpar` como ação neutra com confirmação continua pendente. O Banco de vagas foi reaberto em produção e exibiu o estado vazio/contadores normalmente, sem reproduzir o crash.
 16. **Entregue:** landing explicita downloads avulsos de R$ 9,90 e inclui FAQ sobre candidatura manual, compatibilidade ATS e cancelamento conforme checkout; nenhuma prova social numérica foi inventada.
 
 ### Próximo ciclo prático já classificado
