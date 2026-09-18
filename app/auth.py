@@ -377,7 +377,7 @@ def _mfa_login_enforced() -> bool:
 
 async def _verified_mfa_factor(access_token: str) -> dict | None:
     try:
-        response = await _supabase_request("GET", "/auth/v1/factors", token=access_token)
+        response = await _supabase_request("GET", "/rest/v1/auth/factors", token=access_token)
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
     if response.status_code != 200:
@@ -742,7 +742,7 @@ async def mfa_status(request: Request, user: dict = Depends(authenticated_user))
     if not access_token or not user.get("id"):
         raise HTTPException(401, "Login necessario.")
     try:
-        response = await _supabase_request("GET", "/auth/v1/factors", token=access_token)
+        response = await _supabase_request("GET", "/rest/v1/auth/factors", token=access_token)
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
     if response.status_code != 200:
