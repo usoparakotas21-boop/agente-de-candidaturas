@@ -53,6 +53,13 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertNotIn("..upload{", html)
         self.assertIn('id="status" role="status" aria-live="polite"', html)
 
+    def test_jobs_page_uses_accessible_loading_skeleton_and_retry(self):
+        html = (Path(main_module.STATIC_DIR) / "vagas.html").read_text(encoding="utf-8")
+        self.assertIn('class="skeleton skeleton-card"', html)
+        self.assertIn('role="status" aria-live="polite"', html)
+        self.assertIn('id="retryJobs"', html)
+        self.assertIn("Não foi possível carregar os detalhes. Tente novamente.", html)
+
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
