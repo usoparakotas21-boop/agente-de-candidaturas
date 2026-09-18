@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `5ddde8e` — `Document Supabase function permission hardening`
+**Commit publicado:** `c6bcd3c` — `fix: prevent jobs page observer loop`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -221,6 +221,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Visualização da senha no login/cadastro/alteração | O campo permanece mascarado e não oferece controle mostrar/ocultar; é uma melhoria de usabilidade e acessibilidade, sem alterar a política de senha | P1.15 |
 | Placeholders de salário ausentes | Adicionados exemplos `Ex.: 8.000` e `Ex.: 12.000` nas configurações | P1.9 concluído no código |
 | R$ 9,90 avulso, FAQ e prova social na landing | A linha do avulso pode ser adicionada com o preço real; FAQ é copy útil; números de prova social só entram quando vierem de métricas observadas | P1.16; métricas de conversão permanecem P1.1 |
+| Queda da rota `/vagas` após o carregamento | Corrigido no `jobs-enhance.js`: o `MutationObserver` não reordena a lista em ciclo contínuo; a página foi revalidada em produção com lista, filtros, detalhes e análise carregados | P0.8 concluído para esta causa; manter teste de regressão operacional |
 
 
 ## Próximas prioridades
