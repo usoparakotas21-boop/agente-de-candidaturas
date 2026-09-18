@@ -103,7 +103,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 
 ## O que está parcial ou ainda não existe
 
-- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. Ainda falta validar as configurações de confirmação, templates/redirecionamentos do Supabase e recebimento em mais de um provedor.
+- O gate de confirmação de e-mail está implementado; `/termos` e `/privacidade` retornaram 200 sem sessão em produção com CSP/HSTS/nosniff ativos. A configuração do Supabase Auth foi conferida diretamente: `Confirm email` está ligado, o provedor Email está habilitado e o cadastro permanece permitido. Ainda falta apenas o teste operacional de recebimento/reenvio em mais de um provedor.
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
@@ -232,7 +232,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 1. **IDOR/RLS real — validação parcial concluída:** a conta B ficou sem as vagas/candidaturas da conta A na listagem e a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A. O download agora exige compra `PAID` vinculada à candidatura exata e o teste local cobre candidatura sem transação. Ainda é necessário testar a rota de exportação/download com duas contas no Supabase/PostgreSQL de produção.
 2. **Uploads e arquivos — validação parcial:** PDF falso rejeitado e PDF válido reconhecido no preview sem salvar; rotas de download agora confinam o caminho ao diretório privado. Ainda conferir limpeza de temporários em **P0.2**.
 3. **MFA — interface publicada e validação parcial:** a tela de segurança em produção exibe configuração, sessões e mostrar/ocultar senha; ainda testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
-4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
+4. **E-mail confirmado — configuração conferida:** o Supabase mostra `Confirm email` ligado e Email habilitado; permanece somente o teste operacional de recebimento/reenvio em mais de um provedor.
 5. **Webhook Mercado Pago — código reforçado e configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; o código agora rejeita valor divergente e moeda diferente de BRL, além de HMAC/replay/idempotência. Falta replay/checkout controlado.
 6. **Segredos, menor privilégio e TLS — revisão de código concluída:** confirmar no Supabase/Render a ausência de chave mestra exposta, executar scanner de segredos e verificar a conexão PostgreSQL efetiva com TLS.
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
@@ -305,7 +305,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 | Item verificado | Evidência encontrada | Estado e prioridade |
 | --- | --- | --- |
-| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Implementado no código e configuração principal conferida; falta recebimento real em mais de um provedor em **P0.4** |
+| Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o provedor Email está habilitado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Implementado no código e configuração principal conferida; falta recebimento real em mais de um provedor em **P0.4** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; CSP nonceado sem `style-src-attr unsafe-inline`, HSTS, `nosniff`, `DENY` e políticas complementares | Código e header real validados em `/health`, `/termos`, `/privacidade` e `/dashboard` em produção |
 | Rate limiting | Limites por IP/conta, testes locais de 429 e validação publicada com 10 respostas 401 e 11ª resposta 429; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; a prova com duas contas reais no Supabase ainda não foi executada | Código, testes locais e RLS publicados; prova real permanece em **P0.1** |
