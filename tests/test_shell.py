@@ -68,6 +68,16 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('item.health_band === "DUVIDOSA"', html)
         self.assertIn("isReview && !item.risk_reviewed_at", html)
 
+    def test_dashboard_has_dismissible_guided_onboarding(self):
+        html = (Path(main_module.STATIC_DIR) / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="guidedOnboardingDialog"', html)
+        self.assertIn('data-guided-step="0"', html)
+        self.assertIn('data-guided-step="1"', html)
+        self.assertIn('data-guided-step="2"', html)
+        self.assertIn('ac_guided_onboarding_v1', html)
+        self.assertIn('id="skipGuidedOnboarding"', html)
+        self.assertIn('id="guidedCaptureButton"', html)
+
 
 if __name__ == "__main__":
     unittest.main()

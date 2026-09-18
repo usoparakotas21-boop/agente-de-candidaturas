@@ -281,6 +281,22 @@
     .secondary { padding: 10px 15px; border: 1px solid var(--line); border-radius: 10px; color: var(--navy); background: white; font-weight: 750; }
     .secondary:disabled, .submit-job:disabled { cursor: not-allowed; opacity: .55; }
     .submit-job { padding: 10px 17px; border: 0; border-radius: 10px; color: white; background: var(--blue); font-weight: 800; }
+    .guided-onboarding { width: min(560px, calc(100vw - 24px)); }
+    .guided-body { padding: 22px 24px 24px; }
+    .guided-kicker { margin: 0 0 6px; color: var(--blue); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .guided-step { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; min-height: 92px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .guided-step:first-child { border-top: 0; }
+    .guided-step-number { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: var(--blue); font-size: 12px; font-weight: 850; }
+    .guided-step h3 { margin: 0; font-size: 15px; }
+    .guided-step p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .guided-step a { display: inline-block; margin-top: 8px; color: var(--blue); font-size: 12px; font-weight: 800; }
+    .guided-step-state { color: var(--green); font-size: 11px; font-weight: 800; }
+    .guided-progress { height: 6px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--line); }
+    .guided-progress span { display: block; width: 33.333%; height: 100%; border-radius: inherit; background: var(--blue); transition: width .2s ease; }
+    .guided-progress span[data-step="2"] { width: 66.666%; }
+    .guided-progress span[data-step="3"] { width: 100%; }
+    .guided-step[hidden] { display: none; }
+    .guided-skip { margin-right: auto; border: 0; color: var(--muted); background: transparent; font-size: 12px; font-weight: 750; }
     .preview-lock { margin: 0 0 16px; padding: 11px 13px; border: 1px solid #cbd9f7; border-radius: 10px; color: #31558b; background: var(--blue-soft); font-size: 12px; line-height: 1.45; }
     .preview-locked { user-select: none; -webkit-user-select: none; cursor: default; }
     .resume-paper { padding: 28px 30px; border: 1px solid #dfe5ef; border-radius: 5px; background: white; box-shadow: 0 12px 28px rgba(24,49,83,.09); }
@@ -522,6 +538,28 @@
   </div>
 
   <div class="drawer-backdrop" id="backdrop"></div>
+  <dialog id="guidedOnboardingDialog" class="guided-onboarding" aria-labelledby="guidedOnboardingTitle">
+    <div class="dialog-head">
+      <div><p class="guided-kicker">Primeiro acesso</p><h2 id="guidedOnboardingTitle">Organize sua busca em 3 passos</h2><p>Você continua no controle e pode fechar este guia quando quiser.</p></div>
+      <button class="close" id="closeGuidedOnboarding" type="button" aria-label="Fechar guia">×</button>
+    </div>
+    <div class="guided-body">
+      <div class="guided-step" data-guided-step="0">
+        <span class="guided-step-number">1</span>
+        <div><h3>Adicione seu currículo</h3><p>Importe sua base para extrair experiências e competências com segurança.</p><span class="guided-step-state" id="guidedProfileState"></span><a data-guided-link href="/curriculos">Abrir currículos →</a></div>
+      </div>
+      <div class="guided-step" data-guided-step="1" hidden>
+        <span class="guided-step-number">2</span>
+        <div><h3>Ajuste seu perfil e preferências</h3><p>Defina cargos, locais e modalidades para calibrar os matches.</p><span class="guided-step-state" id="guidedPreferencesState"></span><a data-guided-link href="/configuracoes#preferencias">Abrir preferências →</a></div>
+      </div>
+      <div class="guided-step" data-guided-step="2" hidden>
+        <span class="guided-step-number">3</span>
+        <div><h3>Capte sua primeira vaga</h3><p>Cole o anúncio ou envie um print para receber a análise e decidir o próximo passo.</p><button class="secondary" id="guidedCaptureButton" type="button">+ Captar vaga</button></div>
+      </div>
+      <div class="guided-progress" aria-label="Progresso do guia"><span id="guidedProgressBar"></span></div>
+      <div class="dialog-actions"><button class="guided-skip" id="skipGuidedOnboarding" type="button">Pular guia</button><button class="secondary" id="guidedBackButton" type="button" disabled>Voltar</button><button class="submit-job" id="guidedNextButton" type="button">Próximo</button></div>
+    </div>
+  </dialog>
   <dialog id="preferencesDialog">
     <div class="dialog-head">
       <div><h2>Preferências do agente</h2><p>Estas regras organizam a fila. Nenhuma candidatura será enviada nesta versão.</p></div>
@@ -1123,6 +1161,47 @@
       } catch { return ["site da vaga", "Confira os campos e conclua o envio na página da empresa."]; }
     }
 
+    const GUIDED_ONBOARDING_DISMISSED = "ac_guided_onboarding_v1";
+    let guidedOnboardingStep = 0;
+    let guidedOnboardingTrigger = null;
+
+    function guidedOnboardingDismissed() {
+      try { return window.localStorage.getItem(GUIDED_ONBOARDING_DISMISSED) === "1"; } catch { return false; }
+    }
+
+    function dismissGuidedOnboarding() {
+      try { window.localStorage.setItem(GUIDED_ONBOARDING_DISMISSED, "1"); } catch { /* armazenamento local indisponível */ }
+      const dialog = $("guidedOnboardingDialog");
+      if (dialog?.open) dialog.close();
+      if (guidedOnboardingTrigger?.focus) guidedOnboardingTrigger.focus();
+    }
+
+    function renderGuidedOnboardingStep() {
+      document.querySelectorAll("[data-guided-step]").forEach(step => {
+        step.hidden = Number(step.dataset.guidedStep) !== guidedOnboardingStep;
+      });
+      $("guidedBackButton").disabled = guidedOnboardingStep === 0;
+      $("guidedNextButton").textContent = guidedOnboardingStep === 2 ? "Concluir" : "Próximo";
+      $("guidedProgressBar").dataset.step = String(guidedOnboardingStep + 1);
+    }
+
+    function maybeShowGuidedOnboarding(hasProfile, hasPreferences) {
+      if ((hasProfile && hasPreferences) || guidedOnboardingDismissed()) return;
+      const dialog = $("guidedOnboardingDialog");
+      if (!dialog || dialog.open) return;
+      $("guidedProfileState").textContent = hasProfile ? "✓ Perfil já configurado" : "Ainda não configurado";
+      $("guidedPreferencesState").textContent = hasPreferences ? "✓ Preferências já configuradas" : "Ainda não configuradas";
+      guidedOnboardingStep = 0;
+      renderGuidedOnboardingStep();
+      window.setTimeout(() => {
+        if (!dialog.open) {
+          guidedOnboardingTrigger = $("onboardingNote")?.querySelector("a") || $("captureJobButton");
+          dialog.showModal();
+          $("guidedNextButton").focus();
+        }
+      }, 450);
+    }
+
     async function syncOnboardingCard() {
       const note = $("onboardingNote");
       if (!note) return;
@@ -1140,6 +1219,7 @@
           (preferences.locations || []).length ||
           (preferences.modalities || []).length
         );
+        maybeShowGuidedOnboarding(hasProfile, hasPreferences);
         if (hasProfile && hasPreferences) {
           note.hidden = true;
         } else if (hasProfile) {
@@ -2104,6 +2184,27 @@ async function downloadCoverLetterDocument() {
     }
 
     populateStatusOptions();
+    $("closeGuidedOnboarding").addEventListener("click", dismissGuidedOnboarding);
+    $("skipGuidedOnboarding").addEventListener("click", dismissGuidedOnboarding);
+    $("guidedBackButton").addEventListener("click", () => {
+      guidedOnboardingStep = Math.max(0, guidedOnboardingStep - 1);
+      renderGuidedOnboardingStep();
+    });
+    $("guidedNextButton").addEventListener("click", () => {
+      if (guidedOnboardingStep >= 2) {
+        dismissGuidedOnboarding();
+        return;
+      }
+      guidedOnboardingStep += 1;
+      renderGuidedOnboardingStep();
+    });
+    $("guidedCaptureButton").addEventListener("click", () => {
+      dismissGuidedOnboarding();
+      guidedOnboardingTrigger = $("captureJobButton");
+      resetCaptureReview();
+      $("captureJobDialog").showModal();
+    });
+    document.querySelectorAll("[data-guided-link]").forEach(link => link.addEventListener("click", dismissGuidedOnboarding));
     $("showLoginTab").addEventListener("click", () => showAuthMode("login"));
     $("showSignupTab").addEventListener("click", () => showAuthMode("signup"));
     $("loginForm").addEventListener("submit", login);
