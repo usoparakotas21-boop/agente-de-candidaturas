@@ -216,7 +216,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Cards, badges, paginação, busca e estado vazio da fila | Já implementados; a incoerência textual entre “Aguardando revisão” e “Capturar” é nomenclatura de produto a revisar junto das heurísticas | P1.3 se houver mudança de decisão; sem novo P0 |
 | `/vagas` exibe erro sem ação | Corrigido com botão local `Tentar novamente`, sem exigir F5; backend já retorna mensagem pública estável | P1.15 concluído no código e a rota foi reaberta em produção sem erro, exibindo estado vazio e contadores `0` |
 | Modal abre com textos repetidos “Carregando...” | Ainda não há skeleton screen; trocar por blocos de carregamento é melhoria de percepção, sem impacto de segurança | P1.15 |
-| Cabeçalho escuro duplicado no dashboard e subpáginas | Dashboard e páginas principais usam um cabeçalho; a tela `/seguranca` ainda mantém uma faixa local `AC Agente de Candidaturas / Configurações` abaixo da navegação global | **P1.15** pendente somente na tela de Segurança |
+| Cabeçalho escuro duplicado no dashboard e subpáginas | Dashboard mantém seu cabeçalho próprio; subpáginas, incluindo `/seguranca`, mantêm somente a navegação global e o breadcrumb | **P1.15 concluído e validado em produção** |
 | Botões Aprovar/Recusar genéricos e subtítulo de alerta repetido | Decisão e status são dados distintos; renomear ações e reduzir o subtítulo exige revisar copy e transições | P1.3, junto do modelo de decisão; não implementar só por aparência |
 | Botão Limpar próximo da ação principal | Ação continua disponível, mas deve virar link/ação neutra com confirmação quando houver conteúdo | P1.15 |
 | Visualização da senha no login/cadastro/alteração | Controles mostrar/ocultar já existem; a tela de Segurança também teve o texto auxiliar do MFA corrigido para ficar em linha própria | P1.15 |
@@ -368,6 +368,8 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `2315bfc` | Remoção do segundo cabeçalho da tela de Segurança, validada em produção |
+| `0f9f6e2` | Rotina segura e verificável de backup externo do Supabase Free |
 | `f75c99c` | Feedback de upload acessível, sem status global obsoleto |
 | `ca85397` | Remoção do aviso HTTP genérico duplicado |
 | `99c6019` | Preservação da mensagem específica de validação de upload e correção visual da área de importação |
