@@ -17,7 +17,7 @@ from urllib.parse import quote
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text, update
 from starlette.concurrency import run_in_threadpool
@@ -396,6 +396,7 @@ class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_an
 class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
+class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
 class DocumentStudioRequest(BaseModel):
     application_id: int | None = Field(default=None, gt=0)
     title: str = Field(min_length=2, max_length=200)
@@ -1503,8 +1504,8 @@ def get_app(app_id: int, user=Depends(authenticated_user)):
     finally: db.close()
 
 @app.get("/billing/document-export")
-def document_export_offer(user=Depends(authenticated_user)):
-    offer = _document_export_metadata(user)
+def document_export_offer(application_id: int | None = None, user=Depends(authenticated_user)):
+    offer = _document_export_metadata(user, application_id)
     return {
         "allowed": offer["allowed"],
         "price": offer["price"],
@@ -1666,14 +1667,15 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, us
     price_cents = _document_export_price_cents()
     order_nsu = f"export-{uuid.uuid4().hex}"
     base_url = _public_base_url()
+    return_url = f"{base_url}/billing/mercadopago/success?application_id={req.application_id}&order_nsu={quote(order_nsu, safe='')}"
     payload = {
         "items": [{"id": "document-export", "title": "Exportação de currículo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
         "external_reference": order_nsu,
         "payer": {"email": str(user.get("email") or "")},
         "back_urls": {
-            "success": f"{base_url}/billing/mercadopago/success",
-            "pending": f"{base_url}/billing/mercadopago/success",
-            "failure": f"{base_url}/billing/mercadopago/success",
+            "success": f"{return_url}&return_status=approved",
+            "pending": f"{return_url}&return_status=pending",
+            "failure": f"{return_url}&return_status=failure",
         },
         "auto_return": "approved",
         "notification_url": f"{base_url}/webhooks/mercadopago",
@@ -1782,9 +1784,35 @@ async def mercadopago_webhook(request: Request):
         db.close()
 
 
-@app.get("/billing/mercadopago/success", response_class=HTMLResponse, include_in_schema=False)
-def mercadopago_success():
-    return HTMLResponse("<h1>Pagamento recebido</h1><p>Estamos confirmando o pagamento. Volte ao painel para atualizar o acesso ao download.</p><a href='/dashboard'>Voltar ao painel</a>")
+@app.get("/billing/mercadopago/success", include_in_schema=False)
+def mercadopago_success(request: Request):
+    """Return from Mercado Pago directly to the document studio.
+
+    The webhook remains the source of truth for payment approval.  The browser
+    only carries the owner-scoped application id and a display status so the
+    studio can poll until the webhook has finished, then generate the files.
+    """
+    application_id = str(request.query_params.get("application_id") or "").strip()
+    if not application_id.isdigit():
+        application_id = ""
+    provider_status = str(
+        request.query_params.get("status")
+        or request.query_params.get("collection_status")
+        or request.query_params.get("return_status")
+        or "pending"
+    ).strip().casefold()
+    if provider_status in {"approved", "paid"}:
+        payment_status = "approved"
+    elif provider_status in {"rejected", "failure", "cancelled", "canceled"}:
+        payment_status = "failure"
+    else:
+        payment_status = "pending"
+    target = "/criar-documentos"
+    params = []
+    if application_id:
+        params.append(f"application_id={quote(application_id, safe='')}")
+    params.append(f"payment_status={payment_status}")
+    return RedirectResponse(f"{target}?{'&'.join(params)}", status_code=303)
 
 
 @app.get("/applications/{app_id}/document", response_class=FileResponse)
@@ -1928,7 +1956,7 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
                 "company": job.company,
                 "job_title": job.title,
                 "preview": _resume_preview(arts),
-                "export": document_export_offer(user),
+                "export": document_export_offer(user=user),
             }
         path = Path(generate_docx(arts["resume"])).resolve()
         if not path.is_file(): raise HTTPException(500, "Documento nao foi criado.")
@@ -2022,6 +2050,84 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
     except Exception:
         db.rollback()
         logger.exception("Falha ao gerar documentos no studio")
+        raise HTTPException(500, "Não foi possível gerar os documentos agora.")
+    finally:
+        db.close()
+
+@app.post("/document-studio/export")
+def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authenticated_user)):
+    """Generate and persist both paid DOCX files for one owned application.
+
+    This endpoint is intentionally application-scoped: a paid purchase for one
+    opportunity cannot be reused to export another user's application. It is
+    idempotent when both files already exist, which also makes browser retries
+    after a payment redirect safe.
+    """
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, req.application_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        _require_document_export(user, application.id)
+        job = application.job
+        candidate = _candidate_for_user(db, user)
+        if candidate is None:
+            raise HTTPException(404, "Perfil profissional nao encontrado.")
+        arts = _build_application(job, candidate)
+        resume_path: Path | None = None
+        letter_path: Path | None = None
+        if application.document_path:
+            try:
+                candidate_path = resolve_document_path(application.document_path)
+                if candidate_path.is_file():
+                    resume_path = candidate_path
+            except ValueError:
+                resume_path = None
+        if application.cover_letter_path:
+            try:
+                candidate_path = resolve_document_path(application.cover_letter_path)
+                if candidate_path.is_file():
+                    letter_path = candidate_path
+            except ValueError:
+                letter_path = None
+        letter = application.cover_letter_text or generate_cover_letter(
+            job_title=job.title,
+            company=job.company,
+            profile=arts["profile"],
+            analysis=arts["analysis"],
+            personalization=arts["personalization"],
+        )
+        if resume_path is None:
+            resume_path = Path(generate_docx(arts["resume"])).resolve()
+        if letter_path is None:
+            letter_path = Path(generate_cover_letter_docx(letter=letter, company=job.company, job_title=job.title)).resolve()
+        if not resume_path.is_file():
+            raise HTTPException(500, "Curriculo nao foi criado.")
+        if not letter_path.is_file():
+            raise HTTPException(500, "Carta nao foi criada.")
+        _save_analysis(application, arts["analysis"], candidate)
+        application.personalization_score = arts["personalization"].get("personalization_score", 0)
+        application.document_path = str(resume_path)
+        application.cover_letter_text = letter
+        application.cover_letter_path = str(letter_path)
+        application.resume_version = _content_version("cv", arts["resume"])
+        application.cover_letter_version = _content_version("carta", letter)
+        _advance_app(db, application, "CURRICULO_GERADO", "Curriculo e carta personalizados liberados apos pagamento.")
+        db.commit()
+        return {
+            "status": "DOCUMENTOS_GERADOS",
+            "application_id": application.id,
+            "job_id": job.id,
+            "resume_url": f"/applications/{application.id}/document",
+            "letter_url": f"/applications/{application.id}/cover-letter/document",
+            "message": "Pagamento confirmado. Curriculo e carta gerados.",
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao exportar documentos pagos no studio")
         raise HTTPException(500, "Não foi possível gerar os documentos agora.")
     finally:
         db.close()

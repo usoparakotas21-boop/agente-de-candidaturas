@@ -926,6 +926,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/logout",
         "/auth/mfa/complete",
         "/webhooks/mercadopago",
+        "/billing/mercadopago/success",
         "/auth/verification-required",
         "/ajuda",
         # Documentos legais precisam ser legíveis antes do cadastro e do

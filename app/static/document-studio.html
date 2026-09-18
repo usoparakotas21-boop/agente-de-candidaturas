@@ -58,26 +58,269 @@
       </section>
     </div>
   </main>
-  <script>
-    const $=id=>document.getElementById(id);let current=null;let linkedApplicationId=null;
-    function msg(text,ok=false){$('status').textContent=text;$('status').className='status'+(ok?' ok':'')}
-    function showExport(offer){
-      const actions=$('exportActions'); actions.hidden=false;
-      const paid=Boolean(offer&&offer.allowed);
-      $('checkout').hidden=paid; $('refreshAccess').hidden=paid; $('downloadResume').hidden=!paid; $('downloadLetter').hidden=!paid;
-      $('notice').textContent=paid?'Seu acesso está liberado. Baixe os dois arquivos personalizados abaixo.':(offer?.price?`Prévia gratuita ativa. O currículo e a carta completos podem ser liberados por ${offer.price}.`:'Prévia gratuita ativa. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.');
+    <script>
+    const $=id=>document.getElementById(id);
+    let current=null;
+    let linkedApplicationId=null;
+    let paymentReturnHandled=false;
+
+    function msg(text,ok=false){
+      $('status').textContent=text;
+      $('status').className='status'+(ok?' ok':'');
     }
-    async function getOffer(){const r=await fetch('/billing/document-export');return r.ok?r.json():{allowed:false}}
-    async function refreshAccess(){try{showExport(await getOffer())}catch{} }
-    async function loadApplications(){try{const r=await fetch('/applications');if(!r.ok)return;const data=await r.json();const select=$('applicationSelect');(data.applications||[]).forEach(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=`${item.job_title||'Cargo sem título'} · ${item.company||'Empresa não informada'} · ${item.status||'Identificada'}`;select.appendChild(option)});const requested=new URLSearchParams(window.location.search).get('application_id');if(requested){select.value=requested;await selectApplication(requested)}}catch{}}
-    async function selectApplication(id){linkedApplicationId=id?Number(id):null;if(!linkedApplicationId){$('applicationHint').textContent='Preencha os campos manualmente ou escolha uma candidatura captada.';return}$('applicationHint').textContent='Carregando os dados da vaga...';try{const appResponse=await fetch(`/applications/${linkedApplicationId}`);if(!appResponse.ok)throw new Error('Não foi possível carregar a candidatura selecionada.');const application=await appResponse.json();const r=await fetch(`/jobs/${application.job_id}`);if(!r.ok)throw new Error('Não foi possível carregar a vaga selecionada.');const data=await r.json();if(Number(data.application_id)!==linkedApplicationId)throw new Error('A vaga selecionada ainda não possui candidatura.');$('title').value=data.title||'';$('company').value=data.company||'';$('location').value=[data.location,data.modality].filter(Boolean).join(' · ');$('url').value=data.url||'';$('details').value=data.description||'';$('applicationHint').textContent='Vaga captada vinculada. Você pode revisar os campos antes de gerar.';msg('Vaga captada carregada no estúdio.',true)}catch(error){linkedApplicationId=null;$('applicationHint').textContent=error.message}}
-    $('applicationSelect').addEventListener('change',e=>selectApplication(e.target.value));
-    $('studioForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('generate');button.disabled=true;button.classList.add('busy');button.setAttribute('aria-busy','true');button.textContent='Gerando prévia...';msg('Adaptando seu currículo e escrevendo a carta...');try{const r=await fetch('/document-studio/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({application_id:linkedApplicationId,title:$('title').value.trim(),company:$('company').value.trim(),location:$('location').value.trim(),url:$('url').value.trim(),details:$('details').value.trim()})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Não foi possível gerar a prévia.');current=data;$('resultSubtitle').textContent=`${data.company} · ${data.job_title}`;$('score').textContent=`${data.analysis?.score??'—'}% de aderência`;$('resumeSummary').textContent=`${data.resume_preview?.name||'Candidato'}\n${data.resume_preview?.headline||data.resume_preview?.target||data.job_title}\n\n${data.resume_preview?.summary||''}\n\nExperiências adaptadas:\n${(data.resume_preview?.experiences||[]).map(x=>`• ${x.role} · ${x.company}`).join('\n')||'• Seu histórico será organizado aqui'}`;$('skills').innerHTML=(data.resume_preview?.skills||[]).map(x=>`<span class="skill">${x.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</span>`).join('');$('letter').textContent=data.cover_letter_preview||'A carta personalizada aparecerá aqui.';$('result').classList.add('visible');showExport(data.export);msg(data.linked_application?'Prévia gerada a partir da vaga captada.':'Prévia gerada com sucesso.',true);$('result').scrollIntoView({behavior:'smooth',block:'start'})}catch(err){msg(err.message)}finally{button.disabled=false;button.classList.remove('busy');button.removeAttribute('aria-busy');button.textContent='Gerar minha prévia personalizada'}});
-    $('clear').addEventListener('click',()=>{const hasDraft=['title','company','location','url','details'].some(id=>$(id).value.trim())||current!==null||$('result').classList.contains('visible');if(hasDraft&&!window.confirm('Limpar os dados preenchidos e a prévia gerada?'))return;$('studioForm').reset();$('result').classList.remove('visible');$('exportActions').hidden=true;current=null;linkedApplicationId=null;msg('');$('title').focus()});
-    $('checkout').addEventListener('click',async()=>{const b=$('checkout');const status=$('checkoutStatus');b.disabled=true;b.textContent='Abrindo pagamento...';status.textContent='';const paymentWindow=window.open('about:blank','_blank');try{if(!current?.application_id)throw new Error('Gere a prévia antes de liberar o download.');const r=await fetch('/billing/document-export/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({application_id:current.application_id})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Não foi possível abrir o pagamento.');if(paymentWindow){paymentWindow.location.href=d.checkout_url;paymentWindow.focus?.();status.textContent='Checkout Mercado Pago aberto em outra aba. O Pix aparece entre os métodos disponíveis da sua conta.';status.className='status ok';b.textContent='Pagamento aberto em outra aba';}else{status.textContent='O navegador bloqueou a nova aba. Clique novamente para abrir o checkout.';b.textContent='Abrir pagamento';b.disabled=false}}catch(err){if(paymentWindow)paymentWindow.close();status.textContent=err.message;msg(err.message);b.textContent='Liberar currículo + carta';b.disabled=false}});
+    function checkoutMsg(text,ok=false){
+      $('checkoutStatus').textContent=text;
+      $('checkoutStatus').className='status'+(ok?' ok':'');
+    }
+    function showExport(offer){
+      const actions=$('exportActions');
+      actions.hidden=false;
+      const paid=Boolean(offer&&offer.allowed);
+      $('checkout').hidden=paid;
+      $('refreshAccess').hidden=paid;
+      $('downloadResume').hidden=!paid;
+      $('downloadLetter').hidden=!paid;
+      $('notice').textContent=paid
+        ?'Seu acesso está liberado. Os arquivos personalizados estão prontos para baixar.'
+        :(offer&&offer.price
+          ?'Prévia gratuita ativa. O currículo e a carta completos podem ser liberados por '+offer.price+'.'
+          :'Prévia gratuita ativa. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.');
+    }
+    async function getOffer(applicationId=linkedApplicationId){
+      const query=applicationId?'?application_id='+encodeURIComponent(applicationId):'';
+      const r=await fetch('/billing/document-export'+query);
+      return r.ok?r.json():{allowed:false};
+    }
+    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    async function refreshAccess(){
+      try{
+        const offer=await getOffer();
+        showExport(offer);
+        if(offer.allowed&&linkedApplicationId){
+          if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
+          await exportPaidDocuments(offer);
+        }else{
+          checkoutMsg('Ainda não encontramos a confirmação. Se você acabou de pagar, aguarde alguns segundos e tente novamente.');
+        }
+      }catch(error){checkoutMsg(error.message||'Não foi possível atualizar o pagamento.')}
+    }
+    async function waitForPaidAccess(applicationId){
+      const deadline=Date.now()+60000;
+      let offer=await getOffer(applicationId);
+      while(!offer.allowed&&Date.now()<deadline){
+        checkoutMsg('Pagamento recebido. Aguardando a confirmação segura do Mercado Pago…');
+        await wait(2500);
+        offer=await getOffer(applicationId);
+      }
+      return offer;
+    }
+    async function exportPaidDocuments(offer){
+      if(!offer||!offer.allowed||!linkedApplicationId)return false;
+      checkoutMsg('Pagamento confirmado. Gerando currículo e carta personalizados…');
+      const r=await fetch('/document-studio/export',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({application_id:Number(linkedApplicationId)})
+      });
+      const data=await r.json();
+      if(!r.ok)throw new Error(data.detail||'Não foi possível gerar os documentos.');
+      current=Object.assign({},current||{},data);
+      showExport(Object.assign({},offer,{allowed:true}));
+      $('downloadResume').dataset.url=data.resume_url||'';
+      $('downloadLetter').dataset.url=data.letter_url||'';
+      checkoutMsg('Pagamento confirmado. Currículo e carta gerados; baixe os dois arquivos abaixo.',true);
+      msg('Documentos liberados após a confirmação do pagamento.',true);
+      return true;
+    }
+    async function restorePaidApplication(){
+      if(!linkedApplicationId)return false;
+      const offer=await getOffer(linkedApplicationId);
+      if(!offer.allowed)return false;
+      if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
+      await exportPaidDocuments(offer);
+      return true;
+    }
+    async function handlePaymentReturn(){
+      if(paymentReturnHandled)return;
+      const params=new URLSearchParams(window.location.search);
+      const requested=params.get('application_id');
+      const paymentStatus=(params.get('payment_status')||'').toLowerCase();
+      if(!requested||!paymentStatus)return;
+      paymentReturnHandled=true;
+      if(paymentStatus==='failure'){
+        checkoutMsg('O pagamento não foi concluído. Você pode tentar novamente.');
+        return;
+      }
+      $('result').classList.add('visible');
+      checkoutMsg(paymentStatus==='approved'
+        ?'Pagamento aprovado. Confirmando a transação…'
+        :'Pagamento pendente. Aguardando a confirmação do Mercado Pago…');
+      try{
+        await generatePreview({scroll:false});
+        const offer=await waitForPaidAccess(requested);
+        if(!offer.allowed){
+          showExport(offer);
+          checkoutMsg('O pagamento ainda está sendo confirmado. Clique em “Já paguei · atualizar acesso” para verificar novamente.');
+          return;
+        }
+        await exportPaidDocuments(offer);
+        window.history.replaceState({},'', '/criar-documentos?application_id='+encodeURIComponent(requested));
+      }catch(error){
+        checkoutMsg(error.message||'Não foi possível concluir a geração automática.');
+      }
+    }
+    async function loadApplications(){
+      try{
+        const r=await fetch('/applications');
+        if(!r.ok)return;
+        const data=await r.json();
+        const select=$('applicationSelect');
+        (data.applications||[]).forEach(item=>{
+          const option=document.createElement('option');
+          option.value=item.id;
+          option.textContent=(item.job_title||'Cargo sem título')+' · '+(item.company||'Empresa não informada')+' · '+(item.status||'Identificada');
+          select.appendChild(option);
+        });
+        const requested=new URLSearchParams(window.location.search).get('application_id');
+        if(requested){
+          select.value=requested;
+          await selectApplication(requested);
+          await handlePaymentReturn();
+        }
+      }catch{}
+    }
+    async function selectApplication(id){
+      linkedApplicationId=id?Number(id):null;
+      current=null;
+      if(!linkedApplicationId){
+        $('applicationHint').textContent='Preencha os campos manualmente ou escolha uma candidatura captada.';
+        return;
+      }
+      $('applicationHint').textContent='Carregando os dados da vaga…';
+      try{
+        const appResponse=await fetch(`/applications/${linkedApplicationId}`);
+        if(!appResponse.ok)throw new Error('Não foi possível carregar a candidatura selecionada.');
+        const application=await appResponse.json();
+        const r=await fetch(`/jobs/${application.job_id}`);
+        if(!r.ok)throw new Error('Não foi possível carregar a vaga selecionada.');
+        const data=await r.json();
+        if(Number(data.application_id)!==linkedApplicationId)throw new Error('A vaga selecionada ainda não possui candidatura.');
+        $('title').value=data.title||'';
+        $('company').value=data.company||'';
+        $('location').value=[data.location,data.modality].filter(Boolean).join(' · ');
+        $('url').value=data.url||'';
+        $('details').value=data.description||'';
+        $('applicationHint').textContent='Vaga captada vinculada. Você pode revisar os campos antes de gerar.';
+        msg('Vaga captada carregada no estúdio.',true);
+      }catch(error){
+        linkedApplicationId=null;
+        $('applicationHint').textContent=error.message;
+      }
+    }
+    async function generatePreview({scroll=true}={}){
+      const button=$('generate');
+      button.disabled=true;
+      button.classList.add('busy');
+      button.setAttribute('aria-busy','true');
+      button.textContent='Gerando prévia...';
+      msg('Adaptando seu currículo e escrevendo a carta…');
+      try{
+        const r=await fetch('/document-studio/generate',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            application_id:linkedApplicationId,
+            title:$('title').value.trim(),
+            company:$('company').value.trim(),
+            location:$('location').value.trim(),
+            url:$('url').value.trim(),
+            details:$('details').value.trim()
+          })
+        });
+        const data=await r.json();
+        if(!r.ok)throw new Error(data.detail||'Não foi possível gerar a prévia.');
+        current=data;
+        $('resultSubtitle').textContent=data.company+' · '+data.job_title;
+        $('score').textContent=(data.analysis&&data.analysis.score!=null?data.analysis.score:'—')+'% de aderência';
+        $('resumeSummary').textContent=(data.resume_preview&&data.resume_preview.name||'Candidato')+'\n'
+          +(data.resume_preview&&(data.resume_preview.headline||data.resume_preview.target)||data.job_title)+'\n\n'
+          +(data.resume_preview&&data.resume_preview.summary||'')+'\n\nExperiências adaptadas:\n'
+          +((data.resume_preview&&data.resume_preview.experiences||[]).map(x=>'• '+x.role+' · '+x.company).join('\n')||'• Seu histórico será organizado aqui');
+        $('skills').innerHTML=((data.resume_preview&&data.resume_preview.skills)||[]).map(x=>'<span class="skill">'+x.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))+'</span>').join('');
+        $('letter').textContent=data.cover_letter_preview||'A carta personalizada aparecerá aqui.';
+        $('result').classList.add('visible');
+        showExport(data.export);
+        msg(data.linked_application?'Prévia gerada a partir da vaga captada.':'Prévia gerada com sucesso.',true);
+        if(scroll)$('result').scrollIntoView({behavior:'smooth',block:'start'});
+        return data;
+      }finally{
+        button.disabled=false;
+        button.classList.remove('busy');
+        button.removeAttribute('aria-busy');
+        button.textContent='Gerar minha prévia personalizada';
+      }
+    }
+    $('applicationSelect').addEventListener('change',async e=>{
+      await selectApplication(e.target.value);
+      try{await restorePaidApplication()}catch(error){checkoutMsg(error.message||'Não foi possível restaurar os documentos pagos.')}
+    });
+    $('studioForm').addEventListener('submit',async e=>{
+      e.preventDefault();
+      try{await generatePreview()}catch(error){msg(error.message||'Não foi possível gerar a prévia.')}
+    });
+    $('clear').addEventListener('click',()=>{
+      const hasDraft=['title','company','location','url','details'].some(id=>$(id).value.trim())||current!==null||$('result').classList.contains('visible');
+      if(hasDraft&&!window.confirm('Limpar os dados preenchidos e a prévia gerada?'))return;
+      $('studioForm').reset();
+      $('result').classList.remove('visible');
+      $('exportActions').hidden=true;
+      current=null;
+      linkedApplicationId=null;
+      msg('');
+      $('title').focus();
+    });
+    $('checkout').addEventListener('click',async()=>{
+      const b=$('checkout');
+      b.disabled=true;
+      b.textContent='Abrindo pagamento…';
+      checkoutMsg('');
+      const paymentWindow=window.open('about:blank','_blank');
+      try{
+        if(!current||!current.application_id)throw new Error('Gere a prévia antes de liberar o download.');
+        const r=await fetch('/billing/document-export/checkout',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({application_id:current.application_id})
+        });
+        const d=await r.json();
+        if(!r.ok)throw new Error(d.detail||'Não foi possível abrir o pagamento.');
+        if(paymentWindow){
+          paymentWindow.location.href=d.checkout_url;
+          paymentWindow.focus&&paymentWindow.focus();
+          checkoutMsg('Checkout Mercado Pago aberto em outra aba. O Pix aparece entre os métodos disponíveis da sua conta.',true);
+          b.textContent='Pagamento aberto em outra aba';
+        }else{
+          checkoutMsg('O navegador bloqueou a nova aba. Clique novamente para abrir o checkout.');
+          b.textContent='Abrir pagamento';
+          b.disabled=false;
+        }
+      }catch(error){
+        if(paymentWindow)paymentWindow.close();
+        checkoutMsg(error.message);
+        msg(error.message);
+        b.textContent='Liberar currículo + carta';
+        b.disabled=false;
+      }
+    });
     $('refreshAccess').addEventListener('click',refreshAccess);
-    $('downloadResume').addEventListener('click',()=>{if(current)window.location.href=`/jobs/${current.job_id}/generate-document`});
-    $('downloadLetter').addEventListener('click',()=>{if(current)window.location.href=`/jobs/${current.job_id}/cover-letter/document`});
+    $('downloadResume').addEventListener('click',()=>{
+      const url=$('downloadResume').dataset.url||(current&&current.application_id?'/applications/'+current.application_id+'/document':'');
+      if(url)window.location.href=url;
+    });
+    $('downloadLetter').addEventListener('click',()=>{
+      const url=$('downloadLetter').dataset.url||(current&&current.application_id?'/applications/'+current.application_id+'/cover-letter/document':'');
+      if(url)window.location.href=url;
+    });
     loadApplications();
   </script>
 </body>

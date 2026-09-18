@@ -73,6 +73,23 @@ class WebhookSecurityTest(unittest.TestCase):
     def test_payment_webhooks_are_public_for_provider_delivery(self):
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
 
+    def test_mercadopago_return_restores_document_studio_context(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/billing/mercadopago/success",
+                "headers": [],
+                "query_string": b"application_id=42&return_status=approved",
+                "server": ("testserver", 80),
+                "client": ("198.51.100.10", 50000),
+                "scheme": "https",
+            }
+        )
+        response = main_module.mercadopago_success(request)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/criar-documentos?application_id=42&payment_status=approved")
+
     def test_queue_internal_errors_use_generic_public_message(self):
         error = RuntimeError("senha do banco super secreta")
         self.assertEqual(
