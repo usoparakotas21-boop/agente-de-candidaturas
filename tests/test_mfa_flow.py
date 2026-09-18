@@ -82,6 +82,43 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(raised.exception.status_code, 401)
 
+    async def test_mfa_completion_rejects_mismatched_challenge_before_provider_call(self):
+        provider = AsyncMock()
+        with patch.object(auth, "_supabase_request", provider):
+            with self.assertRaises(auth.HTTPException) as raised:
+                await auth.mfa_complete_login(
+                    auth.MfaLoginCodeRequest(
+                        factor_id="factor-1",
+                        challenge_id="different-challenge",
+                        code="123456",
+                    ),
+                    request_with_cookies(
+                        f"{auth.MFA_PENDING_ACCESS_COOKIE_NAME}=aal1-access; "
+                        f"{auth.MFA_PENDING_FACTOR_COOKIE_NAME}=factor-1; "
+                        f"{auth.MFA_PENDING_CHALLENGE_COOKIE_NAME}=challenge-1"
+                    ),
+                )
+        self.assertEqual(raised.exception.status_code, 400)
+        provider.assert_not_awaited()
+
+    async def test_mfa_completion_rejects_invalid_code_without_promoting_session(self):
+        provider_response = httpx.Response(401, json={"msg": "Invalid TOTP code"})
+        with patch.object(
+            auth,
+            "_supabase_request",
+            AsyncMock(return_value=provider_response),
+        ):
+            with self.assertRaises(auth.HTTPException) as raised:
+                await auth.mfa_complete_login(
+                    auth.MfaLoginCodeRequest(factor_id="factor-1", challenge_id="challenge-1", code="000000"),
+                    request_with_cookies(
+                        f"{auth.MFA_PENDING_ACCESS_COOKIE_NAME}=aal1-access; "
+                        f"{auth.MFA_PENDING_FACTOR_COOKIE_NAME}=factor-1; "
+                        f"{auth.MFA_PENDING_CHALLENGE_COOKIE_NAME}=challenge-1"
+                    ),
+                )
+        self.assertEqual(raised.exception.status_code, 401)
+
     async def test_mfa_status_uses_factors_from_authenticated_user(self):
         response = await auth.mfa_status(
             request_with_cookies(f"{auth.ACCESS_COOKIE_NAME}=access-token"),
