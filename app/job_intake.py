@@ -253,6 +253,32 @@ def _extract_salary(lines: list[str], text: str) -> str:
     return match.group(0) if match else ""
 
 
+def _extract_contract_type(lines: list[str], text: str) -> str:
+    """Classifica o regime brasileiro mais explícito no anúncio."""
+    labeled = _labeled_value(lines, ("Regime", "Tipo de contrato", "Contrato", "Modelo de contratação"))
+    normalized = _normalized(labeled or text)
+    for term, label in (
+        ("clt", "CLT"),
+        ("pj", "PJ"),
+        ("pessoa juridica", "PJ"),
+        ("mei", "MEI"),
+        ("estagio", "Estágio"),
+        ("temporar", "Temporário"),
+        ("freelance", "Freelance"),
+    ):
+        if re.search(rf"\b{re.escape(term)}\b", normalized):
+            return label
+    return labeled
+
+
+def _field_confidence(lines: list[str], labels: tuple[str, ...], value: str, text: str) -> int:
+    if not value:
+        return 0
+    if _labeled_value(lines, labels):
+        return 95
+    return 75
+
+
 def parse_job_text(raw_text: str, source: str = "texto") -> dict:
     """
     Extrai informações de uma vaga a partir do texto bruto.
@@ -280,6 +306,7 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
     location = _extract_location(lines, text)
     modality = _extract_modality(lines, text)
     salary = _extract_salary(lines, text)
+    contract_type = _extract_contract_type(lines, text)
     description = text
 
     # O identificador é determinístico: a mesma vaga, recebida por fontes
@@ -294,7 +321,11 @@ def parse_job_text(raw_text: str, source: str = "texto") -> dict:
         "company": company,
         "location": location,
         "modality": modality,
+        "modality_confidence": _field_confidence(lines, ("Modalidade", "Modelo de trabalho"), modality, text),
         "salary": salary,
+        "salary_confidence": _field_confidence(lines, ("Salario", "Faixa salarial", "Remuneracao"), salary, text),
+        "contract_type": contract_type,
+        "contract_confidence": _field_confidence(lines, ("Regime", "Tipo de contrato", "Contrato", "Modelo de contratação"), contract_type, text),
         "url": url,
         "description": description,
     }

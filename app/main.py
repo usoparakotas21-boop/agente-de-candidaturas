@@ -850,6 +850,11 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
                 "job_title": existing.title,
                 "location": existing.location,
                 "modality": existing.modality,
+                "modality_confidence": parsed.get("modality_confidence", 0),
+                "contract_type": parsed.get("contract_type", ""),
+                "contract_confidence": parsed.get("contract_confidence", 0),
+                "salary": existing.salary,
+                "salary_confidence": parsed.get("salary_confidence", 0),
                 "url": existing.url,
                 "analysis": analysis
             }
@@ -862,6 +867,11 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
             "company": parsed.get("company"),
             "location": parsed.get("location"),
             "modality": parsed.get("modality"),
+            "modality_confidence": parsed.get("modality_confidence", 0),
+            "contract_type": parsed.get("contract_type", ""),
+            "contract_confidence": parsed.get("contract_confidence", 0),
+            "salary": parsed.get("salary", ""),
+            "salary_confidence": parsed.get("salary_confidence", 0),
             "url": parsed.get("url"),
             "description": parsed.get("description"),
             "raw_excerpt": sanitize_untrusted_text(req.raw_text, max_chars=2000),
@@ -913,9 +923,14 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
             "application_id": application.id if application else None,
             "company": parsed.get("company"),
             "job_title": parsed.get("title"),
-            "location": parsed.get("location"),
-            "modality": parsed.get("modality"),
-            "url": parsed.get("url"),
+        "location": parsed.get("location"),
+        "modality": parsed.get("modality"),
+        "modality_confidence": parsed.get("modality_confidence", 0),
+        "contract_type": parsed.get("contract_type", ""),
+        "contract_confidence": parsed.get("contract_confidence", 0),
+        "salary": parsed.get("salary", ""),
+        "salary_confidence": parsed.get("salary_confidence", 0),
+        "url": parsed.get("url"),
         }
     except Exception:
         db.rollback()
@@ -969,9 +984,17 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
             JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], salary=selected["salary"], url=selected["url"], description=selected["description"], auto_analyze=True),
             user,
         )
-        confirmed.update({"automatic": True, "confidence": confidence, "extraction_method": method})
+        confirmed.update({
+            "automatic": True,
+            "confidence": confidence,
+            "extraction_method": method,
+            "modality_confidence": selected.get("modality_confidence", parsed.get("modality_confidence", 0)),
+            "contract_type": selected.get("contract_type", parsed.get("contract_type", "")),
+            "contract_confidence": selected.get("contract_confidence", parsed.get("contract_confidence", 0)),
+            "salary_confidence": selected.get("salary_confidence", parsed.get("salary_confidence", 0)),
+        })
         return confirmed
-    return {"status": "REVISAO_NECESSARIA", "message": "Confianca abaixo do limite.", "external_id": parsed["external_id"], "source": parsed["source"], "company": selected["company"], "title": selected["title"], "location": selected["location"], "modality": selected["modality"], "salary": selected["salary"], "url": selected["url"], "description": selected["description"], "confidence": confidence, "extraction_method": method, "fetch_error": fetch_error, "extraction": {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}}
+    return {"status": "REVISAO_NECESSARIA", "message": "Confianca abaixo do limite.", "external_id": parsed["external_id"], "source": parsed["source"], "company": selected["company"], "title": selected["title"], "location": selected["location"], "modality": selected["modality"], "modality_confidence": selected.get("modality_confidence", parsed.get("modality_confidence", 0)), "contract_type": selected.get("contract_type", parsed.get("contract_type", "")), "contract_confidence": selected.get("contract_confidence", parsed.get("contract_confidence", 0)), "salary": selected["salary"], "salary_confidence": selected.get("salary_confidence", parsed.get("salary_confidence", 0)), "url": selected["url"], "description": selected["description"], "confidence": confidence, "extraction_method": method, "fetch_error": fetch_error, "extraction": {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}}
 
 @app.post("/intake/confirm")
 def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user)):
