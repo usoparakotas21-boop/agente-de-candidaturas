@@ -49,7 +49,7 @@
       const response=await fetch('/auth/mfa/enroll',{method:'POST'});
       const factor=await response.json().catch(()=>({}));
       if(!response.ok)throw Error(factor.detail||'Não foi possível iniciar o 2FA.');
-      const code=prompt('Abra seu autenticador, adicione a conta usando este segredo:\n'+(factor.secret||factor.uri||'')+'\n\nDigite o código de 6 dígitos para confirmar:');
+      const code=prompt('Abra seu autenticador e adicione a conta. Segredo: '+(factor.secret||factor.uri||'')+' . Depois, digite o código de 6 dígitos para confirmar:');
       if(!code)throw Error('cancel');
       const challengeResponse=await fetch('/auth/mfa/challenge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({factor_id:factor.id})});
       const challenge=await challengeResponse.json().catch(()=>({}));
