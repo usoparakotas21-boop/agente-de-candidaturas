@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app import cover_letter
+from app import document_storage
 from app import main as main_module
 from app import resume_document
 from app.database import Base
@@ -28,9 +29,13 @@ class IntegratedFlowTest(unittest.TestCase):
         )
         Base.metadata.create_all(bind=self.engine)
         self.original_session = main_module.SessionLocal
+        self.original_engine = main_module.engine
+        self.original_storage_output_dir = document_storage.OUTPUT_DIR
         self.original_output_dir = resume_document.OUTPUT_DIR
         self.original_cover_letter_output_dir = cover_letter.OUTPUT_DIR
         main_module.SessionLocal = self.testing_session
+        main_module.engine = self.engine
+        document_storage.OUTPUT_DIR = temp_path
         resume_document.OUTPUT_DIR = temp_path
         cover_letter.OUTPUT_DIR = temp_path
 
@@ -89,6 +94,8 @@ class IntegratedFlowTest(unittest.TestCase):
 
     def tearDown(self):
         main_module.SessionLocal = self.original_session
+        main_module.engine = self.original_engine
+        document_storage.OUTPUT_DIR = self.original_storage_output_dir
         resume_document.OUTPUT_DIR = self.original_output_dir
         cover_letter.OUTPUT_DIR = self.original_cover_letter_output_dir
         self.engine.dispose()

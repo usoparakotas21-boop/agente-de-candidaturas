@@ -2,7 +2,7 @@
 
 **Atualizado em:** 17/09/2026  
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `bbe0008` — `security: nonce inline style elements`
+**Commit publicado:** `cf566da` — `docs: record CSP nonce hardening`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -285,6 +285,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
 - A suíte completa foi reexecutada após a liberação pública das páginas legais, a remoção do fallback de pagamento legado e a rota segura de assets: **103 testes aprovados em 9,611 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais, bloqueio do fallback fora do Mercado Pago e carregamento dos scripts de segurança. O teste direcionado de RLS/IDOR também passou (**3 testes**). A verificação de produção confirmou `/health`, `/termos` e `/privacidade` com 200 e headers de segurança; 11 logins sintéticos acionaram 429 no limite configurado. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte automatizada em `tests/` foi reexecutada em um Python 3.12 temporário após isolar o banco e o armazenamento dos testes: **105 testes aprovados em 5,48 s**, com 5 avisos de depreciação sem falhas. Os scripts legados na raiz continuam fora da suíte porque dependem de servidores locais em 8001/8002.
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
 - Teste operacional com duas contas: conta A exibiu dados próprios e conta B exibiu zero vagas/candidaturas; a tentativa de abrir diretamente as rotas JSON por ID foi bloqueada pelo navegador de teste, portanto o acesso direto e os downloads cruzados permanecem em **P0.1**.
 - Testes direcionados reexecutados nesta rodada: isolamento/RLS/arquivos cruzados (**3 aprovados**), validação de uploads por assinatura/estrutura (**4 aprovados**), fluxo MFA (**2 aprovados**) e assets estáticos públicos (**2 aprovados**). Essas evidências são locais; as validações externas do P0 continuam separadas por item.
