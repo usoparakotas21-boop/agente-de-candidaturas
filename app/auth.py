@@ -13,6 +13,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app import distributed_rate_limit
+
 
 def _app_base_url() -> str:
     explicit_url = os.getenv("APP_BASE_URL", "").strip()
@@ -82,6 +84,31 @@ def _enforce_rate_limit(
     normalized_account = str(account or "").strip().casefold()
     if normalized_account:
         keys.append(f"{scope}:account:{normalized_account}")
+
+    if distributed_rate_limit.is_configured():
+        try:
+            blocked, distributed_retry_after = distributed_rate_limit.check(
+                keys,
+                limit,
+                window,
+            )
+        except Exception:
+            # Availability remains the default while an instance is being
+            # configured.  Production can set the required flag after the
+            # shared store is verified, making an unavailable store fail closed.
+            if os.getenv("RATE_LIMIT_DISTRIBUTED_REQUIRED", "false").lower() == "true":
+                raise HTTPException(
+                    503,
+                    "Proteção contra excesso de tentativas indisponível.",
+                )
+            logger.warning("Distributed rate limiter unavailable", exc_info=True)
+        else:
+            if blocked:
+                raise HTTPException(
+                    429,
+                    "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+                    headers={"Retry-After": str(distributed_retry_after or window)},
+                )
 
     retry_after = 0
     with _rate_lock:

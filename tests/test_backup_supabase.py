@@ -44,10 +44,11 @@ class SupabaseBackupTest(unittest.TestCase):
                 self.assertNotIn("postgresql://user:secret", " ".join(command))
                 if "--file" in command:
                     self.assertNotIn("DATABASE_URL", kwargs["env"])
-                    self.assertEqual(
-                        kwargs["env"]["PGDATABASE"],
-                        "postgresql://user:secret@example.invalid/db",
-                    )
+                    self.assertEqual(kwargs["env"]["PGDATABASE"], "db")
+                    self.assertEqual(kwargs["env"]["PGHOST"], "example.invalid")
+                    self.assertEqual(kwargs["env"]["PGUSER"], "user")
+                    self.assertEqual(kwargs["env"]["PGPASSWORD"], "secret")
+                    self.assertEqual(kwargs["env"]["PGSSLMODE"], "require")
 
 
 if __name__ == "__main__":

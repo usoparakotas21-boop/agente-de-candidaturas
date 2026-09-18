@@ -11,6 +11,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -44,7 +45,47 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def create_backup(output_dir: Path) -> Path:
+def _connection_environment(database_url: str) -> dict[str, str]:
+    """Convert a PostgreSQL URL into libpq variables without exposing it in argv."""
+    parsed = urlsplit(database_url)
+    if not parsed.hostname or not parsed.path.strip("/"):
+        raise RuntimeError("DATABASE_URL precisa informar host e banco PostgreSQL.")
+    environment = os.environ.copy()
+    environment.pop("DATABASE_URL", None)
+    environment["PGHOST"] = parsed.hostname
+    environment["PGPORT"] = str(parsed.port or 5432)
+    environment["PGUSER"] = unquote(parsed.username or "")
+    environment["PGPASSWORD"] = unquote(parsed.password or "")
+    environment["PGDATABASE"] = unquote(parsed.path.lstrip("/"))
+    environment["PGSSLMODE"] = parse_qs(parsed.query).get("sslmode", ["require"])[0]
+    return environment
+
+
+def restore_backup(backup_path: Path, target_url: str) -> None:
+    """Restore a dump into an explicitly supplied isolated PostgreSQL database."""
+    pg_restore = _required_tool("pg_restore")
+    environment = _connection_environment(target_url)
+    subprocess.run(
+        [
+            pg_restore,
+            "--clean",
+            "--if-exists",
+            "--exit-on-error",
+            "--no-owner",
+            "--no-privileges",
+            "--dbname",
+            environment["PGDATABASE"],
+            str(backup_path),
+        ],
+        env=environment,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def create_backup(output_dir: Path, restore_to: str | None = None) -> Path:
     pg_dump = _required_tool("pg_dump")
     pg_restore = _required_tool("pg_restore")
     database_url = _database_url()
@@ -55,9 +96,7 @@ def create_backup(output_dir: Path) -> Path:
     final_path = destination / f"supabase-{timestamp}.dump"
     partial_path = destination / f".{final_path.name}.partial"
 
-    child_env = os.environ.copy()
-    child_env.pop("DATABASE_URL", None)
-    child_env["PGDATABASE"] = database_url
+    child_env = _connection_environment(database_url)
 
     try:
         subprocess.run(
@@ -86,6 +125,9 @@ def create_backup(output_dir: Path) -> Path:
             text=True,
         )
         partial_path.replace(final_path)
+
+        if restore_to:
+            restore_backup(final_path, restore_to)
 
         checksum = _sha256(final_path)
         final_path.with_suffix(final_path.suffix + ".sha256").write_text(
@@ -129,6 +171,14 @@ def main() -> int:
         action="store_true",
         help="Valida DATABASE_URL e ferramentas sem acessar o banco.",
     )
+    parser.add_argument(
+        "--restore-to",
+        default="",
+        help=(
+            "URL PostgreSQL de um banco descartável para restauração de teste. "
+            "Nunca informe a URL do banco de produção."
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -138,7 +188,7 @@ def main() -> int:
         if args.check:
             print("Backup prerequisites: OK")
             return 0
-        path = create_backup(args.output_dir)
+        path = create_backup(args.output_dir, restore_to=args.restore_to.strip() or None)
         print(f"Backup verificado: {path}")
         return 0
     except RuntimeError as exc:

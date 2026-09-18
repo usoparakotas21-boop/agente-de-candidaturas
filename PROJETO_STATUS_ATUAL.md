@@ -293,9 +293,9 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 6. **Segredos, menor privilégio e TLS — concluído para o ambiente atual:** painel Supabase/Render sem chave mestra exposta, scanner do código versionado sem padrões de segredo, `Enforce SSL` ativo e aplicação forçando `sslmode=require`. Repetir a auditoria somente quando novas integrações forem adicionadas.
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
 8. **Erros públicos — validado:** handlers globais e rotas sensíveis retornam mensagens estáveis; checagem externa sem sessão em `/applications/1`, `/preferences` e `/billing/document-export` retornou 401 sem stack trace.
-9. **Rate limiting — código local concluído:** validar os limites publicados e configurar proteção distribuída na borda antes de múltiplas instâncias.
+9. **Rate limiting — adaptador distribuído preparado:** além do limite local por IP/conta, `app/distributed_rate_limit.py` usa contador Lua atômico em Redis REST compatível com Upstash quando `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` estão configuradas. `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` faz a aplicação falhar fechado se o armazenamento compartilhado ficar indisponível. Falta apenas criar/configurar o Redis, validar um deploy e ligar o modo obrigatório.
 10. **Senhas comprometidas — código concluído, configuração externa pendente:** o teste k-anonimizado está no código e a variável do Render existe; o Security Advisor do Supabase ainda indica `Leaked Password Protection Disabled`, que deve ser ativado no painel e retestado.
-11. **Backup e recuperação — automação preparada:** `scripts/backup_supabase.py` usa `DATABASE_URL` via ambiente, valida o dump e gera checksum/manifesto privado. O check real confirmou que faltam `pg_dump` e `pg_restore`; depois da instalação, executar/agendar o backup e testar a restauração isolada conforme `DISASTER_RECOVERY.md`.
+11. **Backup e recuperação — automação preparada:** `scripts/backup_supabase.py` converte `DATABASE_URL` em variáveis libpq (sem expor a URL nos argumentos), valida o dump, gera checksum/manifesto privado e aceita `--restore-to` para uma base explicitamente isolada. Falta instalar os clientes PostgreSQL, executar o dump, restaurar em ambiente descartável e agendar a rotina.
 12. **Acessibilidade de modais — concluído:** em produção, os modais “Captar vaga” e “Preferências”, a tela de Segurança e o drawer de candidatura abriram com foco inicial, fecharam com `Esc`, mantiveram o ciclo de Tab dentro da superfície e devolveram o foco ao disparador. O commit `8cc11fa` foi publicado e validado no Render.
 13. **Páginas legais públicas — validado:** `/termos` e `/privacidade` retornaram 200 sem sessão em produção, antes do cadastro, com headers de segurança ativos.
 
@@ -479,6 +479,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - `TOKEN_ENCRYPTION_KEY`;
 - `GEMINI_API_KEY`;
 - `MERCADOPAGO_WEBHOOK_SECRET` e credenciais do Mercado Pago.
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` e
+  `RATE_LIMIT_DISTRIBUTED_REQUIRED` (rate limiting compartilhado; nunca expor
+  o token ao cliente).
 
 ## Histórico recente de entregas
 
@@ -510,6 +513,23 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 | `6c00d98` | Estúdio de currículo e carta adaptados |
 | `90aeccb` | Checkout de exportação via Mercado Pago |
 | `4f00417` | Checkout de exportação via InfinitePay |
+
+### Preparação dos cinco gates externos do P0 — 18/09/2026
+
+- **E-mail:** o gate continua reduzido a um teste manual com duas contas e
+  provedores diferentes; o roteiro está em `scripts/README_OPERACIONAL_P0.md`.
+- **Mercado Pago:** o checkout e a assinatura/idempotência já estão no código;
+  `scripts/replay_mercadopago_webhook.py` repete a mesma entrega assinada duas
+  vezes usando um `payment_id` real, sem criar pagamento.
+- **Rate limiting:** o limite local ganhou uma camada Redis REST compartilhada
+  e atômica, com modo obrigatório ativável após a configuração no Render.
+- **Senhas vazadas:** a checagem k-anonimizada continua ativa no aplicativo;
+  a proteção nativa do Supabase permanece condicionada ao plano compatível.
+- **Backup:** o script agora pode restaurar explicitamente em uma URL de banco
+  descartável (`--restore-to`), sem expor a `DATABASE_URL` nos argumentos; o
+  agendamento e a restauração real ainda precisam de ambiente externo.
+- A suíte oficial foi reexecutada após essas mudanças: **165 testes aprovados,
+  0 falhas**, com 6 avisos de depreciação já conhecidos.
 
 ## Regra para continuar o projeto
 
