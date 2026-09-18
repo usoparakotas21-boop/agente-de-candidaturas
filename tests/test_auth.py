@@ -308,6 +308,45 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertIn("Se o e-mail estiver cadastrado", response["message"])
 
+    async def test_resend_confirmation_uses_signup_flow_and_generic_message(self):
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=httpx.Response(200, json={})),
+            ) as request_mock,
+        ):
+            response = await auth.resend_confirmation(
+                auth.EmailRequest(email=" Pessoa@Example.com ")
+            )
+
+        self.assertIn("Se houver um cadastro pendente", response["message"])
+        method, path = request_mock.await_args.args
+        self.assertEqual(method, "POST")
+        self.assertIn("/auth/v1/resend?redirect_to=", path)
+        self.assertEqual(
+            request_mock.await_args.kwargs["json"],
+            {"type": "signup", "email": "pessoa@example.com"},
+        )
+
+    async def test_resend_confirmation_maps_provider_rate_limit(self):
+        with (
+            patch.object(auth, "APP_BASE_URL", "https://app.example.com"),
+            patch.object(
+                auth,
+                "_supabase_request",
+                AsyncMock(return_value=httpx.Response(429, json={"msg": "too many"})),
+            ),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                await auth.resend_confirmation(
+                    auth.EmailRequest(email="pessoa@example.com")
+                )
+
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertIn("Aguarde", str(raised.exception.detail))
+
     async def test_signup_rejects_missing_public_https_url(self):
         with patch.object(auth, "APP_BASE_URL", ""):
             with self.assertRaises(HTTPException) as raised:
