@@ -238,7 +238,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 9. **Rate limiting — código local concluído:** validar os limites publicados e configurar proteção distribuída na borda antes de múltiplas instâncias.
 10. **Senhas comprometidas — código e configuração do Render concluídos:** executar o teste controlado no serviço publicado sem registrar a senha usada.
 11. **Backup e recuperação — runbook concluído:** confirmar backup diário, retenção e teste de restauração isolada conforme `DISASTER_RECOVERY.md`.
-12. **Acessibilidade de modais — código concluído:** fazer a validação manual final com teclado em `<dialog>` e drawers.
+12. **Acessibilidade de modais — validação parcial:** em produção, os modais “Captar vaga” e “Preferências” abriram com foco inicial, fecharam com `Esc` e devolveram o foco ao botão disparador; ainda falta validar o drawer de candidatura e o ciclo completo de Tab em **P0.12**.
 13. **Páginas legais públicas — código concluído:** validar no deploy que `/termos` e `/privacidade` retornam HTML sem sessão e antes do cadastro.
 
 ### P1 — resultado, proteção, LGPD, IA e monetização
@@ -317,7 +317,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | InfinitePay | Removido do código, do Render e do exemplo de ambiente | Fora do escopo ativo; não validar nem recomendar como provedor |
 | UptimeRobot | Monitor externo de disponibilidade/health check já faz parte da operação e está documentado; IDs e alertas ficam no painel externo | Concluído operacionalmente; conferir painel quando houver auditoria, sem recriar configuração |
 | Suíte completa | Dependência `psycopg[binary]` instalada no ambiente local; descoberta completa executou 103 testes | **Concluído nesta verificação** |
-| Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado | Código e suíte local aprovados; validação manual com teclado em **P0.12** |
+| Acessibilidade dos modais | Script global registra disparador, foco inicial, retorno de foco, `aria-modal` e ciclo de Tab para `<dialog>` e modal customizado; produção confirmou abertura/fechamento por teclado nos modais de captação e preferências | Parcialmente validado; falta o drawer de candidatura e o ciclo completo de Tab em **P0.12** |
 
 ### Verificação direta do Supabase — 17/09/2026
 
