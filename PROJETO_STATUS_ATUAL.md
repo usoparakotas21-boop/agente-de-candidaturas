@@ -2,7 +2,7 @@
 
 **Atualizado em:** 18/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `e1d3747` — `feat: sync onboarding state with user setup`
+**Commit publicado:** `9620e51` — `feat: show skeleton while loading application drawer`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -259,7 +259,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. **Entregue:** sincronizar o card de onboarding com o perfil e as preferências reais, escondendo-o quando concluído e ajustando o CTA quando só o perfil estiver preenchido.
 14. Exibir links legais e logout no cabeçalho/rodapé global.
-15. Finalizar estados de carregamento e ações destrutivas de UX: skeleton no detalhe, `Limpar` como ação neutra com confirmação, teste visual do retry do Banco de vagas e controle mostrar/ocultar senha nos formulários de autenticação.
+15. **Skeleton entregue no detalhe:** o drawer de candidatura usa blocos animados durante a abertura, preservando textos para leitores de tela; continuam pendentes `Limpar` como ação neutra com confirmação e a validação visual completa do retry do Banco de vagas.
 16. Ajustar a landing sem inventar prova social: explicitar o download avulso de R$ 9,90 e publicar FAQ somente com comportamentos realmente suportados.
 
 ### Próximo ciclo prático já classificado
