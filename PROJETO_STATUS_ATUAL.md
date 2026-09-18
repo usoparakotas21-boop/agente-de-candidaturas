@@ -180,7 +180,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
 | IDOR e RLS obrigatório | Validação real parcial aprovada | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem e a tentativa direta de abrir `/dashboard?application_id=15` não revelou a candidatura. Falta testar a rota de exportação/download em **P0.1** |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
-| Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
+| Magic bytes, MIME real, diretório privado e parsing isolado | Validação real parcial aprovada | Validador e diretório privado estão feitos; em produção, um PDF falso (`fake.pdf` sem assinatura `%PDF-`) foi rejeitado sem criar vaga. Falta confirmar um arquivo válido e a limpeza/isolamento final em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
 | Sanitização/XSS e prompt injection | Parcialmente feito | Sanitização central e fronteira do prompt de entrevistas estão feitas; ampliar casos por origem em **P1.8** e concluir `style-src` em **P0.7** |
 | Assinatura, replay e idempotência de webhook | Parcialmente feito | Mercado Pago tem HMAC no código, mas falta segredo e replay real. Tudo fica em **P0.5** |
@@ -229,7 +229,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 ### P0 — antes de aceitar usuários pagantes
 
 1. **IDOR/RLS real — validação parcial concluída:** a conta B ficou sem as vagas/candidaturas da conta A na listagem e a abertura direta de `/dashboard?application_id=15` não revelou a candidatura da conta A. Ainda é necessário testar a rota de exportação/download de recurso pertencente à outra conta no Supabase/PostgreSQL de produção.
-2. **Uploads e arquivos — código concluído, validação externa pendente:** executar casos reais de PDF/DOCX/imagem, conferir magic bytes, diretório privado e remoção de temporários.
+2. **Uploads e arquivos — validação parcial:** um PDF falso foi rejeitado em produção sem criar vaga; ainda executar um arquivo válido e conferir diretório privado e remoção de temporários.
 3. **MFA — interface publicada e validação parcial:** a tela de segurança em produção exibe configuração, sessões e mostrar/ocultar senha; ainda testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
 5. **Webhook Mercado Pago — configuração concluída:** endpoint de produção, evento Pagamentos e `MERCADOPAGO_WEBHOOK_SECRET` estão configurados; falta validar HMAC/replay e executar checkout controlado.
