@@ -7,6 +7,9 @@ from unittest.mock import patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi import HTTPException
+from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import main as main_module
@@ -35,6 +38,19 @@ def webhook_request(payment_id: str, signature: str, request_id: str = "req-123"
 
 
 class WebhookSecurityTest(unittest.TestCase):
+    def test_static_assets_are_public_for_page_bootstrapping(self):
+        app = FastAPI()
+        app.add_middleware(AuthMiddleware)
+
+        @app.get("/static/test.js", response_class=PlainTextResponse)
+        async def static_asset():
+            return "console.log('ok')"
+
+        with TestClient(app) as client:
+            response = client.get("/static/test.js")
+
+        self.assertEqual(response.status_code, 200)
+
     def test_payment_webhooks_are_public_for_provider_delivery(self):
         self.assertIn("/webhooks/mercadopago", AuthMiddleware.PUBLIC_PATHS)
 

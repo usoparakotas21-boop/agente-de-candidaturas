@@ -873,7 +873,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
     }
 
     async def dispatch(self, request: Request, call_next):
-        if not AUTH_REQUIRED or request.url.path in self.PUBLIC_PATHS:
+        # Static assets are required by public and authenticated HTML pages.
+        # They must remain readable without a session so the browser can load
+        # the page's JavaScript/CSS enhancements after authentication is
+        # enforced for the application routes.
+        if not AUTH_REQUIRED or request.url.path in self.PUBLIC_PATHS or request.url.path.startswith("/static/"):
             return await call_next(request)
 
         if not _configuration_ready():

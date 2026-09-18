@@ -177,7 +177,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
 | Foco, `aria-modal` e retorno de foco dos modais | Código feito | Validação manual com teclado permanece em **P0.12** |
 | Verificação de e-mail, headers e rate limiting | Código principal feito | Validações de produção ficam em **P0.4**, **P0.7** e **P0.9**; rate limiting distribuído só é necessário antes de múltiplas instâncias |
-| IDOR e RLS obrigatório | Parcialmente feito | Migração RLS e testes locais estão feitos; prova com duas contas reais continua em **P0.1** |
+| IDOR e RLS obrigatório | Validação parcial | Migração RLS e testes locais estão feitos; a conta B não exibiu os dados da conta A na listagem. Falta testar acesso direto por ID e exportação em **P0.1** |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita | Conferir painel do Supabase e conexão TLS em **P0.6**; não há motivo para adicionar essa chave ao app |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Parcialmente feito | Validador e diretório privado estão feitos; ensaio real e confirmação de isolamento ficam em **P0.2** |
 | Gmail `readonly` e tokens criptografados | Feito no código | Manter auditoria de escopos e revogação; não criar escopos maiores |
@@ -217,6 +217,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 | Cabeçalho escuro duplicado em Currículos/Configurações | Removido o cabeçalho interno; permanece a navegação global adicionada pelo shell | P1.15 concluído no código |
 | Botões Aprovar/Recusar genéricos e subtítulo de alerta repetido | Decisão e status são dados distintos; renomear ações e reduzir o subtítulo exige revisar copy e transições | P1.3, junto do modelo de decisão; não implementar só por aparência |
 | Botão Limpar próximo da ação principal | Ação continua disponível, mas deve virar link/ação neutra com confirmação quando houver conteúdo | P1.15 |
+| Visualização da senha no login/cadastro/alteração | O campo permanece mascarado e não oferece controle mostrar/ocultar; é uma melhoria de usabilidade e acessibilidade, sem alterar a política de senha | P1.15 |
 | Placeholders de salário ausentes | Adicionados exemplos `Ex.: 8.000` e `Ex.: 12.000` nas configurações | P1.9 concluído no código |
 | R$ 9,90 avulso, FAQ e prova social na landing | A linha do avulso pode ser adicionada com o preço real; FAQ é copy útil; números de prova social só entram quando vierem de métricas observadas | P1.16; métricas de conversão permanecem P1.1 |
 
@@ -225,7 +226,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 
 ### P0 — antes de aceitar usuários pagantes
 
-1. **IDOR/RLS real — bloqueado por validação externa:** usar duas contas no Supabase/PostgreSQL de produção e comprovar acesso negado a vagas, candidaturas e exportações de outra conta. RLS e testes locais já estão prontos.
+1. **IDOR/RLS real — validação parcial concluída:** a conta B ficou sem as vagas/candidaturas da conta A na listagem. Ainda é necessário testar acesso direto por ID e exportação/download de recurso pertencente à outra conta no Supabase/PostgreSQL de produção.
 2. **Uploads e arquivos — código concluído, validação externa pendente:** executar casos reais de PDF/DOCX/imagem, conferir magic bytes, diretório privado e remoção de temporários.
 3. **MFA — código concluído, validação externa pendente:** testar TOTP, recuperação, expiração, revogação e login bloqueado no Supabase real.
 4. **E-mail confirmado — código concluído, validação externa pendente:** conferir configuração, template, redirect e reenvio limitado no Supabase.
@@ -255,7 +256,7 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 12. Finalizar os textos legais com responsável, canal de contato, retenção e subprocessadores.
 13. Sincronizar o card de onboarding com o perfil e as preferências reais.
 14. Exibir links legais e logout no cabeçalho/rodapé global.
-15. Finalizar estados de carregamento e ações destrutivas de UX: skeleton no detalhe, `Limpar` como ação neutra com confirmação e teste visual do retry do Banco de vagas.
+15. Finalizar estados de carregamento e ações destrutivas de UX: skeleton no detalhe, `Limpar` como ação neutra com confirmação, teste visual do retry do Banco de vagas e controle mostrar/ocultar senha nos formulários de autenticação.
 16. Ajustar a landing sem inventar prova social: explicitar o download avulso de R$ 9,90 e publicar FAQ somente com comportamentos realmente suportados.
 
 ### Próximo ciclo prático já classificado
@@ -281,8 +282,11 @@ As telas anexadas foram tratadas como evidência de comportamento, não como ins
 - Cabeçalhos de segurança confirmados no endpoint público `/health`.
 - Deploy `e84fd60` confirmado como ativo no Render.
 - Health check do Render e monitor externo UptimeRobot fazem parte da operação; credenciais e IDs dos monitores não são documentados por segurança.
-- A suíte completa foi reexecutada após a liberação pública das páginas legais e a remoção do fallback de pagamento legado: **101 testes aprovados em 3,992 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais e bloqueio do fallback fora do Mercado Pago. O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
+- A suíte completa foi reexecutada após a liberação pública das páginas legais e a remoção do fallback de pagamento legado: **101 testes aprovados em 3,995 s**, incluindo autenticação, sanitização HTML, normalização de títulos, parser de e-mail, regressão de rotas legais e bloqueio do fallback fora do Mercado Pago. O teste direcionado de RLS/IDOR também passou (**3 testes**). O registro histórico de 59 testes ficou desatualizado porque novos testes foram adicionados.
 - Migração RLS de produção aplicada com `scripts/migrate_rls.py`: 11 tabelas com RLS ativo e uma política por tabela; `document_export_purchases_owner` confirmado como política `ALL`.
+- Teste operacional com duas contas: conta A exibiu dados próprios e conta B exibiu zero vagas/candidaturas; a tentativa de abrir diretamente as rotas JSON por ID foi bloqueada pelo navegador de teste, portanto o acesso direto e os downloads cruzados permanecem em **P0.1**.
+- Testes direcionados reexecutados nesta rodada: isolamento/RLS/arquivos cruzados (**3 aprovados**), validação de uploads por assinatura/estrutura (**4 aprovados**) e fluxo MFA (**2 aprovados**). Essas evidências são locais; as validações externas do P0 continuam separadas por item.
+- No avanço do P0.2, armazenamento privado/limpeza e intake de arquivos passaram (**5 testes**); em produção, um PDF falso e um DOCX falso foram rejeitados com mensagem de formato inválido, sem criar currículo. Ainda falta validar arquivos válidos, imagem, armazenamento privado e limpeza de temporários.
 
 ## Auditoria do checklist de segurança e operação — 17/09/2026
 
@@ -320,7 +324,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`;
 - `COOKIE_SECURE`, `AUTH_REQUIRED`, `APP_BASE_URL`;
-- `MFA_LOGIN_ENFORCE` (habilitado no Render para exigir challenge quando houver fator TOTP verificado);
+- `MFA_LOGIN_ENFORCE` (temporariamente desabilitado no Render para destravar o acesso; o MFA por conta e a validação TOTP em produção continuam em **P0.3** antes de reativar a exigência global);
 - `PWNED_PASSWORD_CHECK` (habilitado no Render para bloquear senhas presentes em vazamentos conhecidos);
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`;
 - `TOKEN_ENCRYPTION_KEY`;
