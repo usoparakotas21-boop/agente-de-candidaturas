@@ -1039,19 +1039,88 @@ async def current_user(request: Request):
 async def logout(request: Request):
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     pending_access = request.cookies.get(MFA_PENDING_ACCESS_COOKIE_NAME)
+    revoke_failed = False
     if access_token and _configuration_ready():
         try:
-            await _supabase_request("POST", "/auth/v1/logout?scope=global", token=access_token)
+            upstream = await _supabase_request(
+                "POST", "/auth/v1/logout?scope=local", token=access_token
+            )
+            revoke_failed = upstream.status_code >= 400
         except httpx.HTTPError:
-            logger.warning("Falha ao revogar sessão no provedor; cookies serão limpos.")
+            revoke_failed = True
+            logger.warning("Falha ao revogar sessão local no provedor; cookies serão limpos.")
     if pending_access and _configuration_ready():
         try:
-            await _supabase_request("POST", "/auth/v1/logout?scope=global", token=pending_access)
+            upstream = await _supabase_request(
+                "POST", "/auth/v1/logout?scope=local", token=pending_access
+            )
+            revoke_failed = revoke_failed or upstream.status_code >= 400
         except httpx.HTTPError:
-            logger.warning("Falha ao revogar desafio MFA pendente; cookies serão limpos.")
-    response = Response(status_code=204)
+            revoke_failed = True
+            logger.warning("Falha ao revogar desafio MFA local; cookies serão limpos.")
+    if "text/html" in request.headers.get("accept", "") and not revoke_failed:
+        response: Response = RedirectResponse("/", status_code=303)
+    else:
+        response = JSONResponse(
+            {"detail": "Sessão encerrada neste dispositivo."}
+            if not revoke_failed
+            else {"detail": "Sessão local encerrada; não foi possível confirmar a revogação no provedor."},
+            status_code=200 if not revoke_failed else 502,
+        )
     _clear_session_cookies(response)
     _clear_mfa_pending_cookies(response)
+    return response
+
+
+@router.post("/logout/others")
+async def logout_other_sessions(request: Request):
+    """Revoke every Supabase refresh-token session except this browser."""
+    if not AUTH_REQUIRED or not _configuration_ready():
+        raise HTTPException(503, "Gerenciamento de sessões indisponível.")
+
+    user, renewed_session = await _resolve_session(request)
+    if user is None:
+        response = JSONResponse({"detail": "Faça login novamente para gerenciar sessões."}, status_code=401)
+        _clear_session_cookies(response)
+        return response
+    if not _email_is_verified(user):
+        response = JSONResponse(
+            {"detail": _email_confirmation_error().detail, "code": "email_not_verified"},
+            status_code=403,
+        )
+        _clear_session_cookies(response)
+        return response
+
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME) or (renewed_session or {}).get("access_token")
+    if _session_requires_mfa(user, access_token):
+        return _mfa_required_response()
+    if not access_token:
+        raise HTTPException(401, "Faça login novamente para gerenciar sessões.")
+
+    try:
+        upstream = await _supabase_request(
+            "POST", "/auth/v1/logout?scope=others", token=access_token
+        )
+    except httpx.HTTPError:
+        logger.warning("Falha de transporte ao encerrar outras sessões no provedor.")
+        raise HTTPException(502, "Não foi possível encerrar as outras sessões agora.")
+    if upstream.status_code >= 400:
+        logger.warning(
+            "Provedor recusou encerramento de outras sessões (status=%s).",
+            upstream.status_code,
+        )
+        raise HTTPException(502, "Não foi possível encerrar as outras sessões agora.")
+
+    response = JSONResponse(
+        {
+            "detail": (
+                "As outras sessões foram encerradas. Este dispositivo continua conectado; "
+                "os demais perderão acesso quando o token atual expirar."
+            )
+        }
+    )
+    if renewed_session:
+        _set_session_cookies(response, renewed_session)
     return response
 
 
@@ -1067,6 +1136,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/resend-confirmation",
         "/auth/me",
         "/auth/logout",
+        "/auth/logout/others",
         "/auth/mfa/complete",
         "/webhooks/mercadopago",
         "/billing/mercadopago/success",

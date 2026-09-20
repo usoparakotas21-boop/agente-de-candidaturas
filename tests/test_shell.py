@@ -197,6 +197,15 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertNotIn("segredo TOTP", script.casefold())
         self.assertNotIn("você receberá códigos de recuperação", script.casefold())
 
+    def test_security_ui_manages_current_and_other_sessions_honestly(self):
+        script = (Path(main_module.STATIC_DIR) / "security-enhance.js").read_text(encoding="utf-8")
+        self.assertIn("Sessões e dispositivos", script)
+        self.assertIn("id=\"logoutOthers\"", script)
+        self.assertIn("id=\"logoutCurrent\"", script)
+        self.assertIn("/auth/logout/others", script)
+        self.assertIn("O app ainda não mostra os aparelhos individualmente", script)
+        self.assertNotIn("Revise os dispositivos que estão usando sua conta.", script)
+
     def test_alerts_enhancement_does_not_duplicate_persisted_controls(self):
         script = (Path(main_module.STATIC_DIR) / "alerts-enhance.js").read_text(encoding="utf-8")
         self.assertIn("#notifyInterviews", script)

@@ -450,6 +450,83 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(json.loads(response.body)["code"], "mfa_required")
 
+    async def test_logout_revokes_only_the_current_session(self):
+        token = "current-access"
+        upstream = AsyncMock(return_value=httpx.Response(204))
+        with (
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_supabase_request", upstream),
+        ):
+            response = await auth.logout(
+                make_request(cookie=f"{auth.ACCESS_COOKIE_NAME}={token}")
+            )
+
+        self.assertEqual(response.status_code, 200)
+        upstream.assert_awaited_once_with(
+            "POST", "/auth/v1/logout?scope=local", token=token
+        )
+        self.assertTrue(
+            any(auth.ACCESS_COOKIE_NAME in value and "Max-Age=0" in value for value in response.headers.getlist("set-cookie"))
+        )
+
+    async def test_logout_reports_provider_failure_and_still_clears_local_cookies(self):
+        upstream = AsyncMock(return_value=httpx.Response(503))
+        with (
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_supabase_request", upstream),
+        ):
+            response = await auth.logout(
+                make_request(cookie=f"{auth.ACCESS_COOKIE_NAME}=current-access")
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("não foi possível confirmar", response.body.decode().casefold())
+        self.assertTrue(any(auth.ACCESS_COOKIE_NAME in value for value in response.headers.getlist("set-cookie")))
+
+    async def test_logout_others_preserves_current_session_and_requires_verified_user(self):
+        token = unsigned_jwt_with_aal("aal1")
+        user = {"id": "owner-a", "email": "a@example.com", "email_confirmed_at": "today"}
+        upstream = AsyncMock(return_value=httpx.Response(204))
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, None))),
+            patch.object(auth, "_supabase_request", upstream),
+        ):
+            response = await auth.logout_other_sessions(
+                make_request(cookie=f"{auth.ACCESS_COOKIE_NAME}={token}")
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("outras sessões foram encerradas", response.body.decode())
+        upstream.assert_awaited_once_with(
+            "POST", "/auth/v1/logout?scope=others", token=token
+        )
+        self.assertEqual(response.headers.getlist("set-cookie"), [])
+
+    async def test_logout_others_refuses_unverified_mfa_session(self):
+        token = unsigned_jwt_with_aal("aal1")
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "email_confirmed_at": "today",
+            "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+        }
+        upstream = AsyncMock()
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, None))),
+            patch.object(auth, "_supabase_request", upstream),
+        ):
+            response = await auth.logout_other_sessions(
+                make_request(cookie=f"{auth.ACCESS_COOKIE_NAME}={token}")
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.body)["code"], "mfa_required")
+        upstream.assert_not_awaited()
+
     async def test_refresh_resolution_revalidates_the_new_access_token(self):
         refreshed = {
             "access_token": unsigned_jwt_with_aal("aal1"),

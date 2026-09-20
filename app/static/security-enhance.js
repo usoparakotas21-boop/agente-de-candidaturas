@@ -20,6 +20,10 @@
     .mfa-state-help{margin-top:5px!important}
     .session-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid #dfe7f2}
     .session-row small{display:block;color:#64748b;margin-top:3px}
+    .session-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+    .session-status{margin:12px 0 0;color:#16794b;font-size:13px;line-height:1.45}
+    .session-status.error{color:#b42318}
+    .session-note{margin:12px 0 0!important;font-size:12px!important;line-height:1.5}
     .security-action{padding:10px 14px;border:1px solid #dfe7f2;border-radius:9px;background:#fff;color:#3568e8;font-weight:800;font-size:13px}
     .security-action:hover:not(:disabled){background:#f5f8ff;transform:translateY(-1px)}
     .security-action:disabled{cursor:wait;opacity:.65}
@@ -86,11 +90,15 @@
       </div>
     </section>
     <section class="card">
-      <h2>Sessões ativas</h2>
-      <p>Revise os dispositivos que estão usando sua conta.</p>
-      <div class="session-row"><div><strong>Este dispositivo</strong><small>Navegador atual · sessão ativa</small></div><span class="security-state active">Ativa</span></div>
-      <button class="security-action" id="logoutAll" type="button">Sair deste dispositivo</button>
-      <div class="notice notice-spaced">O encerramento de todas as sessões será disponibilizado quando o provedor de autenticação permitir revogação global.</div>
+      <h2>Sessões e dispositivos</h2>
+      <p>Veja o acesso deste navegador e encerre sessões abertas em outros dispositivos.</p>
+      <div class="session-row"><div><strong>Este navegador</strong><small>Sessão atual</small></div><span class="security-state active">Conectado</span></div>
+      <div class="session-actions">
+        <button class="security-action" id="logoutOthers" type="button">Encerrar outras sessões</button>
+        <button class="security-action danger" id="logoutCurrent" type="button">Sair deste dispositivo</button>
+      </div>
+      <p class="session-note">O app ainda não mostra os aparelhos individualmente. Ao encerrar as outras sessões, um dispositivo pode permanecer conectado até o token atual expirar.</p>
+      <p class="session-status" id="sessionStatus" role="status" aria-live="polite" hidden></p>
     </section>`;
   const anchor = wrap.querySelector('.card');
   wrap.insertBefore(grid, anchor);
@@ -306,8 +314,45 @@
     }
   });
 
-  grid.querySelector('#logoutAll').addEventListener('click', () => {
-    fetch('/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/'; });
+  const sessionStatus = grid.querySelector('#sessionStatus');
+  const setSessionStatus = (message, isError = false) => {
+    sessionStatus.textContent = message;
+    sessionStatus.classList.toggle('error', isError);
+    sessionStatus.hidden = false;
+  };
+
+  const logoutCurrent = grid.querySelector('#logoutCurrent');
+  logoutCurrent.addEventListener('click', async () => {
+    if (!window.confirm('Sair deste navegador? As sessões em outros dispositivos continuarão conectadas.')) return;
+    logoutCurrent.disabled = true;
+    logoutCurrent.textContent = 'Encerrando…';
+    try {
+      const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+      await readJson(response, 'Não foi possível encerrar esta sessão agora.');
+      window.location.href = '/?signed_out=1';
+    } catch (error) {
+      setSessionStatus(error.message, true);
+      logoutCurrent.disabled = false;
+      logoutCurrent.textContent = 'Sair deste dispositivo';
+    }
+  });
+
+  const logoutOthers = grid.querySelector('#logoutOthers');
+  logoutOthers.addEventListener('click', async () => {
+    if (!window.confirm('Encerrar as sessões em todos os outros navegadores e dispositivos? Este navegador continuará conectado.')) return;
+    logoutOthers.disabled = true;
+    logoutOthers.textContent = 'Encerrando…';
+    sessionStatus.hidden = true;
+    try {
+      const response = await fetch('/auth/logout/others', { method: 'POST', credentials: 'same-origin' });
+      const payload = await readJson(response, 'Não foi possível encerrar as outras sessões agora.');
+      setSessionStatus(payload.detail || 'Outras sessões encerradas. Este navegador continua conectado.');
+    } catch (error) {
+      setSessionStatus(error.message, true);
+    } finally {
+      logoutOthers.disabled = false;
+      logoutOthers.textContent = 'Encerrar outras sessões';
+    }
   });
 
   const exportButton = document.querySelector('#exportData');
