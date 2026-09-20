@@ -6,7 +6,7 @@ vazadas via HIBP e a primeira execução do backup cifrado no GitHub Actions.
 O replay real assinado do Mercado Pago foi concluído (**P0.5**). O restore do
 archive também passou em stack local oficial descartável do Supabase: 11 tabelas
 públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. Para
-fechar o P0, restam o login real com TOTP após publicação (**P0.3**) e confirmar
+fechar o P0, resta validar o login real com TOTP no deploy `9dfcaff` (**P0.3**) e confirmar
 uma cópia segura da chave privada fora deste computador (**P0.11**).
 
 ## 1. E-mail confirmado e reenvio
