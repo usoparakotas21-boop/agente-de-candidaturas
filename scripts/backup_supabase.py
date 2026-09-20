@@ -45,6 +45,38 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _postgres_error_summary(stderr: str | None) -> str:
+    """Return a useful, credential-free summary of a libpq client error."""
+    message = (stderr or "").casefold()
+    if not message.strip():
+        return "o cliente PostgreSQL nao forneceu detalhes adicionais"
+
+    categories = (
+        (("could not translate host name", "name or service not known", "temporary failure in name resolution"),
+         "falha de DNS ao localizar o servidor"),
+        (("password authentication failed", "authentication failed"),
+         "falha de autenticacao; confira usuario e senha da conexao"),
+        (("connection timed out", "timeout expired", "operation timed out"),
+         "timeout de conexao; confira host, porta e conectividade do runner"),
+        (("connection refused",),
+         "conexao recusada; confira host e porta do PostgreSQL"),
+        (("no pg_hba.conf entry", "not allowed to connect"),
+         "conexao bloqueada pela politica de rede ou SSL"),
+        (("ssl error", "ssl syscall", "certificate verify failed", "ssl required"),
+         "falha na negociacao TLS/SSL"),
+        (("permission denied", "must be owner", "insufficient privilege"),
+         "permissao insuficiente para ler ou restaurar os objetos"),
+        (("does not exist",),
+         "banco ou objeto PostgreSQL nao encontrado"),
+        (("server closed the connection", "connection reset by peer", "unexpected eof"),
+         "conexao encerrada pelo servidor durante o dump"),
+    )
+    for needles, summary in categories:
+        if any(needle in message for needle in needles):
+            return summary
+    return "erro do cliente PostgreSQL; detalhes brutos omitidos por seguranca"
+
+
 def _connection_environment(database_url: str) -> dict[str, str]:
     """Convert a PostgreSQL URL into libpq variables without exposing it in argv."""
     parsed = urlsplit(database_url)
@@ -151,8 +183,11 @@ def create_backup(output_dir: Path, restore_to: str | None = None) -> Path:
         )
         return final_path
     except subprocess.CalledProcessError as exc:
+        command = exc.cmd[0] if isinstance(exc.cmd, (list, tuple)) and exc.cmd else exc.cmd
+        tool = Path(str(command)).name if command else "cliente PostgreSQL"
         raise RuntimeError(
-            f"Falha ao criar ou verificar o backup PostgreSQL (codigo {exc.returncode})."
+            f"Falha ao executar {tool} (codigo {exc.returncode}): "
+            f"{_postgres_error_summary(exc.stderr)}."
         ) from exc
     finally:
         partial_path.unlink(missing_ok=True)
