@@ -6,7 +6,8 @@ vazadas via HIBP e a primeira execução do backup cifrado no GitHub Actions.
 O replay real assinado do Mercado Pago foi concluído (**P0.5**). O restore do
 archive também passou em stack local oficial descartável do Supabase: 11 tabelas
 públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. O commit
-`03c0adb` está Live no Render e exige AAL2 em toda sessão de uma conta com TOTP,
+`b10485a` está Live no Render com a configuração de MFA simplificada; a regra de
+AAL2 exige código em toda sessão de uma conta com TOTP,
 inclusive sessão antiga, renovada ou obtida pelo callback; os 202 testes
 passaram e `/health` respondeu 200 com banco conectado. Para fechar o P0, resta
 confirmar um login real com TOTP (**P0.3**) e confirmar uma cópia segura da

@@ -2,7 +2,7 @@
 
 **Atualizado em:** 20/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `03c0adb` — `security: enforce AAL2 for opted-in MFA` (Render Live)
+**Commit publicado:** `b10485a` — `Improve MFA setup experience` (Render Live)
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -17,6 +17,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - Em 20/09, WSL 2, Docker Desktop e a CLI oficial do Supabase foram usados para restaurar o archive cifrado num stack local descartável. O manifesto, SHA-256 e AES-256-GCM foram validados; `pg_restore --exit-on-error` restaurou 11 tabelas públicas com RLS ativo, 527 linhas agregadas e 11 políticas num banco separado. Os 19 testes direcionados do backup e a suíte completa atual (202 testes) passaram. O stack, containers, volumes e pasta temporária foram removidos após a validação. A chave continua ignorada e não rastreada pelo Git; falta confirmar uma cópia segura fora deste computador.
 - O simulador do Mercado Pago enviou `payment.updated` com `live_mode=false` e recebeu HTTP 200; essa evidência é apenas de conectividade. Em seguida, o script de replay foi executado contra uma compra aprovada existente, sem nova cobrança; o usuário confirmou a execução sem erro e os logs do Render registraram as duas entregas HTTP 200. Como o script só termina com sucesso quando ambas são verificadas e a segunda é idempotente, **P0.5 está concluído para a transação testada**.
 - **P0.11 permanece parcial somente pela cópia externa da chave:** a restauração do archive foi comprovada num stack oficial local descartável, incluindo dados agregados e políticas RLS. Referências abaixo à secret ausente, ao workflow ainda sem execução ou à restauração compatível pendente descrevem estado histórico anterior à validação de 20/09/2026.
+- A tela de segurança foi simplificada para explicar a MFA opcional em linguagem direta e configurar o autenticador por QR code ou chave manual, com instrução para cadastrar dois dispositivos confiáveis. O modal substitui o prompt do navegador; a alteração `b10485a` está **Live** no Render, `/health` respondeu 200 e a página carregou `security-enhance.js?v=6`. A suíte oficial `pytest tests/` passou (202 testes); o teste real de login com TOTP (**P0.3**) continua pendente.
 
 ### Aplicação e acesso
 
