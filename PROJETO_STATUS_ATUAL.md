@@ -5,7 +5,7 @@ A secret `SUPABASE_DATABASE_URL` foi configurada no GitHub Actions com autoriza�
 
 O simulador do Mercado Pago enviou `payment.updated` com `live_mode=false` e recebeu HTTP 200. Isso comprova conectividade do endpoint, não assinatura real nem replay idempotente; **P0.5 permanece parcial** até o replay assinado de um pagamento existente, sem nova cobrança.
 
-**P0.11 permanece parcial:** falta guardar a chave privada fora deste computador e demonstrar a restauração integral em um ambiente Supabase compatível. As referências abaixo à secret ausente ou ao workflow ainda sem execução descrevem o estado histórico anterior a 20/09/2026.
+**P0.11 permanece parcial:** a validação local confirmou SHA-256, autenticação/descriptografia AES-256-GCM e assinatura de archive PostgreSQL; os 8 testes de backup passaram. A chave privada está ignorada e não rastreada pelo Git, mas a cópia fora deste computador ainda precisa ser confirmada. Resta demonstrar a recuperação integral em ambiente Supabase compatível; Docker, Supabase CLI e `pg_restore` não estão disponíveis neste ambiente. As referências abaixo à secret ausente ou ao workflow ainda sem execução descrevem o estado histórico anterior a 20/09/2026.
 
 **Atualizado em:** 20/09/2026
 **Versão declarada da API:** 0.24.0  
