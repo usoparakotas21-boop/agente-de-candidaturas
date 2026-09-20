@@ -22,6 +22,7 @@ DIRECT_OWNER_TABLES = (
     "email_integrations",
     "processed_email_messages",
     "document_export_purchases",
+    "billing_subscriptions",
     "queue_items",
 )
 

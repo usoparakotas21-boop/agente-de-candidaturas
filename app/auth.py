@@ -48,8 +48,8 @@ PWNED_PASSWORD_TIMEOUT = 4.0
 # Keep the legal text versioned so each signup records exactly what the user
 # accepted.  A future policy change can bump these values without changing the
 # authentication contract.
-TERMS_VERSION = "2026-09-10"
-PRIVACY_VERSION = "2026-09-10"
+TERMS_VERSION = "2026-09-20"
+PRIVACY_VERSION = "2026-09-20"
 logger = logging.getLogger(__name__)
 
 # A small in-process limiter protects the public auth endpoints even when the
@@ -64,6 +64,10 @@ _RATE_LIMITS = {
     "password": (5, 15 * 60),
     "email": (5, 15 * 60),
     "mfa": (5, 10 * 60),
+    "billing-checkout": (6, 15 * 60),
+    "ai-interview-evaluation": (15, 60 * 60),
+    "document-generation": (20, 60 * 60),
+    "mercadopago-webhook": (600, 60),
 }
 _rate_attempts: dict[str, deque[float]] = {}
 _rate_lock = threading.Lock()

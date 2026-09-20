@@ -42,7 +42,7 @@
         <div class="steps">
           <div class="step"><b>1</b><div><strong>Conte qual é a vaga</strong><span>O cargo e os requisitos orientam a adaptação.</span></div></div>
           <div class="step"><b>2</b><div><strong>Veja a prévia</strong><span>Confira o resumo, as competências e a carta antes de exportar.</span></div></div>
-          <div class="step"><b>3</b><div><strong>Exporte quando estiver pronto</strong><span>O arquivo completo fica liberado no plano Pro ou após o pagamento avulso.</span></div></div>
+          <div class="step"><b>3</b><div><strong>Exporte quando estiver pronto</strong><span>O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.</span></div></div>
         </div>
         <div class="tip">Dica: copie a descrição diretamente do anúncio para destacar palavras-chave compatíveis com o sistema de seleção.</div>
       </aside>
@@ -84,7 +84,7 @@
         ?'Seu acesso está liberado. Os arquivos personalizados estão prontos para baixar.'
         :(offer&&offer.price
           ?'Prévia gratuita ativa. O currículo e a carta completos podem ser liberados por '+offer.price+'.'
-          :'Prévia gratuita ativa. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.');
+          :'Prévia gratuita. O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.');
     }
     async function getOffer(applicationId=linkedApplicationId){
       const query=applicationId?'?application_id='+encodeURIComponent(applicationId):'';

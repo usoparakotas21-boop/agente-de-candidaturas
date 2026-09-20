@@ -345,6 +345,33 @@ class DocumentExportPurchase(Base):
     receipt_email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class BillingSubscription(Base):
+    """Current recurring Mercado Pago subscription for one account."""
+
+    __tablename__ = "billing_subscriptions"
+    __table_args__ = (
+        UniqueConstraint("external_reference", name="uq_billing_subscription_external_reference"),
+        UniqueConstraint("mercadopago_preapproval_id", name="uq_billing_subscription_mp_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    plan_code: Mapped[str] = mapped_column(String(24), nullable=False)
+    external_reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    mercadopago_preapproval_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    checkout_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    payer_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    monthly_amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="creating")
+    next_payment_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    access_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_payment_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_payment_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
 # ============================================================
 # NOVO PARA VERSÃO 0.23.0
 # ============================================================

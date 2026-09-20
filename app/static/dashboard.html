@@ -687,7 +687,7 @@
   <button class="action-button accent" id="generateButton">
     Pré-visualizar currículo
   </button>
-  <!-- Gerar e baixar currículo: o download completo exige o Pro ou pagamento avulso. -->
+  <!-- Gerar e baixar currículo: o download completo está incluído no Start e no Pro, ou pode ser comprado à parte. -->
 
   <button class="action-button" id="coverLetterButton">
     Gerar carta de apresentação
@@ -1300,7 +1300,7 @@
           notice.hidden = false;
           notice.textContent = documentExport.price
             ? `Prévia gratuita ativa. O download do currículo + carta está disponível por pagamento avulso (${documentExport.price}).`
-            : "Prévia gratuita ativa. O download do currículo + carta exige o plano Pro ou pagamento avulso.";
+            : "Prévia gratuita. O download completo está incluído no Start e no Pro, ou pode ser comprado à parte.";
         }
       } catch { /* a prévia continua disponível mesmo sem carregar a oferta */ }
     }
@@ -2062,7 +2062,7 @@ async function generateCoverLetter() {
       locked ? "Prévia protegida da carta de apresentação" : "Texto completo da carta de apresentação",
     );
     notice.hidden = !locked;
-    notice.textContent = payload.notice || "A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso.";
+    notice.textContent = payload.notice || "A carta completa está incluída no Start e no Pro, ou pode ser comprada à parte.";
 
     $("coverLetterDialog").showModal();
 
@@ -2378,7 +2378,7 @@ $("copyCoverLetter").addEventListener(
   "click",
   async () => {
     if ($("copyCoverLetter").disabled) {
-      toast("A cópia do texto completo exige o plano Pro ou pagamento avulso.");
+      toast("A carta completa está incluída no Start e no Pro, ou pode ser comprada à parte.");
       return;
     }
     const letter = $("coverLetterText").value;
@@ -2407,7 +2407,7 @@ $("copyCoverLetter").addEventListener(
         ["c", "x"].includes(event.key.toLowerCase())
       ) {
         event.preventDefault();
-        toast("A cópia do texto completo exige o plano Pro ou pagamento avulso.");
+        toast("A carta completa está incluída no Start e no Pro, ou pode ser comprada à parte.");
       }
     });
     $("closeResumePreview").addEventListener("click", () => $("resumePreviewDialog").close());

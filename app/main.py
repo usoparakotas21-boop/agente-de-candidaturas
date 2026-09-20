@@ -9,10 +9,12 @@ import re
 import smtplib
 import time
 import uuid
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
+from weakref import WeakValueDictionary
 
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
@@ -22,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text, update
 from starlette.concurrency import run_in_threadpool
 
-from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, authenticated_user, router as auth_router
+from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
 from .outlook_integration import router as outlook_router
 from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
@@ -36,7 +38,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, Candidate, DocumentExportPurchase, EmailIntegration, Experience, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentExportPurchase, EmailIntegration, Experience, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -81,6 +83,7 @@ app.include_router(queue_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
+PRO_BOOK_PATH = Path(__file__).parent / "private_products" / "hackeando_disc.docx"
 DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
     300,
     int(os.getenv("DOCUMENT_CLEANUP_INTERVAL_SECONDS", str(24 * 60 * 60))),
@@ -255,12 +258,124 @@ def _document_export_price() -> str:
     return f"R$ {cents / 100:.2f}".replace(".", ",") if cents > 0 else ""
 
 
+SUBSCRIPTION_PLANS: dict[str, dict[str, Any]] = {
+    "start": {"name": "Start", "amount": 3490},
+    "pro": {"name": "Pro", "amount": 9900},
+}
+_SUBSCRIPTION_CHECKOUT_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+
+
+def _subscription_checkout_lock(owner_id: str) -> asyncio.Lock:
+    lock = _SUBSCRIPTION_CHECKOUT_LOCKS.get(owner_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _SUBSCRIPTION_CHECKOUT_LOCKS[owner_id] = lock
+    return lock
+
+
+def _subscription_access_until(subscription: BillingSubscription | None) -> datetime | None:
+    if subscription is None:
+        return None
+    status = str(subscription.status or "").casefold()
+    if status in {"authorized", "paused", "canceled"}:
+        return subscription.access_until
+    return None
+
+
+def _subscription_is_entitled(subscription: BillingSubscription | None) -> bool:
+    access_until = _subscription_access_until(subscription)
+    if subscription is None or access_until is None:
+        return False
+    now = utc_now()
+    # SQLite may return a naive datetime even when timezone=True.
+    if access_until.tzinfo is None:
+        access_until = access_until.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    # A provider authorization is not proof of a paid period. Entitlement
+    # always ends at the latest confirmed access_until timestamp.
+    return access_until > now
+
+
+def _mp_datetime(value: Any) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _monthly_recurring_matches(value: Any, expected_amount: int) -> bool:
+    recurring = value if isinstance(value, dict) else {}
+    try:
+        amount = int(round(float(recurring.get("transaction_amount") or 0) * 100))
+        frequency = int(recurring.get("frequency") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return (
+        amount == int(expected_amount)
+        and str(recurring.get("currency_id") or "").upper() == "BRL"
+        and frequency == 1
+        and str(recurring.get("frequency_type") or "").casefold() == "months"
+    )
+
+
+def _is_valid_mercadopago_checkout_url(value: Any) -> bool:
+    try:
+        target = httpx.URL(str(value or "").strip())
+    except (TypeError, ValueError, httpx.InvalidURL):
+        return False
+    return target.scheme == "https" and target.host in {"mercadopago.com.br", "www.mercadopago.com.br"}
+
+
+def _sync_subscription_from_provider(db, provider: dict[str, Any]) -> BillingSubscription | None:
+    external_reference = str(provider.get("external_reference") or "").strip()
+    provider_id = str(provider.get("id") or "").strip()
+    if not external_reference or not provider_id:
+        return None
+    subscription = db.scalar(
+        select(BillingSubscription).where(
+            BillingSubscription.external_reference == external_reference
+        )
+    )
+    if subscription is None or subscription.mercadopago_preapproval_id != provider_id:
+        return None
+    recurring = provider.get("auto_recurring") if isinstance(provider.get("auto_recurring"), dict) else {}
+    expected_plan = SUBSCRIPTION_PLANS.get(subscription.plan_code)
+    valid_recurring = (
+        expected_plan is not None
+        and subscription.monthly_amount == expected_plan["amount"]
+        and _monthly_recurring_matches(recurring, expected_plan["amount"])
+    )
+    if not valid_recurring:
+        logger.warning(
+            "Assinatura Mercado Pago diverge do plano local external_reference=%s",
+            external_reference,
+        )
+        return None
+    status = str(provider.get("status") or "").strip().casefold()
+    if status == "cancelled":
+        status = "canceled"
+    if status not in {"authorized", "pending", "paused", "canceled", "rejected"}:
+        return None
+    next_payment_at = _mp_datetime(provider.get("next_payment_date"))
+    subscription.status = status
+    if next_payment_at is not None:
+        subscription.next_payment_at = next_payment_at
+    subscription.updated_at = utc_now()
+    db.commit()
+    db.refresh(subscription)
+    return subscription
+
+
 def _document_export_metadata(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
     """Return the server-side entitlement metadata for DOCX exports.
 
-    The payment provider/webhook can grant access through Supabase app_metadata
-    (``plan=pro`` or ``document_export_paid=true``).  An email allowlist is
-    available for one-off purchases until the checkout integration is wired.
+    Active local subscriptions are authoritative and time-bounded. Legacy
+    app_metadata grants are honored only for accounts with no local subscription.
     """
     # Direct calls from internal compatibility helpers/tests do not represent a
     # browser request and keep the historical behavior of returning a file.
@@ -278,6 +393,7 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
     }
     email = str(user.get("email") or "").strip().casefold()
     local_paid = False
+    local_subscription = None
     owner_id = str(user.get("id") or "").strip()
     if owner_id:
         db = SessionLocal()
@@ -289,17 +405,31 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
                     *([DocumentExportPurchase.application_id == application_id] if application_id is not None else []),
                 ).limit(1)
             ) is not None
+            local_subscription = db.scalar(
+                select(BillingSubscription)
+                .where(BillingSubscription.owner_id == owner_id)
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
         except Exception:
             # Bases antigas podem ainda não ter recebido a tabela nova.
             local_paid = False
+            local_subscription = None
         finally:
             db.close()
-    allowed = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} or paid_flag or email in allowed_emails or local_paid
+    local_plan = (
+        str(local_subscription.plan_code or "").casefold()
+        if _subscription_is_entitled(local_subscription)
+        else ""
+    )
+    legacy_plan_access = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} and local_subscription is None
+    allowed = legacy_plan_access or local_plan in {"start", "pro"} or paid_flag or email in allowed_emails or local_paid
     return {
         "allowed": allowed,
         "price": _document_export_price(),
         "checkout_url": "",
         "checkout_ready": bool(os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()),
+        "plan": local_plan or ("pro" if legacy_plan_access else "essential"),
     }
 
 
@@ -309,7 +439,7 @@ def _require_document_export(user: dict | None, application_id: int | None = Non
         return offer
     detail = {
         "code": "DOCUMENT_EXPORT_PAYMENT_REQUIRED",
-        "message": "A prévia é gratuita. O download do currículo e da carta exige o plano Pro ou pagamento avulso.",
+        "message": "A prévia é gratuita. O download completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
         "price": offer["price"],
         "checkout_url": offer["checkout_url"],
     }
@@ -368,7 +498,7 @@ def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
             for item in (resume.get("experiences") or [])[:3]
         ],
         "personalization_score": arts["personalization"].get("personalization_score", 0),
-        "notice": "Prévia gratuita. O arquivo completo fica disponível após o plano Pro ou pagamento avulso.",
+        "notice": "Prévia gratuita. O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
     }
 
 
@@ -396,6 +526,7 @@ class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_an
 class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
+class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro"]
 class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
 class DocumentStudioRequest(BaseModel):
     application_id: int | None = Field(default=None, gt=0)
@@ -414,7 +545,18 @@ class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: s
 class InterviewAnswerRequest(BaseModel): question: str = Field(min_length=3, max_length=500); answer: str = Field(min_length=5, max_length=12000); context: str = Field(default="", max_length=4000)
 
 @app.post("/api/interviews/evaluate")
-async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authenticated_user)):
+async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authenticated_user), request: Request = None):
+    if _document_export_metadata(user).get("plan") != "pro":
+        raise HTTPException(
+            402,
+            detail={
+                "code": "PRO_PLAN_REQUIRED",
+                "message": "A avaliação de entrevista com IA está incluída no plano Pro.",
+                "plans_url": "/#planos",
+            },
+        )
+    if request is not None:
+        _enforce_rate_limit(request, "ai-interview-evaluation", str(_owner_id(user) or ""))
     try:
         return await evaluate_interview_answer(req.question, req.answer, req.context)
     except AIProviderError as exc:
@@ -632,6 +774,24 @@ def startup():
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
+            db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = current_schema()
+                          AND tablename = 'billing_subscriptions'
+                          AND policyname = 'billing_subscriptions_owner'
+                    ) THEN
+                        CREATE POLICY billing_subscriptions_owner
+                            ON billing_subscriptions
+                            FOR ALL TO authenticated
+                            USING (owner_id = auth.uid()::text)
+                            WITH CHECK (owner_id = auth.uid()::text);
+                    END IF;
+                END $$;
+            """))
             migrations = {
                 "candidates": {
                     "owner_id": "VARCHAR(36)", "profile_data": "TEXT", "resume_filename": "TEXT", "preferences_data": "TEXT",
@@ -1602,7 +1762,7 @@ def document_export_offer(application_id: int | None = None, user=Depends(authen
         "price": offer["price"],
         "checkout_url": offer["checkout_url"],
         "checkout_ready": offer.get("checkout_ready", False),
-        "message": "Download liberado." if offer["allowed"] else "A prévia é gratuita; o download completo exige o plano Pro ou pagamento avulso.",
+        "message": "Download liberado." if offer["allowed"] else "A prévia é gratuita; o download completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
     }
 
 
@@ -1747,11 +1907,381 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     return "sent"
 
 
+@app.post("/billing/subscriptions/checkout")
+async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request: Request, user=Depends(authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    email = str(user.get("email") or "").strip()
+    plan = SUBSCRIPTION_PLANS.get(req.plan_code)
+    if not owner_id or not email:
+        raise HTTPException(409, "Entre na sua conta para iniciar uma assinatura.")
+    _enforce_rate_limit(request, "billing-checkout", owner_id)
+    if plan is None:
+        raise HTTPException(422, "Plano inválido.")
+    token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(503, "O checkout mensal ainda não está configurado.")
+
+    recovering = False
+    async with _subscription_checkout_lock(owner_id):
+        db = SessionLocal()
+        try:
+            # A process-local async lock covers SQLite/dev and concurrent calls
+            # within one worker. PostgreSQL advisory locking also serializes the
+            # reservation across separate Render workers and service instances.
+            if db.get_bind().dialect.name == "postgresql":
+                db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+                    {"lock_key": f"billing-subscription-checkout:{owner_id}"},
+                )
+            existing = db.scalar(
+                select(BillingSubscription)
+                .where(BillingSubscription.owner_id == owner_id)
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
+            if existing and existing.status == "pending" and existing.checkout_url:
+                if existing.plan_code != req.plan_code:
+                    raise HTTPException(409, "Você tem outro plano aguardando pagamento. Conclua ou cancele esse checkout antes de escolher outro.")
+                return {
+                    "checkout_url": existing.checkout_url,
+                    "external_reference": existing.external_reference,
+                    "plan_code": existing.plan_code,
+                    "monthly_amount": existing.monthly_amount,
+                    "frequency": "monthly",
+                }
+            if existing and existing.status == "duplicate_review":
+                raise HTTPException(409, "O checkout anterior precisa de conferência para evitar uma cobrança duplicada. Entre em contato pelo canal de suporte.")
+            if existing and (existing.status in {"authorized", "pending", "paused"} or _subscription_is_entitled(existing)):
+                raise HTTPException(409, "Você já tem um plano pago ativo ou uma assinatura em processamento. Consulte Plano e cobrança nas Configurações.")
+            if existing and existing.status in {"creating", "checkout_unknown", "recovering"}:
+                if existing.plan_code != req.plan_code:
+                    raise HTTPException(409, "Há um checkout anterior deste outro plano aguardando confirmação. Tente novamente em um minuto.")
+                updated_at = existing.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                age_seconds = (utc_now() - updated_at).total_seconds()
+                if age_seconds < 60:
+                    raise HTTPException(409, "Estamos confirmando o checkout anterior. Aguarde um minuto e tente novamente.")
+                recovering = True
+                external_reference = existing.external_reference
+                subscription_id = existing.id
+                existing.status = "recovering"
+                existing.updated_at = utc_now()
+                db.commit()
+            else:
+                external_reference = f"subscription-{req.plan_code}-{uuid.uuid4().hex}"
+                subscription = BillingSubscription(
+                    owner_id=owner_id,
+                    plan_code=req.plan_code,
+                    external_reference=external_reference,
+                    payer_email=email,
+                    monthly_amount=int(plan["amount"]),
+                    currency="BRL",
+                    status="creating",
+                )
+                db.add(subscription)
+                db.commit()
+                db.refresh(subscription)
+                subscription_id = subscription.id
+        finally:
+            db.close()
+
+    if recovering:
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                search_response = await client.get(
+                    "https://api.mercadopago.com/preapproval/search",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={"q": external_reference},
+                )
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, "Ainda não foi possível confirmar o checkout anterior. Tente novamente em instantes.") from exc
+        if search_response.status_code >= 400:
+            raise HTTPException(503, "Ainda não foi possível confirmar o checkout anterior. Tente novamente em instantes.")
+        try:
+            search_body = search_response.json()
+        except ValueError as exc:
+            raise HTTPException(503, "O Mercado Pago retornou uma resposta inválida ao verificar o checkout anterior.") from exc
+        if not isinstance(search_body, dict):
+            raise HTTPException(503, "O Mercado Pago retornou uma resposta inválida ao verificar o checkout anterior.")
+        matches = [
+            item for item in (search_body.get("results") or [])
+            if isinstance(item, dict) and str(item.get("external_reference") or "") == external_reference
+        ]
+        if len(matches) > 1:
+            db = SessionLocal()
+            try:
+                current = db.get(BillingSubscription, subscription_id)
+                if current:
+                    current.status = "duplicate_review"
+                    current.updated_at = utc_now()
+                    db.commit()
+            finally:
+                db.close()
+            raise HTTPException(409, "O Mercado Pago retornou mais de uma assinatura para este checkout. O sistema bloqueou uma nova cobrança para evitar duplicidade.")
+        if matches:
+            provider = matches[0]
+            provider_id = str(provider.get("id") or "").strip()
+            checkout_url = str(provider.get("init_point") or "").strip()
+            if not provider_id or not checkout_url:
+                raise HTTPException(503, "A assinatura foi encontrada, mas o Mercado Pago ainda não retornou o link. Tente novamente em instantes.")
+            recurring = provider.get("auto_recurring") if isinstance(provider.get("auto_recurring"), dict) else {}
+            if not _monthly_recurring_matches(recurring, int(plan["amount"])):
+                db = SessionLocal()
+                try:
+                    current = db.get(BillingSubscription, subscription_id)
+                    if current:
+                        current.status = "duplicate_review"
+                        current.updated_at = utc_now()
+                        db.commit()
+                finally:
+                    db.close()
+                raise HTTPException(409, "A assinatura localizada não corresponde ao preço mensal do plano. O sistema bloqueou um novo checkout para evitar cobrança incorreta.")
+            if not _is_valid_mercadopago_checkout_url(checkout_url):
+                raise HTTPException(502, "O Mercado Pago retornou um endereço de checkout inválido.")
+            db = SessionLocal()
+            try:
+                current = db.get(BillingSubscription, subscription_id)
+                if current is None:
+                    raise HTTPException(500, "Não foi possível recuperar os dados da assinatura.")
+                current.mercadopago_preapproval_id = provider_id
+                current.checkout_url = checkout_url
+                current.status = str(provider.get("status") or "pending").casefold()
+                current.next_payment_at = _mp_datetime(provider.get("next_payment_date"))
+                current.updated_at = utc_now()
+                db.commit()
+            finally:
+                db.close()
+            return {"checkout_url": checkout_url, "external_reference": external_reference, "plan_code": req.plan_code, "monthly_amount": int(plan["amount"]), "frequency": "monthly"}
+
+        db = SessionLocal()
+        try:
+            current = db.get(BillingSubscription, subscription_id)
+            if current:
+                current.status = "creating"
+                current.updated_at = utc_now()
+                db.commit()
+        finally:
+            db.close()
+
+    base_url = _public_base_url()
+    payload = {
+        "reason": f"Agente de Candidaturas — Plano {plan['name']} mensal",
+        "external_reference": external_reference,
+        "payer_email": email,
+        "auto_recurring": {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": int(plan["amount"]) / 100,
+            "currency_id": "BRL",
+        },
+        "back_url": f"{base_url}/dashboard?subscription=return",
+        "status": "pending",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(
+                "https://api.mercadopago.com/preapproval",
+                headers={"Authorization": f"Bearer {token}", "X-Idempotency-Key": external_reference},
+                json=payload,
+            )
+    except httpx.HTTPError as exc:
+        logger.warning("Falha ambígua ao iniciar assinatura Mercado Pago external_reference=%s", external_reference)
+        db = SessionLocal()
+        try:
+            current = db.get(BillingSubscription, subscription_id)
+            if current:
+                current.status = "checkout_unknown"
+                current.updated_at = utc_now()
+                db.commit()
+        finally:
+            db.close()
+        raise HTTPException(502, "Não foi possível confirmar se o Mercado Pago criou o checkout. Tente novamente em um minuto; vamos conferir antes de criar outro.") from exc
+    if response.status_code >= 400:
+        logger.warning("Mercado Pago recusou assinatura status=%s external_reference=%s", response.status_code, external_reference)
+        db = SessionLocal()
+        try:
+            current = db.get(BillingSubscription, subscription_id)
+            if current:
+                # A 5xx may have been emitted after the provider created the
+                # subscription. Keep the durable reference recoverable instead
+                # of allowing a fresh preapproval with another reference.
+                current.status = "checkout_unknown" if response.status_code >= 500 else "checkout_failed"
+                current.updated_at = utc_now()
+                db.commit()
+        finally:
+            db.close()
+        if response.status_code >= 500:
+            raise HTTPException(502, "O Mercado Pago não confirmou se criou a assinatura. Aguarde um minuto para conferirmos antes de tentar novamente.")
+        raise HTTPException(502, "O Mercado Pago recusou a criação da assinatura.")
+    try:
+        provider = response.json()
+    except ValueError as exc:
+        db = SessionLocal()
+        try:
+            current = db.get(BillingSubscription, subscription_id)
+            if current:
+                current.status = "checkout_unknown"
+                current.updated_at = utc_now()
+                db.commit()
+        finally:
+            db.close()
+        raise HTTPException(502, "O Mercado Pago retornou uma resposta inválida para a assinatura.") from exc
+    provider_id = str(provider.get("id") or "").strip()
+    checkout_url = str(provider.get("init_point") or "").strip()
+    if not provider_id or not checkout_url:
+        db = SessionLocal()
+        try:
+            current = db.get(BillingSubscription, subscription_id)
+            if current:
+                current.status = "checkout_unknown"
+                current.updated_at = utc_now()
+                db.commit()
+        finally:
+            db.close()
+        raise HTTPException(502, "O Mercado Pago não retornou o link da assinatura.")
+    if not _is_valid_mercadopago_checkout_url(checkout_url):
+        raise HTTPException(502, "O Mercado Pago retornou um endereço de checkout inválido.")
+
+    db = SessionLocal()
+    try:
+        current = db.get(BillingSubscription, subscription_id)
+        if current is None:
+            raise HTTPException(500, "Não foi possível salvar os dados da assinatura.")
+        current.mercadopago_preapproval_id = provider_id
+        current.checkout_url = checkout_url
+        current.status = str(provider.get("status") or "pending").casefold()
+        current.next_payment_at = _mp_datetime(provider.get("next_payment_date"))
+        current.updated_at = utc_now()
+        db.commit()
+    finally:
+        db.close()
+    return {
+        "checkout_url": checkout_url,
+        "external_reference": external_reference,
+        "plan_code": req.plan_code,
+        "monthly_amount": int(plan["amount"]),
+        "frequency": "monthly",
+    }
+
+
+@app.get("/billing/subscription")
+def get_current_subscription(user=Depends(authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Login necessário.")
+    db = SessionLocal()
+    try:
+        subscription = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        if subscription is None:
+            return {"plan_code": "essential", "status": "free", "active": False}
+        plan = SUBSCRIPTION_PLANS.get(subscription.plan_code, {})
+        return {
+            "plan_code": subscription.plan_code,
+            "plan_name": plan.get("name", subscription.plan_code.title()),
+            "status": subscription.status,
+            "active": _subscription_is_entitled(subscription),
+            "monthly_amount": subscription.monthly_amount,
+            "currency": subscription.currency,
+            "next_payment_at": subscription.next_payment_at.isoformat() if subscription.next_payment_at else None,
+            "access_until": subscription.access_until.isoformat() if subscription.access_until else None,
+            "can_cancel": bool(subscription.mercadopago_preapproval_id and subscription.status in {"pending", "authorized", "paused"}),
+        }
+    finally:
+        db.close()
+
+
+@app.post("/billing/subscription/cancel")
+async def cancel_current_subscription(user=Depends(authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Login necessário.")
+    if not token:
+        raise HTTPException(503, "O gerenciamento de assinaturas está indisponível.")
+    db = SessionLocal()
+    try:
+        subscription = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        if subscription is None or not subscription.mercadopago_preapproval_id:
+            raise HTTPException(404, "Nenhuma assinatura recorrente foi encontrada.")
+        if subscription.status == "canceled":
+            return {"canceled": True, "access_until": subscription.access_until.isoformat() if subscription.access_until else None}
+        provider_id = subscription.mercadopago_preapproval_id
+        subscription_id = subscription.id
+    finally:
+        db.close()
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.put(
+                f"https://api.mercadopago.com/preapproval/{provider_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"status": "canceled"},
+            )
+    except httpx.HTTPError as exc:
+        logger.warning("Falha ao cancelar assinatura Mercado Pago preapproval_id=%s", provider_id)
+        raise HTTPException(502, "Não foi possível cancelar a renovação agora. Tente novamente.") from exc
+    if response.status_code >= 400:
+        logger.warning("Mercado Pago recusou cancelamento status=%s preapproval_id=%s", response.status_code, provider_id)
+        raise HTTPException(502, "O Mercado Pago não confirmou o cancelamento. Tente novamente.")
+    try:
+        provider = response.json()
+    except ValueError as exc:
+        raise HTTPException(502, "O Mercado Pago não confirmou o cancelamento. Tente novamente.") from exc
+    db = SessionLocal()
+    try:
+        subscription = db.get(BillingSubscription, subscription_id)
+        if subscription is None:
+            raise HTTPException(404, "Assinatura não encontrada.")
+        remote_status = str(provider.get("status") or "").casefold()
+        if remote_status not in {"canceled", "cancelled"}:
+            raise HTTPException(502, "O Mercado Pago ainda não confirmou o cancelamento. Tente novamente.")
+        subscription.status = "canceled"
+        if provider.get("next_payment_date"):
+            subscription.next_payment_at = _mp_datetime(provider.get("next_payment_date"))
+        # access_until was set only after a confirmed recurring payment.
+        subscription.updated_at = utc_now()
+        db.commit()
+        return {
+            "canceled": True,
+            "status": "canceled",
+            "access_until": subscription.access_until.isoformat() if subscription.access_until else None,
+            "message": "Renovação cancelada. O acesso continua até o fim do período já pago.",
+        }
+    finally:
+        db.close()
+
+
+@app.get("/billing/ebook/hackeando-disc", include_in_schema=False)
+def download_pro_ebook(user=Depends(authenticated_user)):
+    offer = _document_export_metadata(user)
+    if offer.get("plan") != "pro":
+        raise HTTPException(403, "O e-book Hackeando DISC está incluído no plano Pro.")
+    if not PRO_BOOK_PATH.is_file():
+        logger.error("Arquivo do e-book Pro não está disponível no deploy.")
+        raise HTTPException(503, "O e-book ainda não está disponível para download. Tente novamente mais tarde.")
+    return FileResponse(
+        PRO_BOOK_PATH,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename="Hackeando-DISC.docx",
+    )
+
+
 @app.post("/billing/document-export/checkout")
-async def create_document_export_checkout(req: DocumentExportCheckoutRequest, user=Depends(authenticated_user)):
+async def create_document_export_checkout(req: DocumentExportCheckoutRequest, request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
+    _enforce_rate_limit(request, "billing-checkout", str(owner_id))
     mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not mercadopago_token:
         raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
@@ -1814,7 +2344,8 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, us
 
 @app.post("/webhooks/mercadopago")
 async def mercadopago_webhook(request: Request):
-    """Verify Mercado Pago payment notifications server-to-server."""
+    """Verify Mercado Pago payment and recurring-subscription notifications."""
+    _enforce_rate_limit(request, "mercadopago-webhook")
     token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not token:
         # A webhook without the server-to-server credential cannot be verified
@@ -1829,12 +2360,22 @@ async def mercadopago_webhook(request: Request):
         raise HTTPException(401, "Webhook Mercado Pago não autorizado.")
     payment_id = str((payload.get("data") or {}).get("id") or payload.get("id") or request.query_params.get("data.id") or "").strip()
     notification_type = str(payload.get("type") or payload.get("topic") or "").strip().casefold()
-    if not payment_id or notification_type not in {"payment", "payments", ""}:
+    if not payment_id:
+        return {"received": True, "verified": False}
+
+    resource_url = None
+    if notification_type in {"subscription_preapproval", "preapproval"}:
+        resource_url = f"https://api.mercadopago.com/preapproval/{payment_id}"
+    elif notification_type == "subscription_authorized_payment":
+        resource_url = f"https://api.mercadopago.com/authorized_payments/{payment_id}"
+    elif notification_type in {"payment", "payments", ""}:
+        resource_url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
+    else:
         return {"received": True, "verified": False}
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
-                f"https://api.mercadopago.com/v1/payments/{payment_id}",
+                resource_url,
                 headers={"Authorization": f"Bearer {token}"},
             )
     except httpx.HTTPError:
@@ -1847,6 +2388,100 @@ async def mercadopago_webhook(request: Request):
         payment = response.json()
     except ValueError:
         return {"received": True, "verified": False}
+
+    if notification_type in {"subscription_preapproval", "preapproval"}:
+        db = SessionLocal()
+        try:
+            subscription = _sync_subscription_from_provider(db, payment)
+            return {
+                "received": True,
+                "verified": subscription is not None,
+                "subscription_status": subscription.status if subscription else None,
+                "plan_code": subscription.plan_code if subscription else None,
+            }
+        finally:
+            db.close()
+
+    if notification_type == "subscription_authorized_payment":
+        invoice = payment
+        invoice_payment = invoice.get("payment") if isinstance(invoice.get("payment"), dict) else {}
+        invoice_payment_status = str(invoice_payment.get("status") or "").casefold()
+        invoice_summary = str(invoice.get("summarized") or "").casefold()
+        payment_id = str(invoice_payment.get("id") or payment_id)
+        payment = {
+            "id": payment_id,
+            "preapproval_id": invoice.get("preapproval_id"),
+            "status": invoice_payment_status or ("approved" if invoice_summary in {"paid", "approved"} else invoice_summary),
+            "transaction_amount": invoice.get("transaction_amount"),
+            "currency_id": invoice.get("currency_id"),
+        }
+
+    preapproval_id = str(payment.get("preapproval_id") or "").strip()
+    if preapproval_id:
+        try:
+            amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
+        except (TypeError, ValueError):
+            amount = 0
+        currency = str(payment.get("currency_id") or "").strip().upper()
+        payment_status = str(payment.get("status") or "").strip().casefold()
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                subscription_response = await client.get(
+                    f"https://api.mercadopago.com/preapproval/{preapproval_id}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        except httpx.HTTPError:
+            logger.warning("Falha ao consultar assinatura Mercado Pago preapproval_id=%s", preapproval_id)
+            return {"received": True, "verified": False}
+        if subscription_response.status_code >= 400:
+            logger.warning("Mercado Pago retornou status=%s ao consultar assinatura id=%s", subscription_response.status_code, preapproval_id)
+            return {"received": True, "verified": False}
+        try:
+            provider_subscription = subscription_response.json()
+        except ValueError:
+            return {"received": True, "verified": False}
+        db = SessionLocal()
+        try:
+            subscription = _sync_subscription_from_provider(db, provider_subscription)
+            if subscription is None or subscription.mercadopago_preapproval_id != preapproval_id:
+                return {"received": True, "verified": False}
+            previous_payment_id = subscription.last_payment_id
+            is_replay = previous_payment_id == payment_id and subscription.last_payment_status == payment_status
+            if is_replay:
+                return {
+                    "received": True,
+                    "verified": True,
+                    "idempotent": True,
+                    "subscription_status": subscription.status,
+                    "payment_status": payment_status,
+                    "entitled": _subscription_is_entitled(subscription),
+                }
+            subscription.last_payment_id = payment_id
+            expected_amount = int(subscription.monthly_amount)
+            amount_matches = amount == expected_amount and currency == "BRL"
+            subscription.last_payment_status = payment_status if amount_matches else "amount_mismatch"
+            if amount_matches and payment_status == "approved" and subscription.status == "authorized":
+                paid_through = _mp_datetime(provider_subscription.get("next_payment_date"))
+                current_access_until = subscription.access_until
+                if current_access_until and current_access_until.tzinfo is None:
+                    current_access_until = current_access_until.replace(tzinfo=timezone.utc)
+                if paid_through is not None and (current_access_until is None or paid_through > current_access_until):
+                    subscription.access_until = paid_through
+            elif amount_matches and payment_status in {"refunded", "charged_back"} and previous_payment_id == payment_id:
+                subscription.access_until = utc_now()
+            subscription.updated_at = utc_now()
+            db.commit()
+            return {
+                "received": True,
+                "verified": amount_matches,
+                "idempotent": is_replay,
+                "subscription_status": subscription.status,
+                "payment_status": payment_status,
+                "entitled": _subscription_is_entitled(subscription),
+            }
+        finally:
+            db.close()
+
     order_nsu = str(payment.get("external_reference") or "").strip()
     if not order_nsu:
         return {"received": True, "verified": False}
@@ -1980,7 +2615,9 @@ def analyze_job_saved(job_id: int, user=Depends(authenticated_user)):
     finally: db.close()
 
 @app.post("/jobs/{job_id}/cover-letter")
-def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
+def create_cover_letter(job_id: int, user=Depends(authenticated_user), request: Request = None):
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     db = SessionLocal()
     try:
         job = _job_for_user(db, job_id, user)
@@ -1994,11 +2631,13 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user)):
         app.cover_letter_version = _content_version("carta", letter)
         db.commit(); db.refresh(app)
         export = _document_export_metadata(user, app.id)
-        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A cópia do texto completo fica disponível após o plano Pro ou pagamento avulso." if not export["allowed"] else "Carta completa liberada."}
+        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A carta completa está incluída no Start e no Pro, ou pode ser comprada à parte." if not export["allowed"] else "Carta completa liberada."}
     finally: db.close()
 
 @app.post("/jobs/{job_id}/cover-letter/document", response_class=FileResponse)
-def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user)):
+def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user), request: Request = None):
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     db = SessionLocal()
     try:
         job = _job_for_user(db, job_id, user)
@@ -2036,7 +2675,9 @@ def download_cover_letter(app_id: int, user=Depends(authenticated_user)):
     finally: db.close()
 
 @app.post("/jobs/{job_id}/generate-document")
-def generate_doc(job_id: int, user=Depends(authenticated_user)):
+def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request = None):
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     db = SessionLocal()
     try:
         job = _job_for_user(db, job_id, user)
@@ -2071,12 +2712,14 @@ def generate_doc(job_id: int, user=Depends(authenticated_user)):
     finally: db.close()
 
 @app.post("/document-studio/generate")
-def generate_document_studio(req: DocumentStudioRequest, user=Depends(authenticated_user)):
+def generate_document_studio(req: DocumentStudioRequest, user=Depends(authenticated_user), request: Request = None):
     """Create a tailored resume and cover letter from a role pasted by the user.
 
     The role is saved as a private opportunity so the existing preview, payment,
     export and application tracking flows can be reused consistently.
     """
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     db = SessionLocal()
     try:
         candidate = _candidate_for_user(db, user)
@@ -2143,7 +2786,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
             "resume_preview": _resume_preview(arts),
             "cover_letter_preview": _cover_letter_preview(app_record.cover_letter_text),
             "export": export,
-            "notice": "Prévia adaptada ao cargo. O arquivo completo do currículo e da carta fica disponível após o plano Pro ou pagamento avulso.",
+            "notice": "Prévia adaptada ao cargo. Os arquivos completos estão incluídos no Start e no Pro, ou podem ser comprados à parte.",
         }
     except HTTPException:
         db.rollback()
@@ -2156,7 +2799,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
         db.close()
 
 @app.post("/document-studio/export")
-def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authenticated_user)):
+def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authenticated_user), request: Request = None):
     """Generate and persist both paid DOCX files for one owned application.
 
     This endpoint is intentionally application-scoped: a paid purchase for one
@@ -2164,6 +2807,8 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
     idempotent when both files already exist, which also makes browser retries
     after a payment redirect safe.
     """
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     db = SessionLocal()
     try:
         application = _application_for_user(db, req.application_id, user)
@@ -2234,7 +2879,9 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
         db.close()
 
 @app.post("/generate-document")
-def generate_doc_standalone(req: ResumeRequest, user=Depends(authenticated_user)):
+def generate_doc_standalone(req: ResumeRequest, user=Depends(authenticated_user), request: Request = None):
+    if request is not None:
+        _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     _require_document_export(user)
     r = req.resume.copy()
     r["target"] = req.title
