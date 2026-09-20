@@ -1,6 +1,6 @@
 # Agente de Candidaturas — status atual
 
-**Atualizado em:** 18/09/2026
+**Atualizado em:** 19/09/2026
 **Versão declarada da API:** 0.24.0  
 **Commit publicado:** `602c0b4` — `fix Mercado Pago return and document generation`
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
@@ -125,7 +125,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
 - Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
 - OCR, parsing, confirmação e busca externa já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
-- O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial; `scripts/backup_supabase.py` já cria dump customizado, valida com `pg_restore`, gera checksum e não expõe a URL na linha de comando. O ambiente atual ainda não possui `pg_dump`/`pg_restore`, portanto execução, agendamento e restauração real continuam pendentes.
+- O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial. Em 19/09/2026 foi criado um dump customizado real do Supabase PostgreSQL 17, validado com `pg_restore` e SHA-256; a restauração filtrada em PostgreSQL 17 descartável recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas estimadas. O teste local excluiu `vault.secrets`/`supabase_vault`, indisponíveis no PostgreSQL vanilla; restauração integral em alvo Supabase-compatível e agendamento diário continuam pendentes.
 - A prévia de intake classifica CLT, PJ, MEI, estágio, temporário e freelance e informa confiança para modalidade, salário e regime; esses campos agora persistem na fila, na vaga promovida, no monitor Gmail e nas respostas de vagas/exportação. A faixa salarial oferecida também é guardada em `salary_min/salary_max`, separada das preferências de pretensão do candidato.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - O recibo pós-pagamento está implementado no código, mas falta configurar e testar o SMTP transacional no Render. O envio automático dos DOCX e a biblioteca histórica de versões ainda não existem; ambos pertencem à ampliação de **P1.10**, depois que a entrega paga atual estiver comprovada.
@@ -190,7 +190,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Assinatura, replay e idempotência de webhook | Código reforçado e agora fail-closed | Mercado Pago exige HMAC com janela de 5 minutos, consulta server-to-server, moeda BRL, valor exato, `order_nsu`/`payment_id` e transição idempotente; credenciais e rejeição sem assinatura já foram validadas em produção, faltando replay/checkout real em **P0.5** |
 | Mensagens de erro genéricas | Feito no código | Handlers, fila e callbacks OAuth não expõem stack trace, detalhes de banco ou respostas brutas de provedores; manter revisão ao adicionar endpoints |
 | OCR/IA assíncronos e timeout de 30 segundos | Proteção principal feita | Worker separado é escala operacional e fica em **P2**; não deve bloquear o primeiro ciclo pago enquanto os timeouts forem aplicados |
-| Backup diário, restauração e revogação | Runbook e rotina externa feitos | Instalar PostgreSQL client tools, executar/agendar o dump e testar restauração isolada em **P0.11** |
+| Backup diário, restauração e revogação | Dump real validado e recuperação filtrada testada em PostgreSQL 17 isolado | Falta restauração integral em alvo Supabase-compatível, agendamento diário e retenção externa em **P0.11** |
 | Cloudflare, DNS redundante e DDoS | Domínio próprio confirmado: `candidaturacerta.com.br`; configuração ainda não aplicada | **P2**; apontar DNS para o Render, validar HTTPS/redirect e só então avaliar Cloudflare como borda. Render e UptimeRobot cobrem a operação atual |
 | Termos, privacidade, consentimento, portabilidade e exclusão | Parcialmente feito | Páginas e aceite existem; consentimento versionado é **P1.7**, exportação/exclusão no mesmo fluxo é **P1.6**, textos legais em **P1.11** |
 | Acesso anônimo às páginas legais | Corrigido: `/termos` e `/privacidade` (com barra final) foram adicionadas à lista pública do middleware e testadas sem sessão | P0 concluído e validado em produção |
@@ -301,7 +301,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 8. **Erros públicos — validado:** handlers globais e rotas sensíveis retornam mensagens estáveis; checagem externa sem sessão em `/applications/1`, `/preferences` e `/billing/document-export` retornou 401 sem stack trace.
 9. **Rate limiting — adaptador distribuído preparado:** além do limite local por IP/conta, `app/distributed_rate_limit.py` usa contador Lua atômico em Redis REST compatível com Upstash quando `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` estão configuradas. `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` faz a aplicação falhar fechado se o armazenamento compartilhado ficar indisponível. Falta apenas criar/configurar o Redis, validar um deploy e ligar o modo obrigatório.
 10. **Senhas comprometidas — proteção em camadas:** o teste k-anonimizado está no código e a variável do Render existe; a política do Supabase agora exige letras maiúsculas/minúsculas, números e símbolos. O Security Advisor ainda indica `Leaked Password Protection Disabled`, recurso disponível somente no plano Pro ou superior; a proteção nativa continua pendente, enquanto a checagem externa permanece ativa.
-11. **Backup e recuperação — automação preparada:** `scripts/backup_supabase.py` converte `DATABASE_URL` em variáveis libpq (sem expor a URL nos argumentos), valida o dump, gera checksum/manifesto privado e aceita `--restore-to` para uma base explicitamente isolada. Falta instalar os clientes PostgreSQL, executar o dump, restaurar em ambiente descartável e agendar a rotina.
+11. **Backup e recuperação — parcialmente validado:** dump real do Supabase PostgreSQL 17 criado em `backups/database/`, com `pg_restore --list` e SHA-256 aprovados. Uma restauração filtrada em cluster PostgreSQL 17 local e descartável recuperou 11 tabelas públicas, 11 políticas RLS e cerca de 527 linhas estimadas. O teste excluiu a extensão `supabase_vault` e `vault.secrets`, que não existem no PostgreSQL vanilla; portanto não prova recuperação completa dos segredos Vault. Falta uma restauração integral em projeto Supabase-compatível, retenção externa e agendamento diário.
 12. **Acessibilidade de modais — concluído:** em produção, os modais “Captar vaga” e “Preferências”, a tela de Segurança e o drawer de candidatura abriram com foco inicial, fecharam com `Esc`, mantiveram o ciclo de Tab dentro da superfície e devolveram o foco ao disparador. O commit `8cc11fa` foi publicado e validado no Render.
 13. **Páginas legais públicas — validado:** `/termos` e `/privacidade` retornaram 200 sem sessão em produção, antes do cadastro, com headers de segurança ativos.
 
@@ -429,7 +429,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 | Downloads e exportações | Rotas filtram a candidatura pelo usuário e exigem compra `PAID` do proprietário vinculada ao `application_id`; o checkout cria essa associação, o teste de candidatura sem compra retorna 402 e a exportação/download cruzado foi conferido com duas contas reais | Código, teste local e validação real das rotas atuais concluídos; manter cobertura para novas superfícies |
 | Erros e informação interna | Handlers globais cobrem validação e exceções inesperadas; `/health` e IA retornam mensagens estáveis e registram detalhes apenas no log | Código e checagem externa sem sessão aprovados: rotas sensíveis retornaram 401 genérico sem stack trace |
 | Tarefas pesadas | OCR, parsing, confirmação e busca externa usam threadpool com timeout total de 30 segundos; monitores ainda rodam no processo web e falta limite distribuído de concorrência/CPU | Código e testes locais aprovados; worker separado e limites distribuídos permanecem em **P2** |
-| Backup e recuperação | `DISASTER_RECOVERY.md` cobre restauração isolada, RLS, UptimeRobot e revogação; `scripts/backup_supabase.py` cria e verifica dump customizado com SHA-256 sem expor a URL; o plano Free não inclui backups agendados nem PITR | Código e testes concluídos; faltam PostgreSQL client tools, agendamento e teste real de restauração em **P0.11** |
+| Backup e recuperação | Dump real e checksum verificados; restauração filtrada em PostgreSQL 17 descartável recuperou 11 tabelas públicas, 11 políticas RLS e cerca de 527 linhas estimadas; o teste local excluiu Vault | P0.11 parcial; falta restauração integral Supabase-compatível, retenção fora do banco e agendamento diário |
 | SQL injection | Consultas de negócio usam SQLAlchemy com parâmetros; SQL dinâmico encontrado no script de RLS usa apenas nomes de tabelas constantes do próprio código | Coberto na revisão atual; manter regra de não interpolar entrada do usuário |
 | SSRF | `job_source_fetcher` rejeita credenciais, resolve DNS, bloqueia IPs não globais, revalida redirecionamentos e limita resposta | Coberto na revisão atual; manter testes de regressão |
 | Termos, privacidade e consentimento | Páginas e checkbox existem; o cadastro agora exige os dois aceites e registra versões/data UTC no metadata do usuário | Implementado em **P1.7**; trilha imutável administrativa é melhoria posterior; textos legais em **P1.11** |
@@ -554,6 +554,21 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
   botões de download. Selecionar novamente uma candidatura já paga restaura o mesmo fluxo.
 - A suíte oficial foi reexecutada após essas mudanças: **169 testes aprovados,
   0 falhas**, com 6 avisos de depreciação já conhecidos.
+
+### Atualização operacional de backup — 19/09/2026
+
+- `scripts/backup_supabase.py` criou um dump real do banco de produção em
+  `backups/database/`; a validação de arquivo e o checksum SHA-256 passaram.
+- A restauração em PostgreSQL 17 descartável, vinculado somente a `127.0.0.1`,
+  recuperou 11 tabelas do schema `public`, 11 políticas RLS e aproximadamente
+  527 linhas estimadas, sem exibir conteúdo pessoal.
+- O teste local excluiu a extensão `supabase_vault` e os dados de
+  `vault.secrets`, pois o PostgreSQL vanilla não fornece essa extensão. Não
+  equivale a uma restauração integral; essa validação precisa de um projeto
+  Supabase compatível.
+- O dump permanece em `backups/`, ignorado pelo Git. Nenhum agendamento foi
+  criado: a conta atual está no plano Free do Supabase, sem backup diário/PITR,
+  e a execução recorrente exige um destino privado e um executor agendado.
 
 ## Regra para continuar o projeto
 

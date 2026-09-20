@@ -39,6 +39,22 @@ O script não apaga backups antigos automaticamente. A retenção deve ser
 configurada no destino privado depois que o primeiro teste de restauração for
 aprovado.
 
+## Evidência operacional — 19/09/2026
+
+- Foi criado um dump real do PostgreSQL 17 de produção em
+  `backups/database/`; a listagem com `pg_restore` e o checksum SHA-256 foram
+  validados. O diretório é ignorado pelo Git.
+- Uma restauração filtrada foi executada em um cluster PostgreSQL 17 descartável,
+  escutando apenas em `127.0.0.1`. Foram recuperadas 11 tabelas públicas, 11
+  políticas RLS e aproximadamente 527 linhas estimadas; a verificação consultou
+  somente contagens agregadas.
+- Para esse teste local foram excluídos a extensão `supabase_vault` e os dados
+  de `vault.secrets`, que não estão disponíveis no PostgreSQL vanilla. Portanto,
+  este resultado valida a recuperação dos dados do aplicativo, mas não substitui
+  uma restauração integral em um projeto Supabase compatível.
+- Ainda falta configurar retenção em um destino privado externo e agendar o dump
+  diário. A cópia local atual não é uma política de backup contínua.
+
 ## Teste de restauração
 
 O teste deve usar uma cópia isolada, nunca o banco de produção. Depois de

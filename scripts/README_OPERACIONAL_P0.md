@@ -79,3 +79,11 @@ O dump é customizado, verificado com `pg_restore`, recebe SHA-256 e manifesto.
 Agende o comando diário no Render Cron (se o plano permitir) ou no scheduler
 privado que guarda `DATABASE_URL`; mantenha pelo menos uma cópia fora do banco
 de produção e registre o resultado da restauração.
+
+**Execução registrada em 19/09/2026:** foi criado um dump real do PostgreSQL 17
+de produção, com checksum validado. A restauração em PostgreSQL 17 descartável
+recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas
+estimadas. Para esse teste em PostgreSQL vanilla, `supabase_vault` e os dados
+de `vault.secrets` foram excluídos; ainda é necessário validar a restauração
+integral em um projeto Supabase compatível. O dump não foi adicionado ao Git e
+nenhum agendamento nem destino externo de retenção foi configurado.
