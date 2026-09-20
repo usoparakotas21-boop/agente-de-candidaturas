@@ -38,6 +38,8 @@ de sucesso, `verified: true`, que não há segunda liberação/recibo e que o
 documento continua acessível. Não informe o segredo na linha de comando: o
 script lê `MERCADOPAGO_WEBHOOK_SECRET` do ambiente local seguro.
 
+**Evidência observada em 20/09/2026:** o painel do Mercado Pago está em modo de produção, aponta para o endpoint acima e mantém habilitado o evento `Pagamentos (legacy)`. O simulador entregou `payment.updated` com `live_mode: false` e recebeu HTTP 200. Isso comprova apenas que a URL responde; não comprova assinatura válida, consulta de pagamento aprovado nem idempotência real. **P0.5 permanece pendente** até o script acima confirmar duas entregas assinadas para um pagamento existente e aprovado, sem nova cobrança.
+
 ## 3. Rate limiting entre instâncias
 
 O código agora usa um contador Lua atômico em Redis REST quando estas variáveis
