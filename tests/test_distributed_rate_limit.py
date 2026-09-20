@@ -26,7 +26,11 @@ class DistributedRateLimitTest(unittest.TestCase):
         self.assertTrue(blocked)
         self.assertEqual(retry_after, 60)
         post.assert_called_once()
-        self.assertTrue(post.call_args.args[0].endswith("/eval"))
+        self.assertEqual(post.call_args.args[0], "https://redis.example")
+        command = post.call_args.kwargs["json"]
+        self.assertEqual(command[0], "EVAL")
+        self.assertIn("redis.call('INCR', KEYS[1])", command[1])
+        self.assertEqual(command[2:], [1, "login:ip:198.51.100.10", "60"])
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer token-not-printed")
 
     def test_unconfigured_store_is_detected(self):

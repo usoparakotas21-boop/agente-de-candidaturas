@@ -41,13 +41,9 @@ def increment(key: str, window_seconds: int, *, timeout: float = 1.5) -> int:
     if not url or not token:
         raise RuntimeError("Rate limiting distribuído não está configurado.")
     response = requests.post(
-        f"{url}/eval",
+        url,
         headers={"Authorization": f"Bearer {token}"},
-        json={
-            "script": _SCRIPT,
-            "keys": [key],
-            "args": [str(max(1, int(window_seconds)))],
-        },
+        json=["EVAL", _SCRIPT, 1, key, str(max(1, int(window_seconds)))],
         timeout=timeout,
     )
     response.raise_for_status()
