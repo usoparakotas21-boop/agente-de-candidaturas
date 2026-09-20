@@ -186,8 +186,15 @@ class ShellLayoutTest(unittest.TestCase):
 
     def test_mfa_ui_does_not_promise_unimplemented_recovery_methods(self):
         script = (Path(main_module.STATIC_DIR) / "security-enhance.js").read_text(encoding="utf-8")
-        self.assertIn("SMS e códigos de recuperação não estão disponíveis", script)
-        self.assertIn("cadastre o mesmo segredo TOTP em dois dispositivos confiáveis", script)
+        self.assertIn("A proteção é opcional", script)
+        self.assertIn("Não oferecemos recuperação por SMS nem códigos de emergência", script)
+        self.assertIn("a mesma conta nos dois", script)
+        self.assertIn("data-mfa-second-device", script)
+        self.assertIn("QR code", script)
+        self.assertIn("Passo 2 · Digite o código de 6 dígitos", script)
+        self.assertIn("dialog.showModal()", script)
+        self.assertNotIn("window.prompt", script)
+        self.assertNotIn("segredo TOTP", script.casefold())
         self.assertNotIn("você receberá códigos de recuperação", script.casefold())
 
     def test_alerts_enhancement_does_not_duplicate_persisted_controls(self):
