@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -45,7 +46,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _postgres_error_summary(stderr: str | None) -> str:
+def _postgres_error_summary(stderr: str | None, *, tool: str = "") -> str:
     """Return a useful, credential-free summary of a libpq client error."""
     message = (stderr or "").casefold()
     if not message.strip():
@@ -70,10 +71,32 @@ def _postgres_error_summary(stderr: str | None) -> str:
          "banco ou objeto PostgreSQL nao encontrado"),
         (("server closed the connection", "connection reset by peer", "unexpected eof"),
          "conexao encerrada pelo servidor durante o dump"),
+        (("does not appear to be a valid archive", "not a valid archive", "invalid archive"),
+         "o arquivo gerado nao e um archive PostgreSQL valido"),
+        (("unsupported version", "version number", "unsupported compression"),
+         "formato do dump incompativel com a versao do cliente PostgreSQL"),
+        (("appears to be a text format dump",),
+         "o dump esta em formato texto, mas o validador espera formato custom"),
+        (("could not open input file", "could not read from input file", "unexpected end of file"),
+         "o arquivo de dump esta ausente, ilegivel ou truncado"),
     )
     for needles, summary in categories:
         if any(needle in message for needle in needles):
             return summary
+    if tool == "pg_restore":
+        # pg_restore --list parses only archive metadata and does not connect to
+        # the database. Keep a short diagnostic after removing credential-like
+        # strings so malformed-archive failures remain actionable in Actions.
+        safe = re.sub(r"(?i)postgres(?:ql)?://[^\s\"']+", "<DB_URL>", stderr)
+        safe = re.sub(
+            r"(?i)(password|token|secret)(\s*[:=]\s*|\s+)[^\s,;]+",
+            r"\1=<REDACTED>",
+            safe,
+        )
+        safe = re.sub(r"(?i)(user|username|host|server)\s+\"[^\"]*\"", r"\1 <REDACTED>", safe)
+        safe = " ".join(safe.split())
+        if safe:
+            return f"diagnostico: {safe[:320]}"
     return "erro do cliente PostgreSQL; detalhes brutos omitidos por seguranca"
 
 
@@ -187,7 +210,7 @@ def create_backup(output_dir: Path, restore_to: str | None = None) -> Path:
         tool = Path(str(command)).name if command else "cliente PostgreSQL"
         raise RuntimeError(
             f"Falha ao executar {tool} (codigo {exc.returncode}): "
-            f"{_postgres_error_summary(exc.stderr)}."
+            f"{_postgres_error_summary(exc.stderr, tool=tool)}."
         ) from exc
     finally:
         partial_path.unlink(missing_ok=True)

@@ -78,6 +78,17 @@ class SupabaseBackupTest(unittest.TestCase):
         self.assertNotIn("postgres.secret", message)
         self.assertNotIn("db.example.invalid", message)
 
+    def test_archive_failure_keeps_safe_diagnostic_and_redacts_credentials(self):
+        summary = backup_supabase._postgres_error_summary(
+            'pg_restore: archive check failed in "postgresql://user:password@host/db" '
+            'for user "private-user"',
+            tool="pg_restore",
+        )
+
+        self.assertIn("diagnostico", summary)
+        self.assertNotIn("password@host", summary)
+        self.assertNotIn("private-user", summary)
+
 
 if __name__ == "__main__":
     unittest.main()
