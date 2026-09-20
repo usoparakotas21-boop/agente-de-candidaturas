@@ -64,9 +64,19 @@ class ShellLayoutTest(unittest.TestCase):
         resume = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         preferences = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
         self.assertIn("Carregando seu perfil...", resume)
-        self.assertIn("Não foi possível carregar seu perfil. Tente novamente.", resume)
+        self.assertIn("Não foi possível carregar seu perfil.", resume)
         self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", preferences)
         self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", preferences)
+
+    def test_resume_profile_load_exposes_accessible_retry(self):
+        resume = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
+        self.assertIn('id="status" role="status" aria-live="polite"', resume)
+        self.assertIn('id="retryProfile" type="button" class="button retry-profile" hidden', resume)
+        self.assertIn(".retry-profile[hidden]{display:none}", resume)
+        self.assertIn("if(!r.ok)throw new Error('profile request failed')", resume)
+        self.assertIn("retryProfile.addEventListener('click',load)", resume)
+        self.assertIn("catch(()=>setStatus('Não foi possível carregar seu perfil.',false,true))", resume)
+        self.assertIn("if(!p.configured){setStatus('');return;}", resume)
 
     def test_config_page_keeps_its_layout_styles(self):
         html = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
