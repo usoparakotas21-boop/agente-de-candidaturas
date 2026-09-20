@@ -59,6 +59,27 @@ class SecurityControlsTest(unittest.TestCase):
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
         auth._rate_attempts.clear()
+        with patch.dict(auth._RATE_LIMITS, {"login": (2, 60)}, clear=False):
+            auth._enforce_rate_limit(request, "login", "pessoa@example.com")
+            auth._enforce_rate_limit(request, "login", "pessoa@example.com")
+            with self.assertRaises(auth.HTTPException) as raised:
+                auth._enforce_rate_limit(request, "login", "pessoa@example.com")
+
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertIn("Retry-After", raised.exception.headers)
+        auth._rate_attempts.clear()
+
+    def test_required_distributed_limiter_fails_closed_when_unconfigured(self):
+        request = request_for()
+        with (
+            patch.dict("os.environ", {"RATE_LIMIT_DISTRIBUTED_REQUIRED": "true"}, clear=False),
+            patch.object(auth.distributed_rate_limit, "is_configured", return_value=False),
+        ):
+            with self.assertRaises(auth.HTTPException) as raised:
+                auth._enforce_rate_limit(request, "login", "pessoa@example.com")
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(raised.exception.detail, "Proteção contra excesso de tentativas indisponível.")
 
     def test_distributed_limiter_hashes_ip_and_account_keys(self):
         request = request_for()

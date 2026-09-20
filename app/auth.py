@@ -91,7 +91,15 @@ def _enforce_rate_limit(
     if normalized_account:
         keys.append(f"{scope}:account:{normalized_account}")
 
-    if distributed_rate_limit.is_configured():
+    distributed_required = os.getenv("RATE_LIMIT_DISTRIBUTED_REQUIRED", "false").lower() == "true"
+    distributed_configured = distributed_rate_limit.is_configured()
+    if distributed_required and not distributed_configured:
+        raise HTTPException(
+            503,
+            "Proteção contra excesso de tentativas indisponível.",
+        )
+
+    if distributed_configured:
         try:
             # Keep e-mail addresses and source IPs out of the external Redis
             # keyspace while retaining deterministic counters per scope.
@@ -108,7 +116,7 @@ def _enforce_rate_limit(
             # Availability remains the default while an instance is being
             # configured.  Production can set the required flag after the
             # shared store is verified, making an unavailable store fail closed.
-            if os.getenv("RATE_LIMIT_DISTRIBUTED_REQUIRED", "false").lower() == "true":
+            if distributed_required:
                 raise HTTPException(
                     503,
                     "Proteção contra excesso de tentativas indisponível.",
