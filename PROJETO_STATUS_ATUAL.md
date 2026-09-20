@@ -1,6 +1,11 @@
 # Agente de Candidaturas — status atual
+## Atualização operacional — 20/09/2026
 
-**Atualizado em:** 19/09/2026
+A secret `SUPABASE_DATABASE_URL` foi configurada no GitHub Actions com autorização do proprietário. O run manual #4 (`35486170058`) terminou com sucesso e armazenou um artefato cifrado de 374 KB, com retenção de 30 dias. A correção dos binários PostgreSQL 17 está no commit `eb94f91`.
+
+**P0.11 permanece parcial:** falta guardar a chave privada fora deste computador e demonstrar a restauração integral em um ambiente Supabase compatível. As referências abaixo à secret ausente ou ao workflow ainda sem execução descrevem o estado histórico anterior a 20/09/2026.
+
+**Atualizado em:** 20/09/2026
 **Versão declarada da API:** 0.24.0  
 **Commit publicado:** `1aa7da4` — `Prepare free-tier security and backup alternatives` (Render Live)
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
