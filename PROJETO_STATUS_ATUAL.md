@@ -3,6 +3,8 @@
 
 A secret `SUPABASE_DATABASE_URL` foi configurada no GitHub Actions com autorização do proprietário. O run manual #4 (`35486170058`) terminou com sucesso e armazenou um artefato cifrado de 374 KB, com retenção de 30 dias. A correção dos binários PostgreSQL 17 está no commit `eb94f91`.
 
+O simulador do Mercado Pago enviou `payment.updated` com `live_mode=false` e recebeu HTTP 200. Isso comprova conectividade do endpoint, não assinatura real nem replay idempotente; **P0.5 permanece parcial** até o replay assinado de um pagamento existente, sem nova cobrança.
+
 **P0.11 permanece parcial:** falta guardar a chave privada fora deste computador e demonstrar a restauração integral em um ambiente Supabase compatível. As referências abaixo à secret ausente ou ao workflow ainda sem execução descrevem o estado histórico anterior a 20/09/2026.
 
 **Atualizado em:** 20/09/2026
