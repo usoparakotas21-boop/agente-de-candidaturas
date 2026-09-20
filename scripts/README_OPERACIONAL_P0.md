@@ -72,10 +72,15 @@ cria um dump PostgreSQL 17, valida com `pg_restore` e envia somente o arquivo
 cifrado, com retenção de 30 dias. AES-256-GCM protege o dump; a chave de
 conteúdo é envolvida com RSA-OAEP e a chave privada nunca vai para o GitHub.
 
-Para habilitar com o mínimo de passos manuais:
+O workflow já está habilitado. A secret `SUPABASE_DATABASE_URL` foi configurada
+no GitHub Actions e validada no run manual #4 (`35486170058`), concluído com
+sucesso e artifact cifrado de 374 KB. A correção que fixa os binários PostgreSQL
+17 está no commit `eb94f91`.
+
+Para manter a cópia recuperável com o mínimo de passos manuais:
 
 1. Na configuração do repositório GitHub, em **Settings → Secrets and
-   variables → Actions**, crie a secret `SUPABASE_DATABASE_URL` com a URL
+   variables → Actions**, a secret `SUPABASE_DATABASE_URL` já está configurada; para rotacioná-la, atualize-a com a URL
    PostgreSQL usada no Render. Copie diretamente do Render; não a envie por
    chat, arquivo ou commit.
 2. Copie `backups/database/backup-decryption-key.pem` para um gerenciador de
@@ -87,8 +92,7 @@ Para habilitar com o mínimo de passos manuais:
 
 O agendamento diário já está definido para 05:17 no horário de Brasília. O
 workflow não precisa de secret do GitHub se `SUPABASE_DATABASE_URL` estiver
-ausente: ele apenas encerra com aviso, sem expor dados. A primeira execução e
-uma restauração ainda precisam ser verificadas antes de marcar o P0.11 completo.
+ausente: ele apenas encerra com aviso, sem expor dados. A primeira execução foi verificada. A restauração integral ainda precisa ser verificada antes de marcar o P0.11 completo.
 
 Para restaurar, baixe o artifact cifrado, descriptografe localmente com a chave
 privada em um caminho novo e restaure para uma instância Supabase local/isolada,
@@ -103,5 +107,4 @@ estimadas. Para esse teste em PostgreSQL vanilla, `supabase_vault` e os dados
 de `vault.secrets` foram excluídos; ainda é necessário validar a restauração
 integral em um projeto Supabase compatível. O dump foi cifrado localmente e o
 original em texto puro apagado. O workflow gratuito já agenda o upload cifrado
-por 30 dias; falta configurar a secret, guardar a chave fora do computador,
-rodar o workflow e confirmar a restauração completa.
+por 30 dias; naquela data, faltava configurar a secret, guardar a chave fora do computador, rodar o workflow (concluído em 20/09/2026) e confirmar a restauração integral Supabase-compatível.
