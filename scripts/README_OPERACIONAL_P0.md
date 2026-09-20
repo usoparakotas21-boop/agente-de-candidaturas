@@ -3,11 +3,11 @@
 Atualizado em 20/09/2026. O fechamento operacional do P0 já confirmou e-mail
 em Gmail/Outlook, rate limiting distribuído com Upstash, checagem de senhas
 vazadas via HIBP e a primeira execução do backup cifrado no GitHub Actions.
-O replay real assinado do Mercado Pago foi concluído (**P0.5**). Em 20/09/2026,
-o archive de produção também foi restaurado com sucesso num stack local oficial
-do Supabase descartável: 11 tabelas públicas, 527 linhas agregadas e 11 políticas
-RLS. Para encerrar **P0.11**, falta somente confirmar uma cópia segura da chave
-privada fora deste computador.
+O replay real assinado do Mercado Pago foi concluído (**P0.5**). O restore do
+archive também passou em stack local oficial descartável do Supabase: 11 tabelas
+públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. Para
+fechar o P0, restam o login real com TOTP após publicação (**P0.3**) e confirmar
+uma cópia segura da chave privada fora deste computador (**P0.11**).
 
 ## 1. E-mail confirmado e reenvio
 
