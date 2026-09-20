@@ -110,7 +110,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - InfinitePay está fora do escopo e não possui rota, variável ou critério de aceite ativo.
 - O card de onboarding consulta `/profile` e `/preferences`: some quando os dois estão completos e vira um atalho de preferências quando o perfil já existe; mantém fallback estático se a consulta falhar.
 - Logout existe no dashboard e agora também aparece como ação explícita no cabeçalho global das subpáginas autenticadas.
-- Rate limiting é local ao processo; a verificação externa com 11 logins sintéticos retornou 10 respostas 401 e a 11ª 429. Ainda falta proteção distribuída no edge quando houver múltiplas instâncias.
+- Rate limiting combina o limite local com Redis REST compartilhado no Upstash Free. URL/token estão como secrets no Render e `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` está alinhado no painel e no Blueprint. Após o deploy `5d736f2`, `/health` retornou 200 e uma tentativa sintética de login recebeu 401 do Auth, sem 503 do Redis. A prova simultânea entre várias instâncias fica para quando o serviço for escalado.
 - CSP usa nonce para scripts e elementos `<style>`, sem `style-src-attr unsafe-inline`; os templates ativos e scripts de interação foram migrados para classes/CSS nonceados. HSTS/nosniff/frame-ancestors continuam confirmados em `/health`, `/termos` e `/privacidade`.
 - Os testes locais de IDOR entre dois usuários estão implementados e aprovados; ainda falta executar a mesma prova com duas contas reais contra o PostgreSQL/Supabase de produção.
 - O script `scripts/migrate_rls.py` cobre as 11 tabelas do modelo, incluindo `document_export_purchases`. A migração foi aplicada no PostgreSQL de produção e a consulta somente leitura confirmou RLS habilitado e uma política em cada tabela.
@@ -181,7 +181,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Onboarding sincronizado e opção de dispensar | Incompleto | Sincronização do estado real em **P1.13**; dispensar é melhoria opcional depois da sincronização |
 | Extensão Chrome/LinkedIn/Gupy | Faz sentido como escala | **P2**, com permissões mínimas, consentimento e limites de cada plataforma |
 | Foco, `aria-modal` e retorno de foco dos modais | Validado em produção | Modais de captação, preferências, segurança e drawer de candidatura abriram com foco inicial, mantiveram o Tab dentro da superfície e devolveram o foco ao disparador |
-| Verificação de e-mail, headers e rate limiting | Código principal feito | **P0.4** e **P0.7** estão validados; rate limiting distribuído segue em **P0.9** antes de múltiplas instâncias |
+| Verificação de e-mail, headers e rate limiting | Validado no ambiente atual | **P0.4**, **P0.7** e **P0.9** estão concluídos; manter teste entre instâncias quando houver escala horizontal |
 | IDOR e RLS obrigatório | Concluído para as rotas atuais | Migração RLS, testes locais e prova real com duas contas cobrem listagem, consulta, atualização, exportação JSON e downloads de currículo/carta; a conta B recebeu 404 ao tentar usar a candidatura da conta A |
 | `SERVICE_ROLE_KEY` fora do cliente e menor privilégio | Revisão de código feita; painel do Supabase separa chave publicável e chave secreta e mantém os valores mascarados; Enforce SSL foi ativado no banco; função auxiliar `public.rls_auto_enable()` não pode mais ser executada por `PUBLIC`, `anon` ou `authenticated` | **P0.6** confirmado para chaves, TLS e privilégio da função; não criar nem expor chave mestra |
 | Magic bytes, MIME real, diretório privado e parsing isolado | Validação real aprovada para intake; fronteira de download reforçada | Em produção, um PDF falso sem assinatura `%PDF-` foi rejeitado sem criar vaga, um PDF válido foi reconhecido no preview e o currículo importado apareceu como pronto na tela de Currículos. As rotas de download rejeitam caminhos fora do diretório privado; a limpeza periódica de artefatos permanece em **P1.8** |
@@ -299,7 +299,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 6. **Segredos, menor privilégio e TLS — concluído para o ambiente atual:** painel Supabase/Render sem chave mestra exposta, scanner do código versionado sem padrões de segredo, `Enforce SSL` ativo e aplicação forçando `sslmode=require`. Repetir a auditoria somente quando novas integrações forem adicionadas.
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
 8. **Erros públicos — validado:** handlers globais e rotas sensíveis retornam mensagens estáveis; checagem externa sem sessão em `/applications/1`, `/preferences` e `/billing/document-export` retornou 401 sem stack trace.
-9. **Rate limiting — alternativa gratuita pronta no código:** além do limite local por IP/conta, `app/distributed_rate_limit.py` usa contador Lua atômico em Redis REST compatível com o plano gratuito do Upstash, dentro das cotas vigentes, quando `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` estão configuradas. `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` faz a aplicação falhar fechado se o armazenamento compartilhado ficar indisponível. Falta criar a instância gratuita, configurar os dois secrets, validar o deploy e ligar o modo obrigatório; nenhum plano pago é necessário no volume atual.
+9. **Rate limiting — concluído no ambiente atual:** além do limite local por IP/conta, `app/distributed_rate_limit.py` usa EVAL Lua atômico pelo REST do Upstash. A instância gratuita `agente-candidaturas-rate-limit` foi criada na região Oregon, próxima ao Render; `UPSTASH_REDIS_REST_URL` e o token rotacionado estão como secrets no Render, sem exposição no Git. `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` está ativo tanto no serviço quanto no `render.yaml`; a indisponibilidade do Redis falha fechado. O primeiro teste em modo obrigatório expôs um formato incorreto de chamada REST e foi revertido imediatamente; o fix está no commit `5d736f2`, com 176 testes passando. Em produção, `/health` respondeu 200 e uma tentativa com credenciais sintéticas inválidas retornou 401 do Auth, confirmando que o Redis aceitou a chamada antes da autenticação. Prova concorrente entre múltiplas instâncias fica para quando houver escala horizontal. Sem plano pago.
 10. **Senhas comprometidas — alternativa gratuita implementada e publicada:** a HIBP Pwned Passwords API é gratuita e sem chave; o backend envia só cinco caracteres do hash SHA-1 e adiciona padding. Cadastro e alteração bloqueiam senhas comprometidas; indisponibilidade, status inesperado ou resposta inválida retornam 503 e não liberam a senha. Os testes direcionados cobrem detecção, opt-out de teste, indisponibilidade, falha de rede e resposta malformada. A suíte oficial passou em **176 testes, 0 falhas**; o commit `1aa7da4` foi confirmado como Live no Render. A proteção nativa Supabase Pro permanece opcional, como defesa em profundidade; não é pendência de plano.
 11. **Backup e recuperação — parcialmente validado, alternativa gratuita preparada:** dump real criado e validado; restauração filtrada em PostgreSQL 17 isolado recuperou 11 tabelas públicas, 11 políticas RLS e cerca de 527 linhas estimadas. O teste excluiu `supabase_vault` e `vault.secrets`, indisponíveis no PostgreSQL vanilla. O dump local está cifrado com AES-256-GCM/RSA-OAEP, e o workflow diário no GitHub Actions publica somente artefato cifrado por 30 dias. Falta adicionar `SUPABASE_DATABASE_URL` às Actions secrets, guardar a chave privada fora do computador, validar a execução e restaurar integralmente numa instância Supabase local/isolada. Sem upgrade do Supabase ou Render.
 12. **Acessibilidade de modais — concluído:** em produção, os modais “Captar vaga” e “Preferências”, a tela de Segurança e o drawer de candidatura abriram com foco inicial, fecharam com `Esc`, mantiveram o ciclo de Tab dentro da superfície e devolveram o foco ao disparador. O commit `8cc11fa` foi publicado e validado no Render.
@@ -415,7 +415,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 | --- | --- | --- |
 | Confirmação de e-mail | Gate no backend, tela pública de confirmação e reenvio limitado; no Supabase Auth, `Confirm email` está ligado, o provedor Email está habilitado, o Site URL aponta para o Render e há um redirect permitido para `/dashboard`; template usa `{{ .ConfirmationURL }}` | Código/configuração conferidos, regressão automatizada coberta e recebimento/reenvio confirmados em Gmail e Outlook em 18/09/2026; **P0.4 concluído** |
 | Cookies e headers | Cookies `HttpOnly`, `Secure` configurável e `SameSite=Lax`; CSP nonceado sem `style-src-attr unsafe-inline`, HSTS, `nosniff`, `DENY` e políticas complementares | Código e header real validados em `/health`, `/termos`, `/privacidade` e `/dashboard` em produção |
-| Rate limiting | Limites por IP/conta, testes locais de 429 e validação publicada com 10 respostas 401 e 11ª resposta 429; armazenamento é local ao processo | Proteção distribuída segue em **P0.9** |
+| Rate limiting | Limites por IP/conta, testes de 429, Redis REST Upstash Free, segredo no Render, modo fail-closed ativo; `/health` 200 e login sintético 401 após a checagem distribuída | **P0.9 concluído** para o ambiente atual; validar tráfego simultâneo ao escalar |
 | Isolamento/IDOR | Testes locais com dois usuários cobrem listagem, consulta, atualização e downloads; duas contas reais confirmaram a exportação JSON owner-scoped e receberam 404 nos downloads cruzados de currículo/carta | Código, testes locais, RLS e validação real das rotas atuais concluídos; manter a regressão em novas rotas |
 | RLS e menor privilégio | Painel do Supabase confirma RLS ativo e uma política `ALL` para cada uma das 11 tabelas, incluindo `document_export_purchases_owner`; a política `applications_owner` exige relação com `jobs.owner_id = auth.uid()`; código cliente usa a chave publicável e o Render não exibe chave mestra | RLS aplicado e isolamento real por ID/exportação/download confirmado nas rotas atuais; não criar nova chave em **P0.6** |
 | Segredos e TLS | Scanner do código versionado não encontrou chaves privadas, tokens hardcoded ou `SERVICE_ROLE_KEY`; painel mantém chaves mascaradas, `Enforce SSL` está ativo e o código usa `sslmode=require` | **P0.6 concluído** para o ambiente atual; repetir somente após novas integrações |
@@ -496,6 +496,7 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 
 | Commit | Entrega |
 | --- | --- |
+| `5d736f2` | Corrige o comando EVAL enviado ao REST do Upstash; 176 testes aprovados e validação em modo obrigatório |
 | `8dd0f36` | Gmail ignora alertas agrupados sem vagas individuais, evitando criar oportunidades artificiais; testes 132/132 |
 | `9e01036` | Proteção contra golpes antes da candidatura: preserva sinais de risco, bloqueia risco alto e exige revisão auditável para vaga duvidosa; testes 131/131 |
 | `fe2d92f` | Atribuição de candidatura por canal, retorno externo e versão de currículo/carta; proteção de amostra mínima no painel |
@@ -534,8 +535,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - **Mercado Pago:** o checkout e a assinatura/idempotência já estão no código;
   `scripts/replay_mercadopago_webhook.py` repete a mesma entrega assinada duas
   vezes usando um `payment_id` real, sem criar pagamento.
-- **Rate limiting:** o limite local ganhou uma camada Redis REST compartilhada
-  e atômica, com modo obrigatório ativável após a configuração no Render.
+- **Rate limiting:** Redis REST compartilhado do Upstash Free está criado; os
+  secrets foram configurados no Render, o modo obrigatório está ativo e o
+  deploy `5d736f2` passou por `/health` 200 e tentativa sintética de login 401.
 - **Senhas vazadas:** a checagem k-anonimizada continua ativa no aplicativo;
   a proteção nativa do Supabase permanece condicionada ao plano compatível.
 - **Backup:** o script agora pode restaurar explicitamente em uma URL de banco
@@ -579,9 +581,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 - **Senhas comprometidas:** usar a HIBP gratuita em vez da opção nativa
   Supabase Pro+. A consulta por k-anonimato falha fechada e o commit `1aa7da4`
   foi confirmado Live no Render.
-- **Rate limit distribuído:** usar o Redis gratuito do Upstash dentro das cotas
-  do plano; falta criar o banco gratuito e guardar URL/token como secrets no
-  Render.
+- **Rate limit distribuído:** Upstash Free já está configurado como backend
+  compartilhado; URL/token permanecem secrets no Render e o modo fail-closed
+  está alinhado no Blueprint. A validação cross-instance entra ao escalar.
 - **Backups automáticos:** usar GitHub Actions em vez de Render Cron ou
   Supabase Pro/PITR. Agendamento e cifra estão no repositório; faltam a secret
   da conexão, cópia segura da chave privada e validação de execução/restauração.
