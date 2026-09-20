@@ -9,9 +9,9 @@ públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. O com
 `b10485a` está Live no Render com a configuração de MFA simplificada; a regra de
 AAL2 exige código em toda sessão de uma conta com TOTP,
 inclusive sessão antiga, renovada ou obtida pelo callback; os 202 testes
-passaram e `/health` respondeu 200 com banco conectado. Para fechar o P0, resta
-confirmar um login real com TOTP (**P0.3**) e confirmar uma cópia segura da
-chave privada fora deste computador (**P0.11**).
+passaram e `/health` respondeu 200 com banco conectado. O proprietário confirmou
+que guardou a chave de restauração em local seguro externo; **P0.11 está
+concluído**. Para fechar o P0, resta confirmar um login real com TOTP (**P0.3**).
 
 ## 1. E-mail confirmado e reenvio
 
@@ -108,9 +108,9 @@ pasta temporária foi apagada.
 O WSL 2, Docker Desktop e a CLI oficial do Supabase foram usados para essa
 validação local. A chave privada continua em
 `backups/database/backup-decryption-key.pem`, ignorada pelo Git e não rastreada.
-Para encerrar **P0.11**, falta somente confirmar uma cópia dela em um gerenciador
-de senhas/arquivos seguro fora deste computador. Não enviar a chave ao GitHub,
-ao Render, ao repositório ou ao chat.
+Em 20/09/2026, o proprietário confirmou que guardou uma cópia em local seguro
+externo, concluindo **P0.11**. Não enviar a chave ao GitHub, ao Render, ao
+repositório ou ao chat.
 
 **Registro histórico — execução local de 19/09/2026 (superado pela restauração
 Supabase-compatível acima):** foi criado um dump real do PostgreSQL 17
