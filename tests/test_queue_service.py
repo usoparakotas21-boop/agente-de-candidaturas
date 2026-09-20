@@ -212,12 +212,14 @@ class QueueServiceLocalModeTest(unittest.TestCase):
                 "location": "Salvador/BA",
                 "modality": "Híbrido",
                 "contract_type": "CLT",
+                "salary": "R$ 6.000 a R$ 8.000",
                 "modality_confidence": 95,
                 "salary_confidence": 80,
                 "contract_confidence": 90,
                 "url": "https://example.test/rh",
                 "salary_min": 6000,
                 "salary_max": 8000,
+                "confidence_overall": 88,
                 "description": (
                     "Responsabilidades: conduzir recrutamento e seleção, apoiar gestores e acompanhar indicadores. "
                     "Requisitos: experiência com RH, comunicação e organização. "
@@ -229,6 +231,7 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         )[0]
 
         self.assertEqual(item.contract_type, "CLT")
+        self.assertEqual(item.salary, "R$ 6.000 a R$ 8.000")
         self.assertEqual(item.modality_confidence, 95)
         self.assertEqual(item.salary_confidence, 80)
         self.assertEqual(item.contract_confidence, 90)
@@ -236,6 +239,10 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         result = approve(self.session, None, item.id)
         job = self.session.query(Job).filter_by(id=result["job_id"]).one()
         self.assertEqual(job.contract_type, "CLT")
+        self.assertEqual(job.modality, "Híbrido")
+        self.assertEqual(job.salary, "R$ 6.000 a R$ 8.000")
+        self.assertEqual(job.salary_min, 6000)
+        self.assertEqual(job.salary_max, 8000)
         self.assertEqual(job.modality_confidence, 95)
         self.assertEqual(job.salary_confidence, 80)
         self.assertEqual(job.contract_confidence, 90)
@@ -243,3 +250,4 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(application.health_score, item.health_score)
         self.assertEqual(application.health_band, item.health_band)
         self.assertEqual(application.health_signals, item.health_signals)
+        self.assertEqual(application.capture_confidence, 88)

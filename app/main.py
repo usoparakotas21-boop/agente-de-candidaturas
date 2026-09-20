@@ -640,7 +640,7 @@ def startup():
                     "owner_id": "VARCHAR(36)", "contract_type": "VARCHAR(50) DEFAULT ''", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
                 },
                 "queue_items": {
-                    "contract_type": "VARCHAR(50)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
+                    "contract_type": "VARCHAR(50)", "salary": "VARCHAR(200)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
                 },
                 "document_export_purchases": {
                     "application_id": "INTEGER", "payer_email": "VARCHAR(320)", "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL", "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
@@ -690,6 +690,7 @@ def startup():
         queue_columns = {c["name"] for c in inspect(engine).get_columns("queue_items")}
         for col, ddl in {
             "contract_type": "VARCHAR(50)",
+            "salary": "VARCHAR(200)",
             "modality_confidence": "INTEGER",
             "salary_confidence": "INTEGER",
             "contract_confidence": "INTEGER",

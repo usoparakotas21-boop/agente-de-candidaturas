@@ -29,8 +29,8 @@ def _refresh_queue_item_health(item: QueueItem) -> bool:
     # queue_service for enqueue().
     from app.job_quality import assess_job_capture
 
-    salary = ""
-    if item.salary_min is not None or item.salary_max is not None:
+    salary = item.salary or ""
+    if not salary and (item.salary_min is not None or item.salary_max is not None):
         salary = f"{item.salary_min or ''} - {item.salary_max or ''}".strip(" -")
     result = assess_job_capture({
         "source": item.source or "",
@@ -129,6 +129,7 @@ def enqueue(
         location=captured.get("location"),
         modality=captured.get("modality"),
         contract_type=captured.get("contract_type"),
+        salary=captured.get("salary"),
         modality_confidence=captured.get("modality_confidence"),
         salary_confidence=captured.get("salary_confidence"),
         contract_confidence=captured.get("contract_confidence"),
@@ -191,6 +192,7 @@ def _promote_item(session: Session, item: QueueItem, owner_id: Optional[str]) ->
         location=item.location or "",
         modality=item.modality or "",
         contract_type=item.contract_type or "",
+        salary=item.salary or "",
         modality_confidence=item.modality_confidence,
         salary_confidence=item.salary_confidence,
         contract_confidence=item.contract_confidence,

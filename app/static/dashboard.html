@@ -172,6 +172,7 @@
     tbody tr:hover { background: #fafcff; }
     .job-title { font-weight: 750; }
     .company { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .queue-meta { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
     .score { font-weight: 800; }
     .score.high { color: var(--green); }
     .score.mid { color: var(--amber); }
@@ -1369,6 +1370,7 @@
       $("queueRows").innerHTML = visible.map(item => {
         const pending = item.status === "PENDENTE";
         const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
+        const structuredFields = [item.modality, item.contract_type, item.salary].filter(Boolean).map(escapeHtml).join(" · ");
         const health = item.health_band ? `<span class="queue-health ${healthClass(item.health_band, item.fraud_suspected)}" title="${escapeHtml((item.health_signals || []).map(signal => signal.label).slice(0, 3).join("; "))}">● ${healthLabels[item.health_band] || "Risco a revisar"}${item.health_score == null ? "" : ` · ${item.health_score}/100`}</span>` : "";
         const title = escapeHtml(item.title || "Cargo não identificado");
         const titleMarkup = item.url
@@ -1377,7 +1379,7 @@
         return `
           <tr>
             <td><input class="queue-check queue-item-check" type="checkbox" data-id="${item.id}" aria-label="Selecionar ${escapeHtml(item.title || "item")}" ${pending ? "" : "disabled"}></td>
-            <td>${titleMarkup}<div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div><div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div>${health}</td>
+            <td>${titleMarkup}<div class="company">${escapeHtml(item.company || "Empresa não identificada")}</div>${structuredFields ? `<div class="queue-meta">${structuredFields}</div>` : ""}<div class="queue-reasons">${escapeHtml(reasons || "Sem motivos registrados")}</div>${health}</td>
             <td><span class="badge ${decisionBadgeClass(item.decision)}">${decisionLabels[item.decision] || escapeHtml(item.decision)}</span></td>
             <td><span class="score ${scoreClass(item.confidence_overall)}">${item.confidence_overall == null ? "-" : item.confidence_overall + "%"}</span></td>
             <td><span class="badge ${queueStatusBadgeClass(item.status)}">${queueStatusLabel(item.status)}</span></td>

@@ -387,6 +387,7 @@ class QueueItem(Base):
     location: Mapped[str | None] = mapped_column(String(300), nullable=True)
     modality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     contract_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    salary: Mapped[str | None] = mapped_column(String(200), nullable=True)
     modality_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     contract_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
