@@ -86,4 +86,5 @@ recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas
 estimadas. Para esse teste em PostgreSQL vanilla, `supabase_vault` e os dados
 de `vault.secrets` foram excluídos; ainda é necessário validar a restauração
 integral em um projeto Supabase compatível. O dump não foi adicionado ao Git e
-nenhum agendamento nem destino externo de retenção foi configurado.
+as permissões Windows da pasta local foram restritas. Nenhum agendamento nem
+destino externo de retenção foi configurado.

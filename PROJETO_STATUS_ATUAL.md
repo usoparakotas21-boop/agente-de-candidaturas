@@ -125,7 +125,7 @@ Este arquivo é o retrato operacional atual. O arquivo `PROJETO_STATUS.md` conti
 - O normalizador de `DATABASE_URL` converte PostgreSQL para `psycopg` e força `sslmode=require` quando ausente; falta confirmar no Render a URL efetiva e a negociação TLS.
 - Handlers globais já padronizam erros públicos e mantêm detalhes nos logs; falta revisar endpoints operacionais legados.
 - OCR, parsing, confirmação e busca externa já saem do loop HTTP e têm timeout total de 30 segundos; falta separar monitores/IA em worker próprio e impor limites distribuídos de concorrência/CPU.
-- O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial. Em 19/09/2026 foi criado um dump customizado real do Supabase PostgreSQL 17, validado com `pg_restore` e SHA-256; a restauração filtrada em PostgreSQL 17 descartável recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas estimadas. O teste local excluiu `vault.secrets`/`supabase_vault`, indisponíveis no PostgreSQL vanilla; restauração integral em alvo Supabase-compatível e agendamento diário continuam pendentes.
+- O runbook `DISASTER_RECOVERY.md` documenta backup, restauração isolada e revogação/rotação emergencial. Em 19/09/2026 foi criado um dump customizado real do Supabase PostgreSQL 17, validado com `pg_restore` e SHA-256; a restauração filtrada em PostgreSQL 17 descartável recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas estimadas. O teste local excluiu `vault.secrets`/`supabase_vault`, indisponíveis no PostgreSQL vanilla. O dump local está ignorado pelo Git e com ACL Windows restrita; restauração integral em alvo Supabase-compatível, retenção externa e agendamento diário continuam pendentes.
 - A prévia de intake classifica CLT, PJ, MEI, estágio, temporário e freelance e informa confiança para modalidade, salário e regime; esses campos agora persistem na fila, na vaga promovida, no monitor Gmail e nas respostas de vagas/exportação. A faixa salarial oferecida também é guardada em `salary_min/salary_max`, separada das preferências de pretensão do candidato.
 - Falta separar claramente salário oferecido de pretensão salarial do candidato.
 - O recibo pós-pagamento está implementado no código, mas falta configurar e testar o SMTP transacional no Render. O envio automático dos DOCX e a biblioteca histórica de versões ainda não existem; ambos pertencem à ampliação de **P1.10**, depois que a entrega paga atual estiver comprovada.
@@ -567,8 +567,9 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
   equivale a uma restauração integral; essa validação precisa de um projeto
   Supabase compatível.
 - O dump permanece em `backups/`, ignorado pelo Git. Nenhum agendamento foi
-  criado: a conta atual está no plano Free do Supabase, sem backup diário/PITR,
-  e a execução recorrente exige um destino privado e um executor agendado.
+  criado: o Supabase Free não oferece backup diário/PITR, e a sessão atual roda
+  numa identidade temporária que não é um executor persistente confiável. A
+  execução recorrente ainda exige um destino privado e um scheduler adequado.
 
 ## Regra para continuar o projeto
 

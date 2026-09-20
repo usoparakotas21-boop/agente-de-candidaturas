@@ -43,7 +43,8 @@ aprovado.
 
 - Foi criado um dump real do PostgreSQL 17 de produção em
   `backups/database/`; a listagem com `pg_restore` e o checksum SHA-256 foram
-  validados. O diretório é ignorado pelo Git.
+  validados. O diretório é ignorado pelo Git e suas permissões Windows foram
+  restritas ao proprietário, ao executor local, ao SYSTEM e aos administradores.
 - Uma restauração filtrada foi executada em um cluster PostgreSQL 17 descartável,
   escutando apenas em `127.0.0.1`. Foram recuperadas 11 tabelas públicas, 11
   políticas RLS e aproximadamente 527 linhas estimadas; a verificação consultou
