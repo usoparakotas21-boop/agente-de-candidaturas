@@ -11,8 +11,6 @@ services:
         value: "true"
       - key: COOKIE_SECURE
         value: "true"
-      - key: MFA_LOGIN_ENFORCE
-        value: "true"
       - key: PWNED_PASSWORD_CHECK
         value: "true"
       - key: DATABASE_URL

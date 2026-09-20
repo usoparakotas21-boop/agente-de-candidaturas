@@ -91,13 +91,38 @@ def main() -> int:
         print(json.dumps({"url": url, "payload": payload, "request_id": request_id}, indent=2))
         return 0
 
+    results: list[tuple[int, dict[str, Any] | None]] = []
     for attempt in (1, 2):
         response = requests.post(url, json=payload, headers=headers, timeout=20)
         try:
             body = response.json()
         except ValueError:
-            body = response.text[:500]
-        print(json.dumps({"attempt": attempt, "status": response.status_code, "body": body}, ensure_ascii=False))
+            body = None
+
+        results.append((response.status_code, body if isinstance(body, dict) else None))
+        summary = {
+            "attempt": attempt,
+            "http_status": response.status_code,
+            "received": body.get("received") if isinstance(body, dict) else None,
+            "verified": body.get("verified") if isinstance(body, dict) else None,
+            "idempotent": body.get("idempotent") if isinstance(body, dict) else None,
+            "payment_status": body.get("status") if isinstance(body, dict) else None,
+            "receipt": body.get("receipt") if isinstance(body, dict) else None,
+        }
+        print(json.dumps(summary, ensure_ascii=False))
+
+    successful_delivery = all(
+        200 <= status < 300 and body is not None and body.get("verified") is True
+        for status, body in results
+    )
+    duplicate_was_idempotent = bool(results[1][1] and results[1][1].get("idempotent") is True)
+    if not successful_delivery or not duplicate_was_idempotent:
+        print(
+            "Falha na validação: confira configuração, assinatura e idempotência; "
+            "nenhum corpo integral da resposta foi exibido.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

@@ -25,7 +25,7 @@ def request_with_cookies(cookie_header: str = "") -> Request:
 
 
 class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
-    async def test_verified_factor_does_not_block_login_when_mfa_is_optional(self):
+    async def test_user_without_verified_factor_can_login_without_mfa(self):
         login_session = {
             "access_token": "optional-access",
             "refresh_token": "optional-refresh",
@@ -36,9 +36,9 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
                 "email_confirmed_at": "2026-09-18T12:00:00Z",
             },
         }
+        factors_response = httpx.Response(200, json={"id": "owner-a", "factors": []})
         with (
-            patch.dict("os.environ", {"MFA_LOGIN_ENFORCE": "false"}, clear=False),
-            patch.object(auth, "_supabase_request", AsyncMock(return_value=httpx.Response(200, json=login_session))) as request_mock,
+            patch.object(auth, "_supabase_request", AsyncMock(side_effect=(httpx.Response(200, json=login_session), factors_response))) as request_mock,
         ):
             response = await auth.login(auth.LoginRequest(email="a@example.com", password="Senha-segura1!"))
 
@@ -46,9 +46,27 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["authenticated"])
         self.assertNotIn("mfa_required", body)
         self.assertTrue(any(auth.ACCESS_COOKIE_NAME + "=optional-access" in value for value in response.headers.getlist("set-cookie")))
-        request_mock.assert_awaited_once()
+        self.assertEqual(request_mock.await_count, 2)
+        self.assertEqual(request_mock.await_args_list[1].args[1], "/auth/v1/user")
 
-    async def test_login_requires_totp_and_complete_promotes_session(self):
+    async def test_login_fails_closed_when_factor_status_cannot_be_checked(self):
+        login_session = {
+            "access_token": "optional-access",
+            "refresh_token": "optional-refresh",
+            "expires_in": 3600,
+            "user": {"id": "owner-a", "email": "a@example.com", "email_confirmed_at": "2026-09-18T12:00:00Z"},
+        }
+        with patch.object(
+            auth,
+            "_supabase_request",
+            AsyncMock(side_effect=(httpx.Response(200, json=login_session), httpx.Response(503, json={"msg": "Unavailable"}))),
+        ):
+            with self.assertRaises(auth.HTTPException) as raised:
+                await auth.login(auth.LoginRequest(email="a@example.com", password="Senha-segura1!"))
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertNotIn("token", raised.exception.detail.casefold())
+
+    async def test_verified_totp_requires_challenge_when_mfa_is_optional_and_complete_promotes_session(self):
         login_session = {
             "access_token": "aal1-access",
             "refresh_token": "aal1-refresh",
@@ -61,7 +79,7 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
             httpx.Response(200, json={"id": "challenge-1"}),
         ]
         with (
-            patch.dict("os.environ", {"MFA_LOGIN_ENFORCE": "true"}, clear=False),
+            patch.dict("os.environ", {"MFA_LOGIN_ENFORCE": "false"}, clear=False),
             patch.object(auth, "_supabase_request", AsyncMock(side_effect=responses)),
         ):
             response = await auth.login(auth.LoginRequest(email="a@example.com", password="Senha-segura1!"))

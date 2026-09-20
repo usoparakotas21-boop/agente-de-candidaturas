@@ -424,10 +424,6 @@ def _clear_mfa_pending_cookies(response: Response) -> None:
         response.delete_cookie(name, path="/")
 
 
-def _mfa_login_enforced() -> bool:
-    return os.getenv("MFA_LOGIN_ENFORCE", "false").strip().casefold() in {"1", "true", "yes"}
-
-
 async def _verified_mfa_factor(access_token: str) -> dict | None:
     """Return the user's verified MFA factor from the authenticated user payload.
 
@@ -530,7 +526,7 @@ async def login(payload: LoginRequest, request: Request = None):
                 } if session_user else None,
             }
         )
-    if authenticated and _mfa_login_enforced():
+    if authenticated:
         factor = await _verified_mfa_factor(session["access_token"])
         if factor:
             try:

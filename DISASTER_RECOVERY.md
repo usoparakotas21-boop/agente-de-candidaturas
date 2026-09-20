@@ -3,6 +3,20 @@
 Este runbook descreve o mínimo necessário para recuperar o serviço sem expor
 segredos. Os valores reais ficam apenas no Supabase, Render e provedores OAuth.
 
+## Estado operacional — 20/09/2026
+
+O workflow diário do GitHub Actions está ativo e o run manual #4 publicou um
+artefato cifrado com retenção de 30 dias. O archive foi restaurado com sucesso
+num stack oficial local do Supabase descartável: 11 tabelas públicas, 527 linhas
+agregadas e 11 políticas RLS ativas nas 11 tabelas. A validação usou um banco
+separado, sem conexão de restore à produção; passaram os 19 testes direcionados
+e a suíte completa de 190 testes.
+O stack, containers, volumes e pasta temporária foram removidos depois.
+
+**P0.11 segue parcial somente até confirmar uma cópia da chave privada num
+gerenciador de senhas/arquivos seguro fora deste computador.** A chave não deve
+ser enviada ao GitHub, Render, repositório ou chat.
+
 ## Antes de aceitar pagamentos
 
 1. Confirmar que o workflow gratuito do GitHub Actions concluiu o backup diário
@@ -46,7 +60,7 @@ O script não apaga backups antigos automaticamente. A retenção deve ser
 configurada no destino privado depois que o primeiro teste de restauração for
 aprovado.
 
-## Evidência operacional — 19/09/2026
+## Registro histórico — 19/09/2026 (antes do restore Supabase-compatível)
 
 - Foi criado um dump real do PostgreSQL 17 de produção em
   `backups/database/`; a listagem com `pg_restore` e o checksum SHA-256 foram

@@ -229,9 +229,10 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            request_mock.await_args.kwargs["json"]["email"],
+            request_mock.await_args_list[0].kwargs["json"]["email"],
             "pessoa@example.com",
         )
+        self.assertEqual(request_mock.await_args_list[1].args[1], "/auth/v1/user")
 
     async def test_login_exposes_confirmation_error_from_supabase(self):
         supabase_response = httpx.Response(
