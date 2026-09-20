@@ -2,7 +2,7 @@
 
 **Atualizado em:** 19/09/2026
 **Versão declarada da API:** 0.24.0  
-**Commit publicado:** `602c0b4` — `fix Mercado Pago return and document generation`
+**Commit publicado:** `1aa7da4` — `Prepare free-tier security and backup alternatives` (Render Live)
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -206,7 +206,7 @@ As sugestões abaixo foram comparadas com o código, os testes, os painéis já 
 | Candidatura automática geral | Não deve ser liberada agora | Continua desativada até fechar P0 e validar termos/fluxos de cada plataforma; abrir anúncio e iniciar candidatura com confirmação do usuário é o comportamento seguro atual |
 | InfinitePay | Fora do escopo ativo | Não criar tarefa nem critério de aceite para esse provedor |
 | UptimeRobot | Já existe | Não recriar; apenas conferir painel, intervalo e alertas durante auditoria operacional |
-| Senhas comprometidas | Alternativa gratuita implementada no backend: HIBP com k-anonimato e fail-closed; a proteção nativa Supabase Pro+ é opcional | **P0.10** não exige upgrade; validar após o deploy e manter teste de regressão |
+| Senhas comprometidas | Alternativa gratuita HIBP com k-anonimato e fail-closed publicada no commit `1aa7da4`, confirmado Live no Render; a proteção nativa Supabase Pro+ é opcional | **P0.10** não exige upgrade; manter teste de regressão |
 
 ### Auditoria visual e de intake — 17/09/2026
 
@@ -300,7 +300,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 7. **CSP e superfícies de renderização — concluído:** scripts e elementos `<style>` usam nonce por resposta, todos os templates ativos foram migrados de atributos `style` para classes, a exceção `style-src-attr unsafe-inline` foi removida e o dashboard/rotas legais retornaram CSP endurecido em produção.
 8. **Erros públicos — validado:** handlers globais e rotas sensíveis retornam mensagens estáveis; checagem externa sem sessão em `/applications/1`, `/preferences` e `/billing/document-export` retornou 401 sem stack trace.
 9. **Rate limiting — alternativa gratuita pronta no código:** além do limite local por IP/conta, `app/distributed_rate_limit.py` usa contador Lua atômico em Redis REST compatível com o plano gratuito do Upstash, dentro das cotas vigentes, quando `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` estão configuradas. `RATE_LIMIT_DISTRIBUTED_REQUIRED=true` faz a aplicação falhar fechado se o armazenamento compartilhado ficar indisponível. Falta criar a instância gratuita, configurar os dois secrets, validar o deploy e ligar o modo obrigatório; nenhum plano pago é necessário no volume atual.
-10. **Senhas comprometidas — alternativa gratuita implementada:** a HIBP Pwned Passwords API é gratuita e sem chave; o backend envia só cinco caracteres do hash SHA-1 e adiciona padding. Cadastro e alteração bloqueiam senhas comprometidas; indisponibilidade, status inesperado ou resposta inválida retornam 503 e não liberam a senha. Os testes direcionados cobrem detecção, opt-out de teste, indisponibilidade, falha de rede e resposta malformada. A suíte oficial passou em **176 testes, 0 falhas** após essa alteração. A proteção nativa Supabase Pro permanece opcional, como defesa em profundidade; não é pendência de plano.
+10. **Senhas comprometidas — alternativa gratuita implementada e publicada:** a HIBP Pwned Passwords API é gratuita e sem chave; o backend envia só cinco caracteres do hash SHA-1 e adiciona padding. Cadastro e alteração bloqueiam senhas comprometidas; indisponibilidade, status inesperado ou resposta inválida retornam 503 e não liberam a senha. Os testes direcionados cobrem detecção, opt-out de teste, indisponibilidade, falha de rede e resposta malformada. A suíte oficial passou em **176 testes, 0 falhas**; o commit `1aa7da4` foi confirmado como Live no Render. A proteção nativa Supabase Pro permanece opcional, como defesa em profundidade; não é pendência de plano.
 11. **Backup e recuperação — parcialmente validado, alternativa gratuita preparada:** dump real criado e validado; restauração filtrada em PostgreSQL 17 isolado recuperou 11 tabelas públicas, 11 políticas RLS e cerca de 527 linhas estimadas. O teste excluiu `supabase_vault` e `vault.secrets`, indisponíveis no PostgreSQL vanilla. O dump local está cifrado com AES-256-GCM/RSA-OAEP, e o workflow diário no GitHub Actions publica somente artefato cifrado por 30 dias. Falta adicionar `SUPABASE_DATABASE_URL` às Actions secrets, guardar a chave privada fora do computador, validar a execução e restaurar integralmente numa instância Supabase local/isolada. Sem upgrade do Supabase ou Render.
 12. **Acessibilidade de modais — concluído:** em produção, os modais “Captar vaga” e “Preferências”, a tela de Segurança e o drawer de candidatura abriram com foco inicial, fecharam com `Esc`, mantiveram o ciclo de Tab dentro da superfície e devolveram o foco ao disparador. O commit `8cc11fa` foi publicado e validado no Render.
 13. **Páginas legais públicas — validado:** `/termos` e `/privacidade` retornaram 200 sem sessão em produção, antes do cadastro, com headers de segurança ativos.
@@ -577,8 +577,8 @@ Os valores reais não pertencem a este documento. Devem permanecer somente no pa
 ### Alternativas sem planos pagos
 
 - **Senhas comprometidas:** usar a HIBP gratuita em vez da opção nativa
-  Supabase Pro+. O código consulta por k-anonimato e bloqueia se a API estiver
-  indisponível; falta publicar a alteração fail-closed e confirmar o deploy.
+  Supabase Pro+. A consulta por k-anonimato falha fechada e o commit `1aa7da4`
+  foi confirmado Live no Render.
 - **Rate limit distribuído:** usar o Redis gratuito do Upstash dentro das cotas
   do plano; falta criar o banco gratuito e guardar URL/token como secrets no
   Render.
