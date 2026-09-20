@@ -848,15 +848,23 @@
       try {
         const response = await fetch("/auth/me");
         if (!response.ok) {
+          let authMessage = "";
           if (response.status === 403) {
             const detail = await response.json().catch(() => ({}));
             if (detail.code === "email_not_verified") {
               window.location.href = "/auth/verification-required";
               return;
             }
+            if (detail.code === "mfa_required") {
+              authMessage = "Sua conta usa autenticação em duas etapas. Entre novamente e informe o código do autenticador.";
+            }
           }
           $("authGate").hidden = false;
           showAuthMode("login");
+          if (!authMessage && new URLSearchParams(window.location.search).has("mfa_required")) {
+            authMessage = "Sua sessão precisa ser confirmada com o código do autenticador. Entre novamente.";
+          }
+          if (authMessage) $("loginError").textContent = authMessage;
           return;
         }
 
@@ -920,6 +928,8 @@
           }),
         });
         if (!response.ok) throw new Error(await responseError(response, "Link inválido ou expirado."));
+        const sessionResult = await response.json();
+        if (sessionResult.mfa_required) await finishMfaChallenge(sessionResult);
         window.history.replaceState({}, "", window.location.pathname);
         if (recovery) {
           await initializeAuth();
@@ -932,6 +942,21 @@
         $("loginError").textContent = error.message;
         return false;
       }
+    }
+
+    async function finishMfaChallenge(challenge) {
+      const code = window.prompt("Abra seu aplicativo autenticador e informe o código de 6 dígitos:");
+      if (!code) throw new Error("A verificação em duas etapas é necessária para continuar.");
+      const response = await fetch("/auth/mfa/complete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          factor_id: challenge.factor_id,
+          challenge_id: challenge.challenge_id,
+          code: code.trim(),
+        }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "Código 2FA inválido."));
     }
 
     async function bootstrapAuth() {
@@ -1002,7 +1027,10 @@
             password: $("loginPassword").value,
           }),
         });
-        if (!response.ok) throw new Error(await responseError(response, "E-mail ou senha inválidos."));
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "E-mail ou senha inválidos.");
+        if (payload.confirmation_required) throw new Error(payload.detail || payload.message || "Confirme seu e-mail antes de entrar.");
+        if (payload.mfa_required) await finishMfaChallenge(payload);
         $("loginPassword").value = "";
         await initializeAuth();
       } catch (error) {

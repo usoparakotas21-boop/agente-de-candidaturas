@@ -5,9 +5,11 @@ em Gmail/Outlook, rate limiting distribuído com Upstash, checagem de senhas
 vazadas via HIBP e a primeira execução do backup cifrado no GitHub Actions.
 O replay real assinado do Mercado Pago foi concluído (**P0.5**). O restore do
 archive também passou em stack local oficial descartável do Supabase: 11 tabelas
-públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. Para
-fechar o P0, resta validar o login real com TOTP no deploy `9dfcaff` (**P0.3**) e confirmar
-uma cópia segura da chave privada fora deste computador (**P0.11**).
+públicas, 527 linhas agregadas e 11 políticas RLS ativas em cada tabela. O código
+local agora exige AAL2 em toda sessão de uma conta com TOTP, inclusive sessão
+antiga, renovada ou obtida pelo callback; os 202 testes passaram. Para fechar o
+P0, resta publicar e confirmar um login real com TOTP (**P0.3**) e confirmar uma
+cópia segura da chave privada fora deste computador (**P0.11**).
 
 ## 1. E-mail confirmado e reenvio
 
@@ -97,7 +99,7 @@ de um stack iniciado pela CLI oficial do Supabase. O destino foi um banco
 separado chamado `codex_restore_p0`; a produção não foi acessada durante o
 restore. A validação agregada encontrou 11 tabelas públicas, 527 linhas e 11
 políticas RLS ativas em todas as 11 tabelas. Os 19 testes de backup/restauração
-e a suíte completa de 190 testes passaram. Depois da validação,
+e a suíte completa de 202 testes passaram. Depois da validação,
 o stack foi parado, seus containers e volumes foram removidos pela CLI, e a
 pasta temporária foi apagada.
 

@@ -1,4 +1,5 @@
 import json
+import base64
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -8,6 +9,13 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import auth
+
+
+def unsigned_jwt_with_aal(aal: str | None) -> str:
+    header = base64.urlsafe_b64encode(b'{"alg":"none","typ":"JWT"}').decode().rstrip("=")
+    claims = {} if aal is None else {"aal": aal}
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    return f"{header}.{payload}.test-signature"
 
 
 def make_request(cookie: str = "") -> Request:
@@ -28,6 +36,24 @@ def make_request(cookie: str = "") -> Request:
 
 
 class AuthTest(unittest.IsolatedAsyncioTestCase):
+    def test_token_aal_defaults_missing_claim_to_aal1_and_handles_aal2(self):
+        self.assertEqual(auth._token_aal(unsigned_jwt_with_aal(None)), "aal1")
+        self.assertEqual(auth._token_aal(unsigned_jwt_with_aal("aal1")), "aal1")
+        self.assertEqual(auth._token_aal(unsigned_jwt_with_aal("aal2")), "aal2")
+        self.assertIsNone(auth._token_aal("not-a-jwt"))
+
+    def test_verified_totp_requires_aal2(self):
+        user = {
+            "factors": [
+                {"factor_type": "totp", "status": "verified", "id": "factor-1"}
+            ]
+        }
+        self.assertTrue(auth._session_requires_mfa(user, unsigned_jwt_with_aal("aal1")))
+        self.assertTrue(auth._session_requires_mfa(user, unsigned_jwt_with_aal(None)))
+        self.assertTrue(auth._session_requires_mfa(user, "malformed"))
+        self.assertFalse(auth._session_requires_mfa(user, unsigned_jwt_with_aal("aal2")))
+        self.assertFalse(auth._session_requires_mfa({"factors": []}, unsigned_jwt_with_aal("aal1")))
+
     def test_render_hostname_builds_public_app_url(self):
         with patch.dict(
             "os.environ",
@@ -275,6 +301,8 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(auth.ACCESS_COOKIE_NAME in value for value in cookies))
         self.assertTrue(any(auth.REFRESH_COOKIE_NAME in value for value in cookies))
         self.assertTrue(all("HttpOnly" in value for value in cookies))
+        self.assertTrue(all("SameSite=lax" in value for value in cookies))
+        self.assertEqual(all("Secure" in value for value in cookies), auth.COOKIE_SECURE)
 
     async def test_confirmation_session_rejects_unverified_token(self):
         with patch.object(
@@ -405,6 +433,44 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(auth.REFRESH_COOKIE_NAME in value for value in cookies))
         self.assertTrue(all("HttpOnly" in value for value in cookies))
 
+    async def test_me_rejects_old_aal1_session_when_totp_is_verified(self):
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+        }
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, None))),
+        ):
+            response = await auth.current_user(
+                make_request(cookie=f"{auth.ACCESS_COOKIE_NAME}={unsigned_jwt_with_aal('aal1')}")
+            )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.body)["code"], "mfa_required")
+
+    async def test_refresh_resolution_revalidates_the_new_access_token(self):
+        refreshed = {
+            "access_token": unsigned_jwt_with_aal("aal1"),
+            "refresh_token": "rotated-refresh",
+            "user": {"id": "untrusted-refresh-payload"},
+        }
+        validated_user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+        }
+        request = make_request(cookie=f"{auth.REFRESH_COOKIE_NAME}=old-refresh")
+        with (
+            patch.object(auth, "_refresh_session", AsyncMock(return_value=refreshed)),
+            patch.object(auth, "user_from_token", AsyncMock(return_value=validated_user)) as validate,
+        ):
+            user, session = await auth._resolve_session(request)
+        self.assertEqual(user["id"], "owner-a")
+        self.assertEqual(session["refresh_token"], "rotated-refresh")
+        validate.assert_awaited_once_with(refreshed["access_token"])
+
 
 class AuthMiddlewareTest(unittest.TestCase):
     def setUp(self):
@@ -473,6 +539,64 @@ class AuthMiddlewareTest(unittest.TestCase):
             response = client.get("/private")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["owner_id"], "owner-a")
+
+    def test_private_route_blocks_old_aal1_session_after_totp_is_enabled(self):
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+        }
+        token = unsigned_jwt_with_aal("aal1")
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, None))),
+            TestClient(self.app) as client,
+        ):
+            response = client.get("/private", cookies={auth.ACCESS_COOKIE_NAME: token})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["code"], "mfa_required")
+        self.assertIn(auth.ACCESS_COOKIE_NAME, response.headers.get("set-cookie", ""))
+
+    def test_private_route_accepts_aal2_and_users_without_totp(self):
+        users_and_tokens = [
+            (
+                {
+                    "id": "owner-a",
+                    "email": "a@example.com",
+                    "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+                },
+                unsigned_jwt_with_aal("aal2"),
+            ),
+            ({"id": "owner-b", "email": "b@example.com", "factors": []}, unsigned_jwt_with_aal("aal1")),
+        ]
+        for user, token in users_and_tokens:
+            with (
+                patch.object(auth, "AUTH_REQUIRED", True),
+                patch.object(auth, "_configuration_ready", return_value=True),
+                patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, None))),
+                TestClient(self.app) as client,
+            ):
+                response = client.get("/private", cookies={auth.ACCESS_COOKIE_NAME: token})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["owner_id"], user["id"])
+
+    def test_refreshed_aal1_session_with_verified_totp_is_blocked(self):
+        user = {
+            "id": "owner-a",
+            "email": "a@example.com",
+            "factors": [{"id": "factor-1", "factor_type": "totp", "status": "verified"}],
+        }
+        renewed = {"access_token": unsigned_jwt_with_aal("aal1"), "refresh_token": "new-refresh"}
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", AsyncMock(return_value=(user, renewed))),
+            TestClient(self.app) as client,
+        ):
+            response = client.get("/private", cookies={auth.REFRESH_COOKIE_NAME: "old-refresh"})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["code"], "mfa_required")
 
     def test_private_route_redirects_unverified_html_request(self):
         user = {

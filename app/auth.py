@@ -1,6 +1,8 @@
 import os
 import re
 import logging
+import base64
+import json
 import threading
 import time
 import hashlib
@@ -360,6 +362,50 @@ async def user_from_token(token: str) -> dict | None:
     return response.json() if response.status_code == 200 else None
 
 
+def _token_aal(access_token: str) -> str | None:
+    """Read the AAL claim from a token already validated by Supabase Auth.
+
+    Callers must first validate this exact token through ``/auth/v1/user`` or
+    receive it directly from a successful Supabase token, refresh, or verify
+    response. The JSON parser only decodes here; it is not the trust boundary.
+    """
+    try:
+        segments = access_token.split(".")
+        if len(segments) != 3:
+            return None
+        payload = segments[1] + ("=" * (-len(segments[1]) % 4))
+        claims = json.loads(base64.urlsafe_b64decode(payload).decode("utf-8"))
+        if not isinstance(claims, dict):
+            return None
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return None
+    aal = claims.get("aal")
+    # Supabase treats tokens without an explicit claim as aal1.
+    return str(aal) if aal in {"aal1", "aal2"} else "aal1"
+
+
+def _verified_totp_factor_from_user(user: dict) -> dict | None:
+    factors = user.get("factors") if isinstance(user, dict) else []
+    if not isinstance(factors, list):
+        factors = []
+    return next(
+        (
+            factor
+            for factor in factors
+            if isinstance(factor, dict)
+            and (factor.get("factor_type") or factor.get("type")) == "totp"
+            and factor.get("status") == "verified"
+        ),
+        None,
+    )
+
+
+def _session_requires_mfa(user: dict, access_token: str | None) -> bool:
+    if _verified_totp_factor_from_user(user) is None:
+        return False
+    return _token_aal(access_token or "") != "aal2"
+
+
 async def _refresh_session(refresh_token: str) -> dict | None:
     try:
         response = await _supabase_request(
@@ -395,8 +441,30 @@ def _set_session_cookies(response: Response, session: dict) -> None:
 
 
 def _clear_session_cookies(response: Response) -> None:
-    response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
-    response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
+    cookie_options = {
+        "path": "/",
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": "lax",
+    }
+    response.delete_cookie(ACCESS_COOKIE_NAME, **cookie_options)
+    response.delete_cookie(REFRESH_COOKIE_NAME, **cookie_options)
+
+
+def _mfa_required_response(*, html: bool = False) -> Response:
+    if html:
+        response: Response = RedirectResponse("/dashboard?mfa_required=1", status_code=303)
+    else:
+        response = JSONResponse(
+            {
+                "detail": "Esta conta tem autenticação em duas etapas. Entre novamente e confirme o código do autenticador.",
+                "code": "mfa_required",
+            },
+            status_code=403,
+        )
+    _clear_session_cookies(response)
+    _clear_mfa_pending_cookies(response)
+    return response
 
 
 def _set_mfa_pending_cookies(response: Response, session: dict, factor_id: str, challenge_id: str) -> None:
@@ -421,7 +489,13 @@ def _clear_mfa_pending_cookies(response: Response) -> None:
         MFA_PENDING_FACTOR_COOKIE_NAME,
         MFA_PENDING_CHALLENGE_COOKIE_NAME,
     ):
-        response.delete_cookie(name, path="/")
+        response.delete_cookie(
+            name,
+            path="/",
+            httponly=True,
+            secure=COOKIE_SECURE,
+            samesite="lax",
+        )
 
 
 async def _verified_mfa_factor(access_token: str) -> dict | None:
@@ -444,18 +518,51 @@ async def _verified_mfa_factor(access_token: str) -> dict | None:
     except ValueError as exc:
         raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
     factors = payload.get("factors") if isinstance(payload, dict) else []
-    if not isinstance(factors, list):
-        factors = []
-    return next(
-        (
-            factor
-            for factor in factors
-            if isinstance(factor, dict)
-            and (factor.get("factor_type") or factor.get("type")) == "totp"
-            and factor.get("status") == "verified"
-        ),
-        None,
+    return _verified_totp_factor_from_user({"factors": factors})
+
+
+async def _create_mfa_challenge(access_token: str, factor_id: str) -> str:
+    try:
+        response = await _supabase_request(
+            "POST",
+            f"/auth/v1/factors/{factor_id}/challenge",
+            token=access_token,
+            json={},
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
+    if response.status_code not in {200, 201}:
+        raise HTTPException(503, "Nao foi possivel iniciar a verificacao 2FA.")
+    try:
+        challenge_id = str(response.json().get("id") or "").strip()
+    except (ValueError, AttributeError) as exc:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
+    if not challenge_id:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
+    return challenge_id
+
+
+def _mfa_pending_response(
+    session: dict,
+    factor: dict,
+    challenge_id: str,
+    user: dict,
+) -> JSONResponse:
+    factor_id = str(factor.get("id") or "").strip()
+    if not factor_id:
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
+    result = JSONResponse(
+        {
+            "authenticated": False,
+            "mfa_required": True,
+            "factor_id": factor_id,
+            "challenge_id": challenge_id,
+            "user": {"id": user.get("id"), "email": user.get("email")},
+            "message": "Digite o código do seu aplicativo autenticador para continuar.",
+        }
     )
+    _set_mfa_pending_cookies(result, session, factor_id, challenge_id)
+    return result
 
 
 async def _resolve_session(request: Request) -> tuple[dict | None, dict | None]:
@@ -468,7 +575,9 @@ async def _resolve_session(request: Request) -> tuple[dict | None, dict | None]:
     session = await _refresh_session(refresh_token) if refresh_token else None
     if session is None:
         return None, None
-    return session.get("user"), session
+    refreshed_access_token = session.get("access_token")
+    refreshed_user = await user_from_token(refreshed_access_token) if refreshed_access_token else None
+    return refreshed_user, session
 
 
 async def authenticated_user(request: Request) -> dict:
@@ -529,35 +638,14 @@ async def login(payload: LoginRequest, request: Request = None):
     if authenticated:
         factor = await _verified_mfa_factor(session["access_token"])
         if factor:
-            try:
-                challenge_response = await _supabase_request(
-                    "POST",
-                    f"/auth/v1/factors/{factor.get('id')}/challenge",
-                    token=session["access_token"],
-                    json={},
-                )
-            except httpx.HTTPError as exc:
-                raise HTTPException(503, "Servico de autenticacao indisponivel.") from exc
-            if challenge_response.status_code not in {200, 201}:
-                raise HTTPException(503, "Nao foi possivel iniciar a verificacao 2FA.")
-            challenge = challenge_response.json()
-            challenge_id = str(challenge.get("id") or "").strip()
             factor_id = str(factor.get("id") or "").strip()
-            if not factor_id or not challenge_id:
+            if not factor_id:
                 raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
-            result = JSONResponse(
-                {
-                    "authenticated": False,
-                    "mfa_required": True,
-                    "factor_id": factor_id,
-                    "challenge_id": challenge_id,
-                    "message": "Digite o código do seu aplicativo autenticador para continuar.",
-                }
-            )
-            _set_mfa_pending_cookies(result, session, factor_id, challenge_id)
-            return result
+            challenge_id = await _create_mfa_challenge(session["access_token"], factor_id)
+            return _mfa_pending_response(session, factor, challenge_id, session_user or {})
     if authenticated:
         _set_session_cookies(result, session)
+        _clear_mfa_pending_cookies(result)
     return result
 
 
@@ -630,6 +718,7 @@ async def signup(payload: SignupRequest, request: Request = None):
     )
     if authenticated:
         _set_session_cookies(result, session)
+        _clear_mfa_pending_cookies(result)
     return result
 
 
@@ -641,20 +730,27 @@ async def accept_session(payload: SessionRequest):
     if not _email_is_verified(user):
         raise _email_confirmation_error()
 
+    session = {
+        "access_token": payload.access_token,
+        "refresh_token": payload.refresh_token,
+        "expires_in": payload.expires_in,
+    }
+    factor = _verified_totp_factor_from_user(user)
+    if factor and _session_requires_mfa(user, payload.access_token):
+        factor_id = str(factor.get("id") or "").strip()
+        if not factor_id:
+            raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
+        challenge_id = await _create_mfa_challenge(payload.access_token, factor_id)
+        return _mfa_pending_response(session, factor, challenge_id, user)
+
     result = JSONResponse(
         {
             "authenticated": True,
             "user": {"id": user["id"], "email": user.get("email")},
         }
     )
-    _set_session_cookies(
-        result,
-        {
-            "access_token": payload.access_token,
-            "refresh_token": payload.refresh_token,
-            "expires_in": payload.expires_in,
-        },
-    )
+    _set_session_cookies(result, session)
+    _clear_mfa_pending_cookies(result)
     return result
 
 
@@ -784,7 +880,30 @@ async def mfa_verify(payload: MfaCodeRequest, request: Request, user: dict = Dep
         raise HTTPException(503, "Servico de autenticacao indisponivel.")
     if response.status_code not in {200, 201}:
         raise HTTPException(400, _supabase_error(response, "Codigo 2FA invalido."))
-    return {"verified": True, "message": "Autenticador ativado com sucesso."}
+    try:
+        session = response.json()
+    except ValueError:
+        session = {}
+    if not isinstance(session, dict):
+        session = {}
+    result = JSONResponse(
+        {
+            "verified": True,
+            "reauth_required": not (
+                session.get("access_token")
+                and _token_aal(session["access_token"]) == "aal2"
+            ),
+            "message": "Autenticador ativado com sucesso.",
+        }
+    )
+    if session.get("access_token") and _token_aal(session["access_token"]) == "aal2":
+        _set_session_cookies(result, session)
+    else:
+        # A verified factor must never leave an AAL1 cookie able to access the
+        # application. If the provider did not return the elevated session,
+        # send the user through the normal login challenge.
+        _clear_session_cookies(result)
+    return result
 
 
 @router.post("/mfa/challenge")
@@ -868,8 +987,12 @@ async def mfa_complete_login(payload: MfaLoginCodeRequest, request: Request):
         session = response.json()
     except ValueError as exc:
         raise HTTPException(503, "Resposta invalida do servico de autenticacao.") from exc
+    if not isinstance(session, dict):
+        raise HTTPException(503, "Resposta invalida do servico de autenticacao.")
     if not session.get("access_token"):
         raise HTTPException(503, "O provedor nao retornou uma sessao 2FA valida.")
+    if _token_aal(session["access_token"]) != "aal2":
+        raise HTTPException(503, "O provedor nao confirmou uma sessao 2FA elevada.")
     result = JSONResponse({"authenticated": True, "mfa_verified": True})
     _set_session_cookies(result, session)
     _clear_mfa_pending_cookies(result)
@@ -896,6 +1019,10 @@ async def current_user(request: Request):
         )
         _clear_session_cookies(response)
         return response
+
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME) or (renewed_session or {}).get("access_token")
+    if _session_requires_mfa(user, access_token):
+        return _mfa_required_response()
 
     response = JSONResponse(
         {
@@ -988,6 +1115,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             _clear_session_cookies(response)
             return response
+
+        access_token = request.cookies.get(ACCESS_COOKIE_NAME) or (renewed_session or {}).get("access_token")
+        if _session_requires_mfa(user, access_token):
+            wants_html = request.method in {"GET", "HEAD"} and "text/html" in request.headers.get("accept", "")
+            return _mfa_required_response(html=wants_html)
 
         request.state.user = user
         response = await call_next(request)
