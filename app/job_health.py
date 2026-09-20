@@ -4,6 +4,7 @@ Avalia a qualidade e confiabilidade de um anúncio de vaga.
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from .ats_registry import (
@@ -11,6 +12,46 @@ from .ats_registry import (
     is_redirect_domain,
     is_confidential_company,
 )
+
+
+def _normalize_risk_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    return " ".join(normalized.casefold().split())
+
+
+def _has_protective_negation(sentence: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:nao|nunca|jamais)\b[^.!?\n]{0,120}\b(?:cobra(?:mos|r)?|cobranca|solicita(?:mos|r)?|pede(?:mos|r)?|exige(?:mos|r)?|precisa|necessita|ha|existe|sera cobrada|pague|pagar|envie|enviar|transferir|depositar)\b",
+            sentence,
+        )
+        or re.search(r"\b(?:desconfie|evite)\b[^.!?\n]{0,100}\b(?:taxa|pix|deposito|documento|pagamento)\b", sentence)
+        or re.search(r"\b(?:gratuit[oa]s?|sem custo|sem cobranca|gratuitamente)\b", sentence)
+    )
+
+
+def _risk_clauses(text: str) -> list[str]:
+    """Split raw text before accent folding so the verb “é” is not split as “e”."""
+    return [
+        _normalize_risk_text(clause)
+        for clause in re.split(
+            r"[,;!?]+\s*|\.\s+|\n+|\b(?:mas|por[eé]m|contudo|entretanto|e)\s+",
+            text,
+        )
+        if clause.strip()
+    ]
+
+
+def _actionable_match(patterns: tuple[str, ...], text: str) -> re.Match | None:
+    for clause in _risk_clauses(text):
+        if _has_protective_negation(clause):
+            continue
+        for pattern in patterns:
+            match = re.search(pattern, clause)
+            if match:
+                return match
+    return None
 
 
 @dataclass
@@ -261,106 +302,112 @@ class JobHealthEvaluator:
     # ============ GRUPO C - Risco de Golpe ============
     def _evaluate_fraud_risk(self, job_data: dict):
         """Avalia sinais de golpe ou relação de trabalho enganosa."""
-        text = f"{job_data.get('title', '')} {job_data.get('description', '')}".lower()
-        company = job_data.get("company", "").lower()
-        
-        # Pedido de pagamento
-        payment_patterns = [
-            "taxa de cadastro", "kit inicial", "material de treinamento",
-            "investimento inicial", "pague", "depósito", "taxa de inscrição",
-            "valores de", "pagamento antecipado"
-        ]
-        for pattern in payment_patterns:
-            if pattern in text:
-                self._add_signal(
-                    "PEDIDO_PAGAMENTO",
-                    f"Esta vaga pede pagamento: '{pattern}'",
-                    "C", -60,
-                    f"Trecho suspeito: '...{pattern}...'"
-                )
-                return
-        
-        # Pedido de documento antes da entrevista
-        doc_patterns = [
-            "envie seu cpf", "foto do rg", "dados bancários",
-            "cópia do documento", "documentos pessoais", "envie seus documentos"
-        ]
-        for pattern in doc_patterns:
-            if pattern in text:
+        raw_text = f"{job_data.get('title', '')} {job_data.get('description', '')}"
+        text = _normalize_risk_text(raw_text)
+
+        payment_patterns = (
+            r"\btaxa(?:s)?\s+(?:de\s+)?(?:cadastro|inscricao|participacao|processo seletivo|entrevista|treinamento|material)\b",
+            r"\b(?:cobram|cobraremos|cobranca de)\s+(?:uma\s+)?taxa\b",
+            r"\b(?:pague|pagar|efetue|realize|transfira|deposite)\b[^.!?\n]{0,100}\b(?:taxa|pix|deposito|transferencia|pagamento|kit|curso|material|treinamento)\b",
+            r"\b(?:pix|chave pix|deposito|transferencia|pagamento)\b[^.!?\n]{0,100}\b(?:para|a fim de)\s+(?:participar|concorrer|se candidatar|continuar|garantir|agendar)\b",
+            r"\b(?:compre|adquira|pague|pagar)\b[^.!?\n]{0,80}\b(?:kit|curso|material|treinamento)\b",
+            r"\b(?:compra|comprar|aquisicao|adquirir|adquira)\b[^.!?\n]{0,80}\b(?:kit|curso|material|treinamento)\b",
+            r"\binvestimento inicial\b|\bpagamento antecipado\b",
+        )
+        if _actionable_match(payment_patterns, raw_text):
+            self._add_signal(
+                "PEDIDO_PAGAMENTO",
+                "O anúncio solicita taxa, pagamento ou transferência para avançar no processo",
+                "C", -60,
+                "Solicitação de pagamento associada à candidatura",
+            )
+            return
+
+        # A coleta de documento só é tratada como risco alto quando há pedido
+        # antecipado por canal informal, não por uma etapa normal de admissão.
+        document_terms = r"\b(?:cpf|rg|identidade|dados bancarios|documentos pessoais|copia do documento|selfie|foto do documento)\b"
+        request_terms = r"\b(?:envie|enviar|encaminhe|encaminhar|mande|mandar|informe|informar|compartilhe|compartilhar|anexe|anexar|forneca|fornecer)\b"
+        early_terms = r"\b(?:antes da entrevista|antes de ser entrevistado|para se candidatar|para participar do processo seletivo|na primeira etapa|antes da contratacao)\b"
+        informal_terms = r"\b(?:whatsapp|telegram|gmail\.com|hotmail\.com|outlook\.com|yahoo\.com)\b"
+        for sentence in _risk_clauses(raw_text):
+            if not _has_protective_negation(sentence) and all(
+                re.search(pattern, sentence)
+                for pattern in (document_terms, request_terms, early_terms, informal_terms)
+            ):
                 self._add_signal(
                     "PEDIDO_DOCUMENTO",
-                    f"Pedido de documentos antes da entrevista: '{pattern}'",
+                    "O anúncio pede documento sensível antes da entrevista por canal informal",
                     "C", -50,
-                    f"Trecho suspeito: '...{pattern}...'"
+                    "Documento ou dado bancário solicitado antes da entrevista",
                 )
                 return
-        
-        # Renda irreal
-        income_patterns = [
-            r"ganhe até r\$\s*\d{1,3}\.\d{3}\s*por dia",
+
+        income_patterns = (
+            r"ganhe ate r\$\s*\d{1,3}\.\d{3}\s*por dia",
             r"renda extra sem sair de casa",
             r"ganho imediato",
             r"r\$\s*\d{1,2}\.\d{3},\d{2}\s*por dia",
-            r"até r\$\s*\d{1,3}\.\d{3}",
-        ]
-        for pattern in income_patterns:
-            if re.search(pattern, text):
-                self._add_signal(
-                    "RENDA_IRREAL",
-                    "Promessa de renda irreal ou exagerada",
-                    "C", -40,
-                    f"Trecho suspeito: '{re.search(pattern, text).group()}'"
-                )
-                return
-        
-        # Marketing multinível (MMN)
-        mmn_patterns = [
-            "marketing de rede", "mmn", "seja seu próprio chefe",
-            "monte sua equipe", "empreendedorismo digital",
-            "sistema de indicação", "ganhe com suas indicações"
-        ]
-        for pattern in mmn_patterns:
-            if pattern in text:
-                self._add_signal(
-                    "MARKETING_MULTINIVEL",
-                    f"Sinais de marketing multinível: '{pattern}'",
-                    "C", -50,
-                    f"Termo encontrado: '{pattern}'"
-                )
-                return
-        
-        # Contato só por WhatsApp/Telegram
-        if "whatsapp" in text and any(tld in text for tld in ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com"]):
+            r"ate r\$\s*\d{1,3}\.\d{3}",
+        )
+        if _actionable_match(income_patterns, raw_text):
             self._add_signal(
-                "CONTATO_INSEGURO",
-                "Contato via WhatsApp com e-mail em domínio gratuito",
-                "C", -30,
-                "E-mail gratuito combinado com WhatsApp"
+                "RENDA_IRREAL",
+                "Promessa de renda irreal ou exagerada",
+                "C", -40,
+                "Promessa de remuneração diária excepcional",
             )
-        
-        # CLT prometido com remuneração 100% comissionada
-        if "clt" in text and ("comissão" in text or "comissões" in text) and "fixo" not in text:
+            return
+
+        mmn_patterns = (
+            r"marketing de rede", r"\bmmn\b", r"seja seu proprio chefe",
+            r"monte sua equipe", r"empreendedorismo digital",
+            r"sistema de indicacao", r"ganhe com suas indicacoes",
+        )
+        if _actionable_match(mmn_patterns, raw_text):
+            self._add_signal(
+                "MARKETING_MULTINIVEL",
+                "O anúncio apresenta sinais de marketing multinível",
+                "C", -50,
+                "Promessa de renda baseada em rede ou indicação",
+            )
+            return
+
+        direct_contact_pattern = r"\b(?:chame|fale|contate|contatar|entre em contato|envie seu curriculo|mande seu curriculo)\b[^.!?\n]{0,100}\b(?:whatsapp|telegram)\b"
+        free_email_pattern = r"\b(?:gmail|hotmail|outlook|yahoo)\.com\b"
+        for clause in _risk_clauses(raw_text):
+            if (
+                not _has_protective_negation(clause)
+                and re.search(direct_contact_pattern, clause)
+                and re.search(free_email_pattern, clause)
+            ):
+                self._add_signal(
+                    "CONTATO_INSEGURO",
+                    "O anúncio direciona a candidatura para mensageria e e-mail pessoal",
+                    "C", -30,
+                    "Convite de contato por mensageria com e-mail gratuito",
+                )
+                break
+
+        if re.search(r"\bclt\b", text) and re.search(r"\bcomissoes?\b", text) and not re.search(r"\b(?:salario|remuneracao) fixo\b", text):
             self._add_signal(
                 "CLT_SEM_FIXO",
                 "CLT prometido com remuneração apenas comissionada",
                 "C", -25,
-                "'CLT' combinado com 'comissão' sem salário fixo"
+                "CLT combinado com comissão sem indicação de salário fixo",
             )
-        
-        # PJ ou MEI apresentado como emprego
-        if ("pj" in text or "mei" in text) and "clt" not in text:
+
+        if re.search(r"\b(?:pj|mei)\b", text) and not re.search(r"\bclt\b", text):
             self._add_signal(
                 "PJ_COMO_EMPREGO",
-                "Contratação PJ/MEI apresentada como emprego",
-                "C", -15,
-                "Termo 'PJ' ou 'MEI' na descrição"
+                "A vaga informa contratação PJ/MEI; confira o regime antes de avançar",
+                "C", -8,
+                "Modalidade PJ/MEI identificada",
             )
-        
-        # Excesso de urgência
-        urgency_patterns = [
-            "vaga urgente", "últimas vagas", "início imediato",
-            "contratação imediata", "preencha já", "vagas limitadas"
-        ]
+
+        urgency_patterns = (
+            "vaga urgente", "ultimas vagas", "inicio imediato",
+            "contratacao imediata", "preencha ja", "vagas limitadas"
+        )
         urgency_count = sum(1 for p in urgency_patterns if p in text)
         if urgency_count >= 3:
             self._add_signal(
@@ -369,8 +416,7 @@ class JobHealthEvaluator:
                 "C", -10,
                 f"{urgency_count} termos de urgência encontrados"
             )
-        
-        # Erros grosseiros de escrita
+
         if self._has_many_spelling_errors(text):
             self._add_signal(
                 "ERROS_ORTIGRAFICOS",
@@ -381,58 +427,64 @@ class JobHealthEvaluator:
     
     def _has_many_spelling_errors(self, text: str) -> bool:
         """Detecta possíveis erros ortográficos (heurística básica)."""
-        # Palavras comuns com erros frequentes em vagas brasileiras
+        # Apenas formas claramente incorretas; remover acentos de uma palavra
+        # correta não deve ser contabilizado como erro de ortografia.
         suspicious = [
-            "concursso", "empressa", "experiencia", "opurtunidade",
-            "candidato", "entrevista", "salario", "beneficios",
-            "horario", "trabalho", "equipe", "projeto"
+            "concursso", "empressa", "opurtunidade", "oportuniddade",
+            "experienca", "candidatto", "entrevsta", "benefisios",
         ]
-        error_count = sum(1 for s in suspicious if s in text.lower())
-        return error_count >= 3
+        error_count = sum(1 for s in suspicious if s in _normalize_risk_text(text))
+        return error_count >= 2
     
     # ============ GRUPO D - Origem ============
     def _evaluate_source(self, job_data: dict):
-        """Avalia a confiabilidade da origem da vaga."""
+        """Avalia apenas sinais verificáveis da origem; domínio genérico não prova legitimidade."""
         url = job_data.get("url", "")
         source = job_data.get("source", "")
         
-        # URL em domínio de ATS conhecido
+        # A plataforma conhecida identifica o canal de publicação, mas não
+        # confirma por si só a empresa nem a legitimidade do anúncio.
         is_ats, ats_name = is_ats_domain(url)
         if is_ats:
             self._add_signal(
                 "ATS_CONHECIDO",
-                f"Vaga publicada em plataforma confiável: {ats_name}",
-                "D", +20,
-                f"Fonte: {ats_name}"
+                f"Link em plataforma de recrutamento conhecida: {ats_name}",
+                "D", +15,
+                "O domínio do link corresponde à plataforma; confira a empresa e o anúncio",
             )
         
-        # URL em domínio corporativo
-        if url and not is_ats:
+        if url:
             from urllib.parse import urlparse
             try:
-                parsed = urlparse(url)
-                domain = parsed.netloc.lower()
-                if domain.startswith("www."):
-                    domain = domain[4:]
-                # Empresas grandes costumam ter .com.br ou .com
-                if any(tld in domain for tld in [".com.br", ".com", ".org"]):
+                parsed = urlparse(url.strip())
+                if parsed.scheme.casefold() == "http":
                     self._add_signal(
-                        "DOMINIO_CORPORATIVO",
-                        "URL em domínio corporativo",
-                        "D", +15,
-                        f"Domínio: {domain}"
+                        "URL_SEM_HTTPS",
+                        "O anúncio usa HTTP sem criptografia no endereço",
+                        "D", -10,
+                        "O link não usa HTTPS",
                     )
             except Exception:
                 pass
         
-        # URL encurtada
+        # Um canal de chegada por e-mail não valida o remetente nem o anúncio.
+        # Links encurtados seguem como sinal de cautela, salvo o encurtador
+        # oficial do LinkedIn quando essa origem foi identificada no alerta.
         if is_redirect_domain(url):
-            self._add_signal(
-                "URL_ENCURTADA",
-                "URL encurtada (menos confiável)",
-                "D", -20,
-                "Link encurtado"
+            from urllib.parse import urlparse
+            host = (urlparse(url).hostname or "").casefold().rstrip(".")
+            source_name = _normalize_risk_text(source)
+            is_linkedin_short_link = (
+                source_name == "linkedin"
+                and (host == "lnkd.in" or host.endswith(".lnkd.in"))
             )
+            if not is_linkedin_short_link:
+                self._add_signal(
+                    "URL_ENCURTADA",
+                    "O anúncio usa um link encurtado; confira o destino antes de avançar",
+                    "D", -20,
+                    "Destino final não está visível no link",
+                )
         
         # Sem URL
         if not url:
@@ -441,13 +493,4 @@ class JobHealthEvaluator:
                 "A vaga não tem URL para verificação",
                 "D", -15,
                 "URL não informada"
-            )
-        
-        # Origem é alerta de e-mail de portal conhecido
-        if source == "gmail" and is_ats:
-            self._add_signal(
-                "ALERTA_EMAIL",
-                "Vaga recebida por alerta de e-mail confiável",
-                "D", +5,
-                f"Fonte: {source}"
             )

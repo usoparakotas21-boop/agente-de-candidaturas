@@ -146,7 +146,8 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="applicationRiskCheck"', html)
         self.assertIn('id="riskAcknowledged"', html)
         self.assertIn("/risk-review", html)
-        self.assertIn('item.health_band === "DUVIDOSA"', html)
+        self.assertIn('["DUVIDOSA", "SUSPEITA"].includes(item.health_band)', html)
+        self.assertIn("const isFraud = Boolean(item.fraud_suspected)", html)
         self.assertIn("isReview && !item.risk_reviewed_at", html)
 
     def test_dashboard_has_dismissible_guided_onboarding(self):

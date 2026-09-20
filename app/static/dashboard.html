@@ -1161,7 +1161,7 @@
       ENTREVISTA: "Entrevista", APROVADO: "Aprovado", RECUSADO: "Recusado", ARQUIVADA: "Arquivada"
     };
     const decisionLabels = {AUTOMATICA: "Automática", CAPTURAR: "Capturar", REVISAR: "Revisar", DESCARTAR: "Descartar"};
-    const healthLabels = {SAUDAVEL: "Risco baixo", ACEITAVEL: "Risco baixo", DUVIDOSA: "Revisar risco", SUSPEITA: "Risco alto"};
+    const healthLabels = {SAUDAVEL: "Risco baixo", ACEITAVEL: "Risco baixo", DUVIDOSA: "Revisar risco", SUSPEITA: "Revisão necessária"};
     const statuses = Object.keys(statusLabels);
     let applications = [];
     let queueItems = [];
@@ -1181,7 +1181,7 @@
     const scoreClass = score => score == null ? "" : score >= 85 ? "high" : score >= 55 ? "mid" : "low";
     const badgeClass = status => ({APROVADO:"green", ENTREVISTA:"amber", RECUSADO:"red", ARQUIVADA:"gray", CURRICULO_GERADO:"blue", CANDIDATURA_ENVIADA:"blue"}[status] || "gray");
     const decisionBadgeClass = decision => ({AUTOMATICA:"green", CAPTURAR:"green", REVISAR:"amber", DESCARTAR:"red"}[decision] || "gray");
-    const healthClass = band => ({SAUDAVEL:"safe", ACEITAVEL:"safe", DUVIDOSA:"review", SUSPEITA:"risk"}[band] || "review");
+    const healthClass = (band, fraud) => ({SAUDAVEL:"safe", ACEITAVEL:"safe", DUVIDOSA:"review", SUSPEITA:fraud ? "risk" : "review"}[band] || "review");
     const csvValues = value => String(value || "").split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
     function applicationPlatform(url) {
       try {
@@ -1369,7 +1369,7 @@
       $("queueRows").innerHTML = visible.map(item => {
         const pending = item.status === "PENDENTE";
         const reasons = (item.decision_reasons || []).slice(0, 3).join(" . ");
-        const health = item.health_band ? `<span class="queue-health ${healthClass(item.health_band)}" title="${escapeHtml((item.health_signals || []).map(signal => signal.label).slice(0, 3).join("; "))}">● ${healthLabels[item.health_band] || "Risco a revisar"}${item.health_score == null ? "" : ` · ${item.health_score}/100`}</span>` : "";
+        const health = item.health_band ? `<span class="queue-health ${healthClass(item.health_band, item.fraud_suspected)}" title="${escapeHtml((item.health_signals || []).map(signal => signal.label).slice(0, 3).join("; "))}">● ${healthLabels[item.health_band] || "Risco a revisar"}${item.health_score == null ? "" : ` · ${item.health_score}/100`}</span>` : "";
         const title = escapeHtml(item.title || "Cargo não identificado");
         const titleMarkup = item.url
           ? `<a class="job-title queue-job-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${title}</a>`
@@ -1553,8 +1553,9 @@
       const acknowledgement = $("applicationRiskAcknowledgement");
       const acknowledgementInput = $("riskAcknowledged");
       const signals = item.health_signals || [];
-      const isReview = item.health_band === "DUVIDOSA";
-      const isRisk = item.health_band === "SUSPEITA" || item.fraud_suspected;
+      const isFraud = Boolean(item.fraud_suspected);
+      const isReview = ["DUVIDOSA", "SUSPEITA"].includes(item.health_band) && !isFraud;
+      const isRisk = isFraud;
       check.hidden = !item.health_band;
       acknowledgement.hidden = !isReview;
       acknowledgementInput.checked = Boolean(item.risk_reviewed_at);
@@ -1564,8 +1565,8 @@
         : "";
       if (!item.health_band) return;
       if (isRisk) {
-        $("applicationRiskTitle").textContent = "Risco alto detectado";
-        $("applicationRiskMessage").textContent = "Não avance enquanto a origem, a empresa e qualquer pedido de pagamento não forem verificados por canais oficiais.";
+        $("applicationRiskTitle").textContent = "Possível fraude detectada";
+        $("applicationRiskMessage").textContent = "Não avance com esta candidatura. Verifique a empresa e o anúncio pelos canais oficiais.";
       } else if (isReview) {
         $("applicationRiskTitle").textContent = "Revise a segurança da vaga";
         $("applicationRiskMessage").textContent = "Encontramos sinais que merecem conferência. Verifique empresa, domínio e condições antes de abrir o anúncio.";

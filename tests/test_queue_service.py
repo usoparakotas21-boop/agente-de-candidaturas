@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Application, ApplicationEvent, Job, utc_now
 from app.queue_service import (
+    QueueRiskBlockedError,
     approve,
     enqueue,
     expire_stale,
@@ -97,7 +98,20 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         enqueue(
             self.session,
             None,
-            {"title": "Business Partner", "company": "Empresa Teste"},
+            {
+                "title": "Business Partner",
+                "company": "Empresa Teste",
+                "url": "https://empresa.test/vagas/123",
+                "salary_min": 6000,
+                "salary_max": 8000,
+                "description": (
+                    "Responsabilidades: conduzir os processos de recrutamento, seleção e integração, "
+                    "acompanhar indicadores e apoiar líderes. Requisitos: experiência em RH, "
+                    "comunicação, organização e domínio das ferramentas do setor. "
+                    "A empresa oferece benefícios, salário compatível e ambiente colaborativo. "
+                    "Todas as etapas são comunicadas pelo portal oficial de carreiras."
+                ),
+            },
             {"decision": "CAPTURAR", "reasons": [], "engine_version": "test"},
             "teste",
         )
@@ -106,26 +120,87 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(summary["revisar"]["pendente"], 1)
         self.assertEqual(summary["capturar"]["total"], 1)
 
-    def test_health_risk_signals_are_preserved_for_review(self):
+    def test_health_risk_signals_are_recalculated_from_listing_content(self):
         item = enqueue(
             self.session,
             None,
             {
-                "title": "Oportunidade suspeita",
+                "title": "Analista de RH",
                 "company": "Empresa Teste",
-                "health_score": 10,
-                "health_band": "SUSPEITA",
-                "health_signals": [{"code": "PEDIDO_PAGAMENTO", "label": "Pede pagamento"}],
-                "fraud_suspected": True,
+                "description": "Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista.",
             },
-            {"decision": "DESCARTAR", "reasons": ["SAUDE_SUSPEITA"], "engine_version": "test"},
+            {"decision": "CAPTURAR", "reasons": [], "engine_version": "test"},
             "teste",
         )[0]
 
-        self.assertEqual(item.health_score, 10)
+        self.assertLessEqual(item.health_score, 15)
         self.assertEqual(item.health_band, "SUSPEITA")
         self.assertTrue(item.fraud_suspected)
-        self.assertEqual(item.health_signals[0]["code"], "PEDIDO_PAGAMENTO")
+        self.assertIn("PEDIDO_PAGAMENTO", {signal["code"] for signal in item.health_signals})
+        self.assertEqual(item.decision, "DESCARTAR")
+
+    def test_approval_rechecks_legacy_content_and_blocks_fraud_but_allows_rejection(self):
+        suspected = enqueue(
+            self.session,
+            None,
+            {
+                "title": "Analista de RH",
+                "company": "Empresa Teste",
+                "description": "Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista.",
+            },
+            {"decision": "REVISAR", "reasons": [], "engine_version": "test"},
+            "teste",
+        )[0]
+        # Simula registro legado com os campos de risco antigos ou ausentes.
+        suspected.health_band = None
+        suspected.health_score = None
+        suspected.health_signals = []
+        suspected.fraud_suspected = False
+        self.session.commit()
+
+        with self.assertRaisesRegex(QueueRiskBlockedError, "bloqueada por sinais de fraude"):
+            approve(self.session, None, suspected.id)
+        self.assertEqual(suspected.status, "PENDENTE")
+        self.assertTrue(suspected.fraud_suspected)
+
+        rejected = reject(self.session, None, suspected.id, "Fonte suspeita")
+        self.assertEqual(rejected["status"], "RECUSADO")
+        self.assertEqual(suspected.status, "RECUSADO")
+
+    def test_duvidosa_opportunity_can_be_approved_manually(self):
+        item = enqueue(
+            self.session,
+            None,
+            {"title": "Vaga duvidosa", "health_band": "DUVIDOSA", "fraud_suspected": False},
+            {"decision": "REVISAR", "reasons": [], "engine_version": "test"},
+            "teste",
+        )[0]
+
+        result = approve(self.session, None, item.id)
+
+        self.assertEqual(result["status"], "PROMOVIDO")
+        self.assertIsNotNone(result["job_id"])
+        application = self.session.query(Application).filter_by(job_id=result["job_id"]).one()
+        self.assertEqual(application.health_band, "SUSPEITA")
+        self.assertFalse(application.fraud_suspected)
+
+    def test_automatic_promotion_never_skips_fraud_check(self):
+        item = enqueue(
+            self.session,
+            None,
+            {
+                "title": "Analista de RH",
+                "company": "Empresa Teste",
+                "description": "Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista.",
+            },
+            {"decision": "AUTOMATICA", "reasons": [], "engine_version": "test"},
+            "teste",
+        )[0]
+
+        self.assertEqual(item.status, "PENDENTE")
+        self.assertEqual(item.decision, "DESCARTAR")
+        self.assertTrue(item.fraud_suspected)
+        self.assertIsNone(item.job_id)
 
     def test_structured_intake_fields_follow_item_into_job(self):
         item = enqueue(
@@ -141,9 +216,13 @@ class QueueServiceLocalModeTest(unittest.TestCase):
                 "salary_confidence": 80,
                 "contract_confidence": 90,
                 "url": "https://example.test/rh",
-                "health_score": 58,
-                "health_band": "DUVIDOSA",
-                "health_signals": [{"code": "DOMINIO_NOVO", "label": "Domínio ainda não verificado"}],
+                "salary_min": 6000,
+                "salary_max": 8000,
+                "description": (
+                    "Responsabilidades: conduzir recrutamento e seleção, apoiar gestores e acompanhar indicadores. "
+                    "Requisitos: experiência com RH, comunicação e organização. "
+                    "A empresa oferece benefícios, salário compatível e processo seletivo pelo portal oficial."
+                ),
             },
             {"decision": "REVISAR", "reasons": [], "engine_version": "test"},
             "texto",
@@ -161,6 +240,6 @@ class QueueServiceLocalModeTest(unittest.TestCase):
         self.assertEqual(job.salary_confidence, 80)
         self.assertEqual(job.contract_confidence, 90)
         application = self.session.query(Application).filter_by(job_id=job.id).one()
-        self.assertEqual(application.health_score, 58)
-        self.assertEqual(application.health_band, "DUVIDOSA")
-        self.assertEqual(application.health_signals[0]["code"], "DOMINIO_NOVO")
+        self.assertEqual(application.health_score, item.health_score)
+        self.assertEqual(application.health_band, item.health_band)
+        self.assertEqual(application.health_signals, item.health_signals)

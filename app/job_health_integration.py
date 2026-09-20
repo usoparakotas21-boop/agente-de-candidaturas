@@ -25,12 +25,9 @@ def should_block_by_health(health_result: HealthResult) -> tuple[bool, str | Non
     if health_result.fraud_suspected:
         return True, "Alerta de golpe detectado"
     
-    if health_result.band == "SUSPEITA":
-        return True, "Vaga suspeita (score muito baixo)"
-    
-    if health_result.band == "DUVIDOSA":
-        # Para DUVIDOSA, não bloqueamos, mas marcamos para revisão
-        return False, None
+    if health_result.band in {"DUVIDOSA", "SUSPEITA"}:
+        # Baixa qualidade exige revisão, mas não prova fraude por si só.
+        return False, "Vaga requer revisão manual"
     
     return False, None
 
@@ -42,9 +39,9 @@ def get_health_decision_override(health_result: HealthResult) -> str | None:
     - DUVIDOSA -> REVISAR
     - SAUDAVEL ou ACEITAVEL -> None (deixa o motor decidir)
     """
-    if health_result.fraud_suspected or health_result.band == "SUSPEITA":
+    if health_result.fraud_suspected:
         return "DESCARTAR"
-    if health_result.band == "DUVIDOSA":
+    if health_result.band in {"DUVIDOSA", "SUSPEITA"}:
         return "REVISAR"
     return None
 

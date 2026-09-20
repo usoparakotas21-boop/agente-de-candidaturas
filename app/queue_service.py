@@ -19,6 +19,51 @@ from app.models import (
 from app.decision_reasons import get_reason_label
 
 
+class QueueRiskBlockedError(ValueError):
+    """Raised when a high-risk queue item cannot be approved."""
+
+
+def _refresh_queue_item_health(item: QueueItem) -> bool:
+    """Reevaluate stored listing content so legacy risk fields cannot bypass gates."""
+    # Local import avoids the module cycle: job_quality's integration imports
+    # queue_service for enqueue().
+    from app.job_quality import assess_job_capture
+
+    salary = ""
+    if item.salary_min is not None or item.salary_max is not None:
+        salary = f"{item.salary_min or ''} - {item.salary_max or ''}".strip(" -")
+    result = assess_job_capture({
+        "source": item.source or "",
+        "title": item.title or "",
+        "company": item.company or "",
+        "location": item.location or "",
+        "modality": item.modality or "",
+        "contract_type": item.contract_type or "",
+        "salary": salary,
+        "url": item.url or "",
+        "description": item.description or "",
+    })
+    health = result.get("health") or {}
+    item.health_score = health.get("score")
+    item.health_band = health.get("band")
+    item.health_signals = health.get("signals") or []
+    item.fraud_suspected = bool(health.get("fraud_suspected", False))
+
+    stale_health_reasons = {"FRAUDE_SUSPEITA", "SAUDE_SUSPEITA", "SAUDE_DUVIDOSA"}
+    reasons = [reason for reason in (item.decision_reasons or []) if reason not in stale_health_reasons]
+    if item.fraud_suspected:
+        item.decision = "DESCARTAR"
+        if "FRAUDE_SUSPEITA" not in reasons:
+            reasons.append("FRAUDE_SUSPEITA")
+    elif item.health_band in {"DUVIDOSA", "SUSPEITA"}:
+        item.decision = "REVISAR"
+        reason = "SAUDE_SUSPEITA" if item.health_band == "SUSPEITA" else "SAUDE_DUVIDOSA"
+        if reason not in reasons:
+            reasons.append(reason)
+    item.decision_reasons = reasons
+    return item.fraud_suspected
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -109,8 +154,10 @@ def enqueue(
     session.add(item)
     session.flush()
 
+    is_fraud = _refresh_queue_item_health(item)
+
     # Se for AUTOMATICA, promover imediatamente
-    if item.decision == "AUTOMATICA":
+    if item.decision == "AUTOMATICA" and not is_fraud:
         _promote_item(session, item, effective_owner_id)
 
     session.commit()
@@ -122,6 +169,9 @@ def _promote_item(session: Session, item: QueueItem, owner_id: Optional[str]) ->
     Promove um item da fila para job.
     Interno - usado por enqueue e approve.
     """
+    if _refresh_queue_item_health(item):
+        raise QueueRiskBlockedError("Esta oportunidade foi bloqueada por sinais de fraude e não pode ser aprovada.")
+
     # A aprovacao no modo local chega sem owner_id; o item e a fonte de
     # verdade para manter o job no mesmo escopo.
     effective_owner_id = owner_id or item.owner_id or "local_user"
@@ -208,6 +258,12 @@ def approve(session: Session, owner_id: Optional[str], item_id: int) -> dict:
             "job_id": item.job_id,
             "message": f"Item ja esta {item.status}"
         }
+
+    # Reavalie conteúdo em itens antigos e mantenha baixa qualidade em revisão,
+    # sem confundir banda de score baixo com fraude comprovada.
+    if _refresh_queue_item_health(item):
+        session.commit()
+        raise QueueRiskBlockedError("Esta oportunidade foi bloqueada por sinais de fraude e não pode ser aprovada.")
 
     # Promover
     job = _promote_item(session, item, owner_id)

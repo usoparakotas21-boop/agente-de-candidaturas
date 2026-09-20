@@ -94,6 +94,19 @@ class JobQualityTest(unittest.TestCase):
         self.assertEqual(quality["decision"], "DESCARTAR")
         self.assertIn("cargo com baixa confianca", quality["reasons"])
 
+    def test_nonfraud_suspicious_health_band_requires_review_not_discard(self):
+        quality = assess_job_capture({
+            "title": "Banco de talentos",
+            "company": "Empresa confidencial",
+            "description": "",
+            "salary": "",
+            "url": "",
+        })
+
+        self.assertEqual(quality["health"]["band"], "SUSPEITA")
+        self.assertFalse(quality["health"]["fraud_suspected"])
+        self.assertEqual(quality["decision"], "REVISAR")
+
 
 if __name__ == "__main__":
     unittest.main()

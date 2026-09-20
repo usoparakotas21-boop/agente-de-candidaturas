@@ -510,6 +510,25 @@ def _ensure_app(db, job, cand):
 def _advance_app(db, app, status, note=""):
     if APPLICATION_STATUSES.index(status) > APPLICATION_STATUSES.index(app.status):
         _add_event(db, app, status, note)
+
+
+def _enforce_application_risk_gate(app, target_status: str):
+    """Keep risky opportunities from being marked as submitted without review."""
+    submission_statuses = {"CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO"}
+    if target_status not in submission_statuses:
+        return
+    if app.fraud_suspected:
+        raise HTTPException(
+            409,
+            "Esta oportunidade foi bloqueada por sinais de fraude e nao pode avancar.",
+        )
+    if (app.health_band or "").strip().upper() in {"DUVIDOSA", "SUSPEITA"} and not app.risk_reviewed_at:
+        raise HTTPException(
+            409,
+            "Revise os sinais de risco antes de registrar o envio da candidatura.",
+        )
+
+
 def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_text: bool = False):
     an = None
     if a.analysis_data:
@@ -528,11 +547,75 @@ def _cand_prefs(cand):
     return normalize_preferences(s, target_roles=cand.target_roles if cand else "", location=cand.location if cand else "")
 def _apply_decision(app, cand, analysis):
     r = decide_opportunity({"title": app.job.title, "company": app.job.company, "location": app.job.location, "modality": app.job.modality, "description": app.job.description, "salary": app.job.salary, "salary_min": app.job.salary_min, "salary_max": app.job.salary_max, "contract_type": app.job.contract_type}, analysis, _cand_prefs(cand), capture_confidence=app.capture_confidence)
+    reasons = list(r["reasons"])
+    health_band = (app.health_band or "").strip().upper()
+    if app.fraud_suspected:
+        r["decision"] = "DESCARTAR"
+        reasons.extend(reason for reason in ("SAUDE_SUSPEITA", "FRAUDE_SUSPEITA") if reason not in reasons)
+    elif health_band in {"DUVIDOSA", "SUSPEITA"}:
+        r["decision"] = "REVISAR"
+        health_reason = "SAUDE_SUSPEITA" if health_band == "SUSPEITA" else "SAUDE_DUVIDOSA"
+        if health_reason not in reasons:
+            reasons.append(health_reason)
     app.queue_decision = r["decision"]
-    app.decision_reasons = json.dumps(r["reasons"], ensure_ascii=False)
+    app.decision_reasons = json.dumps(reasons, ensure_ascii=False)
+
+
 def _save_quality(app, q):
+    previous_risk = (
+        app.health_score,
+        (app.health_band or "").strip().upper(),
+        bool(app.fraud_suspected),
+        json.dumps(app.health_signals or [], ensure_ascii=False, sort_keys=True),
+    )
     app.capture_confidence = int(q["confidence"])
     app.field_confidence = json.dumps(q["field_confidence"], ensure_ascii=False)
+    health = q.get("health")
+    if isinstance(health, dict):
+        app.health_score = health.get("score")
+        app.health_band = health.get("band")
+        app.health_signals = health.get("signals") or []
+        app.fraud_suspected = bool(health.get("fraud_suspected", False))
+        current_risk = (
+            app.health_score,
+            (app.health_band or "").strip().upper(),
+            bool(app.fraud_suspected),
+            json.dumps(app.health_signals or [], ensure_ascii=False, sort_keys=True),
+        )
+        if app.risk_reviewed_at and previous_risk != current_risk:
+            app.risk_reviewed_at = None
+
+
+def _refresh_application_risk(app):
+    """Reassess stored job content before review or submission to cover legacy records."""
+    job = app.job
+    quality = assess_job_capture(_job_quality_payload(job))
+    _save_quality(app, quality)
+    _apply_decision(app, None, None)
+
+
+def _job_quality_payload(job):
+    return {
+        "source": job.source or "",
+        "title": job.title or "",
+        "company": job.company or "",
+        "location": job.location or "",
+        "modality": job.modality or "",
+        "contract_type": job.contract_type or "",
+        "salary": job.salary or "",
+        "url": job.url or "",
+        "description": job.description or "",
+    }
+
+
+def _job_risk_content_signature(job):
+    payload = _job_quality_payload(job)
+    return tuple(str(payload.get(key) or "").strip() for key in (
+        "source", "title", "company", "location", "modality",
+        "contract_type", "salary", "url", "description",
+    ))
+
+
 def _save_analysis(app, analysis, cand):
     app.analysis_score = analysis["score"]
     app.recommendation = analysis["recommendation"]
@@ -967,7 +1050,7 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
         if existing:
             c = _candidate_for_user(db, user)
             app = _ensure_app(db, existing, c)
-            _save_quality(app, quality)
+            previous_job_signature = _job_risk_content_signature(existing)
             analysis = None
             if req.reprocess_existing:
                 existing.source = parsed["source"]
@@ -980,6 +1063,10 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
                 for f in ("modality_confidence", "salary_confidence", "contract_confidence", "salary_min", "salary_max"):
                     if parsed.get(f) is not None:
                         setattr(existing, f, parsed[f])
+            if previous_job_signature != _job_risk_content_signature(existing):
+                app.risk_reviewed_at = None
+            _save_quality(app, assess_job_capture(_job_quality_payload(existing)))
+            if req.reprocess_existing:
                 if req.auto_analyze:
                     arts = _build_application(existing, c)
                     analysis = arts["analysis"]
@@ -1164,6 +1251,7 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         job = db.scalar(select(Job).where(Job.external_id == ext_id))
         updated = job is not None
+        previous_job_signature = _job_risk_content_signature(job) if job is not None else None
         vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "contract_type": sanitize_untrusted_text(req.contract_type, max_chars=50).strip(), "modality_confidence": req.modality_confidence, "salary_confidence": req.salary_confidence, "contract_confidence": req.contract_confidence, "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "salary_min": req.salary_min, "salary_max": req.salary_max, "url": req.url.strip()[:1000], "description": safe_description}
         if job is None:
             job = Job(owner_id=oid, external_id=ext_id, **vals); db.add(job); db.flush()
@@ -1171,7 +1259,9 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
             for k, v in vals.items(): setattr(job, k, v)
         c = _candidate_for_user(db, user)
         app = _ensure_app(db, job, c)
-        quality = assess_job_capture(vals)
+        if previous_job_signature is not None and previous_job_signature != _job_risk_content_signature(job):
+            app.risk_reviewed_at = None
+        quality = assess_job_capture(_job_quality_payload(job))
         _save_quality(app, quality)
         analysis = None
         if req.auto_analyze:
@@ -1837,6 +1927,11 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
     try:
         app = _application_for_user(db, app_id, user)
         if app is None: raise HTTPException(404, "Candidatura nao encontrada.")
+        if req.status in {"CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO"}:
+            _refresh_application_risk(app)
+            db.commit()
+            db.refresh(app)
+        _enforce_application_risk_gate(app, req.status)
         if app.status != req.status or req.note or req.channel or req.external_result:
             _add_event(db, app, req.status, req.note, req.channel, req.external_result)
         db.commit(); db.refresh(app)
@@ -1846,16 +1941,21 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
 
 @app.post("/applications/{app_id}/risk-review")
 def review_application_risk(app_id: int, user=Depends(authenticated_user)):
-    """Registra uma revisão deliberada antes de abrir uma vaga duvidosa."""
+    """Registra revisão deliberada para anúncio de qualidade duvidosa ou suspeita."""
     db = SessionLocal()
     try:
         app = _application_for_user(db, app_id, user)
         if app is None:
             raise HTTPException(404, "Candidatura nao encontrada.")
-        if app.health_band != "DUVIDOSA":
+        _refresh_application_risk(app)
+        db.commit()
+        db.refresh(app)
+        if app.fraud_suspected:
+            raise HTTPException(409, "Sinais de fraude foram detectados; esta vaga nao pode avancar.")
+        if (app.health_band or "").strip().upper() not in {"DUVIDOSA", "SUSPEITA"}:
             raise HTTPException(409, "Esta vaga nao exige confirmacao adicional de risco.")
         app.risk_reviewed_at = utc_now()
-        _add_event(db, app, app.status, "Sinais de risco revisados antes de abrir o anuncio.")
+        _add_event(db, app, app.status, "Sinais de risco revisados antes de avancar na candidatura.")
         db.commit(); db.refresh(app)
         allowed = _document_export_metadata(user)["allowed"]
         return _serialize_app(app, allowed, allowed)

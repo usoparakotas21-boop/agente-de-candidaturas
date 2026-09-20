@@ -307,7 +307,9 @@ def assess_job_capture(parsed: dict[str, Any], history: dict[str, Any] | None = 
 
     # ========== DECISÃO FINAL ==========
     # Se a saúde for DUVIDOSA, força REVISAR
-    if health_override == "REVISAR":
+    if normalized_title in GENERIC_TITLES or len(title) < 3:
+        decision = "DESCARTAR"
+    elif health_override == "REVISAR":
         decision = "REVISAR"
         reasons.append("Saúde da vaga duvidosa - requer revisão")
     elif title_score < 40 or description_score < 35 or confidence < 45:

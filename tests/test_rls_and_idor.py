@@ -153,8 +153,9 @@ class CrossUserIsolationTest(unittest.TestCase):
         app_id = self.application_ids["owner-a"]
         db = self.testing_session()
         application = db.get(Application, app_id)
-        application.health_band = "DUVIDOSA"
-        application.health_signals = [{"code": "DOMINIO_NOVO", "label": "Domínio ainda não verificado"}]
+        # Use a real low-quality, non-fraud listing so review is based on its
+        # current content instead of manually injected/stale health fields.
+        application.job.company = ""
         db.commit()
         db.close()
 

@@ -11,7 +11,14 @@ from typing import Optional, List
 
 from .auth import authenticated_user
 from .database import get_db
-from .queue_service import approve, reject, list_items, get_summary, expire_stale
+from .queue_service import (
+    QueueRiskBlockedError,
+    approve,
+    reject,
+    list_items,
+    get_summary,
+    expire_stale,
+)
 from .decision_reasons import get_reason_labels
 
 
@@ -193,6 +200,8 @@ async def approve_queue_item(
     try:
         result = approve(db, owner_id, item_id)
         return result
+    except QueueRiskBlockedError as e:
+        raise HTTPException(status_code=409, detail=_queue_action_error(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=_queue_action_error(e))
     except Exception as e:
@@ -242,6 +251,13 @@ async def bulk_action(
             else:
                 result = reject(db, owner_id, item_id)
             results.append({"id": item_id, "success": True, "result": result})
+        except QueueRiskBlockedError as e:
+            results.append({
+                "id": item_id,
+                "success": False,
+                "status_code": 409,
+                "error": _queue_action_error(e),
+            })
         except ValueError as e:
             results.append({"id": item_id, "success": False, "error": _queue_action_error(e)})
         except Exception as e:

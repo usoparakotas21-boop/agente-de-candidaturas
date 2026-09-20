@@ -242,6 +242,123 @@ class IntegratedFlowTest(unittest.TestCase):
         self.assertEqual(payload["status"], "VAGA_CADASTRADA")
         self.assertEqual(payload["application"]["status"], "IDENTIFICADA")
 
+    def test_manual_job_creation_persists_and_enforces_high_risk_result(self):
+        request = main_module.JobCreateRequest(
+            source="manual",
+            external_id="fraud-fee-test",
+            company="Empresa Exemplo",
+            title="Analista de Recursos Humanos",
+            location="Salvador/BA",
+            modality="Presencial",
+            salary="R$ 6.000 a R$ 8.000",
+            url="https://careers.empresa.test/jobs/999",
+            description=(
+                "Responsabilidades: conduzir recrutamento, entrevistas e indicadores. "
+                "Requisitos: experiência em Recursos Humanos e legislação trabalhista. "
+                "Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista."
+            ),
+        )
+
+        payload = main_module.create_job(request)
+        db = self.testing_session()
+        try:
+            application = db.query(Application).filter_by(job_id=payload["job"]["id"]).one()
+            self.assertTrue(application.fraud_suspected)
+            self.assertEqual(application.health_band, "SUSPEITA")
+            self.assertIn("PEDIDO_PAGAMENTO", {signal["code"] for signal in application.health_signals})
+            self.assertEqual(application.queue_decision, "DESCARTAR")
+            self.assertIn("FRAUDE_SUSPEITA", main_module.json.loads(application.decision_reasons))
+        finally:
+            db.close()
+
+        with self.assertRaises(HTTPException) as context:
+            main_module.update_app_status(
+                payload["application"]["id"],
+                main_module.ApplicationStatusRequest(status="CANDIDATURA_ENVIADA"),
+                None,
+            )
+        self.assertEqual(context.exception.status_code, 409)
+
+    def test_doubtful_application_needs_audited_review_before_submission(self):
+        db = self.testing_session()
+        job = db.query(Job).filter_by(id=1).one()
+        job.salary = ""
+        application = main_module._ensure_app(db, job, db.query(Candidate).first())
+        application.health_band = "DUVIDOSA"
+        application.fraud_suspected = False
+        application.risk_reviewed_at = None
+        db.commit()
+        app_id = application.id
+        db.close()
+
+        request = main_module.ApplicationStatusRequest(status="CANDIDATURA_ENVIADA")
+        with self.assertRaises(HTTPException) as context:
+            main_module.update_app_status(app_id, request, None)
+        self.assertEqual(context.exception.status_code, 409)
+
+        main_module.review_application_risk(app_id, None)
+        response = main_module.update_app_status(app_id, request, None)
+        self.assertEqual(response["status"], "CANDIDATURA_ENVIADA")
+
+    def test_legacy_application_is_reassessed_before_submission_and_old_review_is_cleared(self):
+        db = self.testing_session()
+        job = db.query(Job).filter_by(id=1).one()
+        job.description += (
+            " Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista."
+        )
+        application = main_module._ensure_app(db, job, db.query(Candidate).first())
+        application.health_band = "SAUDAVEL"
+        application.health_score = 95
+        application.fraud_suspected = False
+        application.health_signals = []
+        application.risk_reviewed_at = main_module.utc_now()
+        db.commit()
+        app_id = application.id
+
+        main_module._refresh_application_risk(application)
+        self.assertTrue(application.fraud_suspected)
+        self.assertIsNone(application.risk_reviewed_at)
+        self.assertEqual(application.queue_decision, "DESCARTAR")
+        db.commit()
+        db.close()
+
+        with self.assertRaises(HTTPException) as context:
+            main_module.update_app_status(
+                app_id,
+                main_module.ApplicationStatusRequest(status="CANDIDATURA_ENVIADA"),
+                None,
+            )
+        self.assertEqual(context.exception.status_code, 409)
+
+    def test_confirmed_intake_cannot_overwrite_high_risk_decision_with_analysis(self):
+        request = main_module.JobIntakeConfirmRequest(
+            external_id="intake-aaaaaaaaaaaaaaaaaaaaaaaa",
+            source="print",
+            company="Empresa Exemplo",
+            title="Analista de Recursos Humanos",
+            location="Salvador/BA",
+            modality="Presencial",
+            salary="R$ 6.000 a R$ 8.000",
+            url="https://careers.empresa.test/jobs/1000",
+            description=(
+                "Responsabilidades: conduzir recrutamento, entrevistas e indicadores. "
+                "Requisitos: experiência em Recursos Humanos e legislação trabalhista. "
+                "Para participar da seleção, pague uma taxa de inscrição via Pix antes da entrevista."
+            ),
+            auto_analyze=True,
+        )
+
+        payload = main_module.confirm_intake(request)
+        db = self.testing_session()
+        try:
+            application = db.query(Application).filter_by(id=payload["application_id"]).one()
+            self.assertTrue(application.fraud_suspected)
+            self.assertEqual(application.health_band, "SUSPEITA")
+            self.assertEqual(application.queue_decision, "DESCARTAR")
+            self.assertIn("FRAUDE_SUSPEITA", main_module.json.loads(application.decision_reasons))
+        finally:
+            db.close()
+
     def test_download_existing_document(self):
         generated = main_module.generate_document_for_job(1)
         application_id = int(generated.headers["x-application-id"])
