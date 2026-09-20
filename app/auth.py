@@ -212,6 +212,10 @@ async def _password_was_compromised(password: str) -> bool:
         return False
     digest = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
     prefix, suffix = digest[:5], digest[5:]
+    unavailable = HTTPException(
+        503,
+        "Nao foi possivel verificar a seguranca da senha agora. Tente novamente.",
+    )
     try:
         async with httpx.AsyncClient(
             timeout=PWNED_PASSWORD_TIMEOUT,
@@ -225,16 +229,32 @@ async def _password_was_compromised(password: str) -> bool:
             )
         if response.status_code != 200:
             logger.warning("Password compromise service returned status=%s", response.status_code)
-            return False
+            raise unavailable
+        found = False
         for line in response.text.splitlines():
-            candidate, _, count = line.partition(":")
-            if candidate.strip().upper() == suffix:
-                try:
-                    return int(count.strip()) > 0
-                except ValueError:
-                    return True
-    except httpx.HTTPError:
-        logger.warning("Password compromise service unavailable", exc_info=True)
+            candidate, separator, count = line.partition(":")
+            candidate = candidate.strip().upper()
+            count = count.strip()
+            if (
+                not separator
+                or len(candidate) != 35
+                or any(char not in "0123456789ABCDEF" for char in candidate)
+                or not count.isdigit()
+            ):
+                logger.warning("Password compromise service returned malformed data")
+                raise unavailable
+            found = True
+            if candidate == suffix:
+                return int(count) > 0
+        if not found:
+            logger.warning("Password compromise service returned an empty range")
+            raise unavailable
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "Password compromise service unavailable error=%s",
+            type(exc).__name__,
+        )
+        raise unavailable
     return False
 
 

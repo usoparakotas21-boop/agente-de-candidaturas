@@ -1,0 +1,89 @@
+name: Daily encrypted Supabase backup
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-daily-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check whether the database secret is configured
+        id: preflight
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: |
+          if [ -z "$SUPABASE_DATABASE_URL" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Configure the SUPABASE_DATABASE_URL Actions secret to enable backups."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the backup scripts and public encryption key
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 17 client tools
+        if: steps.preflight.outputs.enabled == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ca-certificates curl gnupg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error --location \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          pg_dump --version
+
+      - name: Set up Python
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backup encryption dependency
+        if: steps.preflight.outputs.enabled == 'true'
+        run: python -m pip install --disable-pip-version-check cryptography==50.0.0
+
+      - name: Create and encrypt the database dump
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: |
+          output_dir="$RUNNER_TEMP/supabase-backup"
+          python scripts/backup_supabase.py --output-dir "$output_dir"
+          dump_file="$(find "$output_dir" -maxdepth 1 -type f -name 'supabase-*.dump' -print -quit)"
+          test -n "$dump_file"
+          python scripts/backup_encryption.py encrypt "$dump_file" \
+            --public-key scripts/backup_public_key.pem.pub
+          test -s "$dump_file.enc"
+          test -s "$dump_file.enc.json"
+
+      - name: Store encrypted backup for 30 days
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/supabase-backup/*.dump.enc
+            ${{ runner.temp }}/supabase-backup/*.dump.enc.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Remove all runner-local dump files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/supabase-backup"

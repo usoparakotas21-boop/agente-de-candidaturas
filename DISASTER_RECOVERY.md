@@ -5,9 +5,9 @@ segredos. Os valores reais ficam apenas no Supabase, Render e provedores OAuth.
 
 ## Antes de aceitar pagamentos
 
-1. No projeto Supabase de produção, confirmar que os backups automáticos estão
-   ativos, qual é a retenção e se o plano permite restauração para um projeto
-   isolado. Ativar PITR quando estiver disponível no plano.
+1. Confirmar que o workflow gratuito do GitHub Actions concluiu o backup diário
+   e que há um artefato cifrado dentro da retenção de 30 dias. Backups nativos e
+   PITR do Supabase Pro são defesa adicional opcional, não requisito do fluxo.
 2. Registrar a data do último backup e o responsável pela verificação no
    controle operacional privado. Não colocar tokens, URLs completas de banco ou
    dumps neste repositório.
@@ -17,11 +17,18 @@ segredos. Os valores reais ficam apenas no Supabase, Render e provedores OAuth.
 4. Confirmar que o UptimeRobot monitora `/health` e que o alerta chega ao canal
    operacional definido.
 
-No plano Free, a rotina externa já está preparada em
-`scripts/backup_supabase.py`. Ela usa `DATABASE_URL` somente pelo ambiente do
-processo filho (`PGDATABASE`), produz um dump customizado, valida o arquivo com
-`pg_restore --list` e grava checksum SHA-256 e manifesto sem segredos em
-`backups/database/` (diretório ignorado pelo Git).
+No plano Free, a rotina agendada fica em
+`.github/workflows/supabase-backup.yml`. O GitHub Actions executa
+`scripts/backup_supabase.py`, valida o dump com `pg_restore --list`, criptografa
+com AES-256-GCM/RSA-OAEP e armazena somente o artefato cifrado por 30 dias. O
+workflow é gratuito dentro dos limites incluídos no GitHub Free. A URL do banco
+fica na secret `SUPABASE_DATABASE_URL`; a chave privada permanece com o dono,
+fora do GitHub.
+
+O script manual `scripts/backup_supabase.py` continua disponível. Ele usa
+`DATABASE_URL` somente pelo ambiente do processo filho (`PGDATABASE`) e grava
+dump customizado, checksum e manifesto em `backups/database/`, diretório
+ignorado pelo Git.
 
 Antes de agendar, instale os PostgreSQL client tools e valide os pré-requisitos:
 
@@ -53,8 +60,12 @@ aprovado.
   de `vault.secrets`, que não estão disponíveis no PostgreSQL vanilla. Portanto,
   este resultado valida a recuperação dos dados do aplicativo, mas não substitui
   uma restauração integral em um projeto Supabase compatível.
-- Ainda falta configurar retenção em um destino privado externo e agendar o dump
-  diário. A cópia local atual não é uma política de backup contínua.
+- O workflow diário gratuito já está definido, mas só começa a criar artefatos
+  após configurar a secret `SUPABASE_DATABASE_URL`. A chave privada precisa ser
+  guardada fora deste computador; sem ela, a cifra não pode ser revertida.
+- Ainda falta executar o workflow, confirmar a retenção externa e fazer uma
+  restauração completa em ambiente Supabase local/isolado. Até essas evidências,
+  o P0.11 permanece parcial.
 
 ## Teste de restauração
 

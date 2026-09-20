@@ -20,12 +20,11 @@ exemplo Gmail e Outlook). Para cada uma:
 
 O código já registra o gate, usa resposta genérica e limita o reenvio.
 
-## 2. Checkout e replay controlado do Mercado Pago
+## 2. Replay controlado do Mercado Pago sem nova cobrança
 
-Faça um único checkout de teste no Mercado Pago usando uma conta/meio de
-pagamento sob seu controle. Depois de o pagamento aparecer como aprovado,
-obtenha o `payment_id` no painel do Mercado Pago e execute, em um terminal com
-as variáveis carregadas:
+Reutilize o `payment_id` da compra aprovada que já gerou os documentos. Não
+inicie outro checkout nem faça novo pagamento. Obtenha o `payment_id` no painel
+do Mercado Pago e execute, em um terminal com as variáveis carregadas:
 
 ```powershell
 $env:MERCADOPAGO_WEBHOOK_URL = "https://agente-de-candidaturas.onrender.com/webhooks/mercadopago"
@@ -33,10 +32,11 @@ $env:MERCADOPAGO_PAYMENT_ID = "<payment_id_do_checkout>"
 python scripts/replay_mercadopago_webhook.py
 ```
 
-O script envia duas vezes exatamente a mesma entrega assinada. A primeira deve
-confirmar a compra e a segunda deve indicar `idempotent: true` (ou a mesma
-transição já paga, sem liberar novamente). Não informe o segredo na linha de
-comando: o script lê `MERCADOPAGO_WEBHOOK_SECRET` do ambiente local seguro.
+O script envia duas vezes exatamente a mesma entrega assinada. Como a compra
+existente já está paga, ambas podem indicar `idempotent: true`; confirme HTTP
+de sucesso, `verified: true`, que não há segunda liberação/recibo e que o
+documento continua acessível. Não informe o segredo na linha de comando: o
+script lê `MERCADOPAGO_WEBHOOK_SECRET` do ambiente local seguro.
 
 ## 3. Rate limiting entre instâncias
 
@@ -49,42 +49,59 @@ segundo deploy: uma indisponibilidade do Redis passa a falhar fechado com 503.
 
 Não há chave do Redis no cliente nem no Git.
 
-## 4. Proteção nativa contra senhas vazadas
+## 4. Proteção contra senhas vazadas sem upgrade
 
-No Supabase, o recurso **Prevent use of leaked passwords** exige o plano
-compatível. Faça o upgrade somente se essa proteção nativa for necessária para
-o aceite do P0; depois ative a opção em Authentication → Protection e repita um
-cadastro com uma senha de teste conhecida como comprometida. O aplicativo já
-mantém a checagem k-anonimizada como camada independente.
+Não faça upgrade do Supabase só para esse controle. O backend consulta a API
+gratuita HIBP Pwned Passwords usando k-anonimato: envia apenas os primeiros
+cinco caracteres do SHA-1, nunca a senha nem o hash completo, e inclui padding.
+Senhas encontradas são recusadas; indisponibilidade ou resposta inválida do
+serviço retorna erro temporário seguro e não libera a senha. A checagem já é
+aplicada no cadastro e na troca de senha por `PWNED_PASSWORD_CHECK`.
 
-## 5. Backup, restauração e agendamento
+A opção nativa **Prevent use of leaked passwords** do Supabase Pro+ pode ficar
+desligada: ela seria defesa em profundidade, não requisito para fechar o P0.
+Os testes locais cobrem senha comprometida, falha de rede, status 503 e resposta
+malformada. Após publicar a alteração fail-closed, confirme o deploy Live; não
+é necessário criar conta real nem usar senha pessoal para essa verificação.
 
-Instale os PostgreSQL client tools no ambiente que executará o backup e
-configure `DATABASE_URL` apenas como secret. O script não coloca a URL na linha
-de comando:
+## 5. Backup, restauração e agendamento sem plano pago
 
-```powershell
-python scripts/backup_supabase.py --check
-python scripts/backup_supabase.py
-```
+Não use Render Cron nem faça upgrade Supabase Pro. O workflow
+`.github/workflows/supabase-backup.yml` roda diariamente pelo GitHub Actions,
+cria um dump PostgreSQL 17, valida com `pg_restore` e envia somente o arquivo
+cifrado, com retenção de 30 dias. AES-256-GCM protege o dump; a chave de
+conteúdo é envolvida com RSA-OAEP e a chave privada nunca vai para o GitHub.
 
-Para validar restauração, crie um banco/projeto descartável separado, defina a
-URL em `BACKUP_TEST_DATABASE_URL` e execute explicitamente:
+Para habilitar com o mínimo de passos manuais:
 
-```powershell
-python scripts/backup_supabase.py --restore-to $env:BACKUP_TEST_DATABASE_URL
-```
+1. Na configuração do repositório GitHub, em **Settings → Secrets and
+   variables → Actions**, crie a secret `SUPABASE_DATABASE_URL` com a URL
+   PostgreSQL usada no Render. Copie diretamente do Render; não a envie por
+   chat, arquivo ou commit.
+2. Copie `backups/database/backup-decryption-key.pem` para um gerenciador de
+   senhas/arquivos seguro fora deste computador. Sem essa chave, os artefatos
+   são irrecuperáveis. O arquivo nunca deve ser commitado.
+3. No GitHub, abra **Actions → Daily encrypted Supabase backup → Run workflow**.
+   Confirme que a execução terminou verde e que o artifact `supabase-backup-*`
+   contém `.dump.enc` e o manifesto `.json`.
 
-O dump é customizado, verificado com `pg_restore`, recebe SHA-256 e manifesto.
-Agende o comando diário no Render Cron (se o plano permitir) ou no scheduler
-privado que guarda `DATABASE_URL`; mantenha pelo menos uma cópia fora do banco
-de produção e registre o resultado da restauração.
+O agendamento diário já está definido para 05:17 no horário de Brasília. O
+workflow não precisa de secret do GitHub se `SUPABASE_DATABASE_URL` estiver
+ausente: ele apenas encerra com aviso, sem expor dados. A primeira execução e
+uma restauração ainda precisam ser verificadas antes de marcar o P0.11 completo.
+
+Para restaurar, baixe o artifact cifrado, descriptografe localmente com a chave
+privada em um caminho novo e restaure para uma instância Supabase local/isolada,
+nunca para produção. A rotina antiga `scripts/backup_supabase.py` também pode
+ser executada manualmente; `--check` verifica `pg_dump`, `pg_restore` e a
+conexão via `DATABASE_URL`.
 
 **Execução registrada em 19/09/2026:** foi criado um dump real do PostgreSQL 17
 de produção, com checksum validado. A restauração em PostgreSQL 17 descartável
 recuperou as 11 tabelas públicas, as 11 políticas RLS e cerca de 527 linhas
 estimadas. Para esse teste em PostgreSQL vanilla, `supabase_vault` e os dados
 de `vault.secrets` foram excluídos; ainda é necessário validar a restauração
-integral em um projeto Supabase compatível. O dump não foi adicionado ao Git e
-as permissões Windows da pasta local foram restritas. Nenhum agendamento nem
-destino externo de retenção foi configurado.
+integral em um projeto Supabase compatível. O dump foi cifrado localmente e o
+original em texto puro apagado. O workflow gratuito já agenda o upload cifrado
+por 30 dias; falta configurar a secret, guardar a chave fora do computador,
+rodar o workflow e confirmar a restauração completa.
