@@ -91,6 +91,37 @@ class SourceGovernanceTests(unittest.TestCase):
             licensed,
         )
 
+    def test_automated_submission_requires_a_distinct_explicit_right(self):
+        source = approved_source()
+        registry = SourceRegistry([source])
+        with self.assertRaisesRegex(
+            SourceApprovalError,
+            "does not grant required uses: automated_submission",
+        ):
+            require_approved_source(
+                "pilot-board",
+                registry=registry,
+                required_uses=(SourceUse.AUTOMATED_SUBMISSION,),
+            )
+
+        authorized = approved_source(
+            permitted_uses=frozenset(
+                {
+                    SourceUse.AUTOMATED_FETCH,
+                    SourceUse.COMMERCIAL_DISPLAY,
+                    SourceUse.AUTOMATED_SUBMISSION,
+                }
+            )
+        )
+        self.assertEqual(
+            require_approved_source(
+                "pilot-board",
+                registry=SourceRegistry([authorized]),
+                required_uses=(SourceUse.AUTOMATED_SUBMISSION,),
+            ),
+            authorized,
+        )
+
     def test_default_gate_requires_fetch_and_commercial_display_rights(self):
         fetch_only = approved_source(
             permitted_uses=frozenset({SourceUse.AUTOMATED_FETCH})

@@ -104,6 +104,14 @@ Cada fonte/quadro precisa de uma entrada revisada com:
 5. **Proxies e stealth:** permanecem apenas como opção condicional para fontes autorizadas quando necessário e permitido pelos termos. Não usar para contornar CAPTCHA, autenticação, rate limits ou controles de acesso.
 6. **Revalidar:** revisar a autorização e os termos antes de ampliar o piloto, alterar campos/uso, habilitar cache maior ou acrescentar uma empresa/quadro.
 
+## Envio automático de candidaturas — autorização separada
+
+O direito de descobrir ou exibir uma vaga **não** autoriza enviar currículo, carta, respostas de triagem ou dados de contato ao empregador. Cada conector de candidatura deve exigir o uso separado `automated_submission`, aprovação para o ATS/quadro e escopo de endpoint, campos, anexos, retenção e confirmação de recebimento. O envio também precisa de consentimento explícito da pessoa candidata para cada destino e oportunidade selecionados; o limite ou score configurado pelo usuário não substitui esse consentimento.
+
+As APIs oficiais encontradas não são credenciais gerais para candidaturas em portais de terceiros: o [LinkedIn Apply Connect](https://learn.microsoft.com/en-us/linkedin/talent/apply-connect/create-apply-connect-jobs?view=li-lts-2025-04) é restrito a parceiros aprovados; o [Indeed Send Candidates API](https://docs.indeed.com/send-candidates-api/) sincroniza candidaturas de parceiros; e o [Lever Apply to a posting](https://hire.lever.co/developer/documentation) requer chave de API da conta empregadora com acesso ao endpoint. Portanto, nenhuma delas habilita envio a todos os empregadores ou aos nove portais escolhidos sem acordos e credenciais concedidos por cada empresa/integradora.
+
+Automação de navegador, extensão, proxies ou stealth não podem ser usados para contornar termos, autenticação, CAPTCHA, limites ou controles dos portais. Se o portal não conceder uma API/integração que cubra o uso, manter a abertura do anúncio e a preparação personalizada dos documentos, com envio final pela pessoa candidata.
+
 ## Próxima etapa
 
 Concluir a fundação de código deny-by-default, sem aprovar fontes implicitamente. Depois, selecionar um quadro participante e documentar a autorização e o uso permitido antes de P2.1/P2.2. Até lá, nenhuma ingestão em massa nem tabela global `job_listings` deve ser ativada.

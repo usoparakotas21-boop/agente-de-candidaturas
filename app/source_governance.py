@@ -1,9 +1,10 @@
-"""Fail-closed approval checks for automated job-source ingestion.
+"""Fail-closed approval checks for automated job-source uses.
 
 This module intentionally contains no pre-approved sources. An ATS being
 publicly reachable, or already supported by a user-initiated fetch flow, does
-not by itself grant permission for automated collection. Future background
-workers should call :func:`require_approved_source` before fetching anything.
+not by itself grant permission for automated collection, commercial display,
+or candidate submission. Each worker or connector must request every right it
+uses through :func:`require_approved_source`.
 
 The guard is deliberately separate from ``job_source_fetcher.fetch_job_posting``
 so existing user-initiated imports keep their current behavior.
@@ -32,13 +33,14 @@ class SourceStatus(str, Enum):
 
 
 class SourceUse(str, Enum):
-    """Rights which must be explicitly granted for each ingestion behavior."""
+    """Rights which must be explicitly granted for each source behavior."""
 
     AUTOMATED_FETCH = "automated_fetch"
     COMMERCIAL_DISPLAY = "commercial_display"
     AI_PROCESSING = "ai_processing"
     DESCRIPTION_CACHING = "description_caching"
     REDISTRIBUTION = "redistribution"
+    AUTOMATED_SUBMISSION = "automated_submission"
 
 
 APPROVAL_MAX_AGE_DAYS = 180
@@ -326,17 +328,18 @@ def require_approved_source(
     ),
     as_of: date | None = None,
 ) -> JobSource:
-    """Return the fully reviewed source or raise :class:`SourceApprovalError`.
+    """Return a fully reviewed source or raise :class:`SourceApprovalError`.
 
     Pass a complete HTTPS URL to validate its exact hostname and reviewed
     endpoint path, or pass a registered ``source_id`` / ``JobSource`` to
     validate that record. The default requires explicit rights for automated
     fetch and commercial display. Callers must add every other use they
     perform (such as AI processing, description caching, or redistribution)
-    and that right must be separately granted by the source record. Reviews
-    expire after 180 days. This is for future automated ingestion workers
-    only; existing user-initiated ``fetch_job_posting`` calls are intentionally
-    not routed through it.
+    and that right must be separately granted by the source record. Candidate
+    submission is a distinct right (`automated_submission`) and must never be
+    inferred from permission to fetch or display a job. Reviews expire after
+    180 days. Existing user-initiated ``fetch_job_posting`` calls are
+    intentionally not routed through this automated-source gate.
     """
     normalized_uses = _normalize_required_uses(required_uses)
     review_date = date.today() if as_of is None else as_of
