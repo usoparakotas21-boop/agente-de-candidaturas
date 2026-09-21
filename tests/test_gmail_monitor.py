@@ -1,7 +1,12 @@
 import base64
 import unittest
 
-from app.gmail_monitor import _capture_source, _message_content
+from app.gmail_monitor import (
+    _capture_source,
+    _message_content,
+    _message_source_ref,
+    _source_for,
+)
 from app.job_quality import split_job_alert
 
 
@@ -10,6 +15,39 @@ def _encoded(value: str) -> str:
 
 
 class GmailMonitorContentTest(unittest.TestCase):
+    # The sender and email body below are synthetic fixtures, not collected
+    # messages from any job provider.
+
+    def test_source_uses_verified_sender_domain_before_display_name(self):
+        self.assertEqual(
+            _source_for(
+                "LinkedIn Alerts <jobs@notifications.linkedin.com>",
+                "Resumo de vagas sem URL individual.",
+            ),
+            "linkedin",
+        )
+
+    def test_plain_brand_mention_does_not_claim_provider_provenance(self):
+        self.assertEqual(
+            _source_for(
+                "LinkedIn Alerts <jobs@alerts.example.test>",
+                "Veja vagas no LinkedIn e atualize suas preferências.",
+            ),
+            "gmail",
+        )
+
+    def test_forwarded_alert_uses_known_individual_job_url(self):
+        self.assertEqual(
+            _source_for(
+                "Pessoa <pessoa@example.test>",
+                "Analista de RH\nhttps://www.glassdoor.com.br/partner/jobListing.htm?pos=1",
+            ),
+            "glassdoor",
+        )
+
+    def test_queue_reference_preserves_arrival_channel(self):
+        self.assertEqual(_message_source_ref("outlook", "msg-123"), "outlook:msg-123")
+
     def test_keeps_detected_platform_as_queue_source(self):
         self.assertEqual(_capture_source("gmail", "linkedin"), "linkedin")
         self.assertEqual(_capture_source("outlook", "indeed"), "indeed")

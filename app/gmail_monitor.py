@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from contextlib import suppress
+from email.utils import parseaddr
 from html.parser import HTMLParser
 from typing import Any
 
@@ -23,7 +24,14 @@ from .gmail_integration import (
     _client_secret,
 )
 from .job_intake import parse_job_text
-from .job_quality import assess_job_capture, is_grouped_job_summary, split_job_alert
+from .job_quality import (
+    JOB_SOURCE_DOMAINS,
+    assess_job_capture,
+    is_grouped_job_summary,
+    is_probable_job_url,
+    job_source_from_url,
+    split_job_alert,
+)
 from .models import EmailIntegration, ProcessedEmailMessage
 from .queue_service import enqueue
 from .text_sanitization import sanitize_untrusted_text
@@ -45,6 +53,8 @@ KNOWN_SOURCES = {
     "bebee": "bebee",
     "catho": "catho",
     "glassdoor": "glassdoor",
+    "jobbol": "jobbol",
+    "vagas.com": "vagas.com",
 }
 JOB_TERMS = (
     "vaga",
@@ -202,9 +212,23 @@ def _message_content(message: dict[str, Any]) -> dict[str, str]:
 
 
 def _source_for(sender: str, content: str) -> str:
-    combined = f"{sender}\n{content[:4000]}".casefold()
-    for marker, source in KNOWN_SOURCES.items():
-        if marker in combined:
+    # Prefer the authenticated mail header domain. A display name or a
+    # provider mention in a footer is not reliable provenance.
+    address = parseaddr(sender or "")[1].strip().casefold()
+    sender_domain = address.rsplit("@", 1)[-1].rstrip(".") if "@" in address else ""
+    for domain, source in JOB_SOURCE_DOMAINS.items():
+        if sender_domain == domain or sender_domain.endswith("." + domain):
+            return source
+
+    # Forwarded alerts may have a personal sender. In that case, use only a
+    # URL that both belongs to a known provider and resembles an individual
+    # job page; ignore footer/social links and plain-text brand mentions.
+    for candidate in re.findall(r"https?://[^\s<>\[\]\"']+", content or "", flags=re.I):
+        candidate = candidate.rstrip(".,;:!?)'”")
+        if not is_probable_job_url(candidate):
+            continue
+        source = job_source_from_url(candidate)
+        if source:
             return source
     return "gmail"
 
@@ -217,6 +241,11 @@ def _capture_source(source_name: str, detected_source: str) -> str:
     Alertas sem uma plataforma identificável continuam associados ao canal.
     """
     return detected_source if detected_source in KNOWN_SOURCES.values() else source_name
+
+
+def _message_source_ref(source_name: str, message_id: str) -> str:
+    """Keep the email channel beside its provider message identifier."""
+    return f"{source_name}:{message_id}"[:200]
 
 
 def _looks_like_job(subject: str, sender: str, content: str) -> bool:
@@ -468,7 +497,7 @@ async def sync_integration(
                         captured=captured_data,
                         decision_result=decision_result,
                         source=capture_source,
-                        source_ref=message_id,
+                        source_ref=_message_source_ref(source_name, message_id),
                     )
                     db.commit()
                     

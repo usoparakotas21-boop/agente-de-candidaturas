@@ -18,6 +18,8 @@ class DecisionEngineTest(unittest.TestCase):
         self.assertEqual(result["decision"], "REVISAR")
         self.assertIn("automacao desativada pelo usuario", result["reasons"])
         self.assertEqual(result["heuristics_version"], HEURISTICS_VERSION)
+        self.assertEqual(result["heuristics_version"], "br-rh-2")
+        self.assertIn("AUTOMATION_DISABLED", result["reason_codes"])
 
     def test_marks_high_score_match_as_automatic_when_authorized(self):
         preferences = normalize_preferences(
@@ -31,6 +33,7 @@ class DecisionEngineTest(unittest.TestCase):
         )
         result = decide_opportunity(JOB, {"score": 91}, preferences, capture_confidence=90)
         self.assertEqual(result["decision"], "AUTOMATICA")
+        self.assertEqual(result["reason_codes"], ["AUTOMATIC_SCORE_REACHED"])
 
     def test_discards_excluded_company(self):
         result = decide_opportunity(
@@ -68,6 +71,77 @@ class DecisionEngineTest(unittest.TestCase):
             normalize_preferences({"salary_min": 12000}),
         )
         self.assertIn("faixa salarial abaixo da preferência", result["reasons"])
+        self.assertIn("SALARY_BELOW_PREFERENCE", result["reason_codes"])
+
+    def test_unknown_fields_matching_saved_preferences_require_review(self):
+        preferences = normalize_preferences(
+            {
+                "modalities": ["Remoto"],
+                "locations": ["Salvador/BA"],
+                "contract_types": ["CLT"],
+                "schedules": ["Comercial"],
+                "industries": ["Saúde"],
+                "salary_min": 5000,
+                "allow_automatic": True,
+                "automatic_score": 85,
+            }
+        )
+        incomplete_job = {
+            "title": JOB["title"],
+            "company": JOB["company"],
+            "description": JOB["description"],
+            "location": "",
+            "modality": "",
+            "contract_type": "",
+        }
+        result = decide_opportunity(
+            incomplete_job,
+            {"score": 95},
+            preferences,
+            capture_confidence=95,
+        )
+        self.assertEqual(result["decision"], "REVISAR")
+        self.assertTrue(
+            {
+                "MODALITY_UNVERIFIED",
+                "LOCATION_UNVERIFIED",
+                "CONTRACT_TYPE_UNVERIFIED",
+                "SCHEDULE_UNVERIFIED",
+                "INDUSTRY_UNVERIFIED",
+                "SALARY_UNVERIFIED",
+            }.issubset(result["reason_codes"])
+        )
+
+    def test_contract_synonyms_match_without_inferring_a_new_contract(self):
+        result = decide_opportunity(
+            {**JOB, "contract_type": "PJ"},
+            {"score": 91},
+            normalize_preferences(
+                {
+                    "contract_types": ["Pessoa Jurídica"],
+                    "allow_automatic": True,
+                    "automatic_score": 85,
+                }
+            ),
+            capture_confidence=90,
+        )
+        self.assertEqual(result["decision"], "AUTOMATICA")
+
+    def test_keyword_matching_uses_word_boundaries(self):
+        result = decide_opportunity(
+            {**JOB, "title": "Estagiário Administrativo"},
+            {"score": 91},
+            normalize_preferences(
+                {
+                    "required_keywords": ["TI"],
+                    "allow_automatic": True,
+                    "automatic_score": 85,
+                }
+            ),
+            capture_confidence=90,
+        )
+        self.assertEqual(result["decision"], "DESCARTAR")
+        self.assertIn("REQUIRED_KEYWORD_MISSING", result["reason_codes"])
 
     def test_notification_preferences_are_normalized_for_lifecycle_emails(self):
         preferences = normalize_preferences(

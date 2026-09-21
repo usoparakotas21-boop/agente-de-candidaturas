@@ -124,6 +124,57 @@ class JobIntakeParserTest(unittest.TestCase):
         self.assertEqual(result["contract_confidence"], 95)
         self.assertEqual(result["modality"], "Remoto")
 
+    def test_keeps_conflicting_modality_and_contract_unknown(self):
+        result = parse_job_text(
+            "Cargo: Analista de Recursos Humanos\n"
+            "Empresa: Exemplo\n"
+            "Regime: CLT ou PJ\n"
+            "Modalidade: Remoto ou híbrido\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["contract_type"], "")
+        self.assertEqual(result["contract_confidence"], 0)
+        self.assertEqual(result["modality"], "")
+        self.assertEqual(result["modality_confidence"], 0)
+
+    def test_keeps_multiple_unlabeled_salary_values_unknown(self):
+        result = parse_job_text(
+            "Cargo: Analista de Recursos Humanos\n"
+            "Empresa: Exemplo\n"
+            "Benefícios de R$ 800,00 e bônus de R$ 1.200,00.\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["salary"], "")
+        self.assertIsNone(result["salary_min"])
+        self.assertIsNone(result["salary_max"])
+        self.assertEqual(result["salary_confidence"], 0)
+
+    def test_does_not_infer_city_from_role_before_city_state(self):
+        result = parse_job_text(
+            "Analista de RH - Salvador/BA\n"
+            "Empresa Exemplo\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["location"], "")
+
+    def test_explicit_location_label_remains_authoritative(self):
+        result = parse_job_text(
+            "Cargo: Analista de RH - Salvador/BA\n"
+            "Empresa: Exemplo\n"
+            "Localização: Salvador/BA\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["location"], "Salvador/BA")
+
+    def test_keeps_multiple_unlabeled_city_state_values_unknown(self):
+        result = parse_job_text(
+            "Analista de Recursos Humanos\n"
+            "Empresa Exemplo\n"
+            "Salvador/BA ou São Paulo/SP\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["location"], "")
+
     def test_salary_bounds_are_empty_when_salary_is_not_disclosed(self):
         result = parse_job_text(
             "Cargo: Analista de Recursos Humanos\n"

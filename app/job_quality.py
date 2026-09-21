@@ -36,6 +36,29 @@ ROLE_WORDS = (
     "diretor",
     "diretora",
     "head de",
+    "recrutador",
+    "recrutadora",
+    "estagiario",
+    "estagiaria",
+    "aprendiz",
+    "tecnico",
+    "tecnica",
+    "engenheiro",
+    "engenheira",
+    "desenvolvedor",
+    "desenvolvedora",
+    "vendedor",
+    "vendedora",
+    "operador",
+    "operadora",
+    "recepcionista",
+    "atendente",
+    "motorista",
+    "professor",
+    "professora",
+    "advogado",
+    "advogada",
+    "designer",
 )
 
 GENERIC_TITLES = {
@@ -91,6 +114,57 @@ JOB_URL_MARKERS = (
     "jk=",
 )
 
+# Source attribution is only inferred from a validated sender domain or a
+# provider-specific job URL. Mentions of a brand in an email footer/body are
+# not enough to claim that it supplied the opportunity.
+JOB_SOURCE_DOMAINS = {
+    "linkedin.com": "linkedin",
+    "lnkd.in": "linkedin",
+    "indeed.com": "indeed",
+    "gupy.io": "gupy",
+    "glassdoor.com": "glassdoor",
+    "glassdoor.com.br": "glassdoor",
+    "infojobs.com.br": "infojobs",
+    "bebee.com": "bebee",
+    "catho.com.br": "catho",
+    "vagas.com.br": "vagas.com",
+    "jobbol.com.br": "jobbol",
+}
+
+_PROVIDER_JOB_PATHS = {
+    "linkedin.com": (r"/jobs/view/",),
+    "indeed.com": (r"/rc/clk(?:/|$)", r"/viewjob(?:/|$)"),
+    "glassdoor.com": (r"/job-listing/", r"/partner/joblisting\.htm"),
+    "glassdoor.com.br": (r"/job-listing/", r"/partner/joblisting\.htm"),
+    "gupy.io": (r"/jobs?/", r"/vaga/"),
+    "bebee.com": (r"/br/jobs?/", r"/jobs?/"),
+    "jobbol.com.br": (r"/cargos/", r"/vagas?/"),
+    "catho.com.br": (r"/vagas?/", r"/cargos?/"),
+    "vagas.com.br": (r"/vagas?/", r"/perfil/"),
+    "infojobs.com.br": (r"/vagas?/", r"/ofertas?/"),
+}
+
+
+def _host_matches(hostname: str, domain: str) -> bool:
+    return hostname == domain or hostname.endswith("." + domain)
+
+
+def job_source_from_url(url: str) -> str | None:
+    """Return a known job-board source only for an actual URL host."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        hostname = parsed.hostname.casefold().rstrip(".")
+    except (TypeError, ValueError):
+        return None
+    return next(
+        (source for domain, source in JOB_SOURCE_DOMAINS.items() if _host_matches(hostname, domain)),
+        None,
+    )
+
 
 def _normalized(value: str) -> str:
     value = unicodedata.normalize("NFKD", value or "")
@@ -118,12 +192,30 @@ def _urls(value: str) -> list[str]:
 
 
 def is_probable_job_url(url: str) -> bool:
+    if not isinstance(url, str) or not url:
+        return False
     lowered = unquote(url).casefold()
     if any(marker in lowered for marker in IGNORED_URL_MARKERS):
         return False
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    try:
+        parsed = urlparse(url)
+        if (
+            parsed.scheme.casefold() not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return False
+        hostname = parsed.hostname.casefold().rstrip(".")
+    except (TypeError, ValueError):
         return False
+    for domain, patterns in _PROVIDER_JOB_PATHS.items():
+        if _host_matches(hostname, domain):
+            path = unquote(parsed.path).casefold()
+            query = parsed.query.casefold()
+            if domain == "indeed.com" and ("jk=" in query or "jobkey=" in query):
+                return True
+            return any(re.search(pattern, path) for pattern in patterns)
     return any(marker in lowered for marker in JOB_URL_MARKERS)
 
 
@@ -133,7 +225,19 @@ def _probable_title_line(line: str) -> bool:
         return False
     if len(line.split()) > 14 or line.endswith((".", ";", ":")):
         return False
-    return any(role in normalized for role in ROLE_WORDS)
+    if re.match(
+        r"^(?:experiencia|requisitos|responsabilidades|responsabilidade|"
+        r"atribuicoes|atividades|qualificacoes|buscamos|procuramos por)\b",
+        normalized,
+    ):
+        return False
+    return any(
+        re.search(
+            rf"(?<!\w){re.escape(role)}s?(?!\w)",
+            normalized,
+        )
+        for role in ROLE_WORDS
+    )
 
 
 def is_grouped_job_summary(subject: str, content: str) -> bool:

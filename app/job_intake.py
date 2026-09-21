@@ -97,7 +97,9 @@ def _extract_url(text: str) -> str:
     if not urls:
         naked_urls = re.findall(
             r"(?<!@)\b(?:www\.)?(?:bebee\.com|(?:[a-z0-9-]+\.)?gupy\.io|"
-            r"linkedin\.com|indeed\.com)/[^\s<>\]\[\)\(\"']+",
+            r"linkedin\.com|(?:[a-z0-9-]+\.)?indeed\.com|"
+            r"glassdoor\.com(?:\.br)?|infojobs\.com\.br|"
+            r"catho\.com\.br|vagas\.com\.br|jobbol\.com\.br)/[^\s<>\]\[\)\(\"']+",
             text,
             flags=re.I,
         )
@@ -230,8 +232,20 @@ def _fallback_company(lines: list[str], title: str, url: str) -> str:
         host = urlparse(url).hostname or ""
         host = host.removeprefix("www.")
         parts = host.split(".")
-        if len(parts) >= 2 and parts[-2] not in {"linkedin", "indeed", "gupy"}:
-            return parts[-2].replace("-", " ").title()
+        provider_domains = (
+            "linkedin.com", "lnkd.in", "indeed.com", "gupy.io", "glassdoor.com",
+            "glassdoor.com.br", "infojobs.com.br", "bebee.com", "catho.com.br",
+            "vagas.com.br", "jobbol.com.br", "empregos.com.br", "solides.com",
+            "kenoby.com",
+        )
+        is_provider = any(host == domain or host.endswith("." + domain) for domain in provider_domains)
+        if is_provider:
+            return "Empresa nao identificada"
+        # For Brazilian company domains such as careers.empresa.com.br, the
+        # employer label is third from the end, not the generic `com` label.
+        company_part = parts[-3] if host.endswith(".com.br") and len(parts) >= 3 else (parts[-2] if len(parts) >= 2 else "")
+        if company_part:
+            return company_part.replace("-", " ").title()
     return "Empresa nao identificada"
 
 
@@ -239,12 +253,33 @@ def _extract_location(lines: list[str], text: str) -> str:
     labeled = _labeled_value(lines, ("Localizacao", "Local", "Cidade"))
     if labeled:
         return labeled
-    city_state = re.search(
-        r"\b([^\W\d_][\w' -]{2,40})\s*[/,-]\s*([A-Z]{2})\b",
+    city_states = re.findall(
+        r"\b([^\W\d_][\w' -]{2,40}?)\s*[/,-]\s*([A-Z]{2})\b",
         text,
     )
-    if city_state:
-        return f"{city_state.group(1).strip()}/{city_state.group(2)}"
+    # A title may end immediately before the location (for example,
+    # "Analista de RH - Salvador/BA"). Do not turn the whole prefix into a
+    # city; an explicit Local:/Cidade: label above remains authoritative.
+    role_prefix = re.compile(
+        r"\b(?:analista|assistente|auxiliar|coordenador(?:a)?|supervisor(?:a)?|"
+        r"gerente|especialista|consultor(?:a)?|recruiter|recrutador(?:a)?|"
+        r"business partner|head|diretor(?:a)?|estagiari[oa]|aprendiz|"
+        r"tecnic[oa]|engenheir[oa]|desenvolvedor(?:a)?)\b",
+        flags=re.I,
+    )
+    city_states = [
+        (city, state)
+        for city, state in city_states
+        if not role_prefix.search(city)
+    ]
+    unique_city_states = {
+        (city.strip().casefold(), state.upper()): f"{city.strip()}/{state.upper()}"
+        for city, state in city_states
+    }
+    if len(unique_city_states) == 1:
+        return next(iter(unique_city_states.values()))
+    if len(unique_city_states) > 1:
+        return ""
     city_country = re.search(
         r"\b([^\W\d_][\w' -]{2,40})\s*,\s*Brasil\b",
         text,
@@ -255,25 +290,30 @@ def _extract_location(lines: list[str], text: str) -> str:
 def _extract_modality(lines: list[str], text: str) -> str:
     labeled = _labeled_value(lines, ("Modalidade", "Modelo de trabalho"))
     normalized = _normalized(labeled or text)
-    if "hibrid" in normalized:
-        return "Hibrido"
-    if "remot" in normalized or "home office" in normalized:
-        return "Remoto"
-    if "presencial" in normalized:
-        return "Presencial"
-    return labeled
+    matches = set()
+    if re.search(r"\bhibrid\w*\b", normalized):
+        matches.add("Hibrido")
+    if re.search(r"\b(?:remot\w*|home office)\b", normalized):
+        matches.add("Remoto")
+    if re.search(r"\bpresencial\b", normalized):
+        matches.add("Presencial")
+    # A conflicting field or a description that merely lists several models
+    # does not tell us which one belongs to this specific job.
+    return next(iter(matches)) if len(matches) == 1 else ""
 
 
 def _extract_salary(lines: list[str], text: str) -> str:
     labeled = _labeled_value(lines, ("Salario", "Faixa salarial", "Remuneracao"))
     if labeled:
         return labeled
-    match = re.search(
+    matches = re.findall(
         r"R\$\s*[\d.]+(?:,\d{2})?(?:\s*(?:a|-|ate)\s*R?\$?\s*[\d.]+(?:,\d{2})?)?",
         text,
         flags=re.I,
     )
-    return match.group(0) if match else ""
+    # Without a salary label, multiple currency values can refer to benefits,
+    # fees, or unrelated amounts. Keep that field unknown for manual review.
+    return matches[0] if len(matches) == 1 else ""
 
 
 def _salary_bounds(value: str) -> tuple[int | None, int | None]:
@@ -295,18 +335,16 @@ def _extract_contract_type(lines: list[str], text: str) -> str:
     """Classifica o regime brasileiro mais explícito no anúncio."""
     labeled = _labeled_value(lines, ("Regime", "Tipo de contrato", "Contrato", "Modelo de contratação"))
     normalized = _normalized(labeled or text)
-    for term, label in (
-        ("clt", "CLT"),
-        ("pj", "PJ"),
-        ("pessoa juridica", "PJ"),
-        ("mei", "MEI"),
-        ("estagio", "Estágio"),
-        ("temporar", "Temporário"),
-        ("freelance", "Freelance"),
-    ):
-        if re.search(rf"\b{re.escape(term)}\b", normalized):
-            return label
-    return labeled
+    patterns = (
+        (r"\bclt\b", "CLT"),
+        (r"\b(?:pj|pessoa juridica)\b", "PJ"),
+        (r"\bmei\b", "MEI"),
+        (r"\bestagio\b", "Estágio"),
+        (r"\btemporar\w*\b", "Temporário"),
+        (r"\bfreelance\b", "Freelance"),
+    )
+    matches = {label for pattern, label in patterns if re.search(pattern, normalized)}
+    return next(iter(matches)) if len(matches) == 1 else ""
 
 
 def _field_confidence(lines: list[str], labels: tuple[str, ...], value: str, text: str) -> int:
