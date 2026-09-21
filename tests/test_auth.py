@@ -54,22 +54,22 @@ class AuthTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(auth._session_requires_mfa(user, unsigned_jwt_with_aal("aal2")))
         self.assertFalse(auth._session_requires_mfa({"factors": []}, unsigned_jwt_with_aal("aal1")))
 
-    def test_render_hostname_builds_public_app_url(self):
+    def test_defaults_to_public_brand_domain(self):
         with patch.dict(
             "os.environ",
             {"APP_BASE_URL": "", "RENDER_EXTERNAL_HOSTNAME": "app.onrender.com"},
         ):
-            self.assertEqual(auth._app_base_url(), "https://app.onrender.com")
+            self.assertEqual(auth._app_base_url(), "https://candidaturacerta.com.br")
 
-    def test_invalid_explicit_url_falls_back_to_render_hostname(self):
+    def test_invalid_explicit_url_falls_back_to_public_brand_domain(self):
         with patch.dict(
             "os.environ",
             {
-                "APP_BASE_URL": "Site URL https://agente-de-candidaturas.onrender.com",
+                "APP_BASE_URL": "Site URL https://candidaturacerta.com.br",
                 "RENDER_EXTERNAL_HOSTNAME": "app.onrender.com",
             },
         ):
-            self.assertEqual(auth._app_base_url(), "https://app.onrender.com")
+            self.assertEqual(auth._app_base_url(), "https://candidaturacerta.com.br")
 
     async def test_signup_rejects_short_password(self):
         with self.assertRaises(HTTPException) as raised:

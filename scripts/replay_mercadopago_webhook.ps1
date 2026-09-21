@@ -56,7 +56,7 @@ $previousPaymentId = $env:MERCADOPAGO_PAYMENT_ID
 try {
     $secretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureSecret)
     $secretValue = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secretPointer)
-    $env:MERCADOPAGO_WEBHOOK_URL = 'https://agente-de-candidaturas.onrender.com/webhooks/mercadopago'
+    $env:MERCADOPAGO_WEBHOOK_URL = 'https://candidaturacerta.com.br/webhooks/mercadopago'
     $env:MERCADOPAGO_WEBHOOK_SECRET = $secretValue
     $env:MERCADOPAGO_PAYMENT_ID = $paymentId.Trim()
 

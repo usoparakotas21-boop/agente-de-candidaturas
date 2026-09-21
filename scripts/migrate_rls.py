@@ -24,6 +24,7 @@ DIRECT_OWNER_TABLES = (
     "processed_email_messages",
     "document_export_purchases",
     "billing_subscriptions",
+    "consultation_credits",
     "generated_documents",
     "document_deliveries",
     "followup_email_outbox",

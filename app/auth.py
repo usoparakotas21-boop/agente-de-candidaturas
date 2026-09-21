@@ -20,14 +20,11 @@ from app import distributed_rate_limit
 
 def _app_base_url() -> str:
     explicit_url = os.getenv("APP_BASE_URL", "").strip()
-    render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-    render_url = (
-        f"https://{render_hostname}" if render_hostname else ""
-    )
-    candidate = explicit_url or render_url
+    public_url = "https://candidaturacerta.com.br"
+    candidate = explicit_url or public_url
     parsed = urlparse(candidate)
     if parsed.scheme != "https" or not parsed.netloc or any(char.isspace() for char in candidate):
-        return render_url.rstrip("/")
+        return public_url
     return candidate.rstrip("/")
 
 

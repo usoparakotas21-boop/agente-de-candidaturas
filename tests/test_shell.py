@@ -49,6 +49,15 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('animation:global-online-pulse 1.6s ease-in-out infinite', html)
         self.assertIn('transform:scale(.78)', html)
 
+    def test_authenticated_pages_have_neutral_footer_and_live_service_status(self):
+        html = main_module._page(Path(main_module.SECURITY_PAGE_PATH)).body.decode("utf-8")
+        self.assertIn('<footer class="global-footer">', html)
+        self.assertIn("© 2026 Candidatura Certa", html)
+        self.assertIn('id="globalServiceStatus"', html)
+        self.assertIn('fetch("/health"', html)
+        self.assertIn('href="/termos"', html)
+        self.assertIn('href="/privacidade"', html)
+
     def test_dashboard_system_status_has_the_same_visible_pulse(self):
         html = main_module._page(Path(main_module.DASHBOARD_PATH)).body.decode("utf-8")
         self.assertIn('<div class="online">Sistema conectado</div>', html)

@@ -400,6 +400,13 @@ def _page(path: Path) -> HTMLResponse:
 .global-logout{margin:0}
 .global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}
 .global-logout button:hover{background:#ffffff18}
+.global-footer{max-width:1160px;margin:48px auto 0;padding:18px 22px 24px;border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#718198;font:12px Inter,system-ui,sans-serif}
+.global-footer a{color:#3975a8;text-decoration:none}
+.global-footer a:hover{text-decoration:underline}
+.global-footer-status{display:inline-flex;align-items:center;gap:7px}
+.global-footer-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#a8b3c2}
+.global-footer-status[data-state="ok"]::before{background:#28a36a}
+.global-footer-status[data-state="error"]::before{background:#d79019}
 .breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}
 .breadcrumbs a{color:#3975a8;text-decoration:none}
 @keyframes global-online-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(88,214,141,.42)}50%{opacity:.62;transform:scale(.78);box-shadow:0 0 0 5px rgba(88,214,141,0)}}
@@ -436,7 +443,8 @@ def _page(path: Path) -> HTMLResponse:
     if path.name == "security.html": extra = '<script src="/static/security-enhance.js?v=7"></script>'
     nonce = current_csp_nonce()
     html = _nonce_styles(html, nonce)
-    html = html.replace("</body>", extra + "</body>", 1)
+    footer = '''<footer class="global-footer"><span>© 2026 Candidatura Certa</span><span class="global-footer-status" id="globalServiceStatus" data-state="loading" role="status" aria-live="polite">Verificando sistema…</span><span><a href="/termos">Termos</a> · <a href="/privacidade">Privacidade</a> · <a href="mailto:contato@candidaturacerta.com.br">Suporte</a></span></footer><script>(function(){const el=document.getElementById("globalServiceStatus");if(!el)return;fetch("/health",{credentials:"same-origin"}).then(async r=>{const d=await r.json();if(!r.ok||d.db!=="connected")throw new Error("unavailable");el.textContent="Sistema operacional";el.dataset.state="ok"}).catch(()=>{el.textContent="Sistema temporariamente indisponível";el.dataset.state="error"})})();</script>'''
+    html = html.replace("</body>", footer + extra + "</body>", 1)
     html = re.sub(
         r"<script(?![^>]*\bsrc=)([^>]*)>",
         lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
@@ -2524,8 +2532,7 @@ def _public_base_url() -> str:
     configured = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
     if configured.startswith("https://"):
         return configured
-    hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-    return f"https://{hostname}" if hostname else "https://agente-de-candidaturas.onrender.com"
+    return "https://candidaturacerta.com.br"
 
 
 def _document_export_price_cents() -> int:

@@ -26,7 +26,19 @@ services:
       - key: DEMO_VIDEO_URL
         sync: false
       - key: APP_BASE_URL
+        value: "https://candidaturacerta.com.br"
+      - key: SMTP_HOST
         sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "true"
       - key: TOKEN_ENCRYPTION_KEY
         sync: false
       - key: OAUTH_STATE_SECRET

@@ -326,8 +326,7 @@ def _public_base_url() -> str:
     configured = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
     if configured.startswith("https://"):
         return configured
-    hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-    return f"https://{hostname}" if hostname else "https://agente-de-candidaturas.onrender.com"
+    return "https://candidaturacerta.com.br"
 
 
 def _render_digest_message(sender: str, recipient: str, owner_id: str, period_key: str, apps: list[dict]) -> EmailMessage:
