@@ -41,10 +41,12 @@ FOLLOWUP_BATCH_SIZE = 50
 
 
 def smtp_settings() -> dict[str, object] | None:
-    """Return SMTP settings only when the minimum sending configuration exists."""
+    """Return authenticated SMTP settings only when all required credentials exist."""
     host = os.getenv("SMTP_HOST", "").strip()
     sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
-    if not host or not sender:
+    username = os.getenv("SMTP_USERNAME", "").strip()
+    password = os.getenv("SMTP_PASSWORD", "")
+    if not host or not sender or not username or not password:
         return None
     try:
         port = int(os.getenv("SMTP_PORT", "587"))
@@ -54,8 +56,8 @@ def smtp_settings() -> dict[str, object] | None:
         "host": host,
         "port": port,
         "sender": sender,
-        "username": os.getenv("SMTP_USERNAME", "").strip(),
-        "password": os.getenv("SMTP_PASSWORD", ""),
+        "username": username,
+        "password": password,
         "use_tls": os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false",
     }
 

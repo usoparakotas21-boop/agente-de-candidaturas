@@ -296,6 +296,28 @@ class GeneratedDocumentHistoryTests(unittest.TestCase):
         self.assertEqual(result["email_status"], "SKIPPED")
         smtp.assert_not_called()
 
+    def test_document_email_is_skipped_if_smtp_password_is_missing(self):
+        delivery_id = self.delivery_ids[("owner-a", "v1")]
+        with patch.dict(
+            "os.environ",
+            {
+                "SMTP_HOST": "smtp.test",
+                "SMTP_FROM_EMAIL": "no-reply@example.com",
+                "SMTP_USERNAME": "smtp-user",
+            },
+            clear=True,
+        ), patch.object(main_module.smtplib, "SMTP") as smtp:
+            db = self.session_factory()
+            try:
+                delivery = db.get(DocumentDelivery, delivery_id)
+                result = main_module._send_document_delivery(db, delivery, self.users["owner-a"])
+                db.refresh(delivery)
+                self.assertEqual(result, "skipped")
+                self.assertEqual(delivery.status, "SKIPPED")
+            finally:
+                db.close()
+        smtp.assert_not_called()
+
     def test_retention_deletes_expired_document_bytes_and_related_delivery(self):
         db = self.session_factory()
         try:

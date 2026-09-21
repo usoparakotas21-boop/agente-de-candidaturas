@@ -11,6 +11,7 @@ from app.customer_success import (
     cleanup_followup_email_outbox,
     run_followup_digest_cycle,
     schedule_followup_digests,
+    smtp_settings,
     _verified_account_email,
 )
 from app.database import Base
@@ -127,6 +128,22 @@ class CustomerSuccessFollowupTest(unittest.TestCase):
             "SUPABASE_URL": "https://supabase.test",
             "SUPABASE_SERVICE_ROLE_KEY": "service-key-test-only",
         }
+
+    def test_smtp_requires_relay_username_and_password(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "SMTP_HOST": "smtp.test",
+                "SMTP_FROM_EMAIL": "no-reply@example.com",
+                "SMTP_USERNAME": "smtp-user",
+            },
+            clear=True,
+        ):
+            self.assertIsNone(smtp_settings())
+        with patch.dict("os.environ", self.smtp_env(), clear=True):
+            configured = smtp_settings()
+        self.assertIsNotNone(configured)
+        self.assertEqual(configured["username"], "smtp-user")
 
     def test_confirmed_supabase_account_gets_one_digest_not_cv_contact(self):
         with patch.dict("os.environ", self.smtp_env(), clear=False):

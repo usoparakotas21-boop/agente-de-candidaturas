@@ -45,7 +45,7 @@ from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
 from .data_retention import cleanup_expired_raw_data
-from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle
+from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle, smtp_settings
 from .interview_notifications import cleanup_interview_email_outbox, enqueue_interview_notification, run_interview_notification_cycle
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
@@ -2645,16 +2645,14 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         if utc_now() - started < timedelta(minutes=15):
             return "sending"
     recipient = str(purchase.payer_email or "").strip()
-    host = os.getenv("SMTP_HOST", "").strip()
-    sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
-    if not recipient or not host or not sender:
+    smtp_config = smtp_settings()
+    if not recipient or smtp_config is None:
         purchase.receipt_email_status = "SKIPPED"
         db.commit()
         return "skipped"
-    try:
-        port = int(os.getenv("SMTP_PORT", "587"))
-    except ValueError:
-        port = 587
+    host = str(smtp_config["host"])
+    sender = str(smtp_config["sender"])
+    port = int(smtp_config["port"])
     message = EmailMessage()
     message["Subject"] = "Comprovante da exportação — Candidatura Certa"
     message["From"] = sender
@@ -2674,13 +2672,10 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     purchase.receipt_email_started_at = utc_now()
     db.commit()
     try:
-        username = os.getenv("SMTP_USERNAME", "").strip()
-        password = os.getenv("SMTP_PASSWORD", "")
         with smtplib.SMTP(host, port, timeout=10) as smtp:
-            if os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false":
+            if bool(smtp_config["use_tls"]):
                 smtp.starttls()
-            if username:
-                smtp.login(username, password)
+            smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
         logger.warning("Nao foi possivel enviar recibo order_nsu=%s: %s", purchase.order_nsu, exc)
@@ -3298,14 +3293,15 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         db.commit()
         return "skipped"
 
-    host = os.getenv("SMTP_HOST", "").strip()
-    sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
-    if not host or not sender:
+    smtp_config = smtp_settings()
+    if smtp_config is None:
         delivery.status = "SKIPPED"
         delivery.last_error = "Envio por e-mail indisponível; os arquivos estão na biblioteca."
         delivery.last_attempt_at = now
         db.commit()
         return "skipped"
+    host = str(smtp_config["host"])
+    sender = str(smtp_config["sender"])
 
     if len(resume.content) + len(letter.content) > MAX_DOCUMENT_EMAIL_BYTES:
         delivery.status = "SKIPPED"
@@ -3360,17 +3356,10 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         filename=letter.filename,
     )
     try:
-        port = int(os.getenv("SMTP_PORT", "587"))
-    except ValueError:
-        port = 587
-    try:
-        username = os.getenv("SMTP_USERNAME", "").strip()
-        password = os.getenv("SMTP_PASSWORD", "")
-        with smtplib.SMTP(host, port, timeout=15) as smtp:
-            if os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false":
+        with smtplib.SMTP(host, int(smtp_config["port"]), timeout=15) as smtp:
+            if bool(smtp_config["use_tls"]):
                 smtp.starttls()
-            if username:
-                smtp.login(username, password)
+            smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException, TimeoutError):
         logger.warning("Falha no envio de documentos delivery_id=%s", delivery.id)

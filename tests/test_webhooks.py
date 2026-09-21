@@ -238,6 +238,33 @@ class WebhookSecurityTest(unittest.TestCase):
         session.close()
         engine.dispose()
 
+    @patch.object(main_module.smtplib, "SMTP")
+    def test_receipt_is_skipped_when_authenticated_smtp_password_is_missing(self, smtp_mock):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(bind=engine)
+        session = sessionmaker(bind=engine)()
+        purchase = DocumentExportPurchase(
+            owner_id="owner-a", payer_email="pessoa@example.com", order_nsu="order-no-smtp-password", amount=990,
+            status="PAID", paid_amount=990, transaction_nsu="payment-no-smtp-password",
+        )
+        session.add(purchase)
+        session.commit()
+        with patch.dict(
+            "os.environ",
+            {
+                "SMTP_HOST": "smtp.test",
+                "SMTP_FROM_EMAIL": "no-reply@test",
+                "SMTP_USERNAME": "user",
+            },
+            clear=True,
+        ):
+            self.assertEqual(main_module._send_purchase_receipt(session, purchase), "skipped")
+            session.refresh(purchase)
+            self.assertEqual(purchase.receipt_email_status, "SKIPPED")
+        smtp_mock.assert_not_called()
+        session.close()
+        engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main()
