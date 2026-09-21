@@ -12,7 +12,7 @@
   card.setAttribute("aria-labelledby", "browser-assistant-title");
   card.innerHTML = `
     <h2 id="browser-assistant-title">Preencha alguns dados da vaga com o copiloto</h2>
-    <p>O copiloto pode levar para o formulário da Gupy, Vagas.com ou InfoJobs as informações que você já salvou no seu perfil. Você confere tudo e envia no próprio portal.</p>
+    <p>O copiloto pode levar para o formulário da Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br as informações que você já salvou no seu perfil. Você confere tudo e envia no próprio portal.</p>
     <div class="tip cc-assistant-note"><strong>Copiloto — versão estável 1.0.0:</strong> o pacote final para Chrome e Edge está pronto. A instalação pública pela loja oficial ainda aguarda publicação; até lá, a instalação é manual neste computador. Depois de instalar uma vez, basta abrir uma vaga compatível e pedir para preparar os campos. O complemento não envia candidaturas nem resolve CAPTCHA e funciona no computador, não no aplicativo do celular.</div>
     <div class="actions cc-assistant-actions">
       <a class="primary" href="/static/candidatura-certa-autopreenchimento.zip?v=10" download>Baixar o copiloto 1.0.0</a>
