@@ -292,7 +292,7 @@ TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
 STATIC_DIR = Path(__file__).parent / "static"
-FAVICON_TAG = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">'
+FAVICON_TAG = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=2">'
 
 
 @app.get("/static/{asset_path:path}", include_in_schema=False)
@@ -362,7 +362,7 @@ def _page(path: Path) -> HTMLResponse:
 @media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
 @media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}
 </style>
-<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
         # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.

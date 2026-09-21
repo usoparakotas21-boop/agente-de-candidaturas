@@ -10,10 +10,14 @@ class ShellLayoutTest(unittest.TestCase):
         dashboard = main_module._page(Path(main_module.DASHBOARD_PATH)).body.decode("utf-8")
         security = main_module._page(Path(main_module.SECURITY_PAGE_PATH)).body.decode("utf-8")
         landing = main_module.root().body.decode("utf-8")
-        expected = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">'
+        expected = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=2">'
         for html in (dashboard, security, landing):
             self.assertIn(expected, html)
-        self.assertIn('fill="#092f56"', (Path(main_module.STATIC_DIR) / "favicon.svg").read_text(encoding="utf-8"))
+        favicon = (Path(main_module.STATIC_DIR) / "favicon.svg").read_text(encoding="utf-8")
+        self.assertIn('aria-label="Candidatura Certa"', favicon)
+        self.assertIn('rx="18" fill="#174578"', favicon)
+        self.assertIn('stroke="#fff"', favicon)
+        self.assertIn('fill="#53e0bc"', favicon)
 
     def test_dashboard_keeps_its_own_header_without_global_duplicate(self):
         response = main_module._page(Path(main_module.DASHBOARD_PATH))
