@@ -87,7 +87,7 @@
       }
       return plan;
     }
-    return { createFillPlan };
+    return { createFillPlan, valueFor, normalize };
   })();
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -114,12 +114,44 @@
   function fillProfileFields(profile) {
     try {
       const elements = [...document.querySelectorAll("input, textarea, select")];
-      const descriptors = elements.map(describe);
-      const plan = api.createFillPlan(descriptors, profile || {});
       let filled = 0;
       const filledKeys = new Set();
+
+      function putValue(element, key, value) {
+        if (!element || !value || !["INPUT", "TEXTAREA"].includes(element.tagName)) return false;
+        const type = element.tagName === "TEXTAREA" ? "textarea" : String(element.type || "text").toLowerCase();
+        if (!["text", "email", "tel", "url", "textarea"].includes(type)) return false;
+        const descriptor = describe(element);
+        const signal = api.normalize([descriptor.label, descriptor.ariaLabel, descriptor.placeholder, descriptor.name, descriptor.id].join(" "));
+        if (descriptor.disabled || descriptor.readOnly || !descriptor.visible || descriptor.hasValue || /captcha|senha|password|consent|termos|privacy|salary|pretensao|curriculo|resume|cover|carta|file|birth|nascimento|gender|genero|race|etnia|deficiencia|disability/.test(signal)) return false;
+        if (descriptor.maxLength > 0 && value.length > descriptor.maxLength) return false;
+        const prototype = element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+        if (!setter) return false;
+        setter.call(element, value);
+        element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        filled += 1;
+        filledKeys.add(key);
+        return true;
+      }
+
+      const portal = globalThis.CandidaturaCertaPortalSelectors?.getPortalDefinition?.(location.hostname);
+      const usedElements = new Set();
+      if (portal) {
+        for (const [key, selectors] of Object.entries(portal.fields || {})) {
+          const value = api.valueFor(key, profile || {});
+          if (!value) continue;
+          const element = (selectors || []).map(selector => document.querySelector(selector)).find(Boolean);
+          if (element && putValue(element, key, value)) usedElements.add(element);
+        }
+      }
+
+      const descriptors = elements.map(describe);
+      const plan = api.createFillPlan(descriptors, profile || {});
       for (const item of plan) {
         const element = elements[item.index];
+        if (usedElements.has(element)) continue;
         if (element.tagName === "SELECT") {
           const optionExists = [...element.options].some(option => !option.disabled && option.value === item.value);
           if (!optionExists) continue;
@@ -130,16 +162,9 @@
           filledKeys.add(item.key);
           continue;
         }
-        const prototype = item.key && element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-        if (!setter) continue;
-        setter.call(element, item.value);
-        element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-        element.dispatchEvent(new Event("change", { bubbles: true }));
-        filled += 1;
-        filledKeys.add(item.key);
+        putValue(element, item.key, item.value);
       }
-      return { ok: true, filled, filledKeys: [...filledKeys] };
+      return { ok: true, filled, filledKeys: [...filledKeys], note: portal?.note || "" };
     } catch {
       return { ok: false, message: "Não foi possível preencher esta página. Confira se o formulário ainda está aberto." };
     }

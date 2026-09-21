@@ -63,7 +63,7 @@ importScripts("automation-policy.js");
       if (globalThis.CandidaturaCertaAutomationPolicy.isRestrictedAutomationHost(url.hostname)) {
         throw new Error(globalThis.CandidaturaCertaAutomationPolicy.restrictedMessageFor(url.hostname));
       }
-      throw new Error("Nesta versão, o copiloto funciona em páginas de vagas da Gupy, Vagas.com e InfoJobs.");
+      throw new Error("Abra uma página HTTPS de vaga em Gupy, Vagas.com, InfoJobs, Catho, Sólides ou Empregos.com.br.");
     }
     return url.hostname.toLowerCase();
   }
@@ -119,7 +119,7 @@ importScripts("automation-policy.js");
       const registration = {
         id,
         matches: [originPattern],
-        js: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"],
+        js: ["job-page-policy.js", "job-context.js", "portal-selectors.js", "field-filler.js", "copilot-widget.js"],
         runAt: "document_idle",
         persistAcrossSessions: true,
       };
@@ -127,7 +127,7 @@ importScripts("automation-policy.js");
       else await chrome.scripting.registerContentScripts([registration]);
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"],
+        files: ["job-page-policy.js", "job-context.js", "portal-selectors.js", "field-filler.js", "copilot-widget.js"],
       });
       return { enabled: true, host };
     }

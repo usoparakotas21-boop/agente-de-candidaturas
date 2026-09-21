@@ -5,7 +5,14 @@
     { domain: "jobbol.com.br", brand: "Jobbol", reason: "proíbe bots, scripts e extensões para acessar ou interagir com a plataforma sem autorização expressa" },
     { domain: "glassdoor.com", brand: "Glassdoor", reason: "proíbe software ou agentes automatizados sem autorização expressa" },
   ];
-  const supportedDomains = ["gupy.io", "vagas.com.br", "infojobs.com.br"];
+  const supportedDomains = [
+    "gupy.io",
+    "vagas.com.br",
+    "infojobs.com.br",
+    "catho.com.br",
+    "empregos.com.br",
+    "solides.com.br",
+  ];
 
   function normalizedHost(hostname) {
     return typeof hostname === "string" ? hostname.trim().toLowerCase().replace(/\.$/, "") : "";

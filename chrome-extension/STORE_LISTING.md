@@ -5,7 +5,7 @@ Use estes dados no painel do Chrome Web Store. A submissão só deve ocorrer dep
 ## Dados da ficha
 
 - Nome: Candidatura Certa — Copiloto
-- Resumo: Prepare informações profissionais para vagas da Gupy, Vagas.com e InfoJobs; revise e envie você mesmo no portal.
+- Resumo: Prepare informações profissionais para vagas da Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br; revise e envie você mesmo no portal.
 - Categoria: Produtividade
 - Idioma principal: Português (Brasil)
 - Página inicial: https://candidaturacerta.com.br/
@@ -15,9 +15,9 @@ Use estes dados no painel do Chrome Web Store. A submissão só deve ocorrer dep
 
 ## Descrição completa
 
-O Copiloto da Candidatura Certa ajuda você a preparar uma candidatura sem sair da vaga aberta.
+O Copiloto da Candidatura Certa ajuda você a preparar uma candidatura sem sair da vaga aberta em Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br.
 
-Com a sua autorização, ele reconhece formulários compatíveis da Gupy, Vagas.com e InfoJobs, consulta os dados profissionais que você escolheu salvar na sua conta e preenche campos reconhecidos que estejam vazios. Você pode revisar os dados antes de continuar. O painel lateral também oferece compatibilidade estimada e trechos profissionais para copiar.
+Com a sua autorização, ele reconhece formulários compatíveis da Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br, consulta os dados profissionais que você escolheu salvar na sua conta e preenche campos reconhecidos que estejam vazios. Você pode revisar os dados antes de continuar. O painel lateral também oferece compatibilidade estimada e trechos profissionais para copiar.
 
 Se você autorizar separadamente, pode escolher um currículo e uma carta em PDF da sua biblioteca para anexá-los a campos identificados no portal aberto. Os arquivos permanecem em memória e são transferidos somente depois da sua confirmação.
 
@@ -54,7 +54,7 @@ O complemento processa dados profissionais escolhidos pela pessoa, dados visíve
 - `clipboardWrite`: copiar para a área de transferência apenas quando a pessoa aciona uma ação de cópia.
 - `cookies` (opcional): ler o cookie de acesso da própria conta Candidatura Certa, somente depois da autorização.
 - Domínios opcionais do aplicativo: autenticar e consultar a conta depois da conexão iniciada no popup.
-- Domínios opcionais Gupy, Vagas.com e InfoJobs: permitir o botão automático num domínio somente após ação e permissão próprias daquele site. Sem isso, a pessoa ainda pode usar o complemento na aba ativa.
+- Domínios opcionais Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br: permitir o botão automático num domínio somente após ação e permissão próprias daquele site. Sem isso, a pessoa ainda pode usar o complemento na aba ativa.
 
 ## Antes de enviar para revisão
 

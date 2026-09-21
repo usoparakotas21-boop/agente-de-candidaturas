@@ -31,6 +31,9 @@
     "https://agente-de-candidaturas.onrender.com/*",
     "https://*.gupy.io/*",
     "https://*.vagas.com.br/*",
-    "https://*.infojobs.com.br/*"
+    "https://*.infojobs.com.br/*",
+    "https://*.catho.com.br/*",
+    "https://*.empregos.com.br/*",
+    "https://*.solides.com.br/*"
   ]
 }

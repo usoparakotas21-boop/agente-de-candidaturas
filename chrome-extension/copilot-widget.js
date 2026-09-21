@@ -143,7 +143,8 @@
         analysisBox.hidden = false;
       }
       if (result.filled) {
-        setStatus(`${result.filled} campo(s) reconhecido(s) e vazio(s) preenchido(s). ${quota} Revise cada resposta e envie pelo portal.`, "success");
+        const note = result.note ? ` ${result.note}` : "";
+        setStatus(`${result.filled} campo(s) reconhecido(s) e vazio(s) preenchido(s). ${quota}${note} Revise cada resposta e envie pelo portal.`, "success");
       } else {
         setStatus(`Nenhum campo compatível e vazio foi encontrado. Nada foi alterado. ${quota}`, "");
       }

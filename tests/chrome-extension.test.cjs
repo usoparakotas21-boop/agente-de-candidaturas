@@ -7,6 +7,7 @@ const { createFillPlan } = require("../chrome-extension/field-filler.js");
 const { isRestrictedAutomationHost } = require("../chrome-extension/automation-policy.js");
 const { isLikelyJobPage } = require("../chrome-extension/job-page-policy.js");
 const { extractVisibleJobContext } = require("../chrome-extension/job-context.js");
+const { getPortalDefinition } = require("../chrome-extension/portal-selectors.js");
 const { classifyFileField, attachPdfsInPage } = require("../chrome-extension/pdf-attachment.js");
 
 const profile = {
@@ -96,7 +97,21 @@ test("bloqueia portais que restringem automação e deixa o portal do empregador
   assert.equal(policy.isSupportedAutomationHost("careers.gupy.io"), true);
   assert.equal(policy.isSupportedAutomationHost("www.vagas.com.br"), true);
   assert.equal(policy.isSupportedAutomationHost("empregos.infojobs.com.br"), true);
+  assert.equal(policy.isSupportedAutomationHost("jobs.catho.com.br"), true);
+  assert.equal(policy.isSupportedAutomationHost("vagas.solides.com.br"), true);
+  assert.equal(policy.isSupportedAutomationHost("careers.empregos.com.br"), true);
   assert.equal(policy.isSupportedAutomationHost("gupy.io.example.org"), false);
+});
+
+test("mantém seletores profissionais por portal sem liberar envio", () => {
+  assert.equal(getPortalDefinition("careers.gupy.io").id, "gupy");
+  assert.equal(getPortalDefinition("www.vagas.com.br").fields.summary.some(selector => selector.includes("#ResumoProfissional")), true);
+  assert.equal(getPortalDefinition("jobs.catho.com.br").id, "catho");
+  assert.equal(getPortalDefinition("vagas.solides.com.br").id, "solides");
+  assert.match(getPortalDefinition("vagas.solides.com.br").note, /revisão manual/);
+  assert.equal(getPortalDefinition("evilcatho.com.br"), null);
+  const selectors = fs.readFileSync(path.join(__dirname, "../chrome-extension/portal-selectors.js"), "utf8");
+  assert.doesNotMatch(selectors, /\.click\s*\(|\.submit\s*\(|requestSubmit/);
 });
 
 test("extrai texto visível de contexto profissional dentro do limite", () => {
@@ -183,7 +198,7 @@ test("ativa e revoga o botão automático com permissão só para o domínio da 
   assert.deepEqual({ ok: enabled.ok, host: enabled.value.host, enabled: enabled.value.enabled }, { ok: true, host: "careers.gupy.io", enabled: true });
   const script = [...registered.values()][0];
   assert.equal(Array.from(script.matches).join(","), "https://careers.gupy.io/*");
-  assert.equal(Array.from(script.js).join(","), "job-page-policy.js,job-context.js,field-filler.js,copilot-widget.js");
+  assert.equal(Array.from(script.js).join(","), "job-page-policy.js,job-context.js,portal-selectors.js,field-filler.js,copilot-widget.js");
   assert.equal(script.persistAcrossSessions, true);
   assert.ok(injected.some(item => item.files?.includes("copilot-widget.js")));
 
@@ -308,6 +323,7 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
   const widget = fs.readFileSync(path.join(root, "copilot-widget.js"), "utf8");
   const pagePolicy = fs.readFileSync(path.join(root, "job-page-policy.js"), "utf8");
+  const portalSelectors = fs.readFileSync(path.join(root, "portal-selectors.js"), "utf8");
   const sidepanel = fs.readFileSync(path.join(root, "sidepanel.js"), "utf8");
   const sidepanelHtml = fs.readFileSync(path.join(root, "sidepanel.html"), "utf8");
   const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
@@ -315,8 +331,11 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "clipboardWrite", "scripting", "sidePanel"]);
   assert.deepEqual(manifest.optional_permissions, ["cookies"]);
   assert.deepEqual(manifest.optional_host_permissions.sort(), [
+    "https://*.catho.com.br/*",
+    "https://*.empregos.com.br/*",
     "https://*.gupy.io/*",
     "https://*.infojobs.com.br/*",
+    "https://*.solides.com.br/*",
     "https://*.vagas.com.br/*",
     "https://agente-de-candidaturas.onrender.com/*",
     "https://candidaturacerta.com.br/*",
@@ -326,6 +345,8 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.equal(manifest.background.service_worker, "background.js");
   assert.equal(manifest.minimum_chrome_version, "116");
   assert.doesNotMatch(filler, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
+  assert.match(portalSelectors, /getPortalDefinition/);
+  assert.doesNotMatch(portalSelectors, /\.click\s*\(|\.submit\s*\(|requestSubmit/);
   assert.doesNotMatch(popup, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
   assert.doesNotMatch(widget, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(sidepanel, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
@@ -362,7 +383,7 @@ test("complemento pede permissão do app só após clique e limita atuação à 
     assert.equal(icon.readUInt32BE(16), size);
     assert.equal(icon.readUInt32BE(20), size);
   }
-  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "job-context\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
+  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "job-context\.js", "portal-selectors\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
   assert.match(popup, /Ativar botão automaticamente neste domínio/);
   assert.match(popup, /chrome\.permissions\.request\(\{ origins: \[.*page\.origin/s);
   assert.match(popupHtml, /Confirmei que o portal permite preenchimento assistido/);

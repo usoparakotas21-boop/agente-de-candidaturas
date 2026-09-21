@@ -51,7 +51,7 @@
     if (!supported) {
       let host = "página indisponível";
       try { host = new URL(activePageUrl).hostname; } catch { /* página sem URL web */ }
-      $("activePage").textContent = `Página ativa: ${host}. O copiloto está disponível em Gupy, Vagas.com e InfoJobs.`;
+      $("activePage").textContent = `Página ativa: ${host}. O copiloto está disponível em Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br.`;
       if (globalThis.CandidaturaCertaAutomationPolicy.isRestrictedAutomationHost(host)) {
         setMessage($("pageState"), globalThis.CandidaturaCertaAutomationPolicy.restrictedMessageFor(host), "error");
       }
@@ -148,12 +148,12 @@
   showWidgetButton.addEventListener("click", async () => {
     showWidgetButton.disabled = true;
     try {
-      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga na Gupy, Vagas.com ou InfoJobs.");
+      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga em um portal compatível.");
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
         func: () => { globalThis.__ccCopilotWidgetDismissed = false; },
       });
-      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["job-page-policy.js", "job-context.js", "portal-selectors.js", "field-filler.js", "copilot-widget.js"] });
       setMessage($("pageState"), "Botão adicionado nesta página. Clique nele, confirme o uso do seu perfil e revise antes de enviar.", "success");
       portalConsent.checked = false;
     } catch (error) {
@@ -166,7 +166,7 @@
   autoWidgetButton.addEventListener("click", async () => {
     autoWidgetButton.disabled = true;
     try {
-      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga na Gupy, Vagas.com ou InfoJobs.");
+      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga em um portal compatível.");
       const page = new URL(activePageUrl);
       const enabled = autoWidgetButton.dataset.enabled === "true";
       if (enabled) {
