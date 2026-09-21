@@ -212,8 +212,8 @@ def _message_content(message: dict[str, Any]) -> dict[str, str]:
 
 
 def _source_for(sender: str, content: str) -> str:
-    # Prefer the authenticated mail header domain. A display name or a
-    # provider mention in a footer is not reliable provenance.
+    # Prefer the declared sender-header domain. The From header is not
+    # cryptographic authentication; a display name or body mention is weaker.
     address = parseaddr(sender or "")[1].strip().casefold()
     sender_domain = address.rsplit("@", 1)[-1].rstrip(".") if "@" in address else ""
     for domain, source in JOB_SOURCE_DOMAINS.items():

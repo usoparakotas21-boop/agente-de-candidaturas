@@ -306,14 +306,29 @@ def _extract_salary(lines: list[str], text: str) -> str:
     labeled = _labeled_value(lines, ("Salario", "Faixa salarial", "Remuneracao"))
     if labeled:
         return labeled
-    matches = re.findall(
+    money_pattern = re.compile(
         r"R\$\s*[\d.]+(?:,\d{2})?(?:\s*(?:a|-|ate)\s*R?\$?\s*[\d.]+(?:,\d{2})?)?",
-        text,
         flags=re.I,
     )
-    # Without a salary label, multiple currency values can refer to benefits,
-    # fees, or unrelated amounts. Keep that field unknown for manual review.
-    return matches[0] if len(matches) == 1 else ""
+    salary_context = re.compile(
+        r"\b(?:sal[aá]rio|remunera[cç][aã]o|faixa\s+salarial)\b",
+        flags=re.I,
+    )
+    matches = [
+        (line, match)
+        for line in lines
+        for match in money_pattern.finditer(line)
+    ]
+    # A lone amount can still be a meal voucher, bonus, or other benefit.
+    # Infer it only when salary wording directly precedes the amount on the
+    # same line; otherwise retain the value as unknown for manual review.
+    if len(matches) != 1:
+        return ""
+    line, match = matches[0]
+    preceding_context = line[max(0, match.start() - 80):match.start()]
+    if not salary_context.search(preceding_context):
+        return ""
+    return match.group(0)
 
 
 def _salary_bounds(value: str) -> tuple[int | None, int | None]:

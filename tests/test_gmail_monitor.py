@@ -18,7 +18,7 @@ class GmailMonitorContentTest(unittest.TestCase):
     # The sender and email body below are synthetic fixtures, not collected
     # messages from any job provider.
 
-    def test_source_uses_verified_sender_domain_before_display_name(self):
+    def test_source_uses_declared_sender_domain_before_display_name(self):
         self.assertEqual(
             _source_for(
                 "LinkedIn Alerts <jobs@notifications.linkedin.com>",

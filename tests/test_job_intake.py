@@ -149,6 +149,29 @@ class JobIntakeParserTest(unittest.TestCase):
         self.assertIsNone(result["salary_max"])
         self.assertEqual(result["salary_confidence"], 0)
 
+    def test_keeps_single_unlabeled_benefit_amount_unknown(self):
+        result = parse_job_text(
+            "Cargo: Analista de Recursos Humanos\n"
+            "Empresa: Exemplo\n"
+            "Benefícios: vale-alimentação de R$ 800,00.\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["salary"], "")
+        self.assertIsNone(result["salary_min"])
+        self.assertIsNone(result["salary_max"])
+
+    def test_extracts_single_unlabeled_amount_with_nearby_salary_context(self):
+        result = parse_job_text(
+            "Cargo: Analista de Recursos Humanos\n"
+            "Empresa: Exemplo\n"
+            "A remuneração mensal prevista é de R$ 5.000,00.\n"
+            "Descrição com responsabilidades, requisitos e experiência profissional."
+        )
+        self.assertEqual(result["salary"], "R$ 5.000,00")
+        self.assertEqual(result["salary_min"], 5000)
+        self.assertEqual(result["salary_max"], 5000)
+        self.assertEqual(result["salary_confidence"], 75)
+
     def test_does_not_infer_city_from_role_before_city_state(self):
         result = parse_job_text(
             "Analista de RH - Salvador/BA\n"
