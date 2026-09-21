@@ -52,6 +52,8 @@ class ShellLayoutTest(unittest.TestCase):
     def test_authenticated_pages_have_neutral_footer_and_live_service_status(self):
         html = main_module._page(Path(main_module.SECURITY_PAGE_PATH)).body.decode("utf-8")
         self.assertIn('<footer class="global-footer">', html)
+        self.assertIn("body{min-height:100vh;display:flex;flex-direction:column}", html)
+        self.assertIn("margin:auto auto 0;padding:18px 22px calc(96px + env(safe-area-inset-bottom,0px))", html)
         self.assertIn("© 2026 Candidatura Certa", html)
         self.assertIn('id="globalServiceStatus"', html)
         self.assertIn('fetch("/health"', html)

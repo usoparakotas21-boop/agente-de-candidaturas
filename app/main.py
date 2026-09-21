@@ -391,6 +391,7 @@ def _page(path: Path) -> HTMLResponse:
         html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">Não conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">Não conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
     nav = '''<style>
 .global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}
+body{min-height:100vh;display:flex;flex-direction:column}
 .global-nav a{color:#dcecf8;text-decoration:none}
 .global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}
 .global-brand{display:inline-flex;align-items:center;gap:8px}
@@ -401,7 +402,7 @@ def _page(path: Path) -> HTMLResponse:
 .global-logout{margin:0}
 .global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}
 .global-logout button:hover{background:#ffffff18}
-.global-footer{max-width:1160px;margin:48px auto 0;padding:18px 22px 24px;border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#718198;font:12px Inter,system-ui,sans-serif}
+.global-footer{max-width:1160px;margin:auto auto 0;padding:18px 22px calc(96px + env(safe-area-inset-bottom,0px));border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#718198;font:12px Inter,system-ui,sans-serif}
 .global-footer a{color:#3975a8;text-decoration:none}
 .global-footer a:hover{text-decoration:underline}
 .global-footer-status{display:inline-flex;align-items:center;gap:7px}
