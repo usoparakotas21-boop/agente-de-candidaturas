@@ -20,7 +20,9 @@ def approved_source(source_id="pilot-board", domains=("jobs.example.com",), **ov
         "approved_domains": domains,
         "endpoint_url": f"https://{domains[0]}/api/v1/jobs",
         "allowed_fields": ("title", "company", "location", "description", "apply_url"),
-        "permitted_uses": frozenset({SourceUse.AUTOMATED_FETCH}),
+        "permitted_uses": frozenset(
+            {SourceUse.AUTOMATED_FETCH, SourceUse.COMMERCIAL_DISPLAY}
+        ),
         "status": SourceStatus.APPROVED,
         "permission_basis": "Written permission from the source owner",
         "permission_evidence": "https://docs.example.com/permission/123",
@@ -67,7 +69,6 @@ class SourceGovernanceTests(unittest.TestCase):
         source = approved_source()
         registry = SourceRegistry([source])
         for requested_use in (
-            SourceUse.COMMERCIAL_DISPLAY,
             SourceUse.AI_PROCESSING,
             SourceUse.DESCRIPTION_CACHING,
             SourceUse.REDISTRIBUTION,
@@ -88,6 +89,25 @@ class SourceGovernanceTests(unittest.TestCase):
                 required_uses=(SourceUse.AI_PROCESSING, SourceUse.COMMERCIAL_DISPLAY),
             ),
             licensed,
+        )
+
+    def test_default_gate_requires_fetch_and_commercial_display_rights(self):
+        fetch_only = approved_source(
+            permitted_uses=frozenset({SourceUse.AUTOMATED_FETCH})
+        )
+        registry = SourceRegistry([fetch_only])
+        with self.assertRaisesRegex(
+            SourceApprovalError, "does not grant required uses: commercial_display"
+        ):
+            require_approved_source("pilot-board", registry=registry)
+
+        self.assertEqual(
+            require_approved_source(
+                "pilot-board",
+                registry=registry,
+                required_uses=(SourceUse.AUTOMATED_FETCH,),
+            ),
+            fetch_only,
         )
 
     def test_approved_source_requires_structured_owner_endpoint_fields_and_fetch_right(self):

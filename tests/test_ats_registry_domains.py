@@ -9,6 +9,8 @@ from app.ats_registry import is_ats_domain, is_redirect_domain
         ("https://gupy.io/vagas/123", "Gupy"),
         ("https://www.gupy.io/vagas/123", "Gupy"),
         ("https://jobs.gupy.io/vagas/123", "Gupy"),
+        ("https://vagas.solides.com.br/vagas/123", "Solides Vagas"),
+        ("https://www.jobbol.com.br/vagas/123", "Jobbol"),
         ("HTTPS://CAREERS.LINKEDIN.COM/jobs", "LinkedIn"),
         ("https://gupy.io.:443/jobs", "Gupy"),
     ],

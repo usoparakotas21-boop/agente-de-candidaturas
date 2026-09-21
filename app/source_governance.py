@@ -320,20 +320,23 @@ def require_approved_source(
     url_or_source: str | JobSource,
     *,
     registry: SourceRegistry = SOURCE_REGISTRY,
-    required_uses: Iterable[SourceUse | str] = (SourceUse.AUTOMATED_FETCH,),
+    required_uses: Iterable[SourceUse | str] = (
+        SourceUse.AUTOMATED_FETCH,
+        SourceUse.COMMERCIAL_DISPLAY,
+    ),
     as_of: date | None = None,
 ) -> JobSource:
     """Return the fully reviewed source or raise :class:`SourceApprovalError`.
 
     Pass a complete HTTPS URL to validate its exact hostname and reviewed
     endpoint path, or pass a registered ``source_id`` / ``JobSource`` to
-    validate that record. The default requires an explicit automated-fetch
-    right. Additional rights (such as commercial display, AI processing,
-    description caching, or redistribution) must be requested by the caller
-    and separately granted by the source record. Reviews expire after 180
-    days. This is for future automated ingestion workers only; existing
-    user-initiated ``fetch_job_posting`` calls are intentionally not routed
-    through it.
+    validate that record. The default requires explicit rights for automated
+    fetch and commercial display. Callers must add every other use they
+    perform (such as AI processing, description caching, or redistribution)
+    and that right must be separately granted by the source record. Reviews
+    expire after 180 days. This is for future automated ingestion workers
+    only; existing user-initiated ``fetch_job_posting`` calls are intentionally
+    not routed through it.
     """
     normalized_uses = _normalize_required_uses(required_uses)
     review_date = date.today() if as_of is None else as_of

@@ -8,6 +8,7 @@ ATS_DOMAINS = {
     # Brasileiros
     "gupy.io": "Gupy",
     "solides.com": "Solides",
+    "solides.com.br": "Solides Vagas",
     "vagas.com.br": "Vagas.com",
     "kenoby.com": "Kenoby",
     "taqe.com.br": "Taqe",
@@ -17,6 +18,7 @@ ATS_DOMAINS = {
     "empregos.com.br": "Empregos.com.br",
     "infojobs.com.br": "InfoJobs",
     "catho.com.br": "Catho",
+    "jobbol.com.br": "Jobbol",
     "bebee.com.br": "Bebee",
     "trabalhabrasil.com.br": "Trabalha Brasil",
     "curriculum.com.br": "Curriculum",

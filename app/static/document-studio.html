@@ -43,7 +43,7 @@
         <div class="steps">
           <div class="step"><b>1</b><div><strong>Conte qual é a vaga</strong><span>O cargo e os requisitos orientam a adaptação.</span></div></div>
           <div class="step"><b>2</b><div><strong>Veja a prévia</strong><span>Confira o resumo, as competências e a carta antes de exportar.</span></div></div>
-          <div class="step"><b>3</b><div><strong>Exporte quando estiver pronto</strong><span>O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.</span></div></div>
+          <div class="step"><b>3</b><div><strong>Revise e conclua no portal</strong><span>Baixe os documentos liberados e confirme o envio no site da empresa.</span></div></div>
         </div>
         <div class="tip">Dica: copie a descrição diretamente do anúncio para destacar palavras-chave compatíveis com o sistema de seleção.</div>
       </aside>
@@ -54,7 +54,7 @@
           <article class="preview"><h3>Carta de apresentação</h3><div class="preview-body" id="letter"></div></article>
         </div>
         <div class="notice" id="notice"></div>
-        <div class="file-actions" id="exportActions" hidden><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
+        <div class="file-actions" id="exportActions" hidden><a class="secondary" id="openJobAfterPrepare" href="#" target="_blank" rel="noopener" hidden>Abrir portal para enviar candidatura</a><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
         <div class="status" id="checkoutStatus" role="status" aria-live="polite"></div>
       </section>
     </div>
@@ -73,9 +73,22 @@
       $('checkoutStatus').textContent=text;
       $('checkoutStatus').className='status'+(ok?' ok':'');
     }
+    function updateApplyLink(value){
+      const link=$('openJobAfterPrepare');
+      try{
+        const url=new URL(String(value||''));
+        if(!['http:','https:'].includes(url.protocol))throw new Error('URL não permitida');
+        link.href=url.href;
+        link.hidden=false;
+      }catch{
+        link.removeAttribute('href');
+        link.hidden=true;
+      }
+    }
     function showExport(offer){
       const actions=$('exportActions');
       actions.hidden=false;
+      updateApplyLink($('url').value);
       const paid=Boolean(offer&&offer.allowed);
       $('checkout').hidden=paid;
       $('refreshAccess').hidden=paid;
@@ -267,12 +280,21 @@
         const requested=new URLSearchParams(window.location.search).get('application_id');
         if(requested){
           select.value=requested;
-          if(await selectApplication(requested))await handlePaymentReturn();
+          if(await selectApplication(requested)){
+            await handlePaymentReturn();
+            if(paramsAutoPrepare()&&!new URLSearchParams(window.location.search).has('payment_status')){
+              try{
+                await generatePreview();
+                window.history.replaceState({},'','/criar-documentos?application_id='+encodeURIComponent(requested));
+              }catch(error){msg(error.message||'Não foi possível preparar a candidatura. Você pode tentar gerar a prévia novamente.')}
+            }
+          }
         }
       }catch{
         setApplicationListState({message:'Não foi possível carregar suas candidaturas. Você pode preencher manualmente ou tentar novamente.',error:true,retry:true});
       }
     }
+    function paramsAutoPrepare(){return new URLSearchParams(window.location.search).get('auto_prepare')==='1'}
     async function selectApplication(id){
       const request=++applicationLookupRequest;
       linkedApplicationId=id?Number(id):null;
