@@ -38,6 +38,16 @@ class _FakeGeminiClient:
         return _FakeGeminiResponse()
 
 
+class _FakeGeminiEmptyCandidateResponse(_FakeGeminiResponse):
+    def json(self):
+        return {"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}
+
+
+class _FakeGeminiEmptyCandidateClient(_FakeGeminiClient):
+    async def post(self, url, *, headers, json):
+        return _FakeGeminiEmptyCandidateResponse()
+
+
 class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     async def test_gemini_classifies_to_closed_topic_set_and_uses_server_key_header(self):
         _FakeGeminiClient.last_request = None
@@ -53,7 +63,17 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("test-secret", request["url"])
         schema = request["json"]["generationConfig"]["responseSchema"]
         self.assertEqual(schema["properties"]["topic"]["enum"], list(support_chat.ALLOWED_TOPICS))
+        generation_config = request["json"]["generationConfig"]
+        self.assertEqual(generation_config["maxOutputTokens"], 128)
+        self.assertEqual(generation_config["thinkingConfig"]["thinkingLevel"], "low")
         self.assertIn("untrusted_user_message", request["json"]["contents"][0]["parts"][0]["text"])
+
+    async def test_empty_gemini_candidate_is_handled_as_provider_failure(self):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-secret"}), patch.object(
+            support_chat.httpx, "AsyncClient", _FakeGeminiEmptyCandidateClient
+        ):
+            with self.assertRaisesRegex(RuntimeError, "não retornou uma classificação"):
+                await support_chat.classify_support_topic("Qual o preço do Pro?")
 
     async def test_missing_gemini_key_is_reported_without_exposing_provider_details(self):
         with patch.dict(os.environ, {}, clear=True):

@@ -143,7 +143,10 @@ async def classify_support_topic(message: str) -> str:
         }],
         "generationConfig": {
             "temperature": 0,
-            "maxOutputTokens": 32,
+            # Gemini 3 uses part of its output budget for reasoning. A 32-token
+            # hard cap can therefore produce an empty candidate before its JSON.
+            "maxOutputTokens": 128,
+            "thinkingConfig": {"thinkingLevel": "low"},
             "responseMimeType": "application/json",
             "responseSchema": schema,
         },
@@ -166,8 +169,35 @@ async def classify_support_topic(message: str) -> str:
             raise RuntimeError("Gemini indisponível")
         if len(response.content) > MAX_RESPONSE_BYTES:
             raise RuntimeError("Resposta do Gemini excedeu o limite")
-        result = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        topic = json.loads(result).get("topic")
+        body = response.json()
+        candidates = body.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            feedback = body.get("promptFeedback", {})
+            block_reason = feedback.get("blockReason") if isinstance(feedback, dict) else None
+            logger.warning(
+                "Gemini support classification returned no candidate%s",
+                f" (blockReason={str(block_reason)[:40]})" if block_reason else "",
+            )
+            raise RuntimeError("Gemini não retornou uma classificação")
+
+        candidate = candidates[0] if isinstance(candidates[0], dict) else {}
+        content = candidate.get("content", {})
+        parts = content.get("parts", []) if isinstance(content, dict) else []
+        result = "".join(
+            part.get("text", "")
+            for part in parts
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        )
+        if not result.strip():
+            finish_reason = str(candidate.get("finishReason", "unknown"))[:40]
+            logger.warning("Gemini support classification returned no text (finishReason=%s)", finish_reason)
+            raise RuntimeError("Gemini não retornou uma classificação")
+        try:
+            parsed = json.loads(result)
+        except json.JSONDecodeError as exc:
+            logger.warning("Gemini support classification returned invalid JSON")
+            raise RuntimeError("Gemini retornou uma classificação inválida") from exc
+        topic = parsed.get("topic") if isinstance(parsed, dict) else None
     except RuntimeError:
         raise
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
