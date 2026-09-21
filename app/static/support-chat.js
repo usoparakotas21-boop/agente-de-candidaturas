@@ -4,7 +4,7 @@
 
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "/static/support-chat.css?v=1";
+  stylesheet.href = "/static/support-chat.css?v=2";
   document.head.append(stylesheet);
 
   const make = (tag, className, text) => {
@@ -63,16 +63,37 @@
   const send = make("button", "cc-support-send", "Enviar");
   send.type = "submit";
   form.append(input, send);
+  const suggestions = make("div", "cc-support-suggestions");
+  suggestions.setAttribute("role", "group");
+  suggestions.setAttribute("aria-label", "Perguntas comuns");
+  [
+    "Como funciona o site?",
+    "Como conecto Gmail ou Outlook?",
+    "Quais são os planos e limites?",
+    "Como gero meu currículo e minha carta?",
+  ].forEach((question) => {
+    const suggestion = make("button", "cc-support-suggestion", question);
+    suggestion.type = "button";
+    suggestion.addEventListener("click", () => {
+      if (send.disabled) return;
+      input.value = question;
+      form.requestSubmit();
+    });
+    suggestions.append(suggestion);
+  });
   const links = make("div", "cc-support-links");
   const help = document.createElement("a");
   help.href = "mailto:contato@candidaturacerta.com.br";
   help.textContent = "E-mail do suporte";
+  const faq = document.createElement("a");
+  faq.href = "/ajuda";
+  faq.textContent = "Central de ajuda";
   const whatsapp = document.createElement("a");
   whatsapp.href = "https://wa.me/5571991824951";
   whatsapp.target = "_blank";
   whatsapp.rel = "noopener noreferrer";
   whatsapp.textContent = "WhatsApp (71) 99182-4951";
-  links.append(help, whatsapp);
+  links.append(help, faq, whatsapp);
   const status = make("p", "cc-support-status");
   status.setAttribute("role", "status");
   footer.append(disclosure, form, links, status);
@@ -88,6 +109,7 @@
     return bubble;
   };
   addMessage("assistant", "Olá! Posso explicar os planos, limites, vagas, documentos, pagamentos e privacidade. Como posso ajudar?");
+  messages.append(suggestions);
 
   const open = () => {
     panel.hidden = false;
@@ -109,6 +131,7 @@
     const message = input.value.trim();
     if (!message || send.disabled) return;
     status.textContent = "";
+    suggestions.hidden = true;
     addMessage("user", message);
     input.value = "";
     input.disabled = true;

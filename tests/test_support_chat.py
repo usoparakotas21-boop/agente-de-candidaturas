@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -57,6 +58,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
             topic = await support_chat.classify_support_topic("Qual o preço do Pro?")
 
         self.assertEqual(topic, "plans")
+        self.assertEqual(set(support_chat.TOPIC_ANSWERS), set(support_chat.ALLOWED_TOPICS))
         request = _FakeGeminiClient.last_request
         self.assertIn("/models/gemini-3.6-flash:generateContent", request["url"])
         self.assertEqual(request["headers"]["x-goog-api-key"], "test-secret")
@@ -84,7 +86,30 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support_chat.fallback_support_topic("Qual o limite de vagas por mês?"), "opportunity_limits")
         self.assertEqual(support_chat.fallback_support_topic("Como cancelar a assinatura do Pro?"), "subscription")
         self.assertEqual(support_chat.fallback_support_topic("Quero falar com o suporte"), "contact")
+        self.assertEqual(support_chat.fallback_support_topic("Como funciona o site?"), "how_it_works")
+        self.assertEqual(support_chat.fallback_support_topic("Quais são os planos e limites?"), "plans")
+        self.assertEqual(support_chat.fallback_support_topic("Aceita Pix para pagar?"), "payment_methods")
+        self.assertEqual(support_chat.fallback_support_topic("Como conecto meu Gmail?"), "email_alerts")
+        self.assertEqual(support_chat.fallback_support_topic("Quero excluir minha conta"), "account_deletion")
+        self.assertEqual(support_chat.fallback_support_topic("Meu currículo não chegou por e-mail"), "email_delivery")
+        self.assertEqual(support_chat.fallback_support_topic("Quais formatos de currículo posso importar?"), "file_formats")
+        self.assertEqual(support_chat.fallback_support_topic("Meu currículo é compatível com ATS?"), "ats_compatibility")
+        self.assertEqual(support_chat.fallback_support_topic("Receberei alerta de vaga expirando?"), "expiring_alerts")
         self.assertEqual(support_chat.fallback_support_topic("Pergunta sem relação"), "unknown")
+
+    def test_route_recovers_common_question_when_gemini_returns_unknown(self):
+        app = FastAPI()
+        app.include_router(support_chat.router)
+        with (
+            patch.object(support_chat, "_enforce_rate_limit"),
+            patch.object(support_chat, "classify_support_topic", new=AsyncMock(return_value="unknown")),
+            TestClient(app) as client,
+        ):
+            response = client.post("/api/support-chat", json={"message": "Como funciona o site?"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("organiza as oportunidades", response.json()["answer"])
+        self.assertIn("o envio não é automático", response.json()["answer"])
 
     def test_public_route_is_rate_limited_and_returns_only_curated_answer(self):
         app = FastAPI()
@@ -136,7 +161,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")
-        self.assertIn("/static/support-chat.js", landing)
+        self.assertIn("/static/support-chat.js?v=2", landing)
         self.assertNotIn("CANDIDATURA_CERTA_DEMO_VIDEO", landing)
         self.assertNotIn('id="demonstracao"', landing)
 
@@ -155,7 +180,17 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
     def test_authenticated_shell_has_widget(self):
         dashboard = main._page(main.DASHBOARD_PATH).body.decode("utf-8")
-        self.assertIn("/static/support-chat.js", dashboard)
+        self.assertIn("/static/support-chat.js?v=2", dashboard)
+
+    def test_widget_shows_accessible_common_question_shortcuts_without_html_injection(self):
+        widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
+        self.assertIn("Como funciona o site?", widget)
+        self.assertIn("Como conecto Gmail ou Outlook?", widget)
+        self.assertIn('aria-label", "Perguntas comuns"', widget)
+        self.assertIn('faq.href = "/ajuda"', widget)
+        self.assertIn("form.requestSubmit()", widget)
+        self.assertIn("textContent", widget)
+        self.assertNotIn("innerHTML", widget)
 
 
 if __name__ == "__main__":
