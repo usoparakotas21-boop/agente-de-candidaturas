@@ -21,6 +21,7 @@ from app.models import (
     DocumentExportPurchase,
     EmailIntegration,
     Experience,
+    FollowupEmailOutbox,
     GeneratedDocument,
     Job,
     JobAnalysis,
@@ -109,6 +110,16 @@ class PrivacyExportTest(unittest.TestCase):
                 status="PAID",
             ),
         ])
+        db.add_all([
+            FollowupEmailOutbox(
+                owner_id="owner-a", period_key="daily:2026-09-20", frequency="daily",
+                application_ids=[own_application.id], status="PENDING", scheduled_at=utc_now(),
+            ),
+            FollowupEmailOutbox(
+                owner_id="owner-b", period_key="daily:2026-09-20", frequency="daily",
+                application_ids=[other_application.id], status="PENDING", scheduled_at=utc_now(),
+            ),
+        ])
         db.commit()
         db.close()
 
@@ -125,6 +136,8 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual([item["company"] for item in payload["jobs"]], ["Empresa A"])
         self.assertEqual(len(payload["applications"]), 1)
         self.assertEqual([item["order_nsu"] for item in payload["purchases"]], ["export-purchase-a"])
+        self.assertEqual(len(payload["followup_email_notifications"]), 1)
+        self.assertEqual(payload["followup_email_notifications"][0]["application_count"], 1)
         self.assertNotIn("access_token", payload)
         self.assertIn("attachment;", response.headers["content-disposition"])
 
@@ -151,6 +164,7 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual(db.query(Job).filter(Job.owner_id == "owner-a").count(), 0)
         self.assertEqual(db.query(Candidate).filter(Candidate.owner_id == "owner-a").count(), 0)
         self.assertEqual(db.query(DocumentExportPurchase).filter(DocumentExportPurchase.owner_id == "owner-a").count(), 0)
+        self.assertEqual(db.query(FollowupEmailOutbox).filter(FollowupEmailOutbox.owner_id == "owner-a").count(), 0)
         self.assertEqual(db.query(BillingSubscription).filter(BillingSubscription.owner_id == "owner-a").count(), 0)
         self.assertEqual(db.query(EmailIntegration).filter(EmailIntegration.owner_id == "owner-a").count(), 0)
         self.assertEqual(db.query(ProcessedEmailMessage).filter(ProcessedEmailMessage.owner_id == "owner-a").count(), 0)
@@ -171,6 +185,7 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual(db.query(GeneratedDocument).filter(GeneratedDocument.owner_id == "owner-b").count(), 2)
         self.assertEqual(db.query(DocumentDelivery).filter(DocumentDelivery.owner_id == "owner-b").count(), 1)
         self.assertEqual(db.query(DocumentExportPurchase).filter(DocumentExportPurchase.owner_id == "owner-b").count(), 1)
+        self.assertEqual(db.query(FollowupEmailOutbox).filter(FollowupEmailOutbox.owner_id == "owner-b").count(), 1)
         db.close()
 
     def test_provider_failure_leaves_local_purge_committed_and_retryable(self):

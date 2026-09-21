@@ -39,12 +39,13 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, GeneratedDocument, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
 from .data_retention import cleanup_expired_raw_data
+from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -95,6 +96,7 @@ DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
 _retention_task: asyncio.Task | None = None
 _purchase_generation_task: asyncio.Task | None = None
 _purchase_generation_wakeup: asyncio.Event | None = None
+_lifecycle_email_task: asyncio.Task | None = None
 DOCUMENT_GENERATION_POLL_SECONDS = 15
 DOCUMENT_GENERATION_MAX_ATTEMPTS = 5
 DOCUMENT_GENERATION_STALE_AFTER = timedelta(minutes=15)
@@ -168,6 +170,7 @@ async def _document_retention_loop():
             await asyncio.to_thread(cleanup_expired_documents)
             await asyncio.to_thread(_cleanup_generated_document_records)
             await asyncio.to_thread(_cleanup_raw_intake_data)
+            await asyncio.to_thread(_cleanup_followup_email_outbox)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             raise
@@ -197,10 +200,31 @@ async def _paid_document_generation_loop():
             await asyncio.sleep(DOCUMENT_GENERATION_POLL_SECONDS)
 
 
+async def _lifecycle_email_loop():
+    """Dispatch durable, opt-in follow-up digests when SMTP is configured."""
+    while True:
+        try:
+            await asyncio.to_thread(run_followup_digest_cycle, SessionLocal)
+            await asyncio.sleep(FOLLOWUP_POLL_SECONDS)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falha no reconciliador de lembretes de candidatura")
+            await asyncio.sleep(FOLLOWUP_POLL_SECONDS)
+
+
 def _cleanup_raw_intake_data() -> dict[str, int]:
     db = SessionLocal()
     try:
         return cleanup_expired_raw_data(db)
+    finally:
+        db.close()
+
+
+def _cleanup_followup_email_outbox() -> int:
+    db = SessionLocal()
+    try:
+        return cleanup_followup_email_outbox_records(db)
     finally:
         db.close()
 
@@ -210,6 +234,12 @@ def _start_purchase_generation_worker() -> None:
     if _purchase_generation_task is None or _purchase_generation_task.done():
         _purchase_generation_wakeup = asyncio.Event()
         _purchase_generation_task = asyncio.create_task(_paid_document_generation_loop())
+
+
+def _start_lifecycle_email_worker() -> None:
+    global _lifecycle_email_task
+    if _lifecycle_email_task is None or _lifecycle_email_task.done():
+        _lifecycle_email_task = asyncio.create_task(_lifecycle_email_loop())
 
 
 async def _run_fetch_work(function, *args):
@@ -629,7 +659,7 @@ class ApplicationStatusRequest(BaseModel):
     note: str = Field(default="", max_length=2000)
     channel: Literal["", "manual", "gmail", "linkedin", "gupy", "indeed", "site_empresa", "indicacao", "outro"] = ""
     external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
-class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = True; notify_expiring: bool = False; notify_followups: bool = True
+class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = True; notify_expiring: bool = False; notify_followups: bool = False
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
 class ProfileExperienceRequest(BaseModel):
     role: str = Field(min_length=1, max_length=200)
@@ -883,7 +913,7 @@ def startup():
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
-            for table in ("generated_documents", "document_deliveries"):
+            for table in ("generated_documents", "document_deliveries", "followup_email_outbox"):
                 policy = f"{table}_owner"
                 db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
                 db.execute(text(f"""
@@ -936,7 +966,7 @@ def startup():
                     "document_generation_status": "VARCHAR(20) DEFAULT 'WAITING' NOT NULL", "document_generation_attempts": "INTEGER DEFAULT 0 NOT NULL", "document_generation_started_at": "TIMESTAMP WITH TIME ZONE", "document_generation_next_attempt_at": "TIMESTAMP WITH TIME ZONE", "document_generation_completed_at": "TIMESTAMP WITH TIME ZONE", "document_generation_error": "VARCHAR(240)", "payer_email_confirmed": "BOOLEAN DEFAULT FALSE NOT NULL",
                 },
                 "applications": {
-                    "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER",
+                    "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER", "followup_notified_at": "TIMESTAMP WITH TIME ZONE", "followup_notification_outbox_id": "INTEGER",
                 },
                 "application_events": {
                     "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
@@ -949,6 +979,7 @@ def startup():
                 "CREATE INDEX IF NOT EXISTS idx_applications_status ON applications (status)",
                 "CREATE INDEX IF NOT EXISTS idx_applications_updated_at ON applications (updated_at)",
                 "CREATE INDEX IF NOT EXISTS idx_applications_queue_decision ON applications (queue_decision)",
+                "CREATE INDEX IF NOT EXISTS ix_applications_followup_notification_outbox_id ON applications (followup_notification_outbox_id)",
                 "CREATE INDEX IF NOT EXISTS idx_candidates_owner_id ON candidates (owner_id)",
                 "CREATE INDEX IF NOT EXISTS idx_jobs_owner_id ON jobs (owner_id)",
             ):
@@ -958,9 +989,11 @@ def startup():
             _cleanup_generated_document_records()
             _backfill_legacy_generated_document_pairs()
             _cleanup_raw_intake_data()
+            _cleanup_followup_email_outbox()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
             _start_purchase_generation_worker()
+            _start_lifecycle_email_worker()
             start_monitor()
             start_outlook_monitor()
             return
@@ -1022,6 +1055,8 @@ def startup():
             "health_signals": "JSON",
             "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL",
             "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE",
+            "followup_notified_at": "TIMESTAMP WITH TIME ZONE",
+            "followup_notification_outbox_id": "INTEGER",
         }.items():
             if col not in application_columns:
                 db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} {ddl}"))
@@ -1029,6 +1064,7 @@ def startup():
             db.execute(text("ALTER TABLE applications ADD COLUMN queue_decision VARCHAR(20) DEFAULT 'REVISAR' NOT NULL"))
         if "capture_confidence" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
             db.execute(text("ALTER TABLE applications ADD COLUMN capture_confidence INTEGER"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_applications_followup_notification_outbox_id ON applications (followup_notification_outbox_id)"))
         event_columns = {c["name"] for c in inspect(engine).get_columns("application_events")}
         for col in ["channel", "external_result"]:
             if col not in event_columns:
@@ -1048,15 +1084,17 @@ def startup():
     _cleanup_generated_document_records()
     _backfill_legacy_generated_document_pairs()
     _cleanup_raw_intake_data()
+    _cleanup_followup_email_outbox()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
     _start_purchase_generation_worker()
+    _start_lifecycle_email_worker()
     start_monitor()
     start_outlook_monitor()
 
 @app.on_event("shutdown")
 async def shutdown():
-    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup
+    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task
     if _retention_task is not None:
         _retention_task.cancel()
         try:
@@ -1072,6 +1110,13 @@ async def shutdown():
             pass
         _purchase_generation_task = None
         _purchase_generation_wakeup = None
+    if _lifecycle_email_task is not None:
+        _lifecycle_email_task.cancel()
+        try:
+            await _lifecycle_email_task
+        except asyncio.CancelledError:
+            pass
+        _lifecycle_email_task = None
     await stop_monitor()
     await stop_outlook_monitor()
 
@@ -1384,6 +1429,12 @@ def update_preferences(req: CandidatePreferencesRequest, user=Depends(authentica
         c = _candidate_for_user(db, user)
         if c is None: raise HTTPException(409, "Importe o curriculo primeiro.")
         prefs = normalize_preferences(req.model_dump())
+        if req.notify_followups:
+            prefs["notify_followups"] = True
+            prefs["notify_followups_consent_at"] = utc_now().isoformat()
+        else:
+            prefs["notify_followups"] = False
+            prefs["notify_followups_consent_at"] = None
         c.preferences_data = json.dumps(prefs, ensure_ascii=False)
         apps = db.scalars(select(Application).join(Application.job).where(Job.owner_id == _owner_id(user))).all()
         changed = 0
@@ -1917,14 +1968,17 @@ def privacy_export(user=Depends(authenticated_user)):
         candidate_query = select(Candidate)
         jobs_query = select(Job).order_by(Job.id.asc())
         purchases_query = select(DocumentExportPurchase).order_by(DocumentExportPurchase.created_at.asc())
+        notification_query = select(FollowupEmailOutbox).order_by(FollowupEmailOutbox.created_at.asc())
         if oid:
             candidate_query = candidate_query.where(Candidate.owner_id == oid)
             jobs_query = jobs_query.where(Job.owner_id == oid)
             purchases_query = purchases_query.where(DocumentExportPurchase.owner_id == oid)
+            notification_query = notification_query.where(FollowupEmailOutbox.owner_id == oid)
         candidate = db.scalar(candidate_query)
         jobs = db.scalars(jobs_query).all()
         applications = [job.application for job in jobs if job.application is not None]
         purchases = db.scalars(purchases_query).all()
+        notifications = db.scalars(notification_query).all()
 
         def iso(value):
             return value.isoformat() if value else None
@@ -1952,6 +2006,7 @@ def privacy_export(user=Depends(authenticated_user)):
             "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "description": job.description} for job in jobs],
             "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "resume_version": item.resume_version, "cover_letter_version": item.cover_letter_version, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "channel": event.channel, "external_result": event.external_result, "resume_version": event.resume_version, "cover_letter_version": event.cover_letter_version, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
             "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
+            "followup_email_notifications": [{"frequency": item.frequency, "status": item.status, "application_count": len(item.application_ids or []), "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in notifications],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
         db.close()
@@ -1979,6 +2034,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
                 logger.warning("Ignorando caminho de documento fora do armazenamento privado durante exclusao")
 
     for model, column in (
+        (FollowupEmailOutbox, FollowupEmailOutbox.owner_id),
         (DocumentDelivery, DocumentDelivery.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),

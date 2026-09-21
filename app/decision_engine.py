@@ -83,7 +83,7 @@ def default_preferences(
         "notification_frequency": "daily",
         "notify_interviews": True,
         "notify_expiring": False,
-        "notify_followups": True,
+        "notify_followups": False,
     }
 
 
@@ -127,7 +127,9 @@ def normalize_preferences(
     result["notification_frequency"] = frequency if frequency in {"daily", "immediate", "weekly", "none"} else "daily"
     result["notify_interviews"] = bool(supplied.get("notify_interviews", True))
     result["notify_expiring"] = bool(supplied.get("notify_expiring", False))
-    result["notify_followups"] = bool(supplied.get("notify_followups", True))
+    consented_at = supplied.get("notify_followups_consent_at")
+    result["notify_followups_consent_at"] = consented_at if isinstance(consented_at, str) and consented_at.strip() else None
+    result["notify_followups"] = bool(supplied.get("notify_followups", False) and result["notify_followups_consent_at"])
     for field in ("salary_min", "salary_max"):
         try:
             value = supplied.get(field)

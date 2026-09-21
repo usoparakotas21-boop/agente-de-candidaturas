@@ -26,6 +26,7 @@ DIRECT_OWNER_TABLES = (
     "billing_subscriptions",
     "generated_documents",
     "document_deliveries",
+    "followup_email_outbox",
     "queue_items",
 )
 

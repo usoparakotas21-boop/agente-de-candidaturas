@@ -279,6 +279,8 @@ class Application(Base):
     health_signals: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     fraud_suspected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     risk_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    followup_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    followup_notification_outbox_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -461,6 +463,29 @@ class DocumentDelivery(Base):
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
+
+
+class FollowupEmailOutbox(Base):
+    """Durable owner-scoped digest of overdue applications without a reply."""
+
+    __tablename__ = "followup_email_outbox"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "period_key", name="uq_followup_email_owner_period"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    period_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    frequency: Mapped[str] = mapped_column(String(12), nullable=False)
+    application_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING", index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 # ============================================================

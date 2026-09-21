@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from fastapi import HTTPException
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
@@ -58,7 +59,11 @@ class WebhookSecurityTest(unittest.TestCase):
     def test_application_serves_existing_static_asset_without_auth(self):
         # The production engine points to Supabase; keep this public-asset test
         # hermetic so collection never needs a live database connection.
-        engine = create_engine("sqlite://")
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
         local_session = sessionmaker(bind=engine)
         with patch.object(main_module, "engine", engine), patch.object(main_module, "SessionLocal", local_session):
             with TestClient(main_module.app) as client:
