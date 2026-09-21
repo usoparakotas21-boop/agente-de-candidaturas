@@ -546,17 +546,17 @@
   <div class="drawer-backdrop" id="backdrop"></div>
   <dialog id="guidedOnboardingDialog" class="guided-onboarding" aria-labelledby="guidedOnboardingTitle">
     <div class="dialog-head">
-      <div><p class="guided-kicker">Primeiro acesso</p><h2 id="guidedOnboardingTitle">Organize sua busca em 3 passos</h2><p>Você continua no controle e pode fechar este guia quando quiser.</p></div>
+      <div><p class="guided-kicker">Primeiro acesso</p><h2 id="guidedOnboardingTitle">Organize sua busca em 3 passos</h2><p>Você pode pausar e retomar depois. Para encerrar o guia, escolha Pular ou ×.</p></div>
       <button class="close" id="closeGuidedOnboarding" type="button" aria-label="Fechar guia">×</button>
     </div>
     <div class="guided-body">
       <div class="guided-step" data-guided-step="0">
         <span class="guided-step-number">1</span>
-        <div><h3>Adicione seu currículo</h3><p>Importe sua base para extrair experiências e competências com segurança.</p><span class="guided-step-state" id="guidedProfileState"></span><a data-guided-link href="/curriculos">Abrir currículos →</a></div>
+        <div><h3>Adicione seu currículo</h3><p>Importe sua base para extrair experiências e competências com segurança.</p><span class="guided-step-state" id="guidedProfileState"></span><a data-guided-link data-guided-next-step="1" href="/curriculos">Abrir currículos →</a></div>
       </div>
       <div class="guided-step" data-guided-step="1" hidden>
         <span class="guided-step-number">2</span>
-        <div><h3>Ajuste seu perfil e preferências</h3><p>Defina cargos, locais e modalidades para calibrar os matches.</p><span class="guided-step-state" id="guidedPreferencesState"></span><a data-guided-link href="/configuracoes#preferencias">Abrir preferências →</a></div>
+        <div><h3>Ajuste seu perfil e preferências</h3><p>Defina cargos, locais e modalidades para calibrar os matches.</p><span class="guided-step-state" id="guidedPreferencesState"></span><a data-guided-link data-guided-next-step="2" href="/configuracoes#preferencias">Abrir preferências →</a></div>
       </div>
       <div class="guided-step" data-guided-step="2" hidden>
         <span class="guided-step-number">3</span>
@@ -845,6 +845,70 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script>
+    // GUIDED_ONBOARDING_STATE_BEGIN
+    window.GuidedOnboardingState = (function attachGuidedOnboardingState(root) {
+      "use strict";
+
+      const PREFIX = "ac_guided_onboarding_v1";
+      const LAST_STEP = 2;
+
+      function keyForUser(accountId) {
+        const id = String(accountId || "").trim();
+        return id ? `${PREFIX}:${id}` : "";
+      }
+
+      function create(storage, accountId) {
+        const storageKey = keyForUser(accountId);
+
+        function read() {
+          if (!storageKey || !storage) return { step: 0, started: false, completed: false };
+          try {
+            const saved = JSON.parse(storage.getItem(storageKey) || "null");
+            if (!saved || saved.version !== 1) return { step: 0, started: false, completed: false };
+            const step = Number(saved.step);
+            return {
+              step: Number.isInteger(step) && step >= 0 && step <= LAST_STEP ? step : 0,
+              started: saved.started === true,
+              completed: saved.completed === true,
+            };
+          } catch {
+            return { step: 0, started: false, completed: false };
+          }
+        }
+
+        function write(value) {
+          if (!storageKey || !storage) return false;
+          try {
+            storage.setItem(storageKey, JSON.stringify({ version: 1, ...value }));
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        return Object.freeze({
+          key: storageKey,
+          read,
+          saveStep(step) {
+            const current = read();
+            const nextStep = Number(step);
+            if (current.completed || !Number.isInteger(nextStep) || nextStep < 0 || nextStep > LAST_STEP) return false;
+            return write({ step: nextStep, started: true, completed: false });
+          },
+          complete() {
+            return write({ step: LAST_STEP, started: true, completed: true });
+          },
+          shouldShow(hasProfile, hasPreferences) {
+            const current = read();
+            return Boolean(storageKey) && !current.completed && (current.started || !(hasProfile && hasPreferences));
+          },
+        });
+      }
+
+      return Object.freeze({ keyForUser, create });
+    })(window);
+    // GUIDED_ONBOARDING_STATE_END
+
     async function initializeAuth() {
       try {
         const response = await fetch("/auth/me");
@@ -875,6 +939,11 @@
         if (payload.user) {
           $("userEmail").textContent = payload.user.email || "Usuario autenticado";
           $("logoutButton").hidden = false;
+          try {
+            guidedOnboardingState = window.GuidedOnboardingState.create(window.localStorage, payload.user.id);
+          } catch {
+            guidedOnboardingState = null;
+          }
         }
         const requestedApplication = new URLSearchParams(window.location.search).get("application_id");
         if (requestedApplication) {
@@ -1195,19 +1264,22 @@
       } catch { return ["site da vaga", "Confira os campos e conclua o envio na página da empresa."]; }
     }
 
-    const GUIDED_ONBOARDING_DISMISSED = "ac_guided_onboarding_v1";
     let guidedOnboardingStep = 0;
     let guidedOnboardingTrigger = null;
-
-    function guidedOnboardingDismissed() {
-      try { return window.localStorage.getItem(GUIDED_ONBOARDING_DISMISSED) === "1"; } catch { return false; }
-    }
+    let guidedOnboardingState = null;
 
     function dismissGuidedOnboarding() {
-      try { window.localStorage.setItem(GUIDED_ONBOARDING_DISMISSED, "1"); } catch { /* armazenamento local indisponível */ }
+      guidedOnboardingState?.complete();
       const dialog = $("guidedOnboardingDialog");
       if (dialog?.open) dialog.close();
       if (guidedOnboardingTrigger?.focus) guidedOnboardingTrigger.focus();
+    }
+
+    function pauseGuidedOnboarding(step = guidedOnboardingStep, restoreFocus = true) {
+      guidedOnboardingState?.saveStep(step);
+      const dialog = $("guidedOnboardingDialog");
+      if (dialog?.open) dialog.close();
+      if (restoreFocus && guidedOnboardingTrigger?.focus) guidedOnboardingTrigger.focus();
     }
 
     function renderGuidedOnboardingStep() {
@@ -1215,21 +1287,22 @@
         step.hidden = Number(step.dataset.guidedStep) !== guidedOnboardingStep;
       });
       $("guidedBackButton").disabled = guidedOnboardingStep === 0;
-      $("guidedNextButton").textContent = guidedOnboardingStep === 2 ? "Concluir" : "Próximo";
+      $("guidedNextButton").textContent = guidedOnboardingStep === 2 ? "Fechar por enquanto" : "Próximo";
       $("guidedProgressBar").dataset.step = String(guidedOnboardingStep + 1);
     }
 
     function maybeShowGuidedOnboarding(hasProfile, hasPreferences) {
-      if ((hasProfile && hasPreferences) || guidedOnboardingDismissed()) return;
+      if (!guidedOnboardingState?.shouldShow(hasProfile, hasPreferences)) return;
       const dialog = $("guidedOnboardingDialog");
       if (!dialog || dialog.open) return;
       $("guidedProfileState").textContent = hasProfile ? "✓ Perfil já configurado" : "Ainda não configurado";
       $("guidedPreferencesState").textContent = hasPreferences ? "✓ Preferências já configuradas" : "Ainda não configuradas";
-      guidedOnboardingStep = 0;
+      guidedOnboardingStep = guidedOnboardingState.read().step;
       renderGuidedOnboardingStep();
       window.setTimeout(() => {
         if (!dialog.open) {
-          guidedOnboardingTrigger = $("onboardingNote")?.querySelector("a") || $("captureJobButton");
+          const onboardingLink = $("onboardingNote")?.querySelector("a");
+          guidedOnboardingTrigger = onboardingLink && !onboardingLink.closest("[hidden]") ? onboardingLink : $("captureJobButton");
           dialog.showModal();
           $("guidedNextButton").focus();
         }
@@ -2230,25 +2303,34 @@ async function downloadCoverLetterDocument() {
     populateStatusOptions();
     $("closeGuidedOnboarding").addEventListener("click", dismissGuidedOnboarding);
     $("skipGuidedOnboarding").addEventListener("click", dismissGuidedOnboarding);
+    $("guidedOnboardingDialog").addEventListener("cancel", event => {
+      event.preventDefault();
+      pauseGuidedOnboarding();
+    });
     $("guidedBackButton").addEventListener("click", () => {
       guidedOnboardingStep = Math.max(0, guidedOnboardingStep - 1);
+      guidedOnboardingState?.saveStep(guidedOnboardingStep);
       renderGuidedOnboardingStep();
     });
     $("guidedNextButton").addEventListener("click", () => {
       if (guidedOnboardingStep >= 2) {
-        dismissGuidedOnboarding();
+        pauseGuidedOnboarding();
         return;
       }
       guidedOnboardingStep += 1;
+      guidedOnboardingState?.saveStep(guidedOnboardingStep);
       renderGuidedOnboardingStep();
     });
     $("guidedCaptureButton").addEventListener("click", () => {
-      dismissGuidedOnboarding();
       guidedOnboardingTrigger = $("captureJobButton");
+      pauseGuidedOnboarding(guidedOnboardingStep, false);
       resetCaptureReview();
       $("captureJobDialog").showModal();
     });
-    document.querySelectorAll("[data-guided-link]").forEach(link => link.addEventListener("click", dismissGuidedOnboarding));
+    document.querySelectorAll("[data-guided-link]").forEach(link => link.addEventListener("click", () => {
+      const nextStep = Number(link.dataset.guidedNextStep);
+      if (Number.isInteger(nextStep)) pauseGuidedOnboarding(nextStep, false);
+    }));
     $("showLoginTab").addEventListener("click", () => showAuthMode("login"));
     $("showSignupTab").addEventListener("click", () => showAuthMode("signup"));
     $("loginForm").addEventListener("submit", login);
@@ -2439,7 +2521,10 @@ $("copyCoverLetter").addEventListener(
       }
     });
     document.addEventListener("keydown", event => { if (event.key === "Escape" && $("drawer").classList.contains("open")) closeDrawer(); });
+    window.addEventListener("pageshow", event => {
+      if (event.persisted && !$("appShell").hidden) syncOnboardingCard();
+    });
     bootstrapAuth();
   </script>
-<script src="/static/password-enhance.js?v=2"></script></body>
+  <script src="/static/password-enhance.js?v=2"></script></body>
 </html>

@@ -9,9 +9,10 @@
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer}
     .wrap{max-width:1120px;margin:0 auto;padding:38px 22px 70px}.intro{margin:10px 0 28px}.eyebrow{display:inline-flex;padding:6px 10px;border-radius:999px;background:#e9eeff;color:#3c4bc6;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}.intro h1{max-width:690px;margin:12px 0 8px;font-size:clamp(30px,4vw,48px);line-height:1.06;letter-spacing:-.045em}.intro p{max-width:690px;margin:0;color:var(--muted);font-size:16px}
     .layout{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(290px,.88fr);gap:20px;align-items:start}.card{border:1px solid var(--line);border-radius:18px;background:var(--paper);box-shadow:0 12px 30px #1739650b;padding:24px}.card h2{margin:0 0 6px;font-size:19px}.card>p{margin:0 0 20px;color:var(--muted);font-size:13px}.field{display:grid;gap:6px;margin-top:16px}.field label{font-size:12px;font-weight:800;color:#405473}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:12px 13px;color:var(--ink);outline:0;background:#fff}.field textarea{min-height:190px;resize:vertical;line-height:1.55}.field input:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px #eef0ff}.hint{color:var(--muted);font-size:11px}.source-picker{margin:0 0 18px;padding:14px;border:1px solid #d8e2f2;border-radius:12px;background:#f8fbff}.source-picker label{display:block;font-size:12px;font-weight:800;color:#405473;margin-bottom:6px}.source-picker select{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:#fff;color:var(--ink)}.source-picker .hint{display:block;margin-top:6px}.actions{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap}.primary,.secondary{min-height:44px;border-radius:10px;padding:11px 16px;font-weight:850}.primary{border:1px solid var(--blue);background:var(--blue);color:#fff}.secondary{border:1px solid var(--line);background:#fff;color:var(--deep)}.clear-action{margin-left:auto;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:3px}.clear-action:hover,.clear-action:focus-visible{color:var(--deep)}.primary:disabled{opacity:.55;cursor:wait}.primary.busy{display:inline-flex;align-items:center;gap:8px}.primary.busy::before{content:"";width:13px;height:13px;border:2px solid #ffffff80;border-top-color:#fff;border-radius:50%;animation:status-spin .8s linear infinite}@keyframes status-spin{to{transform:rotate(360deg)}}.status{min-height:22px;margin-top:12px;color:#a33b2a;font-size:13px}.status.ok{color:var(--green)}
+    .lookup-loading{margin-top:8px;padding:10px 11px;border:1px solid #e3eaf4;border-radius:9px;background:#fbfdff}.lookup-loading[hidden],.lookup-message:empty,.source-picker [hidden]{display:none}.lookup-line{width:72%;height:11px;margin:4px 0;background:linear-gradient(90deg,#edf2f7 25%,#f7f9fc 50%,#edf2f7 75%);background-size:200% 100%;border-radius:7px;animation:lookup-shimmer 1.5s ease-in-out infinite}.lookup-line+.lookup-line{width:48%}.lookup-message{display:block;margin-top:7px;color:var(--muted);font-size:11px}.lookup-error{color:#a33b2a}.lookup-retry{margin-top:7px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--deep);font-size:12px;font-weight:750}.lookup-retry[hidden]{display:none}@keyframes lookup-shimmer{to{background-position:-200% 0}}
     .side{background:linear-gradient(150deg,#203e8b,#4f5eea);border:0;color:#fff}.side h2{font-size:21px}.side>p{color:#e3e8ff}.steps{display:grid;gap:14px;margin-top:22px}.step{display:grid;grid-template-columns:29px 1fr;gap:10px;align-items:start}.step b{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#ffffff2b;font-size:13px}.step strong{display:block;font-size:13px}.step span{display:block;margin-top:2px;color:#dbe3ff;font-size:12px;line-height:1.45}.tip{margin-top:22px;padding:13px 14px;border-radius:12px;background:#ffffff18;color:#eef1ff;font-size:12px}
     .result{grid-column:1/-1;display:none}.result.visible{display:block}.result-head{display:flex;justify-content:space-between;gap:18px;align-items:start}.result-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.score{padding:9px 12px;border-radius:10px;background:#eaf8f1;color:var(--green);font-size:12px;font-weight:850;white-space:nowrap}.preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.preview{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fbfdff}.preview h3{margin:0 0 10px;font-size:14px}.preview-body{color:#334764;font-size:13px;white-space:pre-wrap;max-height:245px;overflow:auto}.skills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.skill{padding:5px 8px;border-radius:999px;background:var(--soft);color:#4050bd;font-size:11px;font-weight:750}.notice{margin-top:16px;padding:12px 14px;border-radius:10px;background:#fff7e6;color:#815300;font-size:12px}.file-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.file-actions[hidden]{display:none}.file-actions button{min-height:40px}
-    @media(max-width:780px){.wrap{padding:25px 14px 50px}.layout{grid-template-columns:1fr}.result{grid-column:auto}.preview-grid{grid-template-columns:1fr}.result-head{display:block}.score{display:inline-block;margin-top:12px}.side{order:-1}}@media(prefers-reduced-motion:reduce){.primary.busy::before{animation:none}}
+    @media(max-width:780px){.wrap{padding:25px 14px 50px}.layout{grid-template-columns:1fr}.result{grid-column:auto}.preview-grid{grid-template-columns:1fr}.result-head{display:block}.score{display:inline-block;margin-top:12px}.side{order:-1}}@media(prefers-reduced-motion:reduce){.primary.busy::before{animation:none}.lookup-line{animation:none;background:#edf2f7}}
   </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
         <h2>Sobre a oportunidade</h2>
         <p>Quanto mais contexto você enviar, mais precisa fica a adaptação.</p>
         <form id="studioForm">
-          <div class="source-picker"><label for="applicationSelect">Como deseja preencher?</label><select id="applicationSelect"><option value="">Preenchimento manual</option></select><span class="hint" id="applicationHint">Escolha uma candidatura já captada para carregar cargo, empresa e descrição automaticamente.</span></div>
+          <div class="source-picker" id="applicationPicker" aria-busy="true"><label for="applicationSelect">Como deseja preencher?</label><select id="applicationSelect" aria-describedby="applicationsMessage applicationHint"><option value="">Preenchimento manual</option></select><div class="lookup-loading" id="applicationsLoading" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando suas candidaturas"><span class="sr-only">Carregando suas candidaturas para vincular ao documento.</span><span class="lookup-line" aria-hidden="true"></span><span class="lookup-line" aria-hidden="true"></span></div><span class="lookup-message" id="applicationsMessage" role="status" aria-live="polite"></span><button class="lookup-retry" id="retryApplications" type="button" hidden>Tentar carregar candidaturas novamente</button><div id="applicationLookup" aria-busy="false"><span class="hint" id="applicationHint" role="status" aria-live="polite">Escolha uma candidatura já captada para carregar cargo, empresa e descrição automaticamente.</span><div class="lookup-loading" id="applicationLookupLoading" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando dados da vaga selecionada" hidden><span class="sr-only">Carregando os dados da vaga selecionada.</span><span class="lookup-line" aria-hidden="true"></span><span class="lookup-line" aria-hidden="true"></span></div><button class="lookup-retry" id="retryApplication" type="button" hidden>Tentar carregar esta vaga novamente</button></div></div>
           <div class="field"><label for="title">Cargo desejado *</label><input id="title" required maxlength="200" placeholder="Ex.: Coordenador de Recursos Humanos"></div>
           <div class="field"><label for="company">Empresa</label><input id="company" maxlength="200" placeholder="Ex.: Empresa contratante"></div>
           <div class="field"><label for="location">Localização ou modalidade</label><input id="location" maxlength="300" placeholder="Ex.: Salvador, BA · híbrido"></div>
@@ -169,34 +170,59 @@
         checkoutMsg(error.message||'Não foi possível concluir a geração automática.');
       }
     }
+    let applicationLookupRequest=0;
+    function setApplicationListState({loading=false,message='',error=false,retry=false}={}){
+      $('applicationPicker').setAttribute('aria-busy',String(loading));
+      $('applicationsLoading').hidden=!loading;
+      $('applicationsLoading').setAttribute('aria-busy',String(loading));
+      $('applicationsMessage').textContent=message;
+      $('applicationsMessage').className='lookup-message'+(error?' lookup-error':'');
+      $('retryApplications').hidden=!retry;
+    }
+    function setApplicationLookupState({loading=false,message='',error=false,retry=false}={}){
+      $('applicationLookup').setAttribute('aria-busy',String(loading));
+      $('applicationLookupLoading').hidden=!loading;
+      $('applicationLookupLoading').setAttribute('aria-busy',String(loading));
+      $('applicationHint').hidden=loading;
+      $('applicationHint').textContent=message;
+      $('applicationHint').classList.toggle('lookup-error',error);
+      $('retryApplication').hidden=!retry;
+    }
     async function loadApplications(){
+      setApplicationListState({loading:true});
       try{
         const r=await fetch('/applications');
-        if(!r.ok)return;
+        if(!r.ok)throw new Error('Não foi possível carregar suas candidaturas.');
         const data=await r.json();
         const select=$('applicationSelect');
-        (data.applications||[]).forEach(item=>{
+        select.querySelectorAll('option:not(:first-child)').forEach(option=>option.remove());
+        const applications=data.applications||[];
+        applications.forEach(item=>{
           const option=document.createElement('option');
           option.value=item.id;
           option.textContent=(item.job_title||'Cargo sem título')+' · '+(item.company||'Empresa não informada')+' · '+(item.status||'Identificada');
           select.appendChild(option);
         });
+        setApplicationListState({message:applications.length?'':'Ainda não há candidaturas captadas. Você pode preencher os dados manualmente.'});
         const requested=new URLSearchParams(window.location.search).get('application_id');
         if(requested){
           select.value=requested;
-          await selectApplication(requested);
-          await handlePaymentReturn();
+          if(await selectApplication(requested))await handlePaymentReturn();
         }
-      }catch{}
+      }catch{
+        setApplicationListState({message:'Não foi possível carregar suas candidaturas. Você pode preencher manualmente ou tentar novamente.',error:true,retry:true});
+      }
     }
     async function selectApplication(id){
+      const request=++applicationLookupRequest;
       linkedApplicationId=id?Number(id):null;
       current=null;
-      if(!linkedApplicationId){
-        $('applicationHint').textContent='Preencha os campos manualmente ou escolha uma candidatura captada.';
-        return;
+      if(!linkedApplicationId||!Number.isFinite(linkedApplicationId)){
+        linkedApplicationId=null;
+        setApplicationLookupState({message:'Preencha os campos manualmente ou escolha uma candidatura captada.'});
+        return false;
       }
-      $('applicationHint').textContent='Carregando os dados da vaga…';
+      setApplicationLookupState({loading:true});
       try{
         const appResponse=await fetch(`/applications/${linkedApplicationId}`);
         if(!appResponse.ok)throw new Error('Não foi possível carregar a candidatura selecionada.');
@@ -205,16 +231,20 @@
         if(!r.ok)throw new Error('Não foi possível carregar a vaga selecionada.');
         const data=await r.json();
         if(Number(data.application_id)!==linkedApplicationId)throw new Error('A vaga selecionada ainda não possui candidatura.');
+        if(request!==applicationLookupRequest)return false;
         $('title').value=data.title||'';
         $('company').value=data.company||'';
         $('location').value=[data.location,data.modality].filter(Boolean).join(' · ');
         $('url').value=data.url||'';
         $('details').value=data.description||'';
-        $('applicationHint').textContent='Vaga captada vinculada. Você pode revisar os campos antes de gerar.';
+        setApplicationLookupState({message:'Vaga captada vinculada. Você pode revisar os campos antes de gerar.'});
         msg('Vaga captada carregada no estúdio.',true);
+        return true;
       }catch(error){
+        if(request!==applicationLookupRequest)return false;
         linkedApplicationId=null;
-        $('applicationHint').textContent=error.message;
+        setApplicationLookupState({message:error.message||'Não foi possível carregar esta vaga.',error:true,retry:true});
+        return false;
       }
     }
     async function generatePreview({scroll=true}={}){
@@ -261,8 +291,14 @@
       }
     }
     $('applicationSelect').addEventListener('change',async e=>{
-      await selectApplication(e.target.value);
+      if(!await selectApplication(e.target.value))return;
       try{await restorePaidApplication()}catch(error){checkoutMsg(error.message||'Não foi possível restaurar os documentos pagos.')}
+    });
+    $('retryApplications').addEventListener('click',loadApplications);
+    $('retryApplication').addEventListener('click',async()=>{
+      if(await selectApplication($('applicationSelect').value)){
+        try{await restorePaidApplication()}catch(error){checkoutMsg(error.message||'Não foi possível restaurar os documentos pagos.')}
+      }
     });
     $('studioForm').addEventListener('submit',async e=>{
       e.preventDefault();
@@ -276,6 +312,8 @@
       $('exportActions').hidden=true;
       current=null;
       linkedApplicationId=null;
+      applicationLookupRequest++;
+      setApplicationLookupState({message:'Preencha os campos manualmente ou escolha uma candidatura captada.'});
       msg('');
       $('title').focus();
     });
