@@ -15,7 +15,7 @@
     <p>O copiloto pode levar para o formulário da Gupy, Vagas.com ou InfoJobs as informações que você já salvou no seu perfil. Você confere tudo e envia no próprio portal.</p>
     <div class="tip cc-assistant-note"><strong>Instalação única no computador:</strong> o complemento ainda não está na loja oficial do Chrome. Por enquanto, é preciso instalá-lo seguindo os passos abaixo. Depois, no dia a dia, é só abrir uma vaga compatível e pedir para preparar os campos. O complemento não envia candidaturas nem resolve CAPTCHA. Esta versão funciona no Chrome ou Edge em computador, não no aplicativo do celular.</div>
     <div class="actions cc-assistant-actions">
-      <a class="primary" href="/static/candidatura-certa-autopreenchimento.zip?v=8" download>Baixar o copiloto</a>
+      <a class="primary" href="/static/candidatura-certa-autopreenchimento.zip?v=9" download>Baixar o copiloto</a>
     </div>
     <details class="cc-assistant-guide" open>
       <summary>Instalar no computador — faça isso uma vez</summary>

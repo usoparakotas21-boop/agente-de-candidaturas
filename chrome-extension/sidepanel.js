@@ -51,7 +51,7 @@
     if (!analysisConsent.checked) return;
     analyzeButton.disabled = true;
     jobItems.replaceChildren();
-    setJobStatus("Lendo a vaga visível na aba ativa…");
+      setJobStatus("Lendo os dados visíveis desta vaga…");
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error("Volte à vaga e abra novamente a cópia rápida.");
@@ -75,15 +75,15 @@
       if (!analysis) throw new Error("Não foi possível calcular a compatibilidade com os dados encontrados.");
       const contextLabel = [vacancy.title, vacancy.company, vacancy.location].filter(Boolean).join(" · ");
       const geminiMessage = response.value.ai_status === "unavailable"
-        ? " Gemini indisponível; exibindo sugestões baseadas no perfil."
-        : response.value.ai_status === "ready" ? " Rascunhos do Gemini prontos; confira todos os fatos." : "";
-      setJobStatus(`${contextLabel ? `${contextLabel} — ` : ""}${analysis.score}/100 · ${analysis.recommendation}. Uso neste mês: ${usage.used}/${usage.limit}.${geminiMessage}`, "success");
-      addSnippet(response.value.ai_status === "ready" ? "Resumo do Gemini — revise antes de usar" : "Resumo sugerido — revise antes de usar", analysis.summary, jobItems);
-      if (analysis.ai_suggestions?.talking_points?.length) addSnippet("Pontos de conversa sugeridos pelo Gemini", analysis.ai_suggestions.talking_points.join("\n"), jobItems);
-      if (analysis.ai_suggestions?.questions_to_prepare?.length) addSnippet("Perguntas para você preparar", analysis.ai_suggestions.questions_to_prepare.join("\n"), jobItems);
-      if (analysis.strengths?.length) addSnippet("Pontos compatíveis do perfil", analysis.strengths.join(", "), jobItems);
-      if (analysis.gaps?.length) addSnippet("Requisitos para conferir", analysis.gaps.join(", "), jobItems);
-      if (analysis.skills?.length) addSnippet("Competências alinhadas registradas", analysis.skills.join(", "), jobItems);
+        ? " As sugestões do Gemini não ficaram disponíveis; a comparação continua normal."
+        : response.value.ai_status === "ready" ? " As sugestões do Gemini estão prontas; confira se cada detalhe é verdadeiro." : "";
+      setJobStatus(`${contextLabel ? `${contextLabel} — ` : ""}Aderência estimada: ${analysis.score} de 100. ${analysis.recommendation}. Preparações usadas neste mês: ${usage.used} de ${usage.limit}.${geminiMessage}`, "success");
+      addSnippet(response.value.ai_status === "ready" ? "Resumo sugerido pelo Gemini — revise" : "Resumo sugerido — revise", analysis.summary, jobItems);
+      if (analysis.ai_suggestions?.talking_points?.length) addSnippet("Ideias para destacar — revise antes de usar", analysis.ai_suggestions.talking_points.join("\n"), jobItems);
+      if (analysis.ai_suggestions?.questions_to_prepare?.length) addSnippet("Perguntas que podem aparecer", analysis.ai_suggestions.questions_to_prepare.join("\n"), jobItems);
+      if (analysis.strengths?.length) addSnippet("O que combina com seu perfil", analysis.strengths.join(", "), jobItems);
+      if (analysis.gaps?.length) addSnippet("O que vale conferir", analysis.gaps.join(", "), jobItems);
+      if (analysis.skills?.length) addSnippet("Competências do seu perfil", analysis.skills.join(", "), jobItems);
       for (const experience of analysis.experiences || []) {
         addSnippet(
           [experience.role, experience.company].filter(Boolean).join(" · ") || "Experiência relacionada",

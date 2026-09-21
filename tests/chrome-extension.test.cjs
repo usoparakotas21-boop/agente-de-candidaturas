@@ -239,6 +239,18 @@ test("painel lateral exige consentimento e envia análise apenas da aba ATS ativ
   assert.equal(body.job_description, jobDescription);
 });
 
+test("painel lateral explica análise, consentimentos e controle em linguagem simples", () => {
+  const html = fs.readFileSync(path.join(__dirname, "../chrome-extension/sidepanel.html"), "utf8");
+  const script = fs.readFileSync(path.join(__dirname, "../chrome-extension/sidepanel.js"), "utf8");
+  assert.match(html, /Compare esta vaga com seu perfil/);
+  assert.match(html, /nada será preenchido no portal nem enviado à empresa/);
+  assert.match(html, /O Gemini fica desligado por padrão/);
+  assert.match(html, /nome, e-mail e telefone ficam de fora/);
+  assert.match(html, /Ver compatibilidade/);
+  assert.match(script, /Aderência estimada:/);
+  assert.match(script, /Preparações usadas neste mês/);
+});
+
 test("só reconhece uploads explicitamente identificados como currículo ou carta", () => {
   assert.equal(classifyFileField({ labels: "Currículo em PDF" }), "resume");
   assert.equal(classifyFileField({ ariaLabel: "Upload resume" }), "resume");
@@ -334,7 +346,7 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(background, /CC_GET_APPLICATION_PDFS/);
   assert.doesNotMatch(background, /storage\.local|storage\.sync/);
   assert.match(popup, /chrome\.permissions\.request\(sitePermission\(\)\)/);
-  assert.equal(manifest.version, "0.7.0");
+  assert.equal(manifest.version, "0.7.1");
   assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "job-context\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
   assert.match(popup, /Ativar botão automaticamente neste domínio/);
   assert.match(popup, /chrome\.permissions\.request\(\{ origins: \[.*page\.origin/s);

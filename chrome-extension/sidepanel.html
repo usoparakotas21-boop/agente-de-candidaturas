@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cópia rápida — Candidatura Certa</title>
+  <title>Copiloto da vaga — Candidatura Certa</title>
   <style>
     :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#152b49;background:#f7f9fd;font-synthesis:none}*{box-sizing:border-box}body{margin:0;padding:16px}.brand{display:flex;align-items:center;gap:10px;margin:0 0 16px}.mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#153a70;color:#fff;font-weight:850}.brand h1{margin:0;font-size:16px}.brand p{margin:3px 0 0;color:#64758b;font-size:11px}.card{padding:14px;border:1px solid #dce5f2;border-radius:13px;background:#fff}.card+.card{margin-top:12px}button{min-height:36px;padding:8px 12px;border:1px solid #286be4;border-radius:9px;background:#286be4;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.status{min-height:18px;margin:10px 0 0;color:#52657e;font-size:11px;line-height:1.45}.status[data-state=error]{color:#b42318}.status[data-state=success]{color:#16794b}.notice{margin:0 0 12px;color:#52657e;font-size:11px;line-height:1.5}.consent{display:flex;align-items:flex-start;gap:8px;margin:10px 0;padding:9px;border-radius:9px;background:#eff5ff;color:#405470;font-size:11px;line-height:1.45}.consent input{margin:2px 0 0;flex:none}.items{display:grid;gap:10px;margin-top:12px}.item{padding:11px;border:1px solid #e1e8f2;border-radius:10px}.item-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.item h2{margin:0;font-size:12px}.item button{min-height:30px;padding:5px 9px;font-size:10px}.value{margin:8px 0 0;color:#3e526d;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}.footer{margin:14px 0 0;color:#78879b;font-size:10px;line-height:1.45}
   </style>
@@ -11,17 +11,17 @@
 <body>
   <header class="brand"><span class="mark" aria-hidden="true">CC</span><div><h1>Candidatura Certa</h1><p>Copiloto da vaga</p></div></header>
   <section class="card" aria-labelledby="jobHeading">
-    <h2 id="jobHeading" style="margin:0 0 8px;font-size:13px">Analisar a vaga aberta</h2>
-    <p class="notice">Por padrão, o Gemini não é usado. A opção abaixo permite gerar pontos de conversa com a API do Google; nada é preenchido nesta etapa.</p>
-    <label class="consent"><input id="analysisConsent" type="checkbox"><span>Autorizo enviar o texto da vaga e meus dados de perfil à Candidatura Certa para calcular compatibilidade e preparar sugestões.</span></label>
-    <label class="consent"><input id="geminiConsent" type="checkbox"><span>Opcional: autorizo enviar somente resumo, competências e experiências do perfil (sem nome, e-mail, telefone ou links) e o texto da vaga ao Google Gemini para gerar pontos de conversa. <a href="https://candidaturacerta.com.br/privacidade" target="_blank" rel="noopener noreferrer">Ver privacidade</a>.</span></label>
-    <button id="analyzeJob" type="button" disabled>Analisar vaga</button>
+    <h2 id="jobHeading" style="margin:0 0 8px;font-size:13px">Compare esta vaga com seu perfil</h2>
+    <p class="notice">Vamos mostrar o quanto a vaga combina com seu perfil. Nesta etapa, nada será preenchido no portal nem enviado à empresa. O Gemini fica desligado por padrão.</p>
+    <label class="consent"><input id="analysisConsent" type="checkbox"><span>Sim, use meu perfil e o texto visível da vaga para calcular a compatibilidade na Candidatura Certa. A descrição original não fica salva.</span></label>
+    <label class="consent"><input id="geminiConsent" type="checkbox"><span>Quero também sugestões do Google Gemini (opcional). Serão enviados o texto da vaga, meu resumo profissional, competências e experiências; nome, e-mail e telefone ficam de fora. <a href="https://candidaturacerta.com.br/privacidade" target="_blank" rel="noopener noreferrer">Ver privacidade</a>.</span></label>
+    <button id="analyzeJob" type="button" disabled>Ver compatibilidade</button>
     <p id="jobStatus" class="status" role="status" aria-live="polite"></p>
     <div id="jobItems" class="items" aria-live="polite"></div>
   </section>
   <section class="card">
-    <p class="notice">Carregue seus dados para copiar manualmente. Revise cada trecho antes de colar; respostas abertas e envio continuam manuais.</p>
-    <button id="loadProfile" type="button">Carregar meu perfil</button>
+    <p class="notice">Se algum campo do formulário não for preenchido, você pode copiar seus dados daqui. Respostas abertas e o envio continuam com você.</p>
+    <button id="loadProfile" type="button">Ver dados do meu perfil para copiar</button>
     <p id="status" class="status" role="status" aria-live="polite"></p>
     <div id="items" class="items" aria-live="polite"></div>
   </section>
