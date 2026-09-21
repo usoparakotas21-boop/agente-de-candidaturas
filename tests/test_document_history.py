@@ -249,9 +249,17 @@ class GeneratedDocumentHistoryTests(unittest.TestCase):
             main_module.smtplib, "SMTP", FakeSMTP
         ):
             # First delivery attempt fails and retains a retryable state.
-            failed = main_module.retry_document_delivery(delivery_id, self.users["owner-a"])
+            with patch.object(main_module.logger, "warning") as smtp_warning:
+                failed = main_module.retry_document_delivery(delivery_id, self.users["owner-a"])
             self.assertEqual(failed["status"], "failed")
             self.assertEqual(failed["email_status"], "FAILED")
+            warning_format, _, stage, error_type, _smtp_code = smtp_warning.call_args.args
+            warning_args = " ".join(str(value) for value in smtp_warning.call_args.args)
+            self.assertIn("smtp_stage=%s", warning_format)
+            self.assertEqual(stage, "send")
+            self.assertEqual(error_type, "SMTPException")
+            self.assertNotIn("temporary failure", warning_args)
+            self.assertNotIn("smtp-password", warning_args)
 
             sent = main_module.retry_document_delivery(delivery_id, self.users["owner-a"])
             self.assertEqual(sent["status"], "sent")

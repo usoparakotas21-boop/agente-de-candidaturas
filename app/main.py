@@ -3172,14 +3172,27 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     purchase.receipt_email_status = "SENDING"
     purchase.receipt_email_started_at = utc_now()
     db.commit()
+    smtp_stage = "connect"
     try:
         with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp_stage = "tls"
             if bool(smtp_config["use_tls"]):
                 smtp.starttls()
+            smtp_stage = "auth"
             smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
+            smtp_stage = "send"
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
-        logger.warning("Nao foi possivel enviar recibo order_nsu=%s: %s", purchase.order_nsu, exc)
+        smtp_code = getattr(exc, "smtp_code", None)
+        if not isinstance(smtp_code, int):
+            smtp_code = None
+        logger.warning(
+            "Nao foi possivel enviar recibo order_nsu=%s smtp_stage=%s error_type=%s smtp_code=%s",
+            purchase.order_nsu,
+            smtp_stage,
+            type(exc).__name__,
+            smtp_code,
+        )
         current = db.scalar(
             select(DocumentExportPurchase)
             .where(DocumentExportPurchase.id == purchase.id)
@@ -3856,14 +3869,27 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=letter.filename,
     )
+    smtp_stage = "connect"
     try:
         with smtplib.SMTP(host, int(smtp_config["port"]), timeout=15) as smtp:
+            smtp_stage = "tls"
             if bool(smtp_config["use_tls"]):
                 smtp.starttls()
+            smtp_stage = "auth"
             smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
+            smtp_stage = "send"
             smtp.send_message(message)
-    except (OSError, smtplib.SMTPException, TimeoutError):
-        logger.warning("Falha no envio de documentos delivery_id=%s", delivery.id)
+    except (OSError, smtplib.SMTPException, TimeoutError) as exc:
+        smtp_code = getattr(exc, "smtp_code", None)
+        if not isinstance(smtp_code, int):
+            smtp_code = None
+        logger.warning(
+            "Falha no envio de documentos delivery_id=%s smtp_stage=%s error_type=%s smtp_code=%s",
+            delivery.id,
+            smtp_stage,
+            type(exc).__name__,
+            smtp_code,
+        )
         locked.status = "FAILED"
         locked.last_error = "Falha de transporte SMTP; tente novamente."
         db.commit()
