@@ -29,6 +29,30 @@ class RetentionExperienceCopyTests(unittest.TestCase):
         self.assertIn("após 60 dias", html)
         self.assertIn("histórico de decisões e candidaturas podem permanecer", html)
 
+    def test_privacy_policy_names_active_providers_and_retention_windows(self):
+        html = (STATIC / "privacidade.html").read_text(encoding="utf-8-sig")
+        for provider in (
+            "Supabase",
+            "Render",
+            "Google",
+            "Microsoft",
+            "Mercado Pago",
+            "Upstash",
+            "Brevo",
+            "GitHub Actions",
+            "Cloudflare",
+            "UptimeRobot",
+            "Have I Been Pwned",
+        ):
+            with self.subTest(provider=provider):
+                self.assertIn(provider, html)
+        self.assertIn("cinco primeiros caracteres do hash SHA-1", html)
+        self.assertIn("após 60 dias", html)
+        self.assertIn("por até 60 dias", html)
+        self.assertIn("por até 30 dias", html)
+        self.assertIn("serviços sem cobrança", html)
+        self.assertIn("revisão humana", html)
+
 
 if __name__ == "__main__":
     unittest.main()
