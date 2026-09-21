@@ -2,7 +2,7 @@
 
 **Atualizado em:** 21/09/2026
 **Versão declarada da API:** 0.24.0  
-**Git e produção:** o commit `cc1595e` está sincronizado com o GitHub e foi confirmado como **Live** no Render; a revisão visual desta rodada foi feita em prévia local isolada.
+**Git e produção:** o commit `58d286a` está sincronizado com o GitHub e foi confirmado como **Live** no Render; a revisão funcional do simulador cobriu fallback local e a rota contextual.
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -25,7 +25,7 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 | P1.18 | Suporte ao cliente | **0% canal / 80% central de ajuda** | `/ajuda` já cobre dúvidas comuns; falta um endereço/canal real de atendimento definido pelo proprietário. |
 | P1.6 | Prova operacional de exclusão LGPD | **90% (estimativa)** | Código e testes estão prontos; falta executar com uma conta descartável confirmada e verificar o resultado em produção. |
 | P1.17 | Polimento visual residual | **98% (estimativa)** | Correções de candidaturas, segurança, configurações e grade responsiva dos preços estão Live; o ajuste foi conferido em prévia local. Falta a revisão residual em telas autenticadas no navegador real. |
-| P1.21 | Simulador contextual e feedback de entrevista por IA | **85% (estimativa)** | O roteiro agora usa candidatura selecionada e o método do feedback fica explícito; a chave Gemini existe no Render, mas falta confirmar seu funcionamento e exercitar o fluxo Pro real em produção. |
+| P1.21 | Simulador contextual e feedback de entrevista por IA | **85% (estimativa)** | O roteiro por candidatura, feedback identificado e reinício sem contexto antigo estão Live em `58d286a`; a variável Gemini está presente no Render, mas sua validade e o fluxo Pro real ainda precisam de confirmação autenticada. |
 | P1.20 | Governança legal/proveniência de fontes | **40% (estimativa)** | Matriz de fontes pesquisada e gate deny-by-default implementado; falta autorização documentada por quadro/fonte antes de qualquer coleta automática. |
 | P1.1 | Métricas de resultado | **100% código** | Aguarda volume real suficiente; a interface evita conclusões antes do mínimo de candidaturas. |
 | P2.1–P2.6 | APIs/ATS, ingestão, workers, observabilidade e proxies/stealth condicionados | **0% integração** | Permanecem bloqueados pelo gate P1.20 e pela escolha/autorização das fontes. |
@@ -364,7 +364,7 @@ Decisão registrada: não criar `job_listings` apenas para satisfazer o formato 
 19. **P1.19 — ciclo de vida por e-mail, 70%:** follow-up e resumo de entrevistas implementados com escolha opcional, confirmação de endereço, outbox, retry, idempotência e expurgo após 60 dias. Boas-vindas não será duplicada porque o Supabase já confirma a conta; alertas de expiração aguardam uma data de validade de origem confiável e ficaram desativados na interface. Falta SMTP e prova de entrega em produção.
 20. **P1.20 — governança de fontes, 40%:** a pesquisa e o runbook com as exigências de Termos, licença, direitos de uso, atribuição, rate limit, origem e TTL estão registrados; o código deny-by-default exige evidência, endpoint exato, usos permitidos e revisão após 180 dias. Lever é somente candidata técnica, ainda sem aprovação para republicação comercial; o registro vazio mantém qualquer coleta automática bloqueada. A autorização precisa ser documentada por quadro/fonte antes do P2 de escala.
 21. **Estúdio de documentos ligado à fila:** o usuário pode escolher uma candidatura já captada ou preencher manualmente. A opção automática carrega cargo, empresa, modalidade, URL e descrição, reaproveita a candidatura existente e evita duplicidade; permanece como melhoria P1 do fluxo de documentos, sem alterar o gate de pagamento.
-22. **P1.21 — preparação e avaliação de entrevistas, 85%:** o simulador busca candidaturas do usuário autenticado, chama a API owner-scoped para importar perguntas baseadas nos gaps e mantém perguntas gerais disponíveis. A resposta local ou Gemini aparece identificada; HTTP 402/503 não são mascarados, a heurística deixou de rejeitar frases naturais em português e textos retornados pelo modelo são escapados. A checagem em prévia local cobriu perguntas contextuais, fallback 402 e conteúdo HTML hostil; falta confirmar `GEMINI_API_KEY` e usar uma conta Pro real em produção.
+22. **P1.21 — preparação e avaliação de entrevistas, 85%:** o simulador busca candidaturas do usuário autenticado, chama a API owner-scoped para importar perguntas baseadas nos gaps e mantém perguntas gerais disponíveis. A resposta local ou Gemini aparece identificada; HTTP 402/503 não são mascarados, a heurística aceita respostas naturais em português e textos do modelo são escapados. `58d286a` está **Live**. Dois testes Node cobrem reiniciar a simulação e trocar o contexto preservando rascunhos; 320 testes Python passaram sem o módulo opcional de ATS que requer `pytest`, e 30 testes direcionados de sanitização, feedback assíncrono e shell passaram. A variável `GEMINI_API_KEY` está presente no Render, mas ainda falta provar que é válida e exercitar o fluxo com uma conta Pro real.
 
 ### Próximo ciclo prático já classificado
 
