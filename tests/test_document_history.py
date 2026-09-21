@@ -296,6 +296,24 @@ class GeneratedDocumentHistoryTests(unittest.TestCase):
         self.assertEqual(result["email_status"], "SKIPPED")
         smtp.assert_not_called()
 
+    def test_document_email_retry_rate_limit_runs_before_database_access(self):
+        request = object()
+        with patch.object(
+            main_module,
+            "_enforce_rate_limit",
+            side_effect=HTTPException(429, "Muitas tentativas."),
+        ) as limiter, patch.object(main_module, "SessionLocal") as session_local:
+            with self.assertRaises(HTTPException) as raised:
+                main_module.retry_document_delivery(
+                    self.delivery_ids[("owner-a", "v1")],
+                    user=self.users["owner-a"],
+                    request=request,
+                )
+
+        self.assertEqual(raised.exception.status_code, 429)
+        limiter.assert_called_once_with(request, "document-email-retry", "owner-a")
+        session_local.assert_not_called()
+
     def test_document_email_is_skipped_if_smtp_password_is_missing(self):
         delivery_id = self.delivery_ids[("owner-a", "v1")]
         with patch.dict(

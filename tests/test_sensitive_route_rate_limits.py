@@ -97,6 +97,9 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
     def test_fastapi_injects_request_for_limited_routes(self):
         paths = {
             "/api/interviews/evaluate",
+            "/applications/{app_id}/email-submission/preview",
+            "/applications/{app_id}/email-submission/send",
+            "/api/documents/deliveries/{delivery_id}/retry",
             "/jobs/{job_id}/cover-letter",
             "/jobs/{job_id}/cover-letter/document",
             "/jobs/{job_id}/generate-document",
@@ -111,12 +114,25 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(route.dependant.request_param_name, "request")
 
     def test_sensitive_route_rate_limit_budgets(self):
+        self.assertEqual(auth._RATE_LIMITS["application-email-preview"], (30, 60 * 60))
+        self.assertEqual(auth._RATE_LIMITS["application-email-send"], (5, 15 * 60))
         self.assertEqual(auth._RATE_LIMITS["ai-interview-evaluation"], (15, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["document-generation"], (20, 60 * 60))
+        self.assertEqual(auth._RATE_LIMITS["document-email-retry"], (3, 15 * 60))
         self.assertEqual(auth._RATE_LIMITS["copilot-prepare"], (20, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["copilot-profile"], (30, 60))
         self.assertEqual(auth._RATE_LIMITS["copilot-documents"], (20, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["mercadopago-webhook"], (600, 60))
+
+    def test_email_routes_have_operational_rate_limit_scopes(self):
+        with patch.object(auth.distributed_rate_limit, "is_configured", return_value=False):
+            for scope in (
+                "application-email-preview",
+                "application-email-send",
+                "document-email-retry",
+            ):
+                with self.subTest(scope=scope):
+                    auth._enforce_rate_limit(self.request, scope, f"test-{scope}")
 
 
 if __name__ == "__main__":
