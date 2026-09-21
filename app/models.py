@@ -345,10 +345,19 @@ class DocumentExportPurchase(Base):
     amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     paid_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="PENDING")
+    # Durable outbox state for generating and archiving a paid document pair.
+    document_generation_status: Mapped[str] = mapped_column(String(20), nullable=False, default="WAITING")
+    document_generation_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    document_generation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    document_generation_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    document_generation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    document_generation_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    payer_email_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     receipt_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     receipt_email_status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    receipt_email_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     receipt_email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

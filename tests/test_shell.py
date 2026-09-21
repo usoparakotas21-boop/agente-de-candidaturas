@@ -130,6 +130,11 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("aria-busy", html)
         self.assertIn("Gerando prévia...", html)
         self.assertIn("button.classList.remove('busy')", html)
+        self.assertIn("/billing/document-export/status?application_id=", html)
+        self.assertIn("state.generation_status==='READY'", html)
+        self.assertIn("$('downloadResume').hidden=true", html)
+        self.assertIn("$('downloadResume').hidden=false", html)
+        self.assertIn('id="retryGeneration"', html)
 
     def test_document_studio_supports_manual_or_captured_application_and_safe_checkout_open(self):
         html = (Path(main_module.STATIC_DIR) / "document-studio.html").read_text(encoding="utf-8")

@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import inspect, select, text, update
+from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
 
 from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, router as auth_router
@@ -92,6 +93,12 @@ DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
     int(os.getenv("DOCUMENT_CLEANUP_INTERVAL_SECONDS", str(24 * 60 * 60))),
 )
 _retention_task: asyncio.Task | None = None
+_purchase_generation_task: asyncio.Task | None = None
+_purchase_generation_wakeup: asyncio.Event | None = None
+DOCUMENT_GENERATION_POLL_SECONDS = 15
+DOCUMENT_GENERATION_MAX_ATTEMPTS = 5
+DOCUMENT_GENERATION_STALE_AFTER = timedelta(minutes=15)
+DOCUMENT_GENERATION_BACKOFF_SECONDS = (30, 120, 600, 1800)
 
 
 def _generated_document_retention_days() -> int:
@@ -169,12 +176,40 @@ async def _document_retention_loop():
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
 
 
+async def _paid_document_generation_loop():
+    """Reconcile the durable one-time export outbox in this web process."""
+    while True:
+        try:
+            await asyncio.to_thread(_process_pending_document_export_purchases, 5)
+            event = _purchase_generation_wakeup
+            if event is None:
+                await asyncio.sleep(DOCUMENT_GENERATION_POLL_SECONDS)
+                continue
+            try:
+                await asyncio.wait_for(event.wait(), timeout=DOCUMENT_GENERATION_POLL_SECONDS)
+                event.clear()
+            except asyncio.TimeoutError:
+                pass
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falha no reconciliador de documentos pagos")
+            await asyncio.sleep(DOCUMENT_GENERATION_POLL_SECONDS)
+
+
 def _cleanup_raw_intake_data() -> dict[str, int]:
     db = SessionLocal()
     try:
         return cleanup_expired_raw_data(db)
     finally:
         db.close()
+
+
+def _start_purchase_generation_worker() -> None:
+    global _purchase_generation_task, _purchase_generation_wakeup
+    if _purchase_generation_task is None or _purchase_generation_task.done():
+        _purchase_generation_wakeup = asyncio.Event()
+        _purchase_generation_task = asyncio.create_task(_paid_document_generation_loop())
 
 
 async def _run_fetch_work(function, *args):
@@ -877,7 +912,8 @@ def startup():
                     "contract_type": "VARCHAR(50)", "salary": "VARCHAR(200)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
                 },
                 "document_export_purchases": {
-                    "application_id": "INTEGER", "payer_email": "VARCHAR(320)", "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL", "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+                    "application_id": "INTEGER", "payer_email": "VARCHAR(320)", "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL", "receipt_email_started_at": "TIMESTAMP WITH TIME ZONE", "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+                    "document_generation_status": "VARCHAR(20) DEFAULT 'WAITING' NOT NULL", "document_generation_attempts": "INTEGER DEFAULT 0 NOT NULL", "document_generation_started_at": "TIMESTAMP WITH TIME ZONE", "document_generation_next_attempt_at": "TIMESTAMP WITH TIME ZONE", "document_generation_completed_at": "TIMESTAMP WITH TIME ZONE", "document_generation_error": "VARCHAR(240)", "payer_email_confirmed": "BOOLEAN DEFAULT FALSE NOT NULL",
                 },
                 "applications": {
                     "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER",
@@ -904,6 +940,7 @@ def startup():
             _cleanup_raw_intake_data()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
+            _start_purchase_generation_worker()
             start_monitor()
             start_outlook_monitor()
             return
@@ -940,7 +977,15 @@ def startup():
             "application_id": "INTEGER",
             "payer_email": "VARCHAR(320)",
             "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL",
+            "receipt_email_started_at": "TIMESTAMP WITH TIME ZONE",
             "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_status": "VARCHAR(20) DEFAULT 'WAITING' NOT NULL",
+            "document_generation_attempts": "INTEGER DEFAULT 0 NOT NULL",
+            "document_generation_started_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_next_attempt_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_completed_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_error": "VARCHAR(240)",
+            "payer_email_confirmed": "BOOLEAN DEFAULT FALSE NOT NULL",
         }.items():
             if col not in purchase_columns:
                 db.execute(text(f"ALTER TABLE document_export_purchases ADD COLUMN {col} {ddl}"))
@@ -985,12 +1030,13 @@ def startup():
     _cleanup_raw_intake_data()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
+    _start_purchase_generation_worker()
     start_monitor()
     start_outlook_monitor()
 
 @app.on_event("shutdown")
 async def shutdown():
-    global _retention_task
+    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup
     if _retention_task is not None:
         _retention_task.cancel()
         try:
@@ -998,6 +1044,14 @@ async def shutdown():
         except asyncio.CancelledError:
             pass
         _retention_task = None
+    if _purchase_generation_task is not None:
+        _purchase_generation_task.cancel()
+        try:
+            await _purchase_generation_task
+        except asyncio.CancelledError:
+            pass
+        _purchase_generation_task = None
+        _purchase_generation_wakeup = None
     await stop_monitor()
     await stop_outlook_monitor()
 
@@ -2122,6 +2176,9 @@ def _mark_purchase_paid(
         "transaction_nsu": transaction_nsu,
         "paid_amount": paid_amount,
         "paid_at": utc_now(),
+        "document_generation_status": "WAITING",
+        "document_generation_next_attempt_at": utc_now(),
+        "document_generation_error": None,
     }
     if invoice_slug:
         values["invoice_slug"] = invoice_slug
@@ -2155,6 +2212,12 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     purchase = locked
     if purchase.receipt_email_status == "SENT":
         return "sent"
+    if purchase.receipt_email_status == "SENDING" and purchase.receipt_email_started_at is not None:
+        started = purchase.receipt_email_started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if utc_now() - started < timedelta(minutes=15):
+            return "sending"
     recipient = str(purchase.payer_email or "").strip()
     host = os.getenv("SMTP_HOST", "").strip()
     sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
@@ -2178,6 +2241,11 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         "O currículo e a carta ficarão disponíveis na biblioteca assim que a geração for concluída. "
         "Se o envio por e-mail estiver configurado, você também receberá os dois arquivos."
     )
+    # Persist the attempt and release the row lock before network I/O. The
+    # document worker can finish archiving while SMTP is slow or unavailable.
+    purchase.receipt_email_status = "SENDING"
+    purchase.receipt_email_started_at = utc_now()
+    db.commit()
     try:
         username = os.getenv("SMTP_USERNAME", "").strip()
         password = os.getenv("SMTP_PASSWORD", "")
@@ -2189,12 +2257,30 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
         logger.warning("Nao foi possivel enviar recibo order_nsu=%s: %s", purchase.order_nsu, exc)
-        purchase.receipt_email_status = "FAILED"
-        db.commit()
+        current = db.scalar(
+            select(DocumentExportPurchase)
+            .where(DocumentExportPurchase.id == purchase.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if current is not None and current.receipt_email_status != "SENT":
+            current.receipt_email_status = "FAILED"
+            current.receipt_email_started_at = None
+            db.commit()
         return "failed"
-    purchase.receipt_email_status = "SENT"
-    purchase.receipt_email_sent_at = utc_now()
-    db.commit()
+    current = db.scalar(
+        select(DocumentExportPurchase)
+        .where(DocumentExportPurchase.id == purchase.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if current is None:
+        return "missing"
+    if current.receipt_email_status != "SENT":
+        current.receipt_email_status = "SENT"
+        current.receipt_email_started_at = None
+        current.receipt_email_sent_at = utc_now()
+        db.commit()
     return "sent"
 
 
@@ -2227,7 +2313,7 @@ def _ensure_generated_document(
         GeneratedDocument.owner_id == owner_id,
         GeneratedDocument.kind == kind,
         GeneratedDocument.version == version,
-    ))
+    ).with_for_update())
     now = utc_now()
     title = str(application.job.title or "Oportunidade")[:200]
     company = str(application.job.company or "Empresa não informada")[:200]
@@ -2258,9 +2344,32 @@ def _ensure_generated_document(
         created_at=now,
         expires_at=expires_at,
     )
-    db.add(document)
-    db.flush()
-    return document
+    try:
+        # The application row is locked by the generation helper. The unique
+        # constraint remains the final guard for old callers and multiple app
+        # processes; use a savepoint so a losing concurrent insert can recover.
+        with db.begin_nested():
+            db.add(document)
+            db.flush()
+        return document
+    except IntegrityError:
+        existing = db.scalar(select(GeneratedDocument).where(
+            GeneratedDocument.application_id == application.id,
+            GeneratedDocument.owner_id == owner_id,
+            GeneratedDocument.kind == kind,
+            GeneratedDocument.version == version,
+        ).with_for_update())
+        if existing is None:
+            raise
+        existing.content = content
+        existing.title = title
+        existing.company = company
+        existing.filename = filename
+        existing.content_type = DOCUMENT_MIME_TYPE
+        existing.created_at = now
+        existing.expires_at = expires_at
+        db.flush()
+        return existing
 
 
 def _ensure_document_delivery(
@@ -2338,6 +2447,328 @@ def _archive_application_documents(
         resume_document=resume,
         cover_letter_document=letter,
     )
+
+
+def _generate_and_archive_application_documents(
+    db,
+    *,
+    application: Application,
+    owner_id: str,
+    user: dict,
+) -> tuple[Application, DocumentDelivery]:
+    """Generate and persist an owned resume/letter pair under an application lock."""
+    locked_application = db.scalar(
+        select(Application)
+        .where(Application.id == application.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked_application is None or str(locked_application.job.owner_id) != str(owner_id):
+        raise HTTPException(404, "Candidatura nao encontrada.")
+    application = locked_application
+    job = application.job
+    candidate = _candidate_for_user(db, user)
+    if candidate is None:
+        raise HTTPException(404, "Perfil profissional nao encontrado.")
+    arts = _build_application(job, candidate)
+
+    resume_path: Path | None = None
+    letter_path: Path | None = None
+    if application.document_path:
+        try:
+            candidate_path = resolve_document_path(application.document_path)
+            if candidate_path.is_file():
+                resume_path = candidate_path
+        except ValueError:
+            resume_path = None
+    if application.cover_letter_path:
+        try:
+            candidate_path = resolve_document_path(application.cover_letter_path)
+            if candidate_path.is_file():
+                letter_path = candidate_path
+        except ValueError:
+            letter_path = None
+
+    letter = application.cover_letter_text or generate_cover_letter(
+        job_title=job.title,
+        company=job.company,
+        profile=arts["profile"],
+        analysis=arts["analysis"],
+        personalization=arts["personalization"],
+    )
+    if resume_path is None:
+        resume_path = Path(generate_docx(arts["resume"])).resolve()
+    if letter_path is None:
+        letter_path = Path(
+            generate_cover_letter_docx(letter=letter, company=job.company, job_title=job.title)
+        ).resolve()
+    if not resume_path.is_file():
+        raise HTTPException(500, "Curriculo nao foi criado.")
+    if not letter_path.is_file():
+        raise HTTPException(500, "Carta nao foi criada.")
+
+    _save_analysis(application, arts["analysis"], candidate)
+    application.personalization_score = arts["personalization"].get("personalization_score", 0)
+    application.document_path = str(resume_path)
+    application.cover_letter_text = letter
+    application.cover_letter_path = str(letter_path)
+    application.resume_version = _content_version("cv", arts["resume"])
+    application.cover_letter_version = _content_version("carta", letter)
+    _advance_app(db, application, "CURRICULO_GERADO", "Curriculo e carta personalizados liberados apos pagamento.")
+
+    resume_document = _ensure_generated_document(
+        db,
+        owner_id=owner_id,
+        application=application,
+        kind="resume",
+        version=application.resume_version,
+        path=resume_path,
+    )
+    letter_document = _ensure_generated_document(
+        db,
+        owner_id=owner_id,
+        application=application,
+        kind="cover_letter",
+        version=application.cover_letter_version,
+        path=letter_path,
+    )
+    delivery = _ensure_document_delivery(
+        db,
+        owner_id=owner_id,
+        application_id=application.id,
+        resume_document=resume_document,
+        cover_letter_document=letter_document,
+    )
+    return application, delivery
+
+
+def _purchase_generation_payload(purchase: DocumentExportPurchase) -> dict[str, Any]:
+    status = str(purchase.document_generation_status or "WAITING").upper()
+    messages = {
+        "WAITING": "Pagamento confirmado. Estamos preparando seu currículo e sua carta.",
+        "PROCESSING": "Pagamento confirmado. Estamos preparando seu currículo e sua carta.",
+        "RETRY": "A geração está sendo repetida automaticamente. Seus documentos ficarão disponíveis em breve.",
+        "READY": "Currículo e carta prontos para baixar.",
+        "FAILED": "Não foi possível concluir a geração automaticamente. Tente gerar novamente; seu pagamento está preservado.",
+    }
+    return {
+        "purchase_status": str(purchase.status or "PENDING").upper(),
+        "generation_status": status,
+        "attempts": int(purchase.document_generation_attempts or 0),
+        "message": messages.get(status, "Aguardando a confirmação do pagamento."),
+        "application_id": purchase.application_id,
+    }
+
+
+def _claim_paid_document_purchase(
+    *,
+    purchase_id: int | None = None,
+    owner_id: str | None = None,
+    application_id: int | None = None,
+    allow_failed: bool = False,
+) -> tuple[str, int | None]:
+    """Atomically claim one persisted paid export; PostgreSQL skips other workers."""
+    db = SessionLocal()
+    try:
+        if not inspect(db.get_bind()).has_table(DocumentExportPurchase.__tablename__):
+            return "none", None
+        now = utc_now()
+        stale_before = now - DOCUMENT_GENERATION_STALE_AFTER
+        eligible = ["WAITING", "RETRY"]
+        if allow_failed:
+            eligible.append("FAILED")
+        claimable = (
+            DocumentExportPurchase.document_generation_status.in_(eligible)
+            & (
+                DocumentExportPurchase.document_generation_next_attempt_at.is_(None)
+                | (DocumentExportPurchase.document_generation_next_attempt_at <= now)
+            )
+        )
+        if purchase_id is not None and allow_failed:
+            # An owner-triggered retry may bypass the exhausted-backoff state.
+            claimable = claimable | (DocumentExportPurchase.document_generation_status == "FAILED")
+        query = select(DocumentExportPurchase).where(
+            DocumentExportPurchase.status == "PAID",
+            (
+                claimable
+                | (
+                    (DocumentExportPurchase.document_generation_status == "PROCESSING")
+                    & DocumentExportPurchase.document_generation_started_at.is_not(None)
+                    & (DocumentExportPurchase.document_generation_started_at <= stale_before)
+                )
+            ),
+        )
+        if purchase_id is not None:
+            query = query.where(DocumentExportPurchase.id == purchase_id)
+        if owner_id is not None:
+            query = query.where(DocumentExportPurchase.owner_id == str(owner_id))
+        if application_id is not None:
+            query = query.where(DocumentExportPurchase.application_id == application_id)
+        query = query.order_by(DocumentExportPurchase.id).limit(1).with_for_update(skip_locked=True)
+        purchase = db.scalar(query)
+
+        if purchase is None and purchase_id is not None:
+            # Surface READY and actively-processing states to an owner retry call.
+            existing_query = select(DocumentExportPurchase).where(
+                DocumentExportPurchase.id == purchase_id,
+                DocumentExportPurchase.status == "PAID",
+            )
+            if owner_id is not None:
+                existing_query = existing_query.where(DocumentExportPurchase.owner_id == str(owner_id))
+            if application_id is not None:
+                existing_query = existing_query.where(DocumentExportPurchase.application_id == application_id)
+            current = db.scalar(existing_query)
+            if current is None:
+                return "missing", None
+            current_status = str(current.document_generation_status or "WAITING").upper()
+            if current_status == "READY":
+                return "ready", current.id
+            started = current.document_generation_started_at
+            if current_status == "PROCESSING" and started is not None:
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                if now - started < DOCUMENT_GENERATION_STALE_AFTER:
+                    return "processing", current.id
+            return "not_claimed", current.id
+
+        if purchase is None:
+            return "none", None
+
+        attempts = int(purchase.document_generation_attempts or 0)
+        if attempts >= DOCUMENT_GENERATION_MAX_ATTEMPTS and not allow_failed:
+            purchase.document_generation_status = "FAILED"
+            purchase.document_generation_error = "Geração não concluída após as tentativas automáticas."
+            purchase.document_generation_next_attempt_at = None
+            db.commit()
+            return "failed", purchase.id
+        if str(purchase.document_generation_status or "").upper() == "FAILED" and allow_failed:
+            attempts = 0
+        purchase.document_generation_status = "PROCESSING"
+        purchase.document_generation_attempts = attempts + 1
+        purchase.document_generation_started_at = now
+        purchase.document_generation_next_attempt_at = None
+        purchase.document_generation_error = None
+        claimed_id = purchase.id
+        db.commit()
+        return "claimed", claimed_id
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def _finish_paid_document_purchase(purchase_id: int) -> dict[str, Any]:
+    """Generate/archive a claimed purchase; SMTP is isolated after READY commits."""
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(
+            select(DocumentExportPurchase)
+            .where(DocumentExportPurchase.id == purchase_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if purchase is None or purchase.status != "PAID":
+            db.rollback()
+            return {"generation_status": "MISSING"}
+        if purchase.document_generation_status == "READY":
+            return _purchase_generation_payload(purchase)
+        if purchase.application_id is None:
+            raise HTTPException(409, "Compra sem candidatura vinculada.")
+        owner_id = str(purchase.owner_id)
+        application = db.scalar(
+            select(Application)
+            .join(Application.job)
+            .where(Application.id == purchase.application_id, Job.owner_id == owner_id)
+        )
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        user = {
+            "id": owner_id,
+            "email": str(purchase.payer_email or "").strip(),
+            "email_confirmed_at": bool(purchase.payer_email_confirmed),
+        }
+        application, delivery = _generate_and_archive_application_documents(
+            db,
+            application=application,
+            owner_id=owner_id,
+            user=user,
+        )
+        purchase.document_generation_status = "READY"
+        purchase.document_generation_completed_at = utc_now()
+        purchase.document_generation_started_at = None
+        purchase.document_generation_next_attempt_at = None
+        purchase.document_generation_error = None
+        db.commit()
+        generation_result = {
+            "generation_status": "READY",
+            "application_id": application.id,
+            "job_id": application.job_id,
+            "resume_url": f"/applications/{application.id}/document",
+            "letter_url": f"/applications/{application.id}/cover-letter/document",
+            "delivery_id": delivery.id,
+            "message": "Currículo e carta prontos para baixar.",
+        }
+        try:
+            email_status = _send_document_delivery(db, delivery, user)
+            db.refresh(delivery)
+            generation_result["email_status"] = email_status
+            generation_result["email_message"] = delivery.last_error or (
+                "Currículo e carta enviados para o e-mail confirmado da conta."
+                if email_status == "sent"
+                else "Currículo e carta estão disponíveis na biblioteca de documentos."
+            )
+        except Exception as exc:
+            db.rollback()
+            logger.warning(
+                "Falha não bloqueante ao enviar documentos da compra id=%s tipo=%s",
+                purchase_id,
+                type(exc).__name__,
+            )
+            generation_result["email_status"] = "FAILED"
+            generation_result["email_message"] = "Currículo e carta estão prontos na biblioteca; o envio por e-mail pode ser tentado novamente."
+        return generation_result
+    except Exception as exc:
+        db.rollback()
+        purchase = db.get(DocumentExportPurchase, purchase_id)
+        if purchase is not None and purchase.status == "PAID" and purchase.document_generation_status != "READY":
+            attempts = int(purchase.document_generation_attempts or 1)
+            if attempts < DOCUMENT_GENERATION_MAX_ATTEMPTS:
+                purchase.document_generation_status = "RETRY"
+                delay_index = min(max(attempts - 1, 0), len(DOCUMENT_GENERATION_BACKOFF_SECONDS) - 1)
+                purchase.document_generation_next_attempt_at = utc_now() + timedelta(
+                    seconds=DOCUMENT_GENERATION_BACKOFF_SECONDS[delay_index]
+                )
+                purchase.document_generation_error = "Não foi possível gerar os documentos agora; haverá nova tentativa automática."
+            else:
+                purchase.document_generation_status = "FAILED"
+                purchase.document_generation_next_attempt_at = None
+                purchase.document_generation_error = "Geração não concluída após as tentativas automáticas."
+            purchase.document_generation_started_at = None
+            db.commit()
+            logger.warning(
+                "Falha ao gerar documentos pagos purchase_id=%s attempt=%s type=%s",
+                purchase_id,
+                attempts,
+                type(exc).__name__,
+            )
+            return _purchase_generation_payload(purchase)
+        logger.warning("Falha ao reconciliar compra paga purchase_id=%s type=%s", purchase_id, type(exc).__name__)
+        return {"generation_status": "FAILED", "message": "Não foi possível consultar esta geração."}
+    finally:
+        db.close()
+
+
+def _process_pending_document_export_purchases(limit: int = 5) -> int:
+    processed = 0
+    for _ in range(max(1, min(int(limit), 20))):
+        claim_status, purchase_id = _claim_paid_document_purchase()
+        if claim_status == "none" or purchase_id is None:
+            break
+        if claim_status == "claimed":
+            _finish_paid_document_purchase(purchase_id)
+            processed += 1
+    return processed
 
 
 def _backfill_legacy_generated_document_pairs() -> int:
@@ -2927,7 +3358,14 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, re
         application = _application_for_user(db, req.application_id, user)
         if application is None:
             raise HTTPException(404, "Candidatura nao encontrada.")
-        db.add(DocumentExportPurchase(owner_id=owner_id, application_id=application.id, payer_email=str(user.get("email") or "").strip(), order_nsu=order_nsu, amount=price_cents))
+        db.add(DocumentExportPurchase(
+            owner_id=owner_id,
+            application_id=application.id,
+            payer_email=str(user.get("email") or "").strip(),
+            payer_email_confirmed=bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+            order_nsu=order_nsu,
+            amount=price_cents,
+        ))
         db.commit()
     finally:
         db.close()
@@ -3118,6 +3556,8 @@ async def mercadopago_webhook(request: Request):
                 transaction_nsu=payment_id,
                 paid_amount=int(round(float(payment.get("transaction_amount") or 0) * 100)),
             )
+            if outcome in {"paid", "idempotent"} and _purchase_generation_wakeup is not None:
+                _purchase_generation_wakeup.set()
             receipt = _send_purchase_receipt(db, purchase) if outcome in {"paid", "idempotent"} else "not_sent"
             return {
                 "received": True,
@@ -3135,9 +3575,10 @@ async def mercadopago_webhook(request: Request):
 def mercadopago_success(request: Request):
     """Return from Mercado Pago directly to the document studio.
 
-    The webhook remains the source of truth for payment approval.  The browser
-    only carries the owner-scoped application id and a display status so the
-    studio can poll until the webhook has finished, then generate the files.
+    The webhook remains the source of truth for payment approval and queues
+    document generation on the server. The browser carries only the linked
+    application id and display status; it can poll for completion, but closing
+    the browser does not interrupt generation or archival.
     """
     application_id = str(request.query_params.get("application_id") or "").strip()
     if not application_id.isdigit():
@@ -3160,6 +3601,43 @@ def mercadopago_success(request: Request):
         params.append(f"application_id={quote(application_id, safe='')}")
     params.append(f"payment_status={payment_status}")
     return RedirectResponse(f"{target}?{'&'.join(params)}", status_code=303)
+
+
+@app.get("/billing/document-export/status")
+def document_export_status(application_id: int, user=Depends(authenticated_user)):
+    """Return only this account's latest one-time purchase generation state."""
+    owner_id = _require_owner_id(user)
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, application_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        purchase = db.scalar(
+            select(DocumentExportPurchase)
+            .where(
+                DocumentExportPurchase.owner_id == owner_id,
+                DocumentExportPurchase.application_id == application_id,
+            )
+            .order_by(DocumentExportPurchase.id.desc())
+            .limit(1)
+        )
+        if purchase is None:
+            offer = _document_export_metadata(user, application_id)
+            return {
+                "purchase_status": "NONE",
+                "generation_status": "NOT_APPLICABLE",
+                "entitlement_source": "plan" if offer.get("allowed") else "none",
+                "application_id": application_id,
+                "message": "Exportação completa disponível pelo seu plano." if offer.get("allowed") else "Nenhuma compra encontrada.",
+            }
+        payload = _purchase_generation_payload(purchase)
+        payload["entitlement_source"] = "one_time_purchase"
+        if payload["generation_status"] == "READY":
+            payload["resume_url"] = f"/applications/{application_id}/document"
+            payload["letter_url"] = f"/applications/{application_id}/cover-letter/document"
+        return payload
+    finally:
+        db.close()
 
 
 @app.get("/applications/{app_id}/document", response_class=FileResponse)
@@ -3427,13 +3905,7 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
 
 @app.post("/document-studio/export")
 def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authenticated_user), request: Request = None):
-    """Generate and persist both paid DOCX files for one owned application.
-
-    This endpoint is intentionally application-scoped: a paid purchase for one
-    opportunity cannot be reused to export another user's application. It is
-    idempotent when both files already exist, which also makes browser retries
-    after a payment redirect safe.
-    """
+    """Recover a paid document pair, or generate it for an entitled plan user."""
     if request is not None:
         _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
     owner_id = _require_owner_id(user)
@@ -3443,81 +3915,69 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
         if application is None:
             raise HTTPException(404, "Candidatura nao encontrada.")
         _require_document_export(user, application.id)
-        job = application.job
-        candidate = _candidate_for_user(db, user)
-        if candidate is None:
-            raise HTTPException(404, "Perfil profissional nao encontrado.")
-        arts = _build_application(job, candidate)
-        resume_path: Path | None = None
-        letter_path: Path | None = None
-        if application.document_path:
-            try:
-                candidate_path = resolve_document_path(application.document_path)
-                if candidate_path.is_file():
-                    resume_path = candidate_path
-            except ValueError:
-                resume_path = None
-        if application.cover_letter_path:
-            try:
-                candidate_path = resolve_document_path(application.cover_letter_path)
-                if candidate_path.is_file():
-                    letter_path = candidate_path
-            except ValueError:
-                letter_path = None
-        letter = application.cover_letter_text or generate_cover_letter(
-            job_title=job.title,
-            company=job.company,
-            profile=arts["profile"],
-            analysis=arts["analysis"],
-            personalization=arts["personalization"],
+        paid_purchase = db.scalar(
+            select(DocumentExportPurchase)
+            .where(
+                DocumentExportPurchase.owner_id == owner_id,
+                DocumentExportPurchase.application_id == application.id,
+                DocumentExportPurchase.status == "PAID",
+            )
+            .order_by(DocumentExportPurchase.id.desc())
+            .limit(1)
         )
-        if resume_path is None:
-            resume_path = Path(generate_docx(arts["resume"])).resolve()
-        if letter_path is None:
-            letter_path = Path(generate_cover_letter_docx(letter=letter, company=job.company, job_title=job.title)).resolve()
-        if not resume_path.is_file():
-            raise HTTPException(500, "Curriculo nao foi criado.")
-        if not letter_path.is_file():
-            raise HTTPException(500, "Carta nao foi criada.")
-        _save_analysis(application, arts["analysis"], candidate)
-        application.personalization_score = arts["personalization"].get("personalization_score", 0)
-        application.document_path = str(resume_path)
-        application.cover_letter_text = letter
-        application.cover_letter_path = str(letter_path)
-        application.resume_version = _content_version("cv", arts["resume"])
-        application.cover_letter_version = _content_version("carta", letter)
-        _advance_app(db, application, "CURRICULO_GERADO", "Curriculo e carta personalizados liberados apos pagamento.")
-        resume_document = _ensure_generated_document(
+        if paid_purchase is not None:
+            claim_status, claimed_id = _claim_paid_document_purchase(
+                purchase_id=paid_purchase.id,
+                owner_id=owner_id,
+                application_id=application.id,
+                allow_failed=True,
+            )
+            if claim_status == "claimed" and claimed_id is not None:
+                result = _finish_paid_document_purchase(claimed_id)
+            elif claim_status == "ready":
+                result = {
+                    "generation_status": "READY",
+                    "application_id": application.id,
+                    "job_id": application.job_id,
+                    "resume_url": f"/applications/{application.id}/document",
+                    "letter_url": f"/applications/{application.id}/cover-letter/document",
+                    "message": "Currículo e carta prontos para baixar.",
+                }
+            else:
+                result = {
+                    "generation_status": "PROCESSING" if claim_status in {"processing", "not_claimed"} else "WAITING",
+                    "application_id": application.id,
+                    "job_id": application.job_id,
+                    "message": "Pagamento confirmado. A geração automática está em andamento.",
+                }
+            if result.get("generation_status") == "READY":
+                result["status"] = "DOCUMENTOS_GERADOS"
+            elif result.get("generation_status") == "FAILED":
+                result["status"] = "DOCUMENTOS_FALHARAM"
+            else:
+                result["status"] = "DOCUMENTOS_PENDENTES"
+            return result
+
+        # Start/Pro subscriptions have no one-time purchase row; preserve the
+        # existing on-demand export path while sharing the same safe generator.
+        application, delivery = _generate_and_archive_application_documents(
             db,
-            owner_id=owner_id,
             application=application,
-            kind="resume",
-            version=application.resume_version,
-            path=resume_path,
-        )
-        letter_document = _ensure_generated_document(
-            db,
             owner_id=owner_id,
-            application=application,
-            kind="cover_letter",
-            version=application.cover_letter_version,
-            path=letter_path,
-        )
-        delivery = _ensure_document_delivery(
-            db,
-            owner_id=owner_id,
-            application_id=application.id,
-            resume_document=resume_document,
-            cover_letter_document=letter_document,
+            user=user,
         )
         db.commit()
         db.refresh(delivery)
-        email_status = _send_document_delivery(db, delivery, user)
-        db.refresh(delivery)
+        try:
+            email_status = _send_document_delivery(db, delivery, user)
+            db.refresh(delivery)
+        except Exception as exc:
+            logger.warning("Falha não bloqueante ao enviar documentos da candidatura id=%s tipo=%s", application.id, type(exc).__name__)
+            email_status = "failed"
         return {
             "status": "DOCUMENTOS_GERADOS",
             "application_id": application.id,
-            "job_id": job.id,
+            "job_id": application.job_id,
             "resume_url": f"/applications/{application.id}/document",
             "letter_url": f"/applications/{application.id}/cover-letter/document",
             "delivery_id": delivery.id,

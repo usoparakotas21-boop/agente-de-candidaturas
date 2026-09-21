@@ -54,7 +54,7 @@
           <article class="preview"><h3>Carta de apresentação</h3><div class="preview-body" id="letter"></div></article>
         </div>
         <div class="notice" id="notice"></div>
-        <div class="file-actions" id="exportActions" hidden><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
+        <div class="file-actions" id="exportActions" hidden><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
         <div class="status" id="checkoutStatus" role="status" aria-live="polite"></div>
       </section>
     </div>
@@ -79,10 +79,14 @@
       const paid=Boolean(offer&&offer.allowed);
       $('checkout').hidden=paid;
       $('refreshAccess').hidden=paid;
-      $('downloadResume').hidden=!paid;
-      $('downloadLetter').hidden=!paid;
+      $('retryGeneration').hidden=true;
+      // Entitlement only proves that generation is permitted; one-time paid
+      // purchases may still be processing on the server. Reveal downloads only
+      // after the server reports READY.
+      $('downloadResume').hidden=true;
+      $('downloadLetter').hidden=true;
       $('notice').textContent=paid
-        ?'Seu acesso está liberado. Os arquivos personalizados estão prontos para baixar.'
+        ?'Seu acesso está liberado. Os documentos completos aparecem para download assim que a geração terminar.'
         :(offer&&offer.price
           ?'Prévia gratuita ativa. O currículo e a carta completos podem ser liberados por '+offer.price+'.'
           :'Prévia gratuita. O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.');
@@ -92,14 +96,56 @@
       const r=await fetch('/billing/document-export'+query);
       return r.ok?r.json():{allowed:false};
     }
+    async function getPurchaseGeneration(applicationId){
+      if(!applicationId)return null;
+      const r=await fetch('/billing/document-export/status?application_id='+encodeURIComponent(applicationId));
+      if(!r.ok)throw new Error('Não foi possível consultar a geração dos documentos.');
+      return r.json();
+    }
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    function showGeneratedDocuments(data,offer){
+      current=Object.assign({},current||{},{application_id:data.application_id});
+      showExport(Object.assign({},offer||{}, {allowed:true}));
+      $('downloadResume').dataset.url=data.resume_url||('/applications/'+data.application_id+'/document');
+      $('downloadLetter').dataset.url=data.letter_url||('/applications/'+data.application_id+'/cover-letter/document');
+      $('downloadResume').hidden=false;
+      $('downloadLetter').hidden=false;
+      $('retryGeneration').hidden=true;
+      checkoutMsg(data.message||'Pagamento confirmado. Currículo e carta estão prontos para baixar.',true);
+      msg('Documentos liberados após a confirmação do pagamento.',true);
+    }
+    async function waitForServerGeneration(applicationId,offer,{timeout=90000}={}){
+      const deadline=Date.now()+timeout;
+      let state=await getPurchaseGeneration(applicationId);
+      if(state.purchase_status==='NONE'||state.entitlement_source==='plan')return {mode:'plan',state};
+      if(state.purchase_status!=='PAID')return {mode:'waiting_payment',state};
+      while(['WAITING','PROCESSING','RETRY'].includes(state.generation_status)&&Date.now()<deadline){
+        checkoutMsg(state.message||'Pagamento confirmado. Preparando seus documentos…');
+        await wait(1800);
+        state=await getPurchaseGeneration(applicationId);
+      }
+      if(state.generation_status==='READY'){
+        showGeneratedDocuments(state,offer);
+        return {mode:'ready',state};
+      }
+      if(state.generation_status==='FAILED'){
+        showExport(Object.assign({},offer||{}, {allowed:true}));
+        $('retryGeneration').hidden=false;
+        checkoutMsg(state.message||'Não foi possível gerar automaticamente. Seu pagamento continua válido.');
+        return {mode:'failed',state};
+      }
+      showExport(Object.assign({},offer||{}, {allowed:true}));
+      checkoutMsg(state.message||'Pagamento confirmado; a geração continua na fila. Volte depois e os documentos estarão salvos.');
+      return {mode:'pending',state};
+    }
     async function refreshAccess(){
       try{
         const offer=await getOffer();
         showExport(offer);
         if(offer.allowed&&linkedApplicationId){
           if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
-          await exportPaidDocuments(offer);
+          const state=await waitForServerGeneration(linkedApplicationId,offer,{timeout:5000});
+          if(state.mode==='plan')await exportPaidDocuments(offer);
         }else{
           checkoutMsg('Ainda não encontramos a confirmação. Se você acabou de pagar, aguarde alguns segundos e tente novamente.');
         }
@@ -108,12 +154,14 @@
     async function waitForPaidAccess(applicationId){
       const deadline=Date.now()+60000;
       let offer=await getOffer(applicationId);
+      let purchase=await getPurchaseGeneration(applicationId);
       while(!offer.allowed&&Date.now()<deadline){
         checkoutMsg('Pagamento recebido. Aguardando a confirmação segura do Mercado Pago…');
         await wait(2500);
+        purchase=await getPurchaseGeneration(applicationId);
         offer=await getOffer(applicationId);
       }
-      return offer;
+      return {offer,purchase:purchase&&purchase.purchase_status==='PAID'?purchase:null};
     }
     async function exportPaidDocuments(offer){
       if(!offer||!offer.allowed||!linkedApplicationId)return false;
@@ -125,20 +173,27 @@
       });
       const data=await r.json();
       if(!r.ok)throw new Error(data.detail||'Não foi possível gerar os documentos.');
-      current=Object.assign({},current||{},data);
-      showExport(Object.assign({},offer,{allowed:true}));
-      $('downloadResume').dataset.url=data.resume_url||'';
-      $('downloadLetter').dataset.url=data.letter_url||'';
-      checkoutMsg('Pagamento confirmado. Currículo e carta gerados; baixe os dois arquivos abaixo.',true);
-      msg('Documentos liberados após a confirmação do pagamento.',true);
+      if(data.generation_status==='READY'||data.status==='DOCUMENTOS_GERADOS'){
+        showGeneratedDocuments(data,offer);
+      }else if(data.generation_status==='FAILED'||data.status==='DOCUMENTOS_FALHARAM'){
+        showExport(Object.assign({},offer,{allowed:true}));
+        $('retryGeneration').hidden=false;
+        checkoutMsg(data.message||'Não foi possível concluir a geração. Seu pagamento continua válido.');
+      }else{
+        await waitForServerGeneration(linkedApplicationId,offer);
+      }
       return true;
     }
     async function restorePaidApplication(){
       if(!linkedApplicationId)return false;
       const offer=await getOffer(linkedApplicationId);
       if(!offer.allowed)return false;
-      if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
-      await exportPaidDocuments(offer);
+      $('result').classList.add('visible');
+      const state=await waitForServerGeneration(linkedApplicationId,offer,{timeout:5000});
+      if(state.mode==='plan'){
+        if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
+        await exportPaidDocuments(offer);
+      }
       return true;
     }
     async function handlePaymentReturn(){
@@ -158,13 +213,18 @@
         :'Pagamento pendente. Aguardando a confirmação do Mercado Pago…');
       try{
         await generatePreview({scroll:false});
-        const offer=await waitForPaidAccess(requested);
+        const paidAccess=await waitForPaidAccess(requested);
+        const offer=paidAccess.offer;
         if(!offer.allowed){
           showExport(offer);
           checkoutMsg('O pagamento ainda está sendo confirmado. Clique em “Já paguei · atualizar acesso” para verificar novamente.');
           return;
         }
-        await exportPaidDocuments(offer);
+        if(paidAccess.purchase){
+          await waitForServerGeneration(requested,offer);
+        }else{
+          await exportPaidDocuments(offer);
+        }
         window.history.replaceState({},'', '/criar-documentos?application_id='+encodeURIComponent(requested));
       }catch(error){
         checkoutMsg(error.message||'Não foi possível concluir a geração automática.');
@@ -351,6 +411,15 @@
       }
     });
     $('refreshAccess').addEventListener('click',refreshAccess);
+    $('retryGeneration').addEventListener('click',async()=>{
+      try{
+        $('retryGeneration').disabled=true;
+        checkoutMsg('Solicitando uma nova tentativa de geração…');
+        const offer=await getOffer();
+        await exportPaidDocuments(offer);
+      }catch(error){checkoutMsg(error.message||'Não foi possível solicitar nova tentativa.');}
+      finally{$('retryGeneration').disabled=false;}
+    });
     $('downloadResume').addEventListener('click',()=>{
       const url=$('downloadResume').dataset.url||(current&&current.application_id?'/applications/'+current.application_id+'/document':'');
       if(url)window.location.href=url;
