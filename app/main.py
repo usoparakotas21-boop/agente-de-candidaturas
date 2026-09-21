@@ -13,6 +13,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from email.utils import getaddresses
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, quote, urlparse
@@ -3142,6 +3143,82 @@ def _smtp_client(config: dict[str, object], *, timeout: float):
         yield smtp
 
 
+def _brevo_api_key() -> str:
+    """Return the optional Brevo HTTP API key without ever logging its value."""
+    return os.getenv("BREVO_API_KEY", "").strip()
+
+
+def _email_transport_config() -> dict[str, object] | None:
+    """Return SMTP settings, or the minimal sender config for Brevo HTTP."""
+    config = smtp_settings()
+    if config is not None or not _brevo_api_key():
+        return config
+    sender = os.getenv("SMTP_FROM_EMAIL", "contato@candidaturacerta.com.br").strip()
+    return {"sender": sender} if sender else None
+
+
+def _send_via_brevo_api(message: EmailMessage, *, timeout: float) -> None:
+    """Send an EmailMessage through Brevo's HTTPS API.
+
+    This is an opt-in transport used when ``BREVO_API_KEY`` is configured. It
+    keeps the existing SMTP path as a fallback and converts attachments to
+    the base64 format expected by Brevo without writing them to disk.
+    """
+    api_key = _brevo_api_key()
+    if not api_key:
+        raise RuntimeError("BREVO_API_KEY is not configured")
+    sender = str(message.get("From") or "").strip()
+    recipients = [
+        {"email": address, **({"name": name} if name else {})}
+        for name, address in getaddresses(message.get_all("To", []))
+        if address
+    ]
+    if not sender or not recipients:
+        raise ValueError("Brevo message has no sender or recipient")
+    sender_name, sender_address = getaddresses([sender])[0]
+    payload: dict[str, object] = {
+        "sender": {"email": sender_address, **({"name": sender_name} if sender_name else {})},
+        "to": recipients,
+        "subject": str(message.get("Subject") or ""),
+    }
+    reply_to = str(message.get("Reply-To") or "").strip()
+    if reply_to:
+        reply_name, reply_address = getaddresses([reply_to])[0]
+        if reply_address:
+            payload["replyTo"] = {"email": reply_address, **({"name": reply_name} if reply_name else {})}
+    body_part = message.get_body(preferencelist=("plain",))
+    payload["textContent"] = body_part.get_content() if body_part is not None else ""
+    attachments: list[dict[str, str]] = []
+    for part in message.iter_attachments():
+        content = part.get_payload(decode=True)
+        if content is None:
+            continue
+        attachments.append({
+            "name": part.get_filename() or "attachment",
+            "content": base64.b64encode(content).decode("ascii"),
+        })
+    if attachments:
+        payload["attachment"] = attachments
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"accept": "application/json", "api-key": api_key, "content-type": "application/json"},
+            json=payload,
+        )
+    response.raise_for_status()
+
+
+def _send_email_message(message: EmailMessage, config: dict[str, object], *, timeout: float) -> str:
+    """Send via Brevo HTTPS when configured, otherwise use the relay SMTP."""
+    if _brevo_api_key():
+        _send_via_brevo_api(message, timeout=timeout)
+        return "api"
+    with _smtp_client(config, timeout=timeout) as smtp:
+        smtp.login(str(config["username"]), str(config["password"]))
+        smtp.send_message(message)
+    return "smtp"
+
+
 def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     """Send one plain-text receipt when SMTP is configured; retries stay idempotent."""
     locked = db.scalar(
@@ -3162,14 +3239,12 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         if utc_now() - started < timedelta(minutes=15):
             return "sending"
     recipient = str(purchase.payer_email or "").strip()
-    smtp_config = smtp_settings()
+    smtp_config = _email_transport_config()
     if not recipient or smtp_config is None:
         purchase.receipt_email_status = "SKIPPED"
         db.commit()
         return "skipped"
-    host = str(smtp_config["host"])
     sender = str(smtp_config["sender"])
-    port = int(smtp_config["port"])
     message = EmailMessage()
     message["Subject"] = "Comprovante da exportação — Candidatura Certa"
     message["From"] = sender
@@ -3188,15 +3263,10 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     purchase.receipt_email_status = "SENDING"
     purchase.receipt_email_started_at = utc_now()
     db.commit()
-    smtp_stage = "connect"
+    smtp_stage = "api" if _brevo_api_key() else "connect"
     try:
-        with _smtp_client(smtp_config, timeout=10) as smtp:
-            smtp_stage = "tls"
-            smtp_stage = "auth"
-            smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
-            smtp_stage = "send"
-            smtp.send_message(message)
-    except (OSError, smtplib.SMTPException) as exc:
+        _send_email_message(message, smtp_config, timeout=10)
+    except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError) as exc:
         smtp_code = getattr(exc, "smtp_code", None)
         if not isinstance(smtp_code, int):
             smtp_code = None
@@ -3821,14 +3891,13 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         db.commit()
         return "skipped"
 
-    smtp_config = smtp_settings()
+    smtp_config = _email_transport_config()
     if smtp_config is None:
         delivery.status = "SKIPPED"
         delivery.last_error = "Envio por e-mail indisponível; os arquivos estão na biblioteca."
         delivery.last_attempt_at = now
         db.commit()
         return "skipped"
-    host = str(smtp_config["host"])
     sender = str(smtp_config["sender"])
 
     if len(resume.content) + len(letter.content) > MAX_DOCUMENT_EMAIL_BYTES:
@@ -3883,15 +3952,10 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=letter.filename,
     )
-    smtp_stage = "connect"
+    smtp_stage = "api" if _brevo_api_key() else "connect"
     try:
-        with _smtp_client(smtp_config, timeout=15) as smtp:
-            smtp_stage = "tls"
-            smtp_stage = "auth"
-            smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
-            smtp_stage = "send"
-            smtp.send_message(message)
-    except (OSError, smtplib.SMTPException, TimeoutError) as exc:
+        _send_email_message(message, smtp_config, timeout=15)
+    except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError) as exc:
         smtp_code = getattr(exc, "smtp_code", None)
         if not isinstance(smtp_code, int):
             smtp_code = None
@@ -4422,7 +4486,7 @@ def send_application_by_email(
     recipient = req.recipient.strip().casefold()
     if "\r" in recipient or "\n" in recipient or not _APPLICATION_EMAIL_PATTERN.fullmatch(recipient):
         raise HTTPException(422, "O endereço de e-mail do recrutador é inválido.")
-    smtp_config = smtp_settings()
+    smtp_config = _email_transport_config()
     if smtp_config is None:
         raise HTTPException(503, "O envio por e-mail está indisponível no momento. Baixe os PDFs pela biblioteca.")
     body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", req.body).strip()
@@ -4510,13 +4574,9 @@ def send_application_by_email(
 
         send_invoked = False
         try:
-            with _smtp_client(smtp_config, timeout=15) as smtp:
-                smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
-                send_invoked = True
-                refused = smtp.send_message(message)
-                if recipient in refused:
-                    raise smtplib.SMTPRecipientsRefused(refused)
-        except (OSError, smtplib.SMTPException, TimeoutError):
+            _send_email_message(message, smtp_config, timeout=15)
+            send_invoked = True
+        except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError):
             current = db.get(EmailApplicationSubmission, submission_id)
             if current is not None:
                 current.status = "UNKNOWN" if send_invoked else "FAILED"
