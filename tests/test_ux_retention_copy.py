@@ -6,6 +6,14 @@ STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 
 
 class RetentionExperienceCopyTests(unittest.TestCase):
+    def test_over_quota_copy_keeps_saved_opportunities_available(self):
+        html = (STATIC / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn("const usageText=used>limit?", html)
+        self.assertIn("As vagas salvas continuam disponíveis.", html)
+        self.assertIn("Novas capturas serão liberadas em", html)
+        self.assertIn("Consulte os planos disponíveis para continuar antes disso.", html)
+        self.assertIn("`${used} de ${limit} oportunidades usadas neste mês", html)
+
     def test_expiring_alert_explains_why_it_is_not_available_yet(self):
         html = (STATIC / "configuracoes.html").read_text(encoding="utf-8")
         self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
