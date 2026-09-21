@@ -146,9 +146,11 @@
   }
 
   api.fillProfileFields = fillProfileFields;
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const messageListener = (message, _sender, sendResponse) => {
     if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
     sendResponse(fillProfileFields(message.profile || {}));
     return false;
-  });
+  };
+  chrome.runtime.onMessage.addListener(messageListener);
+  globalThis.__ccAutofillMessageListener = messageListener;
 })();

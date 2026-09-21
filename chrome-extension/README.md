@@ -1,6 +1,8 @@
 # Candidatura Certa — Copiloto de candidaturas
 
-O copiloto adiciona um botão flutuante somente depois que você abre o complemento numa vaga HTTPS da Gupy, Vagas.com ou InfoJobs e confirma que o portal permite preenchimento assistido. Ao clicar no botão da página e autorizar o uso do perfil, ele consulta campos reconhecidos e vazios, preenche os dados correspondentes e mostra o limite mensal do seu plano. No popup, você também pode selecionar uma candidatura salva, buscar o currículo e a carta atuais na biblioteca e anexá-los aos campos identificados após uma confirmação separada. A revisão e o clique final em **Enviar** continuam com você.
+O copiloto pode adicionar um botão flutuante numa vaga HTTPS da Gupy, Vagas.com ou InfoJobs. Para usar uma vez, abra o complemento na vaga e confirme que o portal permite preenchimento assistido. Para o botão aparecer automaticamente nas páginas de vagas reconhecidas daquele domínio, escolha **Ativar botão automaticamente neste domínio** e aprove a permissão específica do Chrome. A permissão pode ser revogada pelo mesmo botão. A extensão não lê nem envia seu perfil até você clicar no botão da página, confirmar o uso dos dados e autorizar a preparação.
+
+Após a autorização, o complemento consulta campos reconhecidos e vazios, preenche os dados correspondentes e mostra o limite mensal do seu plano. No popup, você também pode selecionar uma candidatura salva, buscar o currículo e a carta atuais na biblioteca e anexá-los aos campos identificados após uma confirmação separada. A revisão e o clique final em **Enviar** continuam com você.
 
 O plano Essencial inclui até 30 preparações assistidas por mês, Start até 150 e Pro e Consultoria até 500. Cada preparação é contabilizada quando você autoriza a consulta do perfil, mesmo se a página não tiver campos compatíveis. O contador renova no primeiro dia do mês pelo horário de Brasília.
 
@@ -13,13 +15,14 @@ O complemento bloqueia LinkedIn, Jobbol e Glassdoor. Ele não faz login nos port
 3. Ative o **Modo do desenvolvedor** e escolha **Carregar sem compactação**.
 4. Selecione a pasta extraída que contém `manifest.json`.
 5. Abra uma vaga compatível, clique no ícone do complemento e escolha **Conectar minha conta**. A permissão para ler o cookie de acesso dos domínios oficiais da Candidatura Certa é solicitada apenas nesse clique.
-6. Na vaga, marque a confirmação de permissão do portal e escolha **Mostrar copiloto nesta página**. Clique no botão flutuante, confirme o uso do perfil e revise os campos.
+6. Na vaga, confirme que o portal permite preenchimento assistido. Escolha **Mostrar copiloto nesta página** para usar uma vez, ou **Ativar botão automaticamente neste domínio** para as próximas páginas de vagas reconhecidas naquele domínio. O Chrome pede a permissão do site somente quando você ativa essa opção.
+7. Clique no botão flutuante, confirme o uso do perfil e revise os campos.
 
 A distribuição pela Chrome Web Store ou Edge Add-ons ainda não está publicada; por isso esta versão exige instalação de teste pelo modo de desenvolvedor.
 
 ## Dados e privacidade
 
-O complemento usa `activeTab`, `scripting`, `sidePanel` e escrita de área de transferência para as ações solicitadas. O acesso aos cookies é opcional e depende de permissão explícita para `candidaturacerta.com.br` e o endereço de serviço antigo no Render. A extensão lê apenas o cookie `HttpOnly` de acesso para autenticar solicitações à API da Candidatura Certa por HTTPS. O token não é guardado no complemento nem exposto à página da vaga; o cookie de renovação fica reservado ao site para preservar a sessão.
+O complemento usa `activeTab`, `scripting`, `sidePanel` e escrita de área de transferência para as ações solicitadas. O acesso aos cookies é opcional e depende de permissão explícita para `candidaturacerta.com.br` e o endereço de serviço antigo no Render. A permissão automática de um portal é opcional, solicitada por domínio somente depois da sua ação e removida quando você desativa o recurso. A extensão lê apenas o cookie `HttpOnly` de acesso para autenticar solicitações à API da Candidatura Certa por HTTPS. O token não é guardado no complemento nem exposto à página da vaga; o cookie de renovação fica reservado ao site para preservar a sessão.
 
 O servidor envia à extensão apenas os campos selecionados do perfil da própria conta depois da autorização. Eles ficam em memória no complemento ou no painel lateral enquanto usados. O histórico de uso guarda o domínio do portal, contagem de campos e horários, sem a URL da vaga, o texto preenchido, senhas ou PDFs; esses registros são apagados em até 60 dias. O painel lateral busca o perfil somente após seu clique e oferece trechos do perfil para copiar; não inventa respostas personalizadas para perguntas abertas.
 

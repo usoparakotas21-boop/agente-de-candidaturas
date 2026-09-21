@@ -1,6 +1,13 @@
 (() => {
-  if (globalThis.__ccCopilotWidgetInstalled || !document.body) return;
-  globalThis.__ccCopilotWidgetInstalled = true;
+  if (!document.body) return;
+  const pagePolicy = globalThis.CandidaturaCertaJobPagePolicy;
+  if (!pagePolicy?.isLikelyJobPage) return;
+  let observer = null;
+  let pendingCheck = null;
+
+  function mountWidget() {
+    if (globalThis.__ccCopilotWidgetInstalled || globalThis.__ccCopilotWidgetDismissed || !document.body) return;
+    globalThis.__ccCopilotWidgetInstalled = true;
 
   const host = document.createElement("div");
   host.id = "cc-copilot-widget-host";
@@ -110,4 +117,36 @@
       prepare.disabled = true;
     }
   });
+  }
+
+  function syncWidget() {
+    const shouldShow = !globalThis.__ccCopilotWidgetDismissed
+      && pagePolicy.isLikelyJobPage(location.href, () => document.body?.innerText || "");
+    if (shouldShow) {
+      mountWidget();
+    } else if (globalThis.__ccCopilotWidgetInstalled) {
+      document.getElementById("cc-copilot-widget-host")?.remove();
+      globalThis.__ccCopilotWidgetInstalled = false;
+    }
+  }
+
+  function scheduleSync() {
+    clearTimeout(pendingCheck);
+    pendingCheck = setTimeout(syncWidget, 180);
+  }
+
+  observer = new MutationObserver(scheduleSync);
+  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  window.addEventListener("popstate", scheduleSync);
+  window.addEventListener("hashchange", scheduleSync);
+  globalThis.__ccCopilotWidgetDispose = () => {
+    observer?.disconnect();
+    clearTimeout(pendingCheck);
+    window.removeEventListener("popstate", scheduleSync);
+    window.removeEventListener("hashchange", scheduleSync);
+    document.getElementById("cc-copilot-widget-host")?.remove();
+    globalThis.__ccCopilotWidgetInstalled = false;
+    delete globalThis.__ccCopilotWidgetDispose;
+  };
+  scheduleSync();
 })();

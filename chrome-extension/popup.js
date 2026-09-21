@@ -10,6 +10,7 @@
   const copyPanelButton = $("copyPanelButton");
   const portalConsent = $("portalConsent");
   const showWidgetButton = $("showWidgetButton");
+  const autoWidgetButton = $("autoWidgetButton");
   const closeWidgetButton = $("closeWidgetButton");
   const attachButton = $("attachPdfsButton");
   const attachmentConsent = $("attachmentConsent");
@@ -44,6 +45,7 @@
     const supported = hostIsSupported();
     const checked = Boolean(portalConsent.checked);
     showWidgetButton.disabled = !connected || !supported || !checked || !activeTab?.id;
+    autoWidgetButton.disabled = !supported || !activeTab?.id || (!connected && autoWidgetButton.dataset.enabled !== "true");
     closeWidgetButton.disabled = !supported || !activeTab?.id;
     updateLibraryControls();
     if (!supported) {
@@ -94,6 +96,20 @@
     updatePageControls();
   }
 
+  async function refreshAutoWidgetStatus() {
+    autoWidgetButton.dataset.enabled = "false";
+    autoWidgetButton.textContent = "Ativar botão automaticamente neste domínio";
+    if (!activeTab?.id || !hostIsSupported()) return;
+    const result = await chrome.runtime.sendMessage({ type: "CC_GET_AUTO_WIDGET_STATUS", tabId: activeTab.id });
+    if (!result?.ok) return;
+    const enabled = Boolean(result.value?.enabled);
+    autoWidgetButton.dataset.enabled = String(enabled);
+    autoWidgetButton.textContent = enabled
+      ? `Desativar botão automático em ${result.value.host}`
+      : "Ativar botão automaticamente neste domínio";
+    updatePageControls();
+  }
+
   connectButton.addEventListener("click", async () => {
     connectButton.disabled = true;
     try {
@@ -104,11 +120,13 @@
         connectButton.textContent = "Conectar minha conta";
         copyPanelButton.disabled = true;
         updatePageControls();
+        await refreshAutoWidgetStatus();
       } else {
         // This permission prompt is intentionally opened only by this click.
         const granted = await chrome.permissions.request(sitePermission());
         if (!granted) throw new Error("A permissão não foi concedida. Você pode continuar usando o site sem conectar o complemento.");
         await refreshAccountStatus();
+        await refreshAutoWidgetStatus();
       }
     } catch (error) {
       setMessage(accountState, error instanceof Error ? error.message : "Não foi possível conectar a conta.", "error");
@@ -131,11 +149,48 @@
     showWidgetButton.disabled = true;
     try {
       if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga na Gupy, Vagas.com ou InfoJobs.");
-      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["field-filler.js", "copilot-widget.js"] });
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: () => { globalThis.__ccCopilotWidgetDismissed = false; },
+      });
+      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"] });
       setMessage($("pageState"), "Botão adicionado nesta página. Clique nele, confirme o uso do seu perfil e revise antes de enviar.", "success");
       portalConsent.checked = false;
     } catch (error) {
       setMessage($("pageState"), error instanceof Error ? error.message : "O Chrome não permitiu adicionar o botão nesta página.", "error");
+    } finally {
+      updatePageControls();
+    }
+  });
+
+  autoWidgetButton.addEventListener("click", async () => {
+    autoWidgetButton.disabled = true;
+    try {
+      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga na Gupy, Vagas.com ou InfoJobs.");
+      const page = new URL(activePageUrl);
+      const enabled = autoWidgetButton.dataset.enabled === "true";
+      if (enabled) {
+        const result = await chrome.runtime.sendMessage({ type: "CC_DISABLE_AUTO_WIDGET", tabId: activeTab.id });
+        if (!result?.ok) throw new Error(result?.message || "Não foi possível desativar o botão neste domínio.");
+        await chrome.permissions.remove({ origins: [`${page.origin}/*`] });
+        portalConsent.checked = false;
+        setMessage($("pageState"), `Botão automático desativado em ${page.hostname}; a permissão do domínio foi removida.`, "success");
+      } else {
+        if (!connected) throw new Error("Conecte sua conta antes de ativar o botão automático.");
+        if (!portalConsent.checked) throw new Error("Confirme primeiro que este portal permite preenchimento assistido.");
+        const granted = await chrome.permissions.request({ origins: [`${page.origin}/*`] });
+        if (!granted) throw new Error("A permissão não foi concedida. Nada foi instalado neste domínio.");
+        const result = await chrome.runtime.sendMessage({ type: "CC_ENABLE_AUTO_WIDGET", tabId: activeTab.id });
+        if (!result?.ok) {
+          await chrome.permissions.remove({ origins: [`${page.origin}/*`] });
+          throw new Error(result?.message || "Não foi possível ativar o botão automático.");
+        }
+        portalConsent.checked = false;
+        setMessage($("pageState"), `Pronto: o botão aparecerá nas páginas de vagas reconhecidas em ${page.hostname}. Ele só acessa seu perfil após seu clique e autorização.`, "success");
+      }
+      await refreshAutoWidgetStatus();
+    } catch (error) {
+      setMessage($("pageState"), error instanceof Error ? error.message : "Não foi possível alterar a ativação automática.", "error");
     } finally {
       updatePageControls();
     }
@@ -146,8 +201,12 @@
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
         func: () => {
-          document.getElementById("cc-copilot-widget-host")?.remove();
-          globalThis.__ccCopilotWidgetInstalled = false;
+          globalThis.__ccCopilotWidgetDismissed = true;
+          globalThis.__ccCopilotWidgetDispose?.();
+          if (globalThis.__ccAutofillMessageListener) {
+            chrome.runtime.onMessage.removeListener(globalThis.__ccAutofillMessageListener);
+            delete globalThis.__ccAutofillMessageListener;
+          }
           globalThis.__ccAutofillListenerInstalled = false;
           delete globalThis.CandidaturaCertaFieldFiller;
         },
@@ -280,5 +339,6 @@
     updateAttachmentControls();
     try { await refreshAccountStatus(); }
     catch (error) { setMessage(accountState, error instanceof Error ? error.message : "Conecte sua conta para continuar."); }
+    try { await refreshAutoWidgetStatus(); } catch { /* a página pode não ser um portal compatível */ }
   }).catch(() => setMessage($("activePage"), "Não foi possível identificar a página ativa.", "error"));
 })();

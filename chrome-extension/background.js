@@ -74,13 +74,85 @@ importScripts("automation-policy.js");
     }
   }
 
+  function autoWidgetScriptId(host) {
+    return `cc-job-widget-${host.replace(/\./g, "_").replace(/[^a-z0-9_-]/g, "_")}`;
+  }
+
+  async function requireActivePopupTab(message) {
+    const tabId = Number(message.tabId);
+    if (!Number.isSafeInteger(tabId) || tabId < 0) throw new Error("A página ativa não está disponível.");
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab?.id || activeTab.id !== tabId) throw new Error("Volte à vaga escolhida e reabra o complemento.");
+    const host = activeSupportedHost({ tab: activeTab });
+    return { tab: activeTab, host, originPattern: `https://${host}/*` };
+  }
+
+  async function autoWidgetState(host) {
+    const id = autoWidgetScriptId(host);
+    const [script] = await chrome.scripting.getRegisteredContentScripts({ ids: [id] });
+    const originPattern = `https://${host}/*`;
+    const permitted = await chrome.permissions.contains({ origins: [originPattern] });
+    return { enabled: Boolean(script), permission_granted: permitted, host };
+  }
+
+  async function setAutoWidget(message, enabled) {
+    requirePopupSender(message.sender);
+    const { tab, host, originPattern } = await requireActivePopupTab(message);
+    const id = autoWidgetScriptId(host);
+    const [script] = await chrome.scripting.getRegisteredContentScripts({ ids: [id] });
+    if (enabled) {
+      const permitted = await chrome.permissions.contains({ origins: [originPattern] });
+      if (!permitted) throw new Error("Conceda a permissão do Chrome para ativar o botão automático neste domínio.");
+      const registration = {
+        id,
+        matches: [originPattern],
+        js: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"],
+        runAt: "document_idle",
+        persistAcrossSessions: true,
+      };
+      if (script) await chrome.scripting.updateContentScripts([registration]);
+      else await chrome.scripting.registerContentScripts([registration]);
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"],
+      });
+      return { enabled: true, host };
+    }
+
+    if (script) await chrome.scripting.unregisterContentScripts({ ids: [id] });
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          globalThis.__ccCopilotWidgetDismissed = true;
+          globalThis.__ccCopilotWidgetDispose?.();
+          if (globalThis.__ccAutofillMessageListener) {
+            chrome.runtime.onMessage.removeListener(globalThis.__ccAutofillMessageListener);
+            delete globalThis.__ccAutofillMessageListener;
+          }
+          globalThis.__ccAutofillListenerInstalled = false;
+          delete globalThis.CandidaturaCertaFieldFiller;
+        },
+      });
+    } catch { /* a permissão da página pode já ter sido revogada */ }
+    return { enabled: false, host };
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const operation = message?.type;
-    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS"].includes(operation)) return false;
+    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS", "CC_GET_AUTO_WIDGET_STATUS", "CC_ENABLE_AUTO_WIDGET", "CC_DISABLE_AUTO_WIDGET"].includes(operation)) return false;
 
     (async () => {
       if (operation === "CC_GET_STATUS") return { ok: true, value: await apiRequest("/api/copilot/status") };
       if (operation === "CC_GET_PROFILE") return { ok: true, value: await apiRequest("/api/copilot/profile") };
+      if (operation === "CC_GET_AUTO_WIDGET_STATUS") {
+        requirePopupSender(sender);
+        const { host } = await requireActivePopupTab(message);
+        return { ok: true, value: await autoWidgetState(host) };
+      }
+      if (operation === "CC_ENABLE_AUTO_WIDGET" || operation === "CC_DISABLE_AUTO_WIDGET") {
+        return { ok: true, value: await setAutoWidget({ ...message, sender }, operation === "CC_ENABLE_AUTO_WIDGET") };
+      }
       if (operation === "CC_LIST_DOCUMENTS") {
         requirePopupSender(sender);
         return { ok: true, value: await apiRequest("/api/copilot/documents") };

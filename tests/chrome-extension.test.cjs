@@ -2,8 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { createFillPlan } = require("../chrome-extension/field-filler.js");
 const { isRestrictedAutomationHost } = require("../chrome-extension/automation-policy.js");
+const { isLikelyJobPage } = require("../chrome-extension/job-page-policy.js");
 const { classifyFileField, attachPdfsInPage } = require("../chrome-extension/pdf-attachment.js");
 
 const profile = {
@@ -96,6 +98,61 @@ test("bloqueia portais que restringem automação e deixa o portal do empregador
   assert.equal(policy.isSupportedAutomationHost("gupy.io.example.org"), false);
 });
 
+test("reconhece páginas de vagas e ações de candidatura sem ativar em páginas genéricas", () => {
+  assert.equal(isLikelyJobPage("https://careers.gupy.io/jobs/123", "Detalhes da vaga"), true);
+  assert.equal(isLikelyJobPage("https://careers.gupy.io/jobs/123", () => { throw new Error("não deve ler o texto"); }), true);
+  assert.equal(isLikelyJobPage("https://www.vagas.com.br/vagas/v123", "Oportunidade"), true);
+  assert.equal(isLikelyJobPage("https://empregos.infojobs.com.br/oferta/123", "Detalhes"), true);
+  assert.equal(isLikelyJobPage("https://careers.example.org/job/123", "Página"), true);
+  assert.equal(isLikelyJobPage("https://careers.example.org/about", "Clique em candidatar-se para esta vaga"), true);
+  assert.equal(isLikelyJobPage("https://careers.example.org/login", "Entrar na sua conta"), false);
+  assert.equal(isLikelyJobPage("http://careers.example.org/jobs/123", "Candidatar-se"), false);
+  assert.equal(isLikelyJobPage("not a URL", "Candidatar-se"), false);
+});
+
+test("ativa e revoga o botão automático com permissão só para o domínio da vaga", async () => {
+  const root = path.resolve(__dirname, "../chrome-extension");
+  const registered = new Map();
+  const injected = [];
+  const listeners = [];
+  const chrome = {
+    runtime: {
+      onMessage: { addListener: listener => listeners.push(listener) },
+      getURL: file => `chrome-extension://test/${file}`,
+    },
+    permissions: { contains: async ({ origins = [] }) => origins.every(origin => origin === "https://careers.gupy.io/*") },
+    tabs: { query: async () => [{ id: 17, url: "https://careers.gupy.io/jobs/123" }] },
+    scripting: {
+      getRegisteredContentScripts: async ({ ids }) => ids.flatMap(id => registered.has(id) ? [registered.get(id)] : []),
+      registerContentScripts: async scripts => scripts.forEach(script => registered.set(script.id, script)),
+      unregisterContentScripts: async ({ ids }) => ids.forEach(id => registered.delete(id)),
+      executeScript: async script => { injected.push(script); return []; },
+    },
+    sidePanel: { setOptions: async () => {} },
+  };
+  const context = vm.createContext({ chrome, URL, console });
+  context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context));
+  vm.runInContext(fs.readFileSync(path.join(root, "background.js"), "utf8"), context);
+
+  const request = (type) => new Promise((resolve, reject) => {
+    const handled = listeners[0]({ type, tabId: 17 }, { url: "chrome-extension://test/popup.html" }, resolve);
+    if (!handled) reject(new Error("worker did not accept the request"));
+  });
+
+  const enabled = await request("CC_ENABLE_AUTO_WIDGET");
+  assert.deepEqual({ ok: enabled.ok, host: enabled.value.host, enabled: enabled.value.enabled }, { ok: true, host: "careers.gupy.io", enabled: true });
+  const script = [...registered.values()][0];
+  assert.equal(Array.from(script.matches).join(","), "https://careers.gupy.io/*");
+  assert.equal(Array.from(script.js).join(","), "job-page-policy.js,field-filler.js,copilot-widget.js");
+  assert.equal(script.persistAcrossSessions, true);
+  assert.ok(injected.some(item => item.files?.includes("copilot-widget.js")));
+
+  const disabled = await request("CC_DISABLE_AUTO_WIDGET");
+  assert.deepEqual({ ok: disabled.ok, enabled: disabled.value.enabled }, { ok: true, enabled: false });
+  assert.equal(registered.size, 0);
+  assert.ok(injected.some(item => typeof item.func === "function"));
+});
+
 test("só reconhece uploads explicitamente identificados como currículo ou carta", () => {
   assert.equal(classifyFileField({ labels: "Currículo em PDF" }), "resume");
   assert.equal(classifyFileField({ ariaLabel: "Upload resume" }), "resume");
@@ -152,12 +209,16 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
   const widget = fs.readFileSync(path.join(root, "copilot-widget.js"), "utf8");
+  const pagePolicy = fs.readFileSync(path.join(root, "job-page-policy.js"), "utf8");
   const sidepanel = fs.readFileSync(path.join(root, "sidepanel.js"), "utf8");
   const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
   const attachment = fs.readFileSync(path.join(root, "pdf-attachment.js"), "utf8");
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "clipboardWrite", "scripting", "sidePanel"]);
   assert.deepEqual(manifest.optional_permissions, ["cookies"]);
   assert.deepEqual(manifest.optional_host_permissions.sort(), [
+    "https://*.gupy.io/*",
+    "https://*.infojobs.com.br/*",
+    "https://*.vagas.com.br/*",
     "https://agente-de-candidaturas.onrender.com/*",
     "https://candidaturacerta.com.br/*",
   ]);
@@ -173,10 +234,16 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(background, /chrome\.cookies\.get/);
   assert.doesNotMatch(background, /agente_refresh_token|X-CC-Refresh-Token/);
   assert.match(background, /requirePopupSender/);
+  assert.match(background, /registerContentScripts/);
+  assert.match(background, /persistAcrossSessions: true/);
+  assert.match(background, /CC_ENABLE_AUTO_WIDGET/);
+  assert.match(background, /CC_DISABLE_AUTO_WIDGET/);
   assert.match(background, /CC_GET_APPLICATION_PDFS/);
   assert.doesNotMatch(background, /storage\.local|storage\.sync/);
   assert.match(popup, /chrome\.permissions\.request\(sitePermission\(\)\)/);
-  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["field-filler\.js", "copilot-widget\.js"\] \}\)/);
+  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
+  assert.match(popup, /Ativar botão automaticamente neste domínio/);
+  assert.match(popup, /chrome\.permissions\.request\(\{ origins: \[.*page\.origin/s);
   assert.match(popupHtml, /Confirmei que o portal permite preenchimento assistido/);
   assert.match(popupHtml, /transferir os PDFs selecionados para campos de currículo ou carta nesta página/);
   assert.match(popupHtml, /PDFs da sua biblioteca/);
@@ -187,6 +254,10 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(popupHtml, /Você revisa e envia/i);
   assert.match(popupHtml, /automation-policy\.js/);
   assert.match(policy, /linkedin\.com/);
+  assert.match(widget, /isLikelyJobPage/);
+  assert.match(pagePolicy, /apply now/);
+  assert.match(pagePolicy, /candidatar se/);
+  assert.doesNotMatch(pagePolicy, /fetch\s*\(|XMLHttpRequest/);
   assert.match(popupHtml, /id="attachmentConsent"/);
   assert.match(popup, /CandidaturaCertaPdfAttachment\.attachPdfsInPage/);
   assert.doesNotMatch(attachPdfsInPage.toString(), /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);

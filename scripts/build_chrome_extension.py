@@ -13,6 +13,7 @@ FILES = (
     "manifest.json",
     "background.js",
     "automation-policy.js",
+    "job-page-policy.js",
     "field-filler.js",
     "copilot-widget.js",
     "pdf-attachment.js",
