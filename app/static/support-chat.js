@@ -1,0 +1,139 @@
+(() => {
+  "use strict";
+  if (document.querySelector(".cc-support-launcher")) return;
+
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/static/support-chat.css?v=1";
+  document.head.append(stylesheet);
+
+  const make = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const avatar = () => {
+    const wrap = make("span", "cc-support-avatar");
+    const image = document.createElement("img");
+    image.src = "/static/favicon.svg?v=2";
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    wrap.append(image);
+    return wrap;
+  };
+
+  const launcher = make("button", "cc-support-launcher", "Fale com a Candidatura Certa");
+  launcher.type = "button";
+  launcher.setAttribute("aria-expanded", "false");
+  launcher.setAttribute("aria-controls", "cc-support-panel");
+  launcher.setAttribute("aria-label", "Abrir chat de suporte da Candidatura Certa");
+  launcher.prepend(avatar());
+
+  const panel = make("section", "cc-support-panel");
+  panel.id = "cc-support-panel";
+  panel.hidden = true;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "false");
+  panel.setAttribute("aria-labelledby", "cc-support-heading");
+
+  const header = make("header", "cc-support-head");
+  header.append(avatar());
+  const title = make("div", "cc-support-title");
+  const heading = make("strong", "", "Candidatura Certa");
+  heading.id = "cc-support-heading";
+  title.append(heading, make("span", "", "Assistente virtual · Suporte geral"));
+  const close = make("button", "cc-support-close", "×");
+  close.type = "button";
+  close.setAttribute("aria-label", "Fechar chat");
+  header.append(title, close);
+
+  const messages = make("div", "cc-support-messages");
+  messages.setAttribute("aria-live", "polite");
+  messages.setAttribute("aria-relevant", "additions text");
+  const disclosure = make("p", "cc-support-disclosure", "Não envie senhas, tokens ou dados sensíveis. Sua dúvida é enviada à API Gemini para classificar o tema; a Candidatura Certa não salva o texto do chat.");
+  const footer = make("div", "cc-support-footer");
+  const form = make("form", "cc-support-form");
+  const input = make("textarea", "cc-support-input");
+  input.rows = 1;
+  input.maxLength = 1200;
+  input.required = true;
+  input.setAttribute("aria-label", "Escreva sua dúvida");
+  input.placeholder = "Escreva sua dúvida…";
+  const send = make("button", "cc-support-send", "Enviar");
+  send.type = "submit";
+  form.append(input, send);
+  const links = make("div", "cc-support-links");
+  const help = document.createElement("a");
+  help.href = "mailto:contato@candidaturacerta.com.br";
+  help.textContent = "E-mail do suporte";
+  const whatsapp = document.createElement("a");
+  whatsapp.href = "https://wa.me/5571991824951";
+  whatsapp.target = "_blank";
+  whatsapp.rel = "noopener noreferrer";
+  whatsapp.textContent = "WhatsApp (71) 99182-4951";
+  links.append(help, whatsapp);
+  const status = make("p", "cc-support-status");
+  status.setAttribute("role", "status");
+  footer.append(disclosure, form, links, status);
+  panel.append(header, messages, footer);
+  document.body.append(launcher, panel);
+
+  const addMessage = (role, text, pending = false) => {
+    const bubble = make("div", "cc-support-message", text);
+    bubble.dataset.role = role;
+    if (pending) bubble.dataset.pending = "true";
+    messages.append(bubble);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  };
+  addMessage("assistant", "Olá! Posso explicar os planos, limites, vagas, documentos, pagamentos e privacidade. Como posso ajudar?");
+
+  const open = () => {
+    panel.hidden = false;
+    launcher.setAttribute("aria-expanded", "true");
+    input.focus();
+  };
+  const shut = () => {
+    panel.hidden = true;
+    launcher.setAttribute("aria-expanded", "false");
+    launcher.focus();
+  };
+  launcher.addEventListener("click", () => (panel.hidden ? open() : shut()));
+  close.addEventListener("click", shut);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !panel.hidden) shut();
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (!message || send.disabled) return;
+    status.textContent = "";
+    addMessage("user", message);
+    input.value = "";
+    input.disabled = true;
+    send.disabled = true;
+    send.textContent = "…";
+    const pending = addMessage("assistant", "Consultando a base de ajuda…", true);
+    try {
+      const response = await fetch("/api/support-chat", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível responder agora.");
+      pending.textContent = payload.answer || "Não encontrei essa informação na base de ajuda.";
+      delete pending.dataset.pending;
+    } catch (error) {
+      pending.remove();
+      status.textContent = error.message || "O chat está temporariamente indisponível. Use os canais de suporte abaixo.";
+    } finally {
+      input.disabled = false;
+      send.disabled = false;
+      send.textContent = "Enviar";
+      input.focus();
+    }
+  });
+})();

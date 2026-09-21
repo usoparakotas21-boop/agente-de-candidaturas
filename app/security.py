@@ -23,7 +23,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "style-src 'self' 'nonce-{nonce}'; "
         "style-src-elem 'self' 'nonce-{nonce}'; "
         "img-src 'self' data: blob:; font-src 'self' data:; "
-        "connect-src 'self'; form-action 'self' https://*.mercadopago.com"
+        "connect-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
+        "form-action 'self' https://*.mercadopago.com"
     )
 
     async def dispatch(self, request: Request, call_next):

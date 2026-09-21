@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlparse
 from weakref import WeakValueDictionary
 
 import httpx
@@ -58,6 +58,7 @@ from .plan_limits import (
     monthly_opportunity_usage,
 )
 from .ai_provider import AIProviderError, evaluate_interview_answer
+from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
 app = FastAPI(title="Candidatura Certa", version="0.24.0")
@@ -89,6 +90,7 @@ app.include_router(outlook_router)
 app.include_router(outlook_monitor_router)
 app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
+app.include_router(support_chat_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
@@ -325,6 +327,47 @@ def _with_favicon(html: str) -> str:
     return html.replace("</head>", FAVICON_TAG + "</head>", 1)
 
 
+def _landing_demo_video() -> str:
+    """Render a responsive demo only for a validated YouTube/Vimeo URL."""
+    raw_url = os.getenv("DEMO_VIDEO_URL", "").strip()
+    if not raw_url:
+        return ""
+    parsed = urlparse(raw_url)
+    host = (parsed.hostname or "").lower()
+    video_id = ""
+    embed_url = ""
+    if parsed.scheme == "https" and host in {"youtube.com", "www.youtube.com", "m.youtube.com"}:
+        if parsed.path == "/watch":
+            video_id = parse_qs(parsed.query).get("v", [""])[0]
+        elif parsed.path.startswith("/embed/"):
+            video_id = parsed.path.removeprefix("/embed/").split("/", 1)[0]
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            embed_url = f"https://www.youtube-nocookie.com/embed/{video_id}"
+    elif parsed.scheme == "https" and host == "youtu.be":
+        video_id = parsed.path.strip("/").split("/", 1)[0]
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            embed_url = f"https://www.youtube-nocookie.com/embed/{video_id}"
+    elif parsed.scheme == "https" and host in {"vimeo.com", "www.vimeo.com", "player.vimeo.com"}:
+        parts = [part for part in parsed.path.split("/") if part]
+        if host == "player.vimeo.com" and len(parts) >= 2 and parts[-2] == "video":
+            video_id = parts[-1]
+        else:
+            video_id = next((part for part in parts if re.fullmatch(r"[0-9]{5,15}", part)), "")
+        if re.fullmatch(r"[0-9]{5,15}", video_id):
+            embed_url = f"https://player.vimeo.com/video/{video_id}"
+            private_hash = parse_qs(parsed.query).get("h", [""])[0]
+            if not private_hash and video_id in parts:
+                id_position = parts.index(video_id)
+                if len(parts) > id_position + 1 and re.fullmatch(r"[A-Za-z0-9]{1,80}", parts[id_position + 1]):
+                    private_hash = parts[id_position + 1]
+            if private_hash and re.fullmatch(r"[A-Za-z0-9]{1,80}", private_hash):
+                embed_url += f"?h={private_hash}"
+    if not embed_url:
+        logger.warning("DEMO_VIDEO_URL is not a supported YouTube or Vimeo URL; demo remains hidden")
+        return ""
+    return f'''<section class="section demo-video-section" id="demonstracao" aria-labelledby="demo-video-title"><div class="section-head"><h2 id="demo-video-title">Veja a Candidatura Certa em ação</h2><p>Da importação do currículo à análise de compatibilidade, documentos e fila de decisão.</p></div><div class="demo-video-frame"><iframe src="{embed_url}" title="Demonstração da Candidatura Certa" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></section>'''
+
+
 def _style_nonce_bootstrap(nonce: str) -> str:
     """Allow trusted external enhancements to create nonce-bearing styles."""
     return (
@@ -340,6 +383,7 @@ def _style_nonce_bootstrap(nonce: str) -> str:
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
     html = _with_favicon(html)
+    html = html.replace("</body>", '<script src="/static/support-chat.js?v=1" defer></script></body>', 1)
     if path.name == "settings.html":
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
@@ -1241,6 +1285,7 @@ def root():
     if not LANDING_PATH.is_file():
         return {"agente": "Candidatura Certa", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
     html = LANDING_PATH.read_text(encoding="utf-8")
+    html = html.replace("<!-- CANDIDATURA_CERTA_DEMO_VIDEO -->", _landing_demo_video(), 1)
     html = _with_favicon(html)
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
     nonce = current_csp_nonce()
@@ -1248,7 +1293,7 @@ def root():
     rendered = html.replace(
         "</body>",
         _style_nonce_bootstrap(nonce)
-        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script></body>',
+        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=1" defer></script></body>',
         1,
     )
     return HTMLResponse(rendered)

@@ -68,6 +68,7 @@ _RATE_LIMITS = {
     "consultation-booking": (5, 60 * 60),
     "ai-interview-evaluation": (15, 60 * 60),
     "document-generation": (20, 60 * 60),
+    "support-chat": (8, 60),
     "mercadopago-webhook": (600, 60),
 }
 _rate_attempts: dict[str, deque[float]] = {}
@@ -1142,6 +1143,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/",
         "/dashboard",
         "/health",
+        "/api/support-chat",
         "/auth/login",
         "/auth/signup",
         "/auth/session",
