@@ -25,6 +25,9 @@ class ScorePercentTests(unittest.TestCase):
         self.assertIn("rounded>=50?'match-badge-attention'", script)
         self.assertIn("match-badge-low", page)
         self.assertIn("match-badge-attention", page)
+        self.assertIn("span+span:not(.match-badge):before", page)
+        main = (STATIC.parent / "main.py").read_text(encoding="utf-8")
+        self.assertIn("/static/jobs-enhance.js?v=2", main)
 
 
 if __name__ == "__main__":
