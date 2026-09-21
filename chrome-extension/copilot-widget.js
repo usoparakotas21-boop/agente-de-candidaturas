@@ -22,6 +22,7 @@
     .panel[hidden]{display:none}.heading{margin:0;font-size:16px}.copy{margin:8px 0 14px;color:#52657e;font-size:12px;line-height:1.5}
     .consent{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;padding:10px;border-radius:10px;background:#eff5ff;font-size:12px;line-height:1.4}.consent input{margin:2px 0 0;flex:none}
     .actions{display:flex;gap:8px}.actions button{min-height:38px;padding:8px 12px;border:1px solid #d5dfed;border-radius:9px;background:#fff;color:#244c7b;font-size:12px;font-weight:700;cursor:pointer}.actions .primary{border-color:#286be4;background:#286be4;color:#fff}.actions button:disabled{opacity:.5;cursor:not-allowed}
+    .analysis{margin-top:12px;padding:12px;border:1px solid #dce5f2;border-radius:11px;background:#f7f9fd}.analysis[hidden]{display:none}.analysis h3{margin:0 0 7px;font-size:13px}.analysis p,.analysis li{margin:5px 0;color:#405470;font-size:12px;line-height:1.45}.analysis ul{margin:6px 0;padding-left:18px}.analysis .summary{padding:9px;border-radius:8px;background:#fff;white-space:pre-wrap}.analysis button{min-height:34px;padding:7px 10px;border:1px solid #d5dfed;border-radius:8px;background:#fff;color:#244c7b;font-size:11px;font-weight:700;cursor:pointer}
     .status{min-height:18px;margin:12px 0 0;color:#52657e;font-size:12px;line-height:1.4}.status[data-state=error]{color:#b42318}.status[data-state=success]{color:#16794b}
     @media(max-width:480px){.launcher{right:12px;bottom:12px}.panel{right:12px;bottom:68px}}
   `;
@@ -45,7 +46,7 @@
   const consent = document.createElement("input");
   consent.type = "checkbox";
   const consentText = document.createElement("span");
-  consentText.textContent = "Confirmei que este portal permite o preenchimento assistido e autorizo usar meu perfil nesta página.";
+  consentText.textContent = "Confirmo que este portal permite o preenchimento assistido. Ao continuar, envio meu perfil e o texto visível da vaga ao servidor da Candidatura Certa para analisar compatibilidade e preparar um resumo. O texto bruto não é salvo nem enviado ao Gemini. O botão Enviar fica intocado; revise os campos antes de prosseguir.";
   consentLabel.append(consent, consentText);
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -62,8 +63,27 @@
   status.className = "status";
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
-  status.textContent = "Este botão só preenche campos. PDFs e envio são ações separadas, sempre iniciadas por você.";
-  panel.append(heading, copy, consentLabel, actions, status);
+  status.textContent = "Depois do seu consentimento, a compatibilidade é calculada no servidor da Candidatura Certa. O resumo usa apenas os dados cadastrados e experiências relacionadas; revise antes de copiar. PDFs e envio são ações separadas.";
+  const analysisBox = document.createElement("section");
+  analysisBox.className = "analysis";
+  analysisBox.hidden = true;
+  const analysisHeading = document.createElement("h3");
+  const analysisDetails = document.createElement("div");
+  const analysisSummary = document.createElement("p");
+  analysisSummary.className = "summary";
+  const copySummary = document.createElement("button");
+  copySummary.type = "button";
+  copySummary.textContent = "Copiar resumo sugerido";
+  analysisBox.append(analysisHeading, analysisDetails, analysisSummary, copySummary);
+  copySummary.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(analysisSummary.textContent || "");
+      setStatus("Resumo copiado. Revise o texto e adapte-o antes de enviar.", "success");
+    } catch {
+      setStatus("Não foi possível copiar automaticamente. Selecione o resumo e copie manualmente.", "error");
+    }
+  });
+  panel.append(heading, copy, consentLabel, actions, status, analysisBox);
   shadow.append(style, launcher, panel);
   document.body.append(host);
 
@@ -87,14 +107,18 @@
     if (!consent.checked) return;
     prepare.disabled = true;
     consent.disabled = true;
+    analysisBox.hidden = true;
     setStatus("Buscando seu perfil e verificando o limite do plano…");
     const requestId = crypto.randomUUID();
     try {
-      const prepared = await chrome.runtime.sendMessage({ type: "CC_PREPARE_PROFILE", requestId, portalAllowed: true });
+      const jobContext = globalThis.CandidaturaCertaJobContext?.extractVisibleJobContext(document) || {};
+      const prepared = await chrome.runtime.sendMessage({ type: "CC_PREPARE_PROFILE", requestId, portalAllowed: true, jobContext });
       if (!prepared?.ok) throw new Error(prepared?.message || "Não foi possível carregar seu perfil.");
       const filler = globalThis.CandidaturaCertaFieldFiller;
       if (!filler?.fillProfileFields) throw new Error("Reabra o copiloto pelo ícone da extensão e tente novamente.");
-      const result = filler.fillProfileFields(prepared.value.profile);
+      const profileForFill = { ...prepared.value.profile };
+      if (prepared.value.vacancy_analysis?.summary) profileForFill.summary = prepared.value.vacancy_analysis.summary;
+      const result = filler.fillProfileFields(profileForFill);
       const completion = await chrome.runtime.sendMessage({
         type: "CC_COMPLETE_PREPARATION",
         requestId: prepared.value.request_id,
@@ -103,6 +127,21 @@
       if (!result?.ok) throw new Error(result?.message || "Não foi possível preencher esta página.");
       const usage = prepared.value.usage;
       const quota = `Uso neste mês: ${usage.used}/${usage.limit}.`;
+      const vacancyAnalysis = prepared.value.vacancy_analysis;
+      if (vacancyAnalysis) {
+        analysisHeading.textContent = `Compatibilidade estimada: ${vacancyAnalysis.score}/100 · ${vacancyAnalysis.recommendation}`;
+        const lists = [];
+        if (vacancyAnalysis.strengths?.length) lists.push(`Pontos encontrados no seu perfil: ${vacancyAnalysis.strengths.join(", ")}.`);
+        if (vacancyAnalysis.gaps?.length) lists.push(`Pontos que vale conferir: ${vacancyAnalysis.gaps.join(", ")}.`);
+        if (vacancyAnalysis.skills?.length) lists.push(`Competências alinhadas registradas: ${vacancyAnalysis.skills.join(", ")}.`);
+        analysisDetails.replaceChildren(...lists.map(text => {
+          const line = document.createElement("p");
+          line.textContent = text;
+          return line;
+        }));
+        analysisSummary.textContent = vacancyAnalysis.summary || "Complete seu resumo profissional para receber uma sugestão baseada nos dados do seu perfil.";
+        analysisBox.hidden = false;
+      }
       if (result.filled) {
         setStatus(`${result.filled} campo(s) reconhecido(s) e vazio(s) preenchido(s). ${quota} Revise cada resposta e envie pelo portal.`, "success");
       } else {

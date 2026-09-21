@@ -88,6 +88,66 @@ class CopilotRouteTests(unittest.TestCase):
         self.assertEqual(complete, {"status": "FILLED", "filled_count": 3})
         self.assertEqual(status["used"], 1)
 
+    def test_prepare_returns_vacancy_match_without_storing_raw_description(self):
+        description = "A vaga exige recrutamento e seleção, Excel e experiência em RH."
+        payload = main_module.CopilotPrepareRequest(
+            request_id=str(uuid.uuid4()), portal_host="jobs.gupy.io", analysis_only=True,
+            consent_data_processing=True,
+            job_title="Analista de RH", job_company="Empresa Exemplo",
+            job_location="Salvador, BA", job_description=description,
+        )
+        with patch.object(main_module, "SessionLocal", self.factory), patch.object(main_module, "_enforce_rate_limit"):
+            result = response_json(main_module.copilot_prepare(payload, make_request(), {"id": "user-a", "email": "ana@example.com"}))
+        match = result["vacancy_analysis"]
+        self.assertIsNone(result["profile"])
+        self.assertIsInstance(match["score"], int)
+        self.assertTrue(match["strengths"])
+        self.assertIn("Excel", match["skills"])
+        self.assertIn("Profissional de RH com experiência em seleção.", match["summary"])
+        self.assertNotIn("mais de 10 anos", match["summary"])
+        self.assertNotIn("job_description", result)
+        db = self.factory()
+        audit = db.scalar(select(CopilotPreparation).where(CopilotPreparation.request_id == payload.request_id))
+        self.assertEqual(audit.portal_host, "jobs.gupy.io")
+        self.assertEqual(audit.status, "ANALYZED")
+        self.assertFalse(hasattr(audit, "job_description"))
+        db.close()
+
+    def test_prepare_without_visible_vacancy_context_remains_a_plain_profile_fill(self):
+        payload = main_module.CopilotPrepareRequest(
+            request_id=str(uuid.uuid4()), portal_host="jobs.gupy.io", portal_allowed=True,
+        )
+        with patch.object(main_module, "SessionLocal", self.factory), patch.object(main_module, "_enforce_rate_limit"):
+            result = response_json(main_module.copilot_prepare(payload, make_request(), {"id": "user-a", "email": "ana@example.com"}))
+        self.assertIsNone(result["vacancy_analysis"])
+        self.assertEqual(result["vacancy"], {"title": "", "company": "", "location": ""})
+
+    def test_gemini_draft_requires_explicit_second_consent_and_falls_back_cleanly(self):
+        payload = main_module.CopilotPrepareRequest(
+            request_id=str(uuid.uuid4()), portal_host="jobs.gupy.io", analysis_only=True,
+            consent_data_processing=True, consent_gemini_processing=True,
+            job_title="Analista de RH", job_description="Vaga de recrutamento e seleção com uso de Excel.",
+        )
+        with patch.object(main_module, "SessionLocal", self.factory), patch.object(main_module, "_enforce_rate_limit"), patch.object(
+            main_module, "generate_copilot_suggestions", return_value={
+                "tailored_summary": "Rascunho Gemini.", "talking_points": ["Recrutamento."],
+                "questions_to_prepare": ["Qual resultado pode incluir?"], "provider": "gemini-test",
+            },
+        ) as generate:
+            result = response_json(main_module.copilot_prepare(payload, make_request(), {"id": "user-a", "email": "ana@example.com"}))
+        generate.assert_called_once()
+        self.assertEqual(result["ai_status"], "ready")
+        self.assertEqual(result["vacancy_analysis"]["summary"], "Rascunho Gemini.")
+        self.assertEqual(result["vacancy_analysis"]["ai_suggestions"]["talking_points"], ["Recrutamento."])
+
+        fallback_payload = payload.model_copy(update={"request_id": str(uuid.uuid4())})
+        with patch.object(main_module, "SessionLocal", self.factory), patch.object(main_module, "_enforce_rate_limit"), patch.object(
+            main_module, "generate_copilot_suggestions", side_effect=main_module.AIProviderError("Gemini offline"),
+        ):
+            fallback = response_json(main_module.copilot_prepare(fallback_payload, make_request(), {"id": "user-a", "email": "ana@example.com"}))
+        self.assertEqual(fallback["ai_status"], "unavailable")
+        self.assertIsInstance(fallback["vacancy_analysis"]["score"], int)
+
     def test_prepare_requires_page_consent_and_supported_portal(self):
         with patch.object(main_module, "SessionLocal", self.factory), patch.object(main_module, "_enforce_rate_limit"):
             with self.assertRaises(HTTPException) as no_consent:
@@ -100,8 +160,17 @@ class CopilotRouteTests(unittest.TestCase):
                     main_module.CopilotPrepareRequest(request_id=str(uuid.uuid4()), portal_host="www.linkedin.com", portal_allowed=True),
                     make_request(), {"id": "user-a"},
                 )
+            with self.assertRaises(HTTPException) as missing_analysis_consent:
+                main_module.copilot_prepare(
+                    main_module.CopilotPrepareRequest(
+                        request_id=str(uuid.uuid4()), portal_host="jobs.gupy.io", analysis_only=True,
+                        job_description="Descrição de vaga suficientemente longa para teste de consentimento.",
+                    ),
+                    make_request(), {"id": "user-a"},
+                )
         self.assertEqual(no_consent.exception.status_code, 403)
         self.assertEqual(unsupported.exception.status_code, 403)
+        self.assertEqual(missing_analysis_consent.exception.status_code, 403)
 
     def test_paid_plan_uses_its_own_allowance_and_quota_is_enforced(self):
         db = self.factory()

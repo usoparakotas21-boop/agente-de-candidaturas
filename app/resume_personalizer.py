@@ -264,59 +264,47 @@ def personalize_resume(
 
     role = job_title.strip()
 
-    summary_parts = [
-        f"Profissional de Recursos Humanos com mais de 10 anos de experiência, "
-        f"com trajetória alinhada à posição de {role}.",
-    ]
+    # Reuse only statements present in the candidate's own profile or supported
+    # by a matching experience. The previous template invented seniority and
+    # skills merely because they appeared in the vacancy.
+    summary_parts = []
+    candidate_summary = str(profile.get("summary") or "").strip()
+    if candidate_summary:
+        summary_parts.append(candidate_summary)
+    elif role:
+        summary_parts.append(f"Objetivo profissional: {role}.")
 
-    if "rh" in active_groups:
+    area_labels = {
+        "rh": "Recursos Humanos",
+        "dp": "Departamento Pessoal",
+        "recrutamento": "Recrutamento e Seleção",
+        "td": "Treinamento e Desenvolvimento",
+        "dados": "Dados e indicadores",
+        "gestao": "Gestão de equipes",
+        "custos": "Gestão de custos",
+        "trabalhista": "Legislação trabalhista",
+    }
+    supported_areas = list(dict.fromkeys(
+        area_labels.get(area, area)
+        for experience in ranked_experiences
+        if experience["relevance_score"] > 0
+        for area in experience["matched_areas"]
+    ))
+    if supported_areas:
         summary_parts.append(
-            "Experiência em gestão de pessoas, RH generalista e estratégico."
+            "Experiência registrada no perfil relacionada a: "
+            + ", ".join(supported_areas)
+            + "."
+        )
+    supported_skills = [item["skill"] for item in prioritized_skills if item.get("skill")]
+    if supported_skills:
+        summary_parts.append(
+            "Competências informadas no perfil e alinhadas à oportunidade: "
+            + ", ".join(supported_skills[:8])
+            + "."
         )
 
-    if "dp" in active_groups:
-        summary_parts.append(
-            "Atuação sólida em Departamento Pessoal, "
-            "administração de pessoal, folha, ponto e rotinas trabalhistas."
-        )
-
-    if "recrutamento" in active_groups:
-        summary_parts.append(
-            "Experiência em recrutamento e seleção, "
-            "incluindo operações de alto volume."
-        )
-
-    if "td" in active_groups:
-        summary_parts.append(
-            "Experiência em treinamento, desenvolvimento "
-            "e gestão de desempenho."
-        )
-
-    if "dados" in active_groups:
-        summary_parts.append(
-            "Utilização de Power BI, dashboards e indicadores "
-            "para apoio à tomada de decisão."
-        )
-
-    if "gestao" in active_groups:
-        summary_parts.append(
-            "Experiência em liderança, coordenação e supervisão de equipes."
-        )
-
-    if "custos" in active_groups:
-        summary_parts.append(
-            "Histórico de otimização de processos e redução de custos."
-        )
-
-    if "trabalhista" in active_groups:
-        summary_parts.append(
-            "Experiência em legislação trabalhista, "
-            "e-Social e relações trabalhistas."
-        )
-
-    tailored_summary = " ".join(
-        summary_parts
-    )
+    tailored_summary = " ".join(summary_parts)
 
     # -----------------------------------------------
     # SCORE DE PERSONALIZAÇÃO

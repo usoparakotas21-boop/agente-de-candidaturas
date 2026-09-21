@@ -15,7 +15,7 @@
     <p>Conecte o complemento para preparar campos vazios da sua candidatura na Gupy, Vagas.com e InfoJobs. Você pode mostrar o botão uma vez ou autorizá-lo para aparecer automaticamente nas páginas de vagas reconhecidas daquele domínio.</p>
     <div class="tip cc-assistant-note">Você revisa os campos e clica em enviar no portal. O complemento não faz login, não responde perguntas abertas, não anexa documentos automaticamente e não resolve CAPTCHA. Use apenas se o portal permitir preenchimento assistido.</div>
     <div class="actions cc-assistant-actions">
-      <a class="secondary" href="/static/candidatura-certa-autopreenchimento.zip?v=7" download>Baixar complemento para Chrome/Edge</a>
+      <a class="secondary" href="/static/candidatura-certa-autopreenchimento.zip?v=8" download>Baixar complemento para Chrome/Edge</a>
     </div>
     <details>
       <summary>Como instalar a versão de teste</summary>

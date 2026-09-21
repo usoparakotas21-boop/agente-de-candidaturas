@@ -14,6 +14,7 @@ FILES = (
     "background.js",
     "automation-policy.js",
     "job-page-policy.js",
+    "job-context.js",
     "field-filler.js",
     "copilot-widget.js",
     "pdf-attachment.js",

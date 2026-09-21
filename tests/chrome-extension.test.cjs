@@ -6,6 +6,7 @@ const vm = require("node:vm");
 const { createFillPlan } = require("../chrome-extension/field-filler.js");
 const { isRestrictedAutomationHost } = require("../chrome-extension/automation-policy.js");
 const { isLikelyJobPage } = require("../chrome-extension/job-page-policy.js");
+const { extractVisibleJobContext } = require("../chrome-extension/job-context.js");
 const { classifyFileField, attachPdfsInPage } = require("../chrome-extension/pdf-attachment.js");
 
 const profile = {
@@ -98,6 +99,45 @@ test("bloqueia portais que restringem automação e deixa o portal do empregador
   assert.equal(policy.isSupportedAutomationHost("gupy.io.example.org"), false);
 });
 
+test("extrai texto visível de contexto profissional dentro do limite", () => {
+  const visible = text => ({
+    innerText: text,
+    textContent: text,
+    getAttribute: () => null,
+    closest: () => null,
+    getClientRects: () => [1],
+  });
+  const selectors = {
+    "main h1": [visible("Analista de RH")],
+    "[data-testid*='company-name']": [visible("Empresa Exemplo")],
+    "[data-testid*='location']": [visible("Salvador, BA")],
+    "[data-testid*='job-description']": [visible("Requisitos da vaga: recrutamento e seleção, Excel. " + "Descrição detalhada. ".repeat(1000))],
+  };
+  const result = extractVisibleJobContext({
+    title: "Vaga — Gupy",
+    querySelectorAll: selector => selectors[selector] || [],
+  });
+  assert.equal(result.title, "Analista de RH");
+  assert.equal(result.company, "Empresa Exemplo");
+  assert.equal(result.location, "Salvador, BA");
+  assert.match(result.description, /Requisitos da vaga/);
+  assert.equal(result.description.length, 12000);
+});
+
+test("ignora descrição escondida e texto dentro de formulários", () => {
+  const hidden = { innerText: "vaga escondida", textContent: "vaga escondida", getAttribute: () => "true", getClientRects: () => [1] };
+  const formOnly = { innerText: "informação digitada pela pessoa", textContent: "informação digitada pela pessoa", getAttribute: () => null, getClientRects: () => [1], closest: () => ({}) };
+  const selectors = {
+    "main h1": [], "article h1": [], h1: [],
+    "[data-testid*='company-name']": [], "[data-cy*='company-name']": [], "[class*='company-name']": [], "[itemprop='hiringOrganization']": [],
+    "[data-testid*='location']": [], "[data-cy*='location']": [], "[class*='job-location']": [], "[itemprop='jobLocation']": [],
+    "[data-testid*='job-description']": [hidden], "[data-cy*='job-description']": [], "[id*='job-description']": [],
+    "[class*='job-description']": [formOnly], "[class*='vacancy-description']": [], "[data-testid*='description']": [], article: [],
+  };
+  const result = extractVisibleJobContext({ title: "Vaga", querySelectorAll: selector => selectors[selector] || [] });
+  assert.equal(result.description, "");
+});
+
 test("reconhece páginas de vagas e ações de candidatura sem ativar em páginas genéricas", () => {
   assert.equal(isLikelyJobPage("https://careers.gupy.io/jobs/123", "Detalhes da vaga"), true);
   assert.equal(isLikelyJobPage("https://careers.gupy.io/jobs/123", () => { throw new Error("não deve ler o texto"); }), true);
@@ -143,7 +183,7 @@ test("ativa e revoga o botão automático com permissão só para o domínio da 
   assert.deepEqual({ ok: enabled.ok, host: enabled.value.host, enabled: enabled.value.enabled }, { ok: true, host: "careers.gupy.io", enabled: true });
   const script = [...registered.values()][0];
   assert.equal(Array.from(script.matches).join(","), "https://careers.gupy.io/*");
-  assert.equal(Array.from(script.js).join(","), "job-page-policy.js,field-filler.js,copilot-widget.js");
+  assert.equal(Array.from(script.js).join(","), "job-page-policy.js,job-context.js,field-filler.js,copilot-widget.js");
   assert.equal(script.persistAcrossSessions, true);
   assert.ok(injected.some(item => item.files?.includes("copilot-widget.js")));
 
@@ -151,6 +191,52 @@ test("ativa e revoga o botão automático com permissão só para o domínio da 
   assert.deepEqual({ ok: disabled.ok, enabled: disabled.value.enabled }, { ok: true, enabled: false });
   assert.equal(registered.size, 0);
   assert.ok(injected.some(item => typeof item.func === "function"));
+});
+
+test("painel lateral exige consentimento e envia análise apenas da aba ATS ativa", async () => {
+  const root = path.resolve(__dirname, "../chrome-extension");
+  const listeners = [];
+  const requests = [];
+  const chrome = {
+    runtime: {
+      onMessage: { addListener: listener => listeners.push(listener) },
+      getURL: file => `chrome-extension://test/${file}`,
+    },
+    permissions: { contains: async () => true },
+    cookies: { get: async () => ({ value: "access-token" }) },
+    tabs: {
+      query: async () => [{ id: 17, url: "https://careers.gupy.io/jobs/123" }],
+      get: async id => ({ id, url: "https://careers.gupy.io/jobs/123" }),
+    },
+    sidePanel: { setOptions: async () => {} },
+  };
+  const context = vm.createContext({ chrome, URL, console, fetch: async (url, options) => {
+    requests.push({ url, options });
+    return { ok: true, json: async () => ({ vacancy_analysis: { score: 80 } }) };
+  } });
+  context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context));
+  vm.runInContext(fs.readFileSync(path.join(root, "background.js"), "utf8"), context);
+  const jobDescription = "A vaga exige recrutamento e seleção. ".repeat(8);
+  const response = await new Promise((resolve, reject) => {
+    const handled = listeners[0]({
+      type: "CC_ANALYZE_JOB", tabId: 17, requestId: "request-id",
+      consent: true,
+      useGemini: true,
+      jobContext: { title: "Analista de RH", description: jobDescription },
+    }, { url: "chrome-extension://test/sidepanel.html" }, resolve);
+    if (!handled) reject(new Error("worker did not accept the request"));
+  });
+  assert.equal(response.ok, true);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].url, /\/api\/copilot\/prepare$/);
+  const body = JSON.parse(requests[0].options.body);
+  assert.equal(body.analysis_only, true);
+  assert.equal(body.consent_data_processing, true);
+  assert.equal(body.consent_gemini_processing, true);
+  assert.equal(body.portal_allowed, false);
+  assert.equal(body.portal_host, "careers.gupy.io");
+  assert.equal(body.job_title, "Analista de RH");
+  assert.equal(body.job_description, jobDescription);
 });
 
 test("só reconhece uploads explicitamente identificados como currículo ou carta", () => {
@@ -211,6 +297,7 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   const widget = fs.readFileSync(path.join(root, "copilot-widget.js"), "utf8");
   const pagePolicy = fs.readFileSync(path.join(root, "job-page-policy.js"), "utf8");
   const sidepanel = fs.readFileSync(path.join(root, "sidepanel.js"), "utf8");
+  const sidepanelHtml = fs.readFileSync(path.join(root, "sidepanel.html"), "utf8");
   const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
   const attachment = fs.readFileSync(path.join(root, "pdf-attachment.js"), "utf8");
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "clipboardWrite", "scripting", "sidePanel"]);
@@ -230,6 +317,12 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.doesNotMatch(popup, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
   assert.doesNotMatch(widget, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(sidepanel, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
+  assert.match(sidepanel, /CC_ANALYZE_JOB/);
+  assert.match(sidepanel, /extractVisibleJobContext/);
+  assert.match(sidepanelHtml, /id="analysisConsent"/);
+  assert.match(sidepanelHtml, /id="geminiConsent"/);
+  assert.doesNotMatch(sidepanelHtml, /id="geminiConsent"[^>]*checked/);
+  assert.match(sidepanelHtml, /id="analyzeJob"/);
   assert.match(background, /https:\/\/candidaturacerta\.com\.br\$\{path\}/);
   assert.match(background, /chrome\.cookies\.get/);
   assert.doesNotMatch(background, /agente_refresh_token|X-CC-Refresh-Token/);
@@ -241,7 +334,8 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(background, /CC_GET_APPLICATION_PDFS/);
   assert.doesNotMatch(background, /storage\.local|storage\.sync/);
   assert.match(popup, /chrome\.permissions\.request\(sitePermission\(\)\)/);
-  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
+  assert.equal(manifest.version, "0.7.0");
+  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "job-context\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
   assert.match(popup, /Ativar botão automaticamente neste domínio/);
   assert.match(popup, /chrome\.permissions\.request\(\{ origins: \[.*page\.origin/s);
   assert.match(popupHtml, /Confirmei que o portal permite preenchimento assistido/);
@@ -255,6 +349,10 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(popupHtml, /automation-policy\.js/);
   assert.match(policy, /linkedin\.com/);
   assert.match(widget, /isLikelyJobPage/);
+  assert.match(widget, /extractVisibleJobContext/);
+  assert.match(widget, /Compatibilidade estimada/);
+  assert.match(widget, /Copiar resumo sugerido/);
+  assert.match(background, /job_description: typeof jobContext\.description === "string"/);
   assert.match(pagePolicy, /apply now/);
   assert.match(pagePolicy, /candidatar se/);
   assert.doesNotMatch(pagePolicy, /fetch\s*\(|XMLHttpRequest/);

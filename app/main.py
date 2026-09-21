@@ -61,7 +61,7 @@ from .plan_limits import (
     month_window,
     monthly_opportunity_usage,
 )
-from .ai_provider import AIProviderError, evaluate_interview_answer
+from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
@@ -880,6 +880,13 @@ class CopilotPrepareRequest(BaseModel):
     request_id: str = Field(min_length=36, max_length=36)
     portal_host: str = Field(min_length=3, max_length=255)
     portal_allowed: bool = False
+    analysis_only: bool = False
+    consent_data_processing: bool = False
+    consent_gemini_processing: bool = False
+    job_title: str = Field(default="", max_length=200)
+    job_company: str = Field(default="", max_length=200)
+    job_location: str = Field(default="", max_length=200)
+    job_description: str = Field(default="", max_length=12000)
 
 class CopilotCompleteRequest(BaseModel):
     request_id: str = Field(min_length=36, max_length=36)
@@ -1748,7 +1755,9 @@ def copilot_prepare(
     owner_id = str(_owner_id(user) or "").strip()
     if not owner_id:
         raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
-    if not payload.portal_allowed:
+    if payload.analysis_only and not payload.consent_data_processing:
+        raise HTTPException(403, "Autorize o envio do perfil e do texto da vaga para análise.")
+    if not payload.analysis_only and not payload.portal_allowed:
         raise HTTPException(403, "Confirme que o portal permite preenchimento assistido.")
     portal_host = _copilot_host_allowed(payload.portal_host)
     if not portal_host:
@@ -1782,11 +1791,51 @@ def copilot_prepare(
         profile = _copilot_profile_payload(db, user)
         if not any((profile["name"], profile["email"], profile["phone"])):
             raise HTTPException(409, "Complete e salve os dados básicos do seu perfil antes de continuar.")
+        job_title = sanitize_untrusted_text(payload.job_title, max_chars=200).strip()
+        job_company = sanitize_untrusted_text(payload.job_company, max_chars=200).strip()
+        job_location = sanitize_untrusted_text(payload.job_location, max_chars=200).strip()
+        job_description = sanitize_untrusted_text(payload.job_description, max_chars=12000).strip()
+        vacancy_analysis = None
+        ai_status = "not_requested"
+        if job_description:
+            analysis = analyze_job("\n".join((job_title, job_company, job_location, job_description)), profile)
+            personalization = personalize_resume(job_title or "Oportunidade profissional", job_description, profile)
+            vacancy_analysis = {
+                "score": analysis["score"],
+                "recommendation": analysis["recommendation"],
+                "strengths": analysis["strengths"][:8],
+                "gaps": analysis["gaps"][:8],
+                "next_action": analysis["next_action"],
+                "summary": sanitize_untrusted_text(personalization.get("tailored_summary", ""), max_chars=2000).strip(),
+                "skills": [item["skill"] for item in personalization.get("prioritized_skills", [])[:8] if item.get("skill")],
+                "experiences": [
+                    {
+                        "role": sanitize_untrusted_text(item.get("role", ""), max_chars=200).strip(),
+                        "company": sanitize_untrusted_text(item.get("company", ""), max_chars=200).strip(),
+                        "description": sanitize_untrusted_text(item.get("description", ""), max_chars=1200).strip(),
+                    }
+                    for item in personalization.get("prioritized_experiences", [])
+                    if item.get("relevance_score", 0) > 0
+                ][:3],
+            }
+            if payload.consent_gemini_processing:
+                try:
+                    suggestions = generate_copilot_suggestions(
+                        {"title": job_title, "company": job_company, "location": job_location, "description": job_description},
+                        profile,
+                    )
+                    vacancy_analysis["ai_suggestions"] = suggestions
+                    if suggestions.get("tailored_summary"):
+                        vacancy_analysis["summary"] = suggestions["tailored_summary"]
+                    ai_status = "ready"
+                except AIProviderError as exc:
+                    logger.warning("Copiloto Gemini indisponível; mantendo análise determinística: %s", exc)
+                    ai_status = "unavailable"
         db.add(CopilotPreparation(
             owner_id=owner_id,
             request_id=request_id,
             portal_host=portal_host,
-            status="PREPARED",
+            status="ANALYZED" if payload.analysis_only else "PREPARED",
             filled_count=0,
             consented_at=now,
             created_at=now,
@@ -1800,7 +1849,10 @@ def copilot_prepare(
         usage["remaining"] = max(0, usage["limit"] - usage["used"])
         return _copilot_json({
             "request_id": request_id,
-            "profile": profile,
+            "profile": None if payload.analysis_only else profile,
+            "vacancy_analysis": vacancy_analysis,
+            "vacancy": {"title": job_title, "company": job_company, "location": job_location},
+            "ai_status": ai_status,
             "usage": {
                 "plan_code": usage["plan_code"],
                 "used": usage["used"],

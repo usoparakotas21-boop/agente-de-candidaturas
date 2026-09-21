@@ -31,6 +31,31 @@ class _FakeGeminiClient:
         )
 
 
+class _FakeGeminiSyncClient:
+    raw_result = {
+        "tailored_summary": "Resumo baseado em experiência registrada.",
+        "talking_points": ["Experiência em recrutamento e seleção."],
+        "questions_to_prepare": ["Qual resultado concreto você pode incluir?"],
+    }
+    last_prompt = ""
+
+    def __init__(self, *, timeout):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def post(self, url, *, params, json):
+        type(self).last_prompt = json["contents"][0]["parts"][0]["text"]
+        return httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": json_lib.dumps(self.raw_result)}]}}]},
+        )
+
+
 class AiProviderResponseContractTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self._original_result = _FakeGeminiClient.raw_result
@@ -93,6 +118,38 @@ class AiProviderResponseContractTest(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ai_provider.AIProviderError, "maior que o limite"):
             await self._evaluate()
+
+
+class CopilotGeminiDraftTests(unittest.TestCase):
+    def test_suggestions_are_bounded_and_contact_fields_are_not_sent(self):
+        profile = {
+            "name": "Pessoa Teste",
+            "email": "private@example.com",
+            "phone": "71999990000",
+            "linkedin": "https://linkedin.com/private",
+            "summary": "Profissional de RH com experiência em seleção.",
+            "skills": ["Excel"],
+            "experiences": [{"role": "Analista de RH", "description": "Recrutamento e seleção.", "period": "2020-2024"}],
+        }
+        job = {"title": "Analista de RH", "company": "Empresa A", "location": "Salvador", "description": "Vaga de recrutamento e seleção."}
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}), patch.object(
+            ai_provider.httpx, "Client", _FakeGeminiSyncClient
+        ):
+            result = ai_provider.generate_copilot_suggestions(job, profile)
+        self.assertEqual(result["tailored_summary"], _FakeGeminiSyncClient.raw_result["tailored_summary"])
+        self.assertEqual(result["talking_points"], ["Experiência em recrutamento e seleção."])
+        self.assertEqual(result["questions_to_prepare"], ["Qual resultado concreto você pode incluir?"])
+        self.assertEqual(result["provider"], "gemini-3.6-flash")
+        self.assertNotIn("Pessoa Teste", _FakeGeminiSyncClient.last_prompt)
+        self.assertNotIn("private@example.com", _FakeGeminiSyncClient.last_prompt)
+        self.assertNotIn("71999990000", _FakeGeminiSyncClient.last_prompt)
+        self.assertNotIn("linkedin.com/private", _FakeGeminiSyncClient.last_prompt)
+        self.assertIn("Recrutamento e seleção", _FakeGeminiSyncClient.last_prompt)
+
+    def test_suggestions_require_a_configured_key(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with self.assertRaisesRegex(ai_provider.AIProviderError, "nao configurada"):
+                ai_provider.generate_copilot_suggestions({}, {})
 
 
 if __name__ == "__main__":

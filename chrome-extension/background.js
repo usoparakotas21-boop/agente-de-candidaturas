@@ -74,6 +74,19 @@ importScripts("automation-policy.js");
     }
   }
 
+  async function requireActiveSidePanelTab(message, sender) {
+    if (sender?.url !== chrome.runtime.getURL("sidepanel.html")) {
+      throw new Error("Abra a cópia rápida pelo complemento para analisar a vaga.");
+    }
+    const tabId = Number(message.tabId);
+    if (!Number.isSafeInteger(tabId) || tabId < 0) throw new Error("A vaga ativa não está disponível.");
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab?.id || activeTab.id !== tabId) throw new Error("Volte à vaga escolhida e tente novamente.");
+    const tab = await chrome.tabs.get(tabId);
+    const host = activeSupportedHost({ tab });
+    return { tab, host };
+  }
+
   function autoWidgetScriptId(host) {
     return `cc-job-widget-${host.replace(/\./g, "_").replace(/[^a-z0-9_-]/g, "_")}`;
   }
@@ -106,7 +119,7 @@ importScripts("automation-policy.js");
       const registration = {
         id,
         matches: [originPattern],
-        js: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"],
+        js: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"],
         runAt: "document_idle",
         persistAcrossSessions: true,
       };
@@ -114,7 +127,7 @@ importScripts("automation-policy.js");
       else await chrome.scripting.registerContentScripts([registration]);
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"],
+        files: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"],
       });
       return { enabled: true, host };
     }
@@ -140,7 +153,7 @@ importScripts("automation-policy.js");
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const operation = message?.type;
-    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS", "CC_GET_AUTO_WIDGET_STATUS", "CC_ENABLE_AUTO_WIDGET", "CC_DISABLE_AUTO_WIDGET"].includes(operation)) return false;
+    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_ANALYZE_JOB", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS", "CC_GET_AUTO_WIDGET_STATUS", "CC_ENABLE_AUTO_WIDGET", "CC_DISABLE_AUTO_WIDGET"].includes(operation)) return false;
 
     (async () => {
       if (operation === "CC_GET_STATUS") return { ok: true, value: await apiRequest("/api/copilot/status") };
@@ -168,9 +181,42 @@ importScripts("automation-policy.js");
       if (operation === "CC_PREPARE_PROFILE") {
         const portalHost = activeSupportedHost(sender);
         if (message.portalAllowed !== true) throw new Error("Confirme que o portal permite preenchimento assistido.");
+        const jobContext = message.jobContext && typeof message.jobContext === "object" ? message.jobContext : {};
         const value = await apiRequest("/api/copilot/prepare", {
           method: "POST",
-          body: { request_id: message.requestId, portal_host: portalHost, portal_allowed: true },
+          body: {
+            request_id: message.requestId,
+            portal_host: portalHost,
+            portal_allowed: true,
+            job_title: typeof jobContext.title === "string" ? jobContext.title.slice(0, 200) : "",
+            job_company: typeof jobContext.company === "string" ? jobContext.company.slice(0, 200) : "",
+            job_location: typeof jobContext.location === "string" ? jobContext.location.slice(0, 200) : "",
+            job_description: typeof jobContext.description === "string" ? jobContext.description.slice(0, 12000) : "",
+          },
+        });
+        return { ok: true, value };
+      }
+      if (operation === "CC_ANALYZE_JOB") {
+        const { host } = await requireActiveSidePanelTab(message, sender);
+        if (message.consent !== true) throw new Error("Autorize o envio dos dados para analisar a vaga.");
+        const jobContext = message.jobContext && typeof message.jobContext === "object" ? message.jobContext : {};
+        if (typeof jobContext.description !== "string" || jobContext.description.trim().length < 80) {
+          throw new Error("Não encontrei uma descrição de vaga visível nesta página. Nenhum dado foi enviado.");
+        }
+        const value = await apiRequest("/api/copilot/prepare", {
+          method: "POST",
+          body: {
+            request_id: message.requestId,
+            portal_host: host,
+            portal_allowed: false,
+            analysis_only: true,
+            consent_data_processing: true,
+            consent_gemini_processing: message.useGemini === true,
+            job_title: typeof jobContext.title === "string" ? jobContext.title.slice(0, 200) : "",
+            job_company: typeof jobContext.company === "string" ? jobContext.company.slice(0, 200) : "",
+            job_location: typeof jobContext.location === "string" ? jobContext.location.slice(0, 200) : "",
+            job_description: jobContext.description.slice(0, 12000),
+          },
         });
         return { ok: true, value };
       }

@@ -153,7 +153,7 @@
         target: { tabId: activeTab.id },
         func: () => { globalThis.__ccCopilotWidgetDismissed = false; },
       });
-      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["job-page-policy.js", "field-filler.js", "copilot-widget.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["job-page-policy.js", "job-context.js", "field-filler.js", "copilot-widget.js"] });
       setMessage($("pageState"), "Botão adicionado nesta página. Clique nele, confirme o uso do seu perfil e revise antes de enviar.", "success");
       portalConsent.checked = false;
     } catch (error) {

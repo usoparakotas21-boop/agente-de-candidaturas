@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Candidatura Certa — candidaturas assistidas",
   "short_name": "Candidatura Certa",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "minimum_chrome_version": "116",
   "description": "Prepara candidaturas em formulários permitidos, com revisão e envio controlados por você.",
   "action": {
