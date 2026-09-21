@@ -346,7 +346,22 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.match(background, /CC_GET_APPLICATION_PDFS/);
   assert.doesNotMatch(background, /storage\.local|storage\.sync/);
   assert.match(popup, /chrome\.permissions\.request\(sitePermission\(\)\)/);
-  assert.equal(manifest.version, "0.7.1");
+  assert.equal(manifest.version, "1.0.0");
+  assert.equal(manifest.name, "Candidatura Certa — Copiloto");
+  assert.equal(manifest.homepage_url, "https://candidaturacerta.com.br/");
+  assert.deepEqual(manifest.icons, {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png",
+  });
+  for (const size of [16, 32, 48, 128]) {
+    const iconPath = path.join(root, "icons", `icon${size}.png`);
+    assert.equal(fs.existsSync(iconPath), true);
+    const icon = fs.readFileSync(iconPath);
+    assert.equal(icon.readUInt32BE(16), size);
+    assert.equal(icon.readUInt32BE(20), size);
+  }
   assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["job-page-policy\.js", "job-context\.js", "field-filler\.js", "copilot-widget\.js"\] \}\)/);
   assert.match(popup, /Ativar botão automaticamente neste domínio/);
   assert.match(popup, /chrome\.permissions\.request\(\{ origins: \[.*page\.origin/s);

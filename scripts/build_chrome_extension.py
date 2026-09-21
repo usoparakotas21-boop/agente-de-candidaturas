@@ -1,4 +1,4 @@
-"""Package the tested Chrome/Edge extension into the download served by the app."""
+"""Package the stable Chrome/Edge extension into the download served by the app."""
 
 from __future__ import annotations
 
@@ -11,6 +11,10 @@ EXTENSION_DIR = ROOT / "chrome-extension"
 OUTPUT = ROOT / "app" / "static" / "candidatura-certa-autopreenchimento.zip"
 FILES = (
     "manifest.json",
+    "icons/icon16.png",
+    "icons/icon32.png",
+    "icons/icon48.png",
+    "icons/icon128.png",
     "background.js",
     "automation-policy.js",
     "job-page-policy.js",
