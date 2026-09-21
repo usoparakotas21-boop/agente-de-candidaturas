@@ -241,6 +241,36 @@ class BillingSubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(after_request["state"], "requested")
         self.assertEqual(after_request["booking_reference"], result["booking_reference"])
 
+    def test_consultation_whatsapp_is_not_returned_before_paid_cycle(self):
+        db = self.session_factory()
+        db.add(BillingSubscription(
+            owner_id="owner-consultation-pending",
+            plan_code="consultoria",
+            external_reference="subscription-consultoria-pending",
+            payer_email="pending@example.com",
+            monthly_amount=19700,
+            status="pending",
+        ))
+        db.commit()
+        db.close()
+
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_enforce_rate_limit"),
+        ):
+            session = main_module.get_consultation_session(
+                {"id": "owner-consultation-pending"}
+            )
+            self.assertEqual(session["state"], "awaiting_payment")
+            self.assertNotIn("whatsapp_url", session)
+            with self.assertRaises(HTTPException) as denied:
+                main_module.request_consultation_session(
+                    main_module.ConsultationBookingRequest(availability="Sexta à tarde"),
+                    self._request(),
+                    {"id": "owner-consultation-pending"},
+                )
+        self.assertEqual(denied.exception.status_code, 409)
+
     def test_pro_ebook_download_is_plan_gated_and_handles_missing_asset(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             book_path = Path(temp_dir) / "hackeando_disc.docx"

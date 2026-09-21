@@ -6,6 +6,19 @@ from app import main as main_module
 
 
 class ShellLayoutTest(unittest.TestCase):
+    def test_landing_plan_actions_align_and_consultation_whatsapp_is_private(self):
+        landing = main_module.root().body.decode("utf-8")
+        self.assertIn(".plan{display:flex;flex-direction:column}", landing)
+        self.assertIn(".plan>a{margin-top:auto}", landing)
+        self.assertIn('data-plan-checkout="consultoria"', landing)
+        self.assertNotIn("consultation-contact", landing)
+        self.assertNotIn("5571993494443", landing)
+
+        settings = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn('id="consultationPanel"', settings)
+        self.assertIn('id="consultationWhatsapp"', settings)
+        self.assertIn("/billing/consultation/session/request", settings)
+
     def test_active_shells_reference_brand_favicon(self):
         dashboard = main_module._page(Path(main_module.DASHBOARD_PATH)).body.decode("utf-8")
         security = main_module._page(Path(main_module.SECURITY_PAGE_PATH)).body.decode("utf-8")
