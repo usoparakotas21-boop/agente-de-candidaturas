@@ -141,6 +141,106 @@ class BillingSubscriptionTests(unittest.IsolatedAsyncioTestCase):
         finally:
             db.close()
 
+    async def test_consultoria_checkout_uses_fixed_197_brl_monthly_price(self):
+        captured = {}
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def post(self, url, *, headers, json):
+                captured.update(url=url, headers=headers, payload=json)
+                return httpx.Response(201, json={
+                    "id": "preapproval-consultoria",
+                    "status": "pending",
+                    "init_point": "https://www.mercadopago.com.br/subscriptions/checkout?id=preapproval-consultoria",
+                })
+
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_enforce_rate_limit"),
+            patch.object(main_module.httpx, "AsyncClient", FakeClient),
+            patch.dict("os.environ", {"MERCADOPAGO_ACCESS_TOKEN": "server-token"}),
+        ):
+            result = await main_module.create_subscription_checkout(
+                main_module.SubscriptionCheckoutRequest(plan_code="consultoria"),
+                self._request(),
+                {"id": "owner-consultoria", "email": "consult@example.com"},
+            )
+
+        self.assertEqual(captured["payload"]["auto_recurring"], {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": 197.0,
+            "currency_id": "BRL",
+        })
+        self.assertTrue(captured["payload"]["back_url"].endswith("/configuracoes?subscription=return#cobranca"))
+        self.assertEqual(result["monthly_amount"], 19700)
+        self.assertEqual(result["frequency"], "monthly")
+        db = self.session_factory()
+        try:
+            subscription = db.scalar(select(BillingSubscription))
+            self.assertEqual(subscription.plan_code, "consultoria")
+            self.assertEqual(subscription.monthly_amount, 19700)
+            self.assertEqual(subscription.status, "pending")
+        finally:
+            db.close()
+
+    def test_consultation_booking_is_payment_gated_and_idempotent(self):
+        paid_through = utc_now() + timedelta(days=20)
+        db = self.session_factory()
+        subscription = BillingSubscription(
+            owner_id="owner-consultation-booking",
+            plan_code="consultoria",
+            external_reference="subscription-consultoria-booking",
+            mercadopago_preapproval_id="preapproval-consultoria-booking",
+            payer_email="consult@example.com",
+            monthly_amount=19700,
+            status="authorized",
+            access_until=paid_through,
+        )
+        db.add(subscription)
+        db.commit()
+        db.refresh(subscription)
+        credit = main_module._ensure_consultation_credit(
+            db, subscription, "payment-consultoria-1", utc_now(), paid_through
+        )
+        duplicate = main_module._ensure_consultation_credit(
+            db, subscription, "payment-consultoria-1", utc_now(), paid_through
+        )
+        db.commit()
+        self.assertEqual(credit.id, duplicate.id)
+        db.close()
+
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_enforce_rate_limit"),
+        ):
+            before_request = main_module.get_consultation_session(
+                {"id": "owner-consultation-booking"}
+            )
+            result = main_module.request_consultation_session(
+                main_module.ConsultationBookingRequest(availability="Segunda ou quarta à noite"),
+                self._request(),
+                {"id": "owner-consultation-booking"},
+            )
+            after_request = main_module.get_consultation_session(
+                {"id": "owner-consultation-booking"}
+            )
+
+        self.assertEqual(before_request["state"], "available")
+        self.assertEqual(result["state"], "requested")
+        self.assertIn("5571993494443", result["whatsapp_url"])
+        self.assertIn("Segunda%20ou%20quarta%20%C3%A0%20noite", result["whatsapp_url"])
+        self.assertEqual(after_request["state"], "requested")
+        self.assertEqual(after_request["booking_reference"], result["booking_reference"])
+
     def test_pro_ebook_download_is_plan_gated_and_handles_missing_asset(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             book_path = Path(temp_dir) / "hackeando_disc.docx"
@@ -433,6 +533,93 @@ class BillingSubscriptionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(subscription.status, "authorized")
             self.assertEqual(subscription.last_payment_status, "approved")
             self.assertTrue(main_module._subscription_is_entitled(subscription))
+        finally:
+            db.close()
+
+    async def test_consultoria_webhook_grants_one_credit_for_each_approved_monthly_payment(self):
+        external_reference = "subscription-consultoria-webhook"
+        db = self.session_factory()
+        db.add(BillingSubscription(
+            owner_id="owner-consultoria-webhook",
+            plan_code="consultoria",
+            external_reference=external_reference,
+            mercadopago_preapproval_id="preapproval-consultoria-webhook",
+            payer_email="consult@example.com",
+            monthly_amount=19700,
+            status="pending",
+        ))
+        db.commit()
+        db.close()
+
+        invoice = {
+            "id": "invoice-consultoria-1",
+            "preapproval_id": "preapproval-consultoria-webhook",
+            "summarized": "paid",
+            "transaction_amount": "197.00",
+            "currency_id": "BRL",
+            "payment": {"id": "payment-consultoria-1", "status": "approved"},
+        }
+        provider_subscription = {
+            "id": "preapproval-consultoria-webhook",
+            "external_reference": external_reference,
+            "status": "authorized",
+            "auto_recurring": {
+                "frequency": 1,
+                "frequency_type": "months",
+                "transaction_amount": 197.0,
+                "currency_id": "BRL",
+            },
+            "next_payment_date": (utc_now() + timedelta(days=30)).isoformat(),
+        }
+        queued_responses = [httpx.Response(200, json=invoice), httpx.Response(200, json=provider_subscription)]
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def get(self, *args, **kwargs):
+                return queued_responses.pop(0)
+
+        payload = {"type": "subscription_authorized_payment", "data": {"id": "invoice-consultoria-1"}}
+
+        async def receive():
+            return {"type": "http.request", "body": json.dumps(payload).encode(), "more_body": False}
+
+        request = Request({
+            "type": "http",
+            "method": "POST",
+            "path": "/webhooks/mercadopago",
+            "query_string": b"",
+            "headers": [(b"content-type", b"application/json")],
+            "scheme": "https",
+            "server": ("example.com", 443),
+            "client": ("127.0.0.1", 12345),
+        }, receive)
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module.httpx, "AsyncClient", FakeClient),
+            patch.object(main_module, "_mercadopago_signature_is_valid", return_value=True),
+            patch.dict("os.environ", {"MERCADOPAGO_ACCESS_TOKEN": "server-token"}),
+        ):
+            result = await main_module.mercadopago_webhook(request)
+            queued_responses.extend([httpx.Response(200, json=invoice), httpx.Response(200, json=provider_subscription)])
+            replay = await main_module.mercadopago_webhook(request)
+
+        self.assertTrue(result["verified"])
+        self.assertTrue(result["entitled"])
+        self.assertTrue(replay["idempotent"])
+        db = self.session_factory()
+        try:
+            credits = db.scalars(select(main_module.ConsultationCredit)).all()
+            self.assertEqual(len(credits), 1)
+            self.assertEqual(credits[0].payment_id, "payment-consultoria-1")
+            self.assertEqual(credits[0].booking_status, "available")
         finally:
             db.close()
 

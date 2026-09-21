@@ -39,7 +39,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -403,7 +403,11 @@ def _document_export_price() -> str:
 SUBSCRIPTION_PLANS: dict[str, dict[str, Any]] = {
     "start": {"name": "Start", "amount": 3490, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
     "pro": {"name": "Pro", "amount": 9900, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["pro"]},
+    "consultoria": {"name": "Consultoria", "amount": 19700},
 }
+CONSULTATION_WHATSAPP_NUMBER = re.sub(
+    r"\D", "", os.getenv("CONSULTATION_WHATSAPP_NUMBER", "5571993494443")
+)
 _SUBSCRIPTION_CHECKOUT_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
 
@@ -463,6 +467,51 @@ def _monthly_recurring_matches(value: Any, expected_amount: int) -> bool:
         and frequency == 1
         and str(recurring.get("frequency_type") or "").casefold() == "months"
     )
+
+
+def _ensure_consultation_credit(
+    db,
+    subscription: BillingSubscription,
+    payment_id: str,
+    period_start: datetime,
+    period_end: datetime,
+) -> ConsultationCredit | None:
+    """Create at most one monthly consultation credit for a verified payment."""
+    if subscription.plan_code != "consultoria" or not payment_id or period_end <= period_start:
+        return None
+    existing = db.scalar(
+        select(ConsultationCredit).where(ConsultationCredit.payment_id == payment_id)
+    )
+    if existing is not None:
+        return existing
+    credit = ConsultationCredit(
+        subscription_id=subscription.id,
+        owner_id=subscription.owner_id,
+        payment_id=payment_id,
+        period_start=period_start,
+        period_end=period_end,
+        booking_status="available",
+    )
+    try:
+        # A unique payment id makes webhook retries and concurrent delivery safe.
+        with db.begin_nested():
+            db.add(credit)
+            db.flush()
+    except IntegrityError:
+        return db.scalar(
+            select(ConsultationCredit).where(ConsultationCredit.payment_id == payment_id)
+        )
+    return credit
+
+
+def _consultation_whatsapp_url(reference: str, availability: str = "") -> str:
+    message = (
+        "Olá! Quero agendar o atendimento mensal da minha Consultoria Candidatura Certa. "
+        f"Código do atendimento: {reference}."
+    )
+    if availability:
+        message += f" Minha disponibilidade: {availability}"
+    return f"https://wa.me/{CONSULTATION_WHATSAPP_NUMBER}?text={quote(message, safe='')}"
 
 
 def _is_valid_mercadopago_checkout_url(value: Any) -> bool:
@@ -668,7 +717,8 @@ class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_an
 class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str; auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
-class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro"]
+class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro", "consultoria"]
+class ConsultationBookingRequest(BaseModel): availability: str = Field(min_length=5, max_length=800)
 class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
 class DocumentStudioRequest(BaseModel):
     application_id: int | None = Field(default=None, gt=0)
@@ -979,6 +1029,7 @@ def startup():
             # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
             db.execute(text("ALTER TABLE interview_email_outbox ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("ALTER TABLE consultation_credits ENABLE ROW LEVEL SECURITY"))
             db.execute(text("""
                 DO $$
                 BEGIN
@@ -2111,6 +2162,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
         (DocumentDelivery, DocumentDelivery.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),
+        (ConsultationCredit, ConsultationCredit.owner_id),
         (BillingSubscription, BillingSubscription.owner_id),
         (ProcessedEmailMessage, ProcessedEmailMessage.owner_id),
         (EmailIntegration, EmailIntegration.owner_id),
@@ -3422,6 +3474,11 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
             db.close()
 
     base_url = _public_base_url()
+    return_path = (
+        "/configuracoes?subscription=return#cobranca"
+        if req.plan_code == "consultoria"
+        else "/dashboard?subscription=return"
+    )
     payload = {
         "reason": f"Candidatura Certa — Plano {plan['name']} mensal",
         "external_reference": external_reference,
@@ -3432,7 +3489,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
             "transaction_amount": int(plan["amount"]) / 100,
             "currency_id": "BRL",
         },
-        "back_url": f"{base_url}/dashboard?subscription=return",
+        "back_url": f"{base_url}{return_path}",
         "status": "pending",
     }
     try:
@@ -3566,6 +3623,107 @@ def get_current_subscription(user=Depends(authenticated_user)):
                 "remaining": opportunity_usage["remaining"],
                 "resets_at": opportunity_usage["resets_at"].isoformat(),
             },
+        }
+    finally:
+        db.close()
+
+
+def _current_consultation_credit(db, subscription: BillingSubscription, owner_id: str) -> ConsultationCredit | None:
+    now = utc_now()
+    credits = db.scalars(
+        select(ConsultationCredit)
+        .where(
+            ConsultationCredit.subscription_id == subscription.id,
+            ConsultationCredit.owner_id == owner_id,
+            ConsultationCredit.booking_status.in_(("available", "requested")),
+        )
+        .order_by(ConsultationCredit.period_end.desc(), ConsultationCredit.id.desc())
+    ).all()
+    for credit in credits:
+        period_end = credit.period_end
+        if period_end.tzinfo is None:
+            period_end = period_end.replace(tzinfo=timezone.utc)
+        if period_end > now:
+            return credit
+    return None
+
+
+@app.get("/billing/consultation/session")
+def get_consultation_session(user=Depends(authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Login necessário.")
+    db = SessionLocal()
+    try:
+        subscription = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        if subscription is None or subscription.plan_code != "consultoria":
+            return {"eligible": False, "state": "not_included"}
+        if not _subscription_is_entitled(subscription):
+            state = "awaiting_payment" if subscription.status in {"pending", "authorized"} else "inactive"
+            return {"eligible": False, "state": state}
+        credit = _current_consultation_credit(db, subscription, owner_id)
+        if credit is None:
+            return {"eligible": True, "state": "awaiting_payment"}
+        result = {
+            "eligible": True,
+            "state": credit.booking_status,
+            "period_end": credit.period_end.isoformat(),
+        }
+        if credit.booking_status == "requested" and credit.booking_reference:
+            result["booking_reference"] = credit.booking_reference
+            result["whatsapp_url"] = _consultation_whatsapp_url(credit.booking_reference)
+        return result
+    finally:
+        db.close()
+
+
+@app.post("/billing/consultation/session/request")
+def request_consultation_session(
+    req: ConsultationBookingRequest,
+    request: Request,
+    user=Depends(authenticated_user),
+):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Login necessário.")
+    _enforce_rate_limit(request, "consultation-booking", owner_id)
+    availability = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", req.availability)).strip()
+    if len(availability) < 5:
+        raise HTTPException(422, "Informe alguns dias ou horários para o atendimento.")
+    db = SessionLocal()
+    try:
+        subscription = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        if subscription is None or subscription.plan_code != "consultoria":
+            raise HTTPException(403, "O agendamento mensal está incluído no plano Consultoria.")
+        if not _subscription_is_entitled(subscription):
+            raise HTTPException(409, "A assinatura Consultoria não tem um ciclo pago ativo.")
+        credit = _current_consultation_credit(db, subscription, owner_id)
+        if credit is None:
+            raise HTTPException(409, "O Mercado Pago ainda não confirmou o pagamento deste ciclo. Atualize esta página em instantes.")
+        if credit.booking_status == "available":
+            credit.booking_status = "requested"
+            credit.booking_reference = f"CC-{uuid.uuid4().hex[:8].upper()}"
+            credit.booking_requested_at = utc_now()
+            credit.updated_at = utc_now()
+            db.commit()
+        reference = credit.booking_reference
+        if not reference:
+            raise HTTPException(409, "Este atendimento precisa de conferência. Fale com o suporte da Consultoria.")
+        return {
+            "state": "requested",
+            "booking_reference": reference,
+            "whatsapp_url": _consultation_whatsapp_url(reference, availability),
+            "message": "Sua solicitação está pronta. Envie a mensagem no WhatsApp para combinar o horário.",
         }
     finally:
         db.close()
@@ -3842,15 +4000,30 @@ async def mercadopago_webhook(request: Request):
             expected_amount = int(subscription.monthly_amount)
             amount_matches = amount == expected_amount and currency == "BRL"
             subscription.last_payment_status = payment_status if amount_matches else "amount_mismatch"
-            if amount_matches and payment_status == "approved" and subscription.status == "authorized":
+            if amount_matches and payment_status == "approved" and subscription.status in {"authorized", "canceled"}:
                 paid_through = _mp_datetime(provider_subscription.get("next_payment_date"))
                 current_access_until = subscription.access_until
                 if current_access_until and current_access_until.tzinfo is None:
                     current_access_until = current_access_until.replace(tzinfo=timezone.utc)
                 if paid_through is not None and (current_access_until is None or paid_through > current_access_until):
+                    period_start = current_access_until or utc_now()
                     subscription.access_until = paid_through
+                    _ensure_consultation_credit(
+                        db,
+                        subscription,
+                        payment_id,
+                        period_start,
+                        paid_through,
+                    )
             elif amount_matches and payment_status in {"refunded", "charged_back"} and previous_payment_id == payment_id:
                 subscription.access_until = utc_now()
+                if subscription.plan_code == "consultoria":
+                    credit = db.scalar(
+                        select(ConsultationCredit).where(ConsultationCredit.payment_id == payment_id)
+                    )
+                    if credit is not None:
+                        credit.booking_status = "revoked"
+                        credit.updated_at = utc_now()
             subscription.updated_at = utc_now()
             db.commit()
             return {

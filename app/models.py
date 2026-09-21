@@ -390,6 +390,31 @@ class BillingSubscription(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class ConsultationCredit(Base):
+    """One human consultation entitlement for a confirmed monthly payment."""
+
+    __tablename__ = "consultation_credits"
+    __table_args__ = (
+        UniqueConstraint("payment_id", name="uq_consultation_credit_payment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(
+        ForeignKey("billing_subscriptions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payment_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    booking_status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
+    booking_reference: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    booking_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class GeneratedDocument(Base):
     """Private, durable version of a generated document stored in PostgreSQL."""
 
