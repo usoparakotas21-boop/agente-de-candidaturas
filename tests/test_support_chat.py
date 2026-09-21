@@ -59,6 +59,12 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(RuntimeError, "GEMINI_API_KEY"):
                 await support_chat.classify_support_topic("Como funciona?")
 
+    def test_local_fallback_classifies_common_questions_conservatively(self):
+        self.assertEqual(support_chat.fallback_support_topic("Qual o limite de vagas por mês?"), "opportunity_limits")
+        self.assertEqual(support_chat.fallback_support_topic("Como cancelar a assinatura do Pro?"), "subscription")
+        self.assertEqual(support_chat.fallback_support_topic("Quero falar com o suporte"), "contact")
+        self.assertEqual(support_chat.fallback_support_topic("Pergunta sem relação"), "unknown")
+
     def test_public_route_is_rate_limited_and_returns_only_curated_answer(self):
         app = FastAPI()
         app.include_router(support_chat.router)
@@ -76,6 +82,22 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers["cache-control"], "no-store")
         limiter.assert_called_once()
         self.assertIn("/api/support-chat", auth.AuthMiddleware.PUBLIC_PATHS)
+
+    def test_public_route_falls_back_to_curated_answer_when_gemini_is_unavailable(self):
+        app = FastAPI()
+        app.include_router(support_chat.router)
+        app.add_middleware(auth.AuthMiddleware)
+        with (
+            patch.dict(os.environ, {"GEMINI_API_KEY": "test-secret"}),
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(support_chat, "_enforce_rate_limit"),
+            patch.object(support_chat, "classify_support_topic", new=AsyncMock(side_effect=RuntimeError("Gemini indisponível"))),
+            TestClient(app) as client,
+        ):
+            response = client.post("/api/support-chat", json={"message": "Qual o limite de vagas por mês?"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("até 500", response.json()["answer"])
 
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):

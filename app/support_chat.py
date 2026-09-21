@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -18,7 +19,7 @@ from .text_sanitization import sanitize_untrusted_text
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["suporte"])
 
-MODEL = "gemini-2.5-flash"
+MODEL = os.getenv("GEMINI_SUPPORT_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 MAX_RESPONSE_BYTES = 16 * 1024
 ALLOWED_TOPICS = (
     "greeting",
@@ -73,6 +74,42 @@ TOPIC_ANSWERS = {
 }
 
 
+def fallback_support_topic(message: str) -> str:
+    """Classify common help questions locally if Gemini is temporarily unavailable."""
+    text = message.casefold()
+    rules = (
+        ("consultation", r"\b(consultoria|atendimento individual|sessão|sessao|197)\b"),
+        ("subscription", r"\b(cobrança|cobranca|assinatura|cancelar|pagamento|pix|mercado pago)\b"),
+        ("privacy", r"\b(privacidade|lgpd|dados pessoais|excluir meus dados|termos)\b"),
+        ("opportunity_limits", r"\b(limite|quantas? vagas|quantas? oportunidades|volume|por mês|por mes)\b"),
+        ("automatic_applications", r"\b(candidatar|candidatura|automátic[oa]|automatic[oa]|enviar candidatura)\b"),
+        ("email_alerts", r"\b(gmail|outlook|alerta|e-mail|email)\b"),
+        ("documents", r"\b(currículo|curriculo|cv|carta|documento|pdf|download)\b"),
+        ("contact", r"\b(contato|whatsapp|suporte|falar com alguém|falar com alguem)\b"),
+        ("plans", r"\b(plano|planos|preço|preco|valor|quanto custa|essencial|start|pro)\b"),
+        ("greeting", r"\b(oi|olá|ola|bom dia|boa tarde|boa noite)\b"),
+    )
+    for topic, pattern in rules:
+        if re.search(pattern, text):
+            return topic
+    return "unknown"
+
+
+def _safe_provider_error(response: httpx.Response) -> str:
+    """Keep actionable provider diagnostics in logs without logging credentials."""
+    try:
+        error = response.json().get("error", {})
+        if not isinstance(error, dict):
+            return ""
+        code = str(error.get("status", ""))[:40]
+        message = str(error.get("message", ""))[:240]
+        message = re.sub(r"\bAIza[0-9A-Za-z_-]{20,}\b", "[redacted]", message)
+        message = re.sub(r"[\r\n\t]+", " ", message)
+        return f"{code}: {message}".strip(": ")
+    except (ValueError, AttributeError, TypeError):
+        return ""
+
+
 class SupportChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1200)
 
@@ -109,14 +146,19 @@ async def classify_support_topic(message: str) -> str:
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
     try:
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=6) as client:
             response = await client.post(
                 url,
                 headers={"x-goog-api-key": api_key},
                 json=payload,
             )
         if response.status_code >= 400:
-            logger.warning("Gemini support classification returned HTTP %s", response.status_code)
+            details = _safe_provider_error(response)
+            logger.warning(
+                "Gemini support classification returned HTTP %s%s",
+                response.status_code,
+                f" ({details})" if details else "",
+            )
             raise RuntimeError("Gemini indisponível")
         if len(response.content) > MAX_RESPONSE_BYTES:
             raise RuntimeError("Resposta do Gemini excedeu o limite")
@@ -143,10 +185,9 @@ async def support_chat(request_body: SupportChatRequest, request: Request):
         topic = await classify_support_topic(cleaned)
     except RuntimeError as exc:
         logger.warning("Assistente de suporte indisponível: %s", exc)
-        raise HTTPException(
-            503,
-            "O assistente está temporariamente indisponível. Fale com o suporte pelo WhatsApp (71) 99182-4951.",
-        ) from exc
+        # The answer catalog is fixed and reviewed; a small local classifier keeps
+        # common support questions available without letting the model invent facts.
+        topic = fallback_support_topic(cleaned)
 
     response = JSONResponse({"answer": TOPIC_ANSWERS.get(topic, TOPIC_ANSWERS["unknown"])})
     response.headers["Cache-Control"] = "no-store"
