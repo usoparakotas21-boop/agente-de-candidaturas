@@ -457,7 +457,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js?v=2"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
-    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=5"></script>'
+    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=6"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'

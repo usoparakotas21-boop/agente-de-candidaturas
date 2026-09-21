@@ -157,6 +157,17 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", settings)
         self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", settings)
 
+    def test_profile_copilot_installation_uses_plain_step_by_step_guidance(self):
+        script = (Path(main_module.STATIC_DIR) / "profile-autofill-export.js").read_text(encoding="utf-8")
+        profile = main_module._page(main_module.PROFILE_PAGE_PATH).body.decode("utf-8")
+        self.assertIn('profile-autofill-export.js?v=6', profile)
+        self.assertIn("Baixar o copiloto", script)
+        self.assertIn("Instalação única", script)
+        self.assertIn("Abra o arquivo que baixou", script)
+        self.assertIn("Copiar endereço", script)
+        self.assertIn("Preciso de ajuda para instalar", script)
+        self.assertIn("o complemento ainda não está na loja oficial", script)
+
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
