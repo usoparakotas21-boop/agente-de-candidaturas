@@ -27,6 +27,15 @@ class ShellLayoutTest(unittest.TestCase):
         html = response.body.decode("utf-8")
         self.assertEqual(html.count('<nav class="global-nav">'), 1)
         self.assertNotIn('<header class="top">', html)
+        self.assertIn('<span class="global-status">Sistema conectado</span>', html)
+        self.assertIn('animation:global-online-pulse 1.6s ease-in-out infinite', html)
+        self.assertIn('transform:scale(.78)', html)
+
+    def test_dashboard_system_status_has_the_same_visible_pulse(self):
+        html = main_module._page(Path(main_module.DASHBOARD_PATH)).body.decode("utf-8")
+        self.assertIn('<div class="online">Sistema conectado</div>', html)
+        self.assertIn('animation: online-pulse 1.6s ease-in-out infinite', html)
+        self.assertIn('transform: scale(.78)', html)
 
     def test_active_templates_do_not_require_inline_style_attributes(self):
         templates = [

@@ -344,7 +344,25 @@ def _page(path: Path) -> HTMLResponse:
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
         html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">Não conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">Não conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
-    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-brand{display:inline-flex;align-items:center;gap:8px}.global-brand-icon{width:28px;height:28px;display:block;border-radius:50%}.global-nav a:hover{text-decoration:underline}.global-status{display:inline-flex;align-items:center;gap:6px;color:#b9f1d2;font-size:11px;white-space:nowrap}.global-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#58d68d;animation:global-online-pulse 2s ease-in-out infinite}.global-logout{margin:0}.global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}.global-logout button:hover{background:#ffffff18}.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}.breadcrumbs a{color:#3975a8;text-decoration:none}@keyframes global-online-pulse{0%,100%{box-shadow:0 0 0 0 rgba(88,214,141,.38)}50%{box-shadow:0 0 0 5px rgba(88,214,141,0)}}@media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}</style><nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+    nav = '''<style>
+.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}
+.global-nav a{color:#dcecf8;text-decoration:none}
+.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}
+.global-brand{display:inline-flex;align-items:center;gap:8px}
+.global-brand-icon{width:28px;height:28px;display:block;border-radius:50%}
+.global-nav a:hover{text-decoration:underline}
+.global-status{display:inline-flex;align-items:center;gap:6px;color:#b9f1d2;font-size:11px;white-space:nowrap}
+.global-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#58d68d;transform-origin:center;animation:global-online-pulse 1.6s ease-in-out infinite}
+.global-logout{margin:0}
+.global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}
+.global-logout button:hover{background:#ffffff18}
+.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}
+.breadcrumbs a{color:#3975a8;text-decoration:none}
+@keyframes global-online-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(88,214,141,.42)}50%{opacity:.62;transform:scale(.78);box-shadow:0 0 0 5px rgba(88,214,141,0)}}
+@media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
+@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}
+</style>
+<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
         # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.
