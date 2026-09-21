@@ -1,14 +1,21 @@
 (() => {
   const api = (() => {
     const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const unsafe = /captcha|recaptcha|hcaptcha|password|senha|confirm|verification|verificacao|security|seguranca|token|consent|terms|privacy|accept|agreement|termos|politica|motivation|motivacao|cover letter|carta de apresentacao|why (do|are)|porque (quer|deseja)|salary|pretensao|remuneracao|company|empresa|resume upload|curriculo|curriculum|portfolio|file|anexo/;
-    const allowedTypes = new Set(["text", "email", "tel", "url", "textarea"]);
+    const unsafe = /captcha|recaptcha|hcaptcha|password|senha|confirm|verification|verificacao|security|seguranca|token|consent|terms|privacy|accept|agreement|termos|politica|motivation|motivacao|cover letter|carta de apresentacao|why (do|are)|porque (quer|deseja)|salary|pretensao|remuneracao|company|empresa|resume upload|curriculo|curriculum|portfolio|file|anexo|birth|nascimento|nationality|nacionalidade|eligib|authorization|autorizacao|work permit|visto|deficiencia|disability|race|etnia|gender|genero/;
+    const allowedTypes = new Set(["text", "email", "tel", "url", "textarea", "select-one"]);
+    const stateNames = {
+      AC: "Acre", AL: "Alagoas", AP: "Amapá", AM: "Amazonas", BA: "Bahia", CE: "Ceará", DF: "Distrito Federal",
+      ES: "Espírito Santo", GO: "Goiás", MA: "Maranhão", MT: "Mato Grosso", MS: "Mato Grosso do Sul",
+      MG: "Minas Gerais", PA: "Pará", PB: "Paraíba", PR: "Paraná", PE: "Pernambuco", PI: "Piauí",
+      RJ: "Rio de Janeiro", RN: "Rio Grande do Norte", RS: "Rio Grande do Sul", RO: "Rondônia", RR: "Roraima",
+      SC: "Santa Catarina", SP: "São Paulo", SE: "Sergipe", TO: "Tocantins"
+    };
 
     function classify(descriptor) {
       if (!descriptor || descriptor.disabled || descriptor.readOnly || descriptor.visible === false) return null;
       const tag = String(descriptor.tagName || "").toLowerCase();
-      const type = tag === "textarea" ? "textarea" : String(descriptor.type || "text").toLowerCase();
-      if (!allowedTypes.has(type) || !["input", "textarea"].includes(tag)) return null;
+      const type = tag === "textarea" ? "textarea" : tag === "select" ? "select-one" : String(descriptor.type || "text").toLowerCase();
+      if (!allowedTypes.has(type) || !["input", "textarea", "select"].includes(tag) || (tag === "select" && descriptor.multiple)) return null;
       const autocomplete = normalize(descriptor.autocomplete);
       const signals = normalize([descriptor.label, descriptor.ariaLabel, descriptor.placeholder, descriptor.name, descriptor.id].filter(Boolean).join(" "));
       if ((!signals && !autocomplete) || unsafe.test(signals)) return null;
@@ -19,7 +26,9 @@
       if (autocomplete === "tel" || /\b(phone|telephone|mobile|cellphone|celular|telefone|whatsapp)\b/.test(signals)) return "phone";
       if (/\b(linkedin)\b/.test(signals)) return "linkedin";
       if (/\b(personal website|website|portfolio site|site pessoal|website pessoal)\b/.test(signals)) return "website";
-      if (autocomplete === "address level2" || /\b(city|cidade|municipio|location|localizacao)\b/.test(signals)) return "location";
+      if (autocomplete === "address level2" || /\b(city|cidade|municipio|localidade)\b/.test(signals)) return "city";
+      if (autocomplete === "address level1" || /\b(state|province|estado|provincia)\b/.test(signals)) return "state";
+      if (/\b(location|localizacao)\b/.test(signals)) return "location";
       if (/\b(full name|nome completo|candidate name|applicant name)\b/.test(signals)) return "name";
       if (/\b(professional headline|professional title|current position|cargo atual|titulo profissional)\b/.test(signals)) return "headline";
       if (/\b(professional summary|about me|about you|short bio|biography|resumo profissional|sobre voce|apresentacao profissional)\b/.test(signals)) return "summary";
@@ -42,6 +51,8 @@
         linkedin: profile.linkedin,
         website: profile.website,
         location: profile.location,
+        city: String(profile.location || "").split(/[,/|–—-]/).map(part => part.trim()).filter(Boolean)[0] || "",
+        state: String(profile.location || "").split(/[,/|–—-]/).map(part => part.trim()).filter(Boolean)[1] || "",
         headline: profile.headline,
         summary: profile.summary,
         experiences: (profile.experiences || []).map(item => [item.role, item.company, item.period, item.description].filter(Boolean).join(" — ")).join("\n"),
@@ -57,8 +68,21 @@
       for (let index = 0; index < descriptors.length; index += 1) {
         const descriptor = descriptors[index];
         const key = classify(descriptor);
-        const value = key ? valueFor(key, profile || {}) : "";
+        let value = key ? valueFor(key, profile || {}) : "";
         if (!key || !value || descriptor.hasValue || (descriptor.maxLength > 0 && value.length > descriptor.maxLength)) continue;
+        if (String(descriptor.tagName || "").toLowerCase() === "select") {
+          const candidates = [normalize(value)];
+          if (key === "state") {
+            const stateCode = Object.keys(stateNames).find(code => code === value.toUpperCase())
+              || Object.entries(stateNames).find(([, name]) => normalize(name) === normalize(value))?.[0];
+            if (stateCode) candidates.push(normalize(stateNames[stateCode]), normalize(stateCode));
+          }
+          const option = (descriptor.options || []).find(item =>
+            !item.disabled && item.value && candidates.some(candidate => candidate === normalize(item.value) || candidate === normalize(item.text))
+          );
+          if (!option) continue;
+          value = option.value;
+        }
         plan.push({ index, key, value });
       }
       return plan;
@@ -80,20 +104,32 @@
       autocomplete: element.getAttribute("autocomplete") || "", label: labels,
       ariaLabel: element.getAttribute("aria-label") || "", placeholder: element.getAttribute("placeholder") || "",
       name: element.getAttribute("name") || "", id: element.id || "",
-      disabled: element.disabled, readOnly: element.readOnly, visible, maxLength: element.maxLength,
-      hasValue: String(element.value || "").trim().length > 0
+      disabled: element.disabled, readOnly: element.readOnly, multiple: Boolean(element.multiple), visible, maxLength: element.maxLength,
+      options: tagName === "select" ? [...element.options].map(option => ({ value: option.value, text: option.label || option.textContent || "", disabled: option.disabled })) : [],
+      hasValue: String(element.value || "").trim().length > 0 && !(tagName === "select" && element.selectedOptions?.[0]?.dataset?.placeholder === "true")
     };
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
     try {
-      const elements = [...document.querySelectorAll("input, textarea")];
+      const elements = [...document.querySelectorAll("input, textarea, select")];
       const descriptors = elements.map(describe);
       const plan = api.createFillPlan(descriptors, message.profile || {});
       let filled = 0;
+      const filledKeys = new Set();
       for (const item of plan) {
         const element = elements[item.index];
+        if (element.tagName === "SELECT") {
+          const optionExists = [...element.options].some(option => !option.disabled && option.value === item.value);
+          if (!optionExists) continue;
+          element.value = item.value;
+          element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
+          filled += 1;
+          filledKeys.add(item.key);
+          continue;
+        }
         const prototype = item.key && element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
         if (!setter) continue;
@@ -101,8 +137,9 @@
         element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
         element.dispatchEvent(new Event("change", { bubbles: true }));
         filled += 1;
+        filledKeys.add(item.key);
       }
-      sendResponse({ ok: true, filled });
+      sendResponse({ ok: true, filled, filledKeys: [...filledKeys] });
     } catch {
       sendResponse({ ok: false, message: "Não foi possível preencher esta página. Confira se o formulário ainda está aberto." });
     }

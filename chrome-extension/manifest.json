@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Candidatura Certa — preenchimento assistido",
+  "name": "Candidatura Certa — candidaturas assistidas",
   "short_name": "Candidatura Certa",
-  "version": "0.1.0",
-  "description": "Preenche campos reconhecidos de formulários de candidatura a pedido do usuário.",
+  "version": "0.2.0",
+  "description": "Prepara formulários de candidatura com dados do perfil após autorização em cada página.",
   "action": {
-    "default_title": "Candidatura Certa — preencher formulário",
+    "default_title": "Candidatura Certa — preparar candidatura",
     "default_popup": "popup.html"
   },
   "permissions": ["activeTab", "scripting", "storage"]

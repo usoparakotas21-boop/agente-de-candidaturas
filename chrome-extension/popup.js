@@ -7,6 +7,12 @@
   const clearButton = $("clearButton");
   const consent = $("pageConsent");
   let savedProfile = null;
+  const fieldLabels = {
+    name: "nome", first_name: "primeiro nome", last_name: "sobrenome", email: "e-mail", phone: "telefone",
+    linkedin: "LinkedIn", website: "site/portfólio", location: "localização", city: "cidade", state: "estado",
+    headline: "título profissional", summary: "resumo", experiences: "experiência", education: "formação",
+    skills: "competências", languages: "idiomas"
+  };
 
   function message(text, type = "") {
     const target = $("pageState");
@@ -85,11 +91,13 @@
     message("Analisando apenas os campos visíveis desta aba…");
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id || !/^https?:\/\//i.test(tab.url || "")) throw new Error("Abra um formulário seguro em uma página HTTPS e tente novamente.");
+      if (!tab?.id || !/^https:\/\//i.test(tab.url || "")) throw new Error("Abra um formulário seguro em uma página HTTPS e tente novamente.");
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["field-filler.js"] });
       const result = await chrome.tabs.sendMessage(tab.id, { type: "CC_FILL_PROFILE_FIELDS", profile: savedProfile });
       if (!result?.ok) throw new Error(result?.message || "Não foi possível preencher esta página.");
-      message(result.filled ? `${result.filled} campo(s) em branco preenchido(s). Confira cada resposta e envie pelo portal.` : "Nenhum campo compatível e vazio foi encontrado. Nada foi enviado.", result.filled ? "success" : "");
+      const labels = [...new Set((result.filledKeys || []).map(key => fieldLabels[key]).filter(Boolean))];
+      const summary = labels.length ? ` Campos: ${labels.join(", ")}.` : "";
+      message(result.filled ? `${result.filled} campo(s) em branco preenchido(s).${summary} Confira cada resposta e envie pelo portal.` : "Nenhum campo compatível e vazio foi encontrado. Nada foi enviado.", result.filled ? "success" : "");
     } catch (error) {
       message(error instanceof Error ? error.message : "O Chrome bloqueou o preenchimento desta página.", "error");
     } finally {

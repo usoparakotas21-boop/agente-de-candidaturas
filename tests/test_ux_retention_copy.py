@@ -14,11 +14,12 @@ class RetentionExperienceCopyTests(unittest.TestCase):
         self.assertIn("Consulte os planos disponíveis para continuar antes disso.", html)
         self.assertIn("`${used} de ${limit} oportunidades usadas neste mês", html)
 
-    def test_expiring_alert_explains_why_it_is_not_available_yet(self):
+    def test_expiring_alert_uses_explicit_deadline_and_reports_smtp_status(self):
         html = (STATIC / "configuracoes.html").read_text(encoding="utf-8")
         self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
-        self.assertIn("Aguardando validação de fontes oficiais", html)
-        self.assertIn("datas confiáveis de validade", html)
+        self.assertIn('id="expiringHint"', html)
+        self.assertIn("data de encerramento explícita do anúncio", html)
+        self.assertIn("O envio por e-mail ainda não está configurado no servidor.", html)
 
     def test_document_email_tooltip_is_accessible_and_touch_friendly(self):
         html = (STATIC / "curriculos.html").read_text(encoding="utf-8")

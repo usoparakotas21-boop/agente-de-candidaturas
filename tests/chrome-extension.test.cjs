@@ -33,6 +33,20 @@ test("preenche campos vazios identificados por rótulos e autocomplete", () => {
   assert.match(plan[3].value, /Empresa Alfa/);
 });
 
+test("preenche cidade e estado apenas quando há uma opção exata no seletor", () => {
+  const descriptors = [
+    { tagName: "select", type: "select-one", label: "Cidade", options: [{ value: "", text: "Selecione", disabled: false }, { value: "salvador", text: "Salvador", disabled: false }, { value: "santos", text: "Salvador", disabled: true }], visible: true },
+    { tagName: "select", type: "select-one", label: "Estado", options: [{ value: "", text: "Selecione", disabled: false }, { value: "bahia", text: "Bahia", disabled: false }], visible: true },
+    { tagName: "select", type: "select-one", label: "Estado de nascimento", options: [{ value: "BA", text: "Bahia", disabled: false }], visible: true },
+    { tagName: "select", type: "select-one", label: "Cidade", options: [{ value: "", text: "Selecione", disabled: false }, { value: "feira", text: "Feira de Santana", disabled: false }], visible: true }
+  ];
+  const plan = createFillPlan(descriptors, profile);
+  assert.deepEqual(plan, [
+    { index: 0, key: "city", value: "salvador" },
+    { index: 1, key: "state", value: "bahia" }
+  ]);
+});
+
 test("ignora campos preenchidos, ocultos, senhas, upload e respostas sensíveis", () => {
   const descriptors = [
     { tagName: "input", type: "text", label: "Nome completo", hasValue: true, visible: true },
@@ -68,9 +82,14 @@ test("complemento não pede acesso permanente a sites nem dispara envio ou rede"
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   const filler = fs.readFileSync(path.join(root, "field-filler.js"), "utf8");
   const popup = fs.readFileSync(path.join(root, "popup.js"), "utf8");
+  const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "scripting", "storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined);
   assert.doesNotMatch(filler, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(popup, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
+  assert.match(popupHtml, /Confirmei que este portal permite preenchimento assistido/);
+  assert.ok(popup.includes("https:"));
+  assert.ok(!popup.includes("https?:"));
+  assert.match(popupHtml, /vou revisar tudo antes de enviar/i);
 });

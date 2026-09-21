@@ -246,8 +246,10 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
         self.assertIn('value="immediate">Imediatamente (em até 5 minutos)</option>', html)
         self.assertIn('notification_frequency:', html)
-        self.assertIn('notify_expiring:false', html)
-        self.assertIn('Vagas expirando ainda não geram e-mail.', html)
+        self.assertIn("notify_expiring:$(\'notifyExpiring\').checked", html)
+        self.assertIn("notify_expiring_consent:expiringOptInTouched&&$(\'notifyExpiring\').checked", html)
+        self.assertIn("Usamos somente a data de encerramento estruturada no anúncio", html)
+        self.assertIn("O envio por e-mail ainda não está configurado no servidor.", html)
 
     def test_security_page_exposes_confirmed_account_deletion(self):
         html = (Path(main_module.STATIC_DIR) / "security.html").read_text(encoding="utf-8")

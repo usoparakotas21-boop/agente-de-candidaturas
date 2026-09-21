@@ -40,7 +40,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -48,6 +48,7 @@ from .document_storage import cleanup_expired_documents, resolve_document_path
 from .data_retention import cleanup_expired_raw_data
 from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle, smtp_settings
 from .interview_notifications import cleanup_interview_email_outbox, enqueue_interview_notification, run_interview_notification_cycle
+from .expiration_notifications import cleanup_expiration_email_outbox, run_expiration_notification_cycle, _parse_preferences as _parse_expiration_preferences
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -182,6 +183,7 @@ async def _document_retention_loop():
             await asyncio.to_thread(_cleanup_raw_intake_data)
             await asyncio.to_thread(_cleanup_followup_email_outbox)
             await asyncio.to_thread(_cleanup_interview_email_outbox)
+            await asyncio.to_thread(_cleanup_expiration_email_outbox)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             raise
@@ -218,6 +220,7 @@ async def _lifecycle_email_loop():
             for dispatcher, label in (
                 (run_followup_digest_cycle, "lembretes de candidatura"),
                 (run_interview_notification_cycle, "avisos de entrevista"),
+                (run_expiration_notification_cycle, "avisos de expiração de vagas"),
             ):
                 try:
                     await asyncio.to_thread(dispatcher, SessionLocal)
@@ -436,7 +439,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js?v=2"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
-    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=1"></script>'
+    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=2"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'
@@ -847,7 +850,7 @@ class ApplicationStatusRequest(BaseModel):
     note: str = Field(default="", max_length=2000)
     channel: Literal["", "manual", "gmail", "linkedin", "gupy", "indeed", "site_empresa", "indicacao", "outro"] = ""
     external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
-class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = False; notify_interviews_consent: bool = False; notify_expiring: bool = False; notify_followups: bool = False
+class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = False; notify_interviews_consent: bool = False; notify_expiring: bool = False; notify_expiring_consent: bool = False; notify_followups: bool = False
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
 class ProfileExperienceRequest(BaseModel):
     role: str = Field(min_length=1, max_length=200)
@@ -1051,7 +1054,12 @@ def _cand_prefs(cand):
     if cand and cand.preferences_data:
         try: s = json.loads(cand.preferences_data)
         except: pass
-    return normalize_preferences(s, target_roles=cand.target_roles if cand else "", location=cand.location if cand else "")
+    preferences = normalize_preferences(s, target_roles=cand.target_roles if cand else "", location=cand.location if cand else "")
+    expiry_preferences, _ = _parse_expiration_preferences(cand, utc_now())
+    preferences["notify_expiring"] = expiry_preferences["notify_expiring"]
+    preferences["notify_expiring_consent_at"] = expiry_preferences["notify_expiring_consent_at"]
+    preferences["lifecycle_email_configured"] = smtp_settings() is not None
+    return preferences
 def _apply_decision(app, cand, analysis):
     r = decide_opportunity({"title": app.job.title, "company": app.job.company, "location": app.job.location, "modality": app.job.modality, "description": app.job.description, "salary": app.job.salary, "salary_min": app.job.salary_min, "salary_max": app.job.salary_max, "contract_type": app.job.contract_type}, analysis, _cand_prefs(cand), capture_confidence=app.capture_confidence)
     reasons = list(r["reasons"])
@@ -1161,6 +1169,7 @@ def startup():
                 """))
             # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
             db.execute(text("ALTER TABLE interview_email_outbox ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("ALTER TABLE expiring_job_email_outbox ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE consultation_credits ENABLE ROW LEVEL SECURITY"))
             db.execute(text("""
@@ -1221,6 +1230,7 @@ def startup():
             _cleanup_raw_intake_data()
             _cleanup_followup_email_outbox()
             _cleanup_interview_email_outbox()
+            _cleanup_expiration_email_outbox()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
             _start_purchase_generation_worker()
@@ -1319,6 +1329,7 @@ def startup():
     _cleanup_raw_intake_data()
     _cleanup_followup_email_outbox()
     _cleanup_interview_email_outbox()
+    _cleanup_expiration_email_outbox()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
     _start_purchase_generation_worker()
@@ -1677,6 +1688,15 @@ def update_preferences(req: CandidatePreferencesRequest, user=Depends(authentica
         else:
             prefs["notify_interviews"] = False
             prefs["notify_interviews_consent_at"] = None
+        previous_expiring, _ = _parse_expiration_preferences(c, utc_now())
+        if req.notify_expiring and (req.notify_expiring_consent or previous_expiring["notify_expiring"]):
+            prefs["notify_expiring"] = True
+            prefs["notify_expiring_consent_at"] = (
+                previous_expiring["notify_expiring_consent_at"] or utc_now().isoformat()
+            )
+        else:
+            prefs["notify_expiring"] = False
+            prefs["notify_expiring_consent_at"] = None
         if req.notify_followups:
             prefs["notify_followups"] = True
             prefs["notify_followups_consent_at"] = utc_now().isoformat()
@@ -2229,16 +2249,19 @@ def privacy_export(user=Depends(authenticated_user)):
         jobs_query = select(Job).order_by(Job.id.asc())
         purchases_query = select(DocumentExportPurchase).order_by(DocumentExportPurchase.created_at.asc())
         notification_query = select(FollowupEmailOutbox).order_by(FollowupEmailOutbox.created_at.asc())
+        expiration_notification_query = select(ExpiringJobEmailOutbox).order_by(ExpiringJobEmailOutbox.created_at.asc())
         if oid:
             candidate_query = candidate_query.where(Candidate.owner_id == oid)
             jobs_query = jobs_query.where(Job.owner_id == oid)
             purchases_query = purchases_query.where(DocumentExportPurchase.owner_id == oid)
             notification_query = notification_query.where(FollowupEmailOutbox.owner_id == oid)
+            expiration_notification_query = expiration_notification_query.where(ExpiringJobEmailOutbox.owner_id == oid)
         candidate = db.scalar(candidate_query)
         jobs = db.scalars(jobs_query).all()
         applications = [job.application for job in jobs if job.application is not None]
         purchases = db.scalars(purchases_query).all()
         notifications = db.scalars(notification_query).all()
+        expiration_notifications = db.scalars(expiration_notification_query).all()
 
         def iso(value):
             return value.isoformat() if value else None
@@ -2263,10 +2286,11 @@ def privacy_export(user=Depends(authenticated_user)):
             "export_version": "1",
             "generated_at": iso(utc_now()),
             "profile": profile,
-            "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "description": job.description} for job in jobs],
+            "jobs": [{"id": job.id, "source": job.source, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "valid_through": iso(job.valid_through), "url": job.url, "description": job.description} for job in jobs],
             "applications": [{"id": item.id, "job_id": item.job_id, "status": item.status, "analysis_score": item.analysis_score, "personalization_score": item.personalization_score, "recommendation": item.recommendation, "queue_decision": item.queue_decision, "resume_version": item.resume_version, "cover_letter_version": item.cover_letter_version, "created_at": iso(item.created_at), "updated_at": iso(item.updated_at), "events": [{"status": event.status, "note": event.note, "channel": event.channel, "external_result": event.external_result, "resume_version": event.resume_version, "cover_letter_version": event.cover_letter_version, "created_at": iso(event.created_at)} for event in item.events]} for item in applications],
             "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
             "followup_email_notifications": [{"frequency": item.frequency, "status": item.status, "application_count": len(item.application_ids or []), "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in notifications],
+            "expiring_job_email_notifications": [{"job_id": item.job_id, "deadline": item.deadline_key, "frequency": item.frequency, "status": item.status, "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in expiration_notifications],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
         db.close()
@@ -2294,6 +2318,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
                 logger.warning("Ignorando caminho de documento fora do armazenamento privado durante exclusao")
 
     for model, column in (
+        (ExpiringJobEmailOutbox, ExpiringJobEmailOutbox.owner_id),
         (InterviewEmailOutbox, InterviewEmailOutbox.owner_id),
         (FollowupEmailOutbox, FollowupEmailOutbox.owner_id),
         (DocumentDelivery, DocumentDelivery.owner_id),
@@ -3749,6 +3774,14 @@ def get_current_subscription(user=Depends(authenticated_user)):
                 "resets_at": opportunity_usage["resets_at"].isoformat(),
             },
         }
+    finally:
+        db.close()
+
+
+def _cleanup_expiration_email_outbox() -> int:
+    db = SessionLocal()
+    try:
+        return cleanup_expiration_email_outbox(db)
     finally:
         db.close()
 

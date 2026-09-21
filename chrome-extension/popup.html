@@ -19,9 +19,9 @@
     <div class="actions"><button id="fillButton" class="primary" type="button" disabled>Preencher campos reconhecidos</button><button id="clearButton" class="clear" type="button" disabled>Apagar</button></div>
   </section>
   <p id="activePage" class="state page-host">Página ativa</p>
-  <label class="consent"><input id="pageConsent" type="checkbox"><span>Autorizo preencher os campos reconhecidos desta página. Vou revisar todos os dados e concluir o envio pessoalmente.</span></label>
-  <p id="pageState" class="notice" role="status" aria-live="polite">O complemento só age após esse aceite e o clique no botão. Não envia o formulário.</p>
-  <p class="footer">Use somente em páginas onde o preenchimento assistido seja permitido. O complemento não faz login, não abre currículos ou outros arquivos do computador, não resolve CAPTCHA e não contorna limites. O único arquivo lido é o JSON de perfil que você escolhe importar. O perfil fica local neste Chrome; nada é sincronizado ou enviado pelo complemento.</p>
+  <label class="consent"><input id="pageConsent" type="checkbox"><span>Confirmei que este portal permite preenchimento assistido. Autorizo preencher esta página e vou revisar tudo antes de enviar.</span></label>
+  <p id="pageState" class="notice" role="status" aria-live="polite">O complemento só age após esse aceite e o clique no botão. Campos com respostas pessoais, arquivos ou consentimentos ficam com você. Nada é enviado.</p>
+  <p class="footer">Use somente em páginas onde o preenchimento assistido seja permitido. O complemento não faz login, não envia formulários, não abre currículos ou outros arquivos do computador, não resolve CAPTCHA e não contorna limites. O único arquivo lido é o JSON de perfil que você escolhe importar. O perfil fica local neste Chrome; nada é sincronizado ou enviado pelo complemento.</p>
   <script src="popup.js"></script>
 </body>
 </html>

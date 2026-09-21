@@ -33,7 +33,7 @@ DIRECT_OWNER_TABLES = (
 
 # Internal lifecycle dispatch records are server-only. RLS is enabled, with
 # deliberately no authenticated policy exposing attempts, timing, or payload IDs.
-INTERNAL_RLS_TABLES = ("interview_email_outbox",)
+INTERNAL_RLS_TABLES = ("interview_email_outbox", "expiring_job_email_outbox")
 
 CHILD_POLICIES = {
     "experiences": """
