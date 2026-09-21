@@ -77,11 +77,11 @@
     }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand-mark {
-      display: grid; place-items: center; width: 38px; height: 38px;
+      display: grid; place-items: center; width: 44px; height: 44px;
       border-radius: 12px; background: rgba(255,255,255,.14); font-weight: 800;
     }
     .brand-mark img { display:block; width:100%; height:100%; object-fit:cover; border-radius:50%; }
-    .brand strong { display: block; font-size: 15px; }
+    .brand strong { display: block; font-size: 18px; letter-spacing: -.02em; }
     .brand span { display: block; margin-top: 2px; font-size: 12px; opacity: .72; }
     .online { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: .9; }
     .online::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #58d68d; animation: online-pulse 2s ease-in-out infinite; }
@@ -346,6 +346,8 @@
     }
     @media (max-width: 700px) {
       .topbar { padding: 0 20px; }
+      .brand-mark { width: 40px; height: 40px; }
+      .brand strong { font-size: 16px; }
       .online { display: none; }
       main { width: 100%; max-width: 100%; min-width: 0; margin: 22px 0 42px; padding: 0 16px; }
       .app-layout, .workspace, .panel { min-width: 0; }
@@ -413,7 +415,7 @@
   <div class="shell" id="appShell" hidden>
     <header class="topbar">
       <div class="brand">
-        <div class="auth-brand"><img src="/static/favicon.svg" alt="" aria-hidden="true"><strong>Candidatura Certa</strong></div>
+        <div class="brand-mark"><img src="/static/favicon.svg" alt="" aria-hidden="true"></div>
         <div><strong>Candidatura Certa</strong><span>Organize sua busca profissional</span></div>
       </div>
       <div class="user-controls">
