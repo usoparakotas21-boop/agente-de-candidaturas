@@ -9,7 +9,7 @@ import re
 import smtplib
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
@@ -38,7 +38,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentExportPurchase, EmailIntegration, Experience, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, GeneratedDocument, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -83,12 +83,65 @@ app.include_router(queue_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
+MAX_DOCUMENT_EMAIL_BYTES = 10 * 1024 * 1024
+MAX_DOCUMENT_FILE_BYTES = 10 * 1024 * 1024
+DOCUMENT_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 PRO_BOOK_PATH = Path(__file__).parent / "private_products" / "hackeando_disc.docx"
 DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
     300,
     int(os.getenv("DOCUMENT_CLEANUP_INTERVAL_SECONDS", str(24 * 60 * 60))),
 )
 _retention_task: asyncio.Task | None = None
+
+
+def _generated_document_retention_days() -> int:
+    try:
+        configured = int(os.getenv("DOCUMENT_RETENTION_DAYS", "60"))
+    except (TypeError, ValueError):
+        configured = 60
+    return max(30, min(configured, 3650))
+
+
+def _cleanup_generated_document_records() -> dict[str, int]:
+    """Delete expired document blobs and their related delivery records."""
+    db = SessionLocal()
+    try:
+        if not inspect(db.get_bind()).has_table("generated_documents"):
+            return {"documents": 0, "deliveries": 0}
+        now = utc_now()
+        expired_ids = list(db.scalars(
+            select(GeneratedDocument.id).where(GeneratedDocument.expires_at <= now)
+        ).all())
+        if not expired_ids:
+            return {"documents": 0, "deliveries": 0}
+        expired_deliveries = db.scalars(
+            select(DocumentDelivery).where(
+                (DocumentDelivery.resume_document_id.in_(expired_ids))
+                | (DocumentDelivery.cover_letter_document_id.in_(expired_ids))
+            )
+        ).all()
+        delivery_ids = [delivery.id for delivery in expired_deliveries]
+        document_ids_to_remove = set(expired_ids)
+        for delivery in expired_deliveries:
+            # A resume and cover letter are one user-facing package; expire both
+            # together even if a legacy row has mismatched expiry timestamps.
+            document_ids_to_remove.add(delivery.resume_document_id)
+            document_ids_to_remove.add(delivery.cover_letter_document_id)
+        deliveries_removed = 0
+        if delivery_ids:
+            deliveries_removed = db.query(DocumentDelivery).filter(
+                DocumentDelivery.id.in_(delivery_ids)
+            ).delete(synchronize_session=False)
+        documents_removed = db.query(GeneratedDocument).filter(
+            GeneratedDocument.id.in_(document_ids_to_remove)
+        ).delete(synchronize_session=False)
+        db.commit()
+        return {"documents": int(documents_removed), "deliveries": int(deliveries_removed)}
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 async def _run_document_work(function, *args):
@@ -106,6 +159,7 @@ async def _document_retention_loop():
     while True:
         try:
             await asyncio.to_thread(cleanup_expired_documents)
+            await asyncio.to_thread(_cleanup_generated_document_records)
             await asyncio.to_thread(_cleanup_raw_intake_data)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
@@ -774,6 +828,26 @@ def startup():
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
+            for table in ("generated_documents", "document_deliveries"):
+                policy = f"{table}_owner"
+                db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+                db.execute(text(f"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_policies
+                            WHERE schemaname = current_schema()
+                              AND tablename = '{table}'
+                              AND policyname = '{policy}'
+                        ) THEN
+                            CREATE POLICY {policy}
+                                ON {table}
+                                FOR ALL TO authenticated
+                                USING (owner_id = auth.uid()::text)
+                                WITH CHECK (owner_id = auth.uid()::text);
+                        END IF;
+                    END $$;
+                """))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
             db.execute(text("""
                 DO $$
@@ -825,6 +899,8 @@ def startup():
                 db.execute(text(statement))
             db.commit()
             cleanup_expired_documents()
+            _cleanup_generated_document_records()
+            _backfill_legacy_generated_document_pairs()
             _cleanup_raw_intake_data()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
@@ -904,6 +980,8 @@ def startup():
     finally:
         db.close()
     cleanup_expired_documents()
+    _cleanup_generated_document_records()
+    _backfill_legacy_generated_document_pairs()
     _cleanup_raw_intake_data()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
@@ -1672,6 +1750,8 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
                 logger.warning("Ignorando caminho de documento fora do armazenamento privado durante exclusao")
 
     for model, column in (
+        (DocumentDelivery, DocumentDelivery.owner_id),
+        (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),
         (ProcessedEmailMessage, ProcessedEmailMessage.owner_id),
         (EmailIntegration, EmailIntegration.owner_id),
@@ -1685,6 +1765,168 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
         db.delete(candidate)
     db.flush()
     return paths
+
+
+def _require_owner_id(user: dict) -> str:
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta para acessar os documentos salvos.")
+    return owner_id
+
+
+def _document_expired(document: GeneratedDocument, now: datetime | None = None) -> bool:
+    expires_at = document.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    current = now or utc_now()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return expires_at <= current
+
+
+def _serialize_generated_document(document: GeneratedDocument) -> dict[str, Any]:
+    return {
+        "id": document.id,
+        "kind": document.kind,
+        "version": document.version[:8],
+        "filename": document.filename,
+        "created_at": document.created_at.isoformat(),
+        "expires_at": document.expires_at.isoformat(),
+        "download_url": f"/api/documents/{document.id}/download",
+    }
+
+
+@app.get("/api/documents")
+def list_generated_documents(user=Depends(authenticated_user)):
+    """List each generated CV/letter pair from the signed-in account only."""
+    owner_id = _require_owner_id(user)
+    db = SessionLocal()
+    try:
+        deliveries = db.scalars(
+            select(DocumentDelivery)
+            .where(DocumentDelivery.owner_id == owner_id)
+            .order_by(DocumentDelivery.id.desc())
+        ).all()
+        items: list[dict[str, Any]] = []
+        included_document_ids: set[int] = set()
+        now = utc_now()
+        for delivery in deliveries:
+            resume = db.get(GeneratedDocument, delivery.resume_document_id)
+            letter = db.get(GeneratedDocument, delivery.cover_letter_document_id)
+            if (
+                resume is None or letter is None
+                or resume.owner_id != owner_id or letter.owner_id != owner_id
+                or _document_expired(resume, now) or _document_expired(letter, now)
+            ):
+                continue
+            included_document_ids.update((resume.id, letter.id))
+            items.append({
+                "delivery_id": delivery.id,
+                "application_id": delivery.application_id,
+                "title": resume.title or letter.title,
+                "company": resume.company or letter.company,
+                "created_at": max(resume.created_at, letter.created_at).isoformat(),
+                "expires_at": min(resume.expires_at, letter.expires_at).isoformat(),
+                "email_status": delivery.status,
+                "email_attempts": delivery.attempt_count,
+                "email_last_error": delivery.last_error,
+                "email_sent_at": delivery.sent_at.isoformat() if delivery.sent_at else None,
+                "resume": _serialize_generated_document(resume),
+                "cover_letter": _serialize_generated_document(letter),
+            })
+        standalone_documents = db.scalars(
+            select(GeneratedDocument)
+            .where(GeneratedDocument.owner_id == owner_id)
+            .order_by(GeneratedDocument.created_at.desc())
+        ).all()
+        for document in standalone_documents:
+            if document.id in included_document_ids or _document_expired(document, now):
+                continue
+            item = {
+                "delivery_id": None,
+                "application_id": document.application_id,
+                "title": document.title,
+                "company": document.company,
+                "created_at": document.created_at.isoformat(),
+                "expires_at": document.expires_at.isoformat(),
+                "email_status": "NO_DELIVERY",
+                "email_attempts": 0,
+                "email_last_error": None,
+                "email_sent_at": None,
+                "resume": None,
+                "cover_letter": None,
+            }
+            item["resume" if document.kind == "resume" else "cover_letter"] = _serialize_generated_document(document)
+            items.append(item)
+        items.sort(key=lambda item: item["created_at"], reverse=True)
+        return {"items": items, "retention_days": _generated_document_retention_days()}
+    finally:
+        db.close()
+
+
+@app.get("/api/documents/{document_id}/download")
+def download_generated_document(document_id: int, user=Depends(authenticated_user)):
+    """Download one private generated file after checking ownership and expiry."""
+    owner_id = _require_owner_id(user)
+    db = SessionLocal()
+    try:
+        document = db.scalar(select(GeneratedDocument).where(
+            GeneratedDocument.id == document_id,
+            GeneratedDocument.owner_id == owner_id,
+        ))
+        if document is None:
+            raise HTTPException(404, "Documento não encontrado.")
+        if _document_expired(document):
+            raise HTTPException(410, "Este documento expirou. Gere novamente para renovar o acesso.")
+        if not document.content.startswith(b"PK"):
+            logger.error("DOCX inválido no armazenamento document_id=%s", document.id)
+            raise HTTPException(404, "Documento não encontrado.")
+        filename = re.sub(r"[^A-Za-z0-9._-]", "-", document.filename)[:180]
+        return Response(
+            content=document.content,
+            media_type=DOCUMENT_MIME_TYPE,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/documents/deliveries/{delivery_id}/retry")
+def retry_document_delivery(
+    delivery_id: int,
+    user=Depends(authenticated_user),
+    request: Request = None,
+):
+    """Retry sending the stored DOCX pair to the verified account address."""
+    owner_id = _require_owner_id(user)
+    if request is not None:
+        _enforce_rate_limit(request, "document-email-retry", owner_id)
+    db = SessionLocal()
+    try:
+        delivery = db.scalar(select(DocumentDelivery).where(
+            DocumentDelivery.id == delivery_id,
+            DocumentDelivery.owner_id == owner_id,
+        ))
+        if delivery is None:
+            raise HTTPException(404, "Entrega de documentos não encontrada.")
+        status = _send_document_delivery(db, delivery, user)
+        db.refresh(delivery)
+        return {
+            "status": status,
+            "email_status": delivery.status,
+            "attempts": delivery.attempt_count,
+            "message": delivery.last_error or (
+                "Os dois documentos foram enviados ao e-mail confirmado da conta."
+                if delivery.status == "SENT"
+                else "Os arquivos continuam disponíveis na biblioteca."
+            ),
+        }
+    finally:
+        db.close()
 
 
 async def _delete_supabase_auth_user(request: Request, user: dict) -> None:
@@ -1863,6 +2105,15 @@ def _mark_purchase_paid(
 
 def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     """Send one plain-text receipt when SMTP is configured; retries stay idempotent."""
+    locked = db.scalar(
+        select(DocumentExportPurchase)
+        .where(DocumentExportPurchase.id == purchase.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None:
+        return "missing"
+    purchase = locked
     if purchase.receipt_email_status == "SENT":
         return "sent"
     recipient = str(purchase.payer_email or "").strip()
@@ -1885,7 +2136,8 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         "Pagamento confirmado no Agente de Candidaturas.\n\n"
         f"Pedido: {purchase.order_nsu}\nValor: {amount}\n"
         f"Transação: {purchase.transaction_nsu or 'confirmada'}\n\n"
-        "O download do currículo e da carta já pode ser liberado no painel."
+        "O currículo e a carta ficarão disponíveis na biblioteca assim que a geração for concluída. "
+        "Se o envio por e-mail estiver configurado, você também receberá os dois arquivos."
     )
     try:
         username = os.getenv("SMTP_USERNAME", "").strip()
@@ -1903,6 +2155,336 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         return "failed"
     purchase.receipt_email_status = "SENT"
     purchase.receipt_email_sent_at = utc_now()
+    db.commit()
+    return "sent"
+
+
+def _ensure_generated_document(
+    db,
+    *,
+    owner_id: str,
+    application: Application,
+    kind: str,
+    version: str,
+    path: str | Path,
+) -> GeneratedDocument:
+    """Persist one validated DOCX version as a private PostgreSQL blob."""
+    if kind not in {"resume", "cover_letter"}:
+        raise ValueError("Tipo de documento inválido.")
+    try:
+        resolved = resolve_document_path(path)
+    except ValueError as exc:
+        raise HTTPException(500, "O documento não está no armazenamento privado.") from exc
+    if not resolved.is_file():
+        raise HTTPException(500, "O documento gerado não está disponível para arquivamento.")
+    content = resolved.read_bytes()
+    if not content.startswith(b"PK"):
+        raise HTTPException(500, "O arquivo gerado não é um DOCX válido.")
+    if len(content) > MAX_DOCUMENT_FILE_BYTES:
+        raise HTTPException(413, "O documento excede o limite seguro de armazenamento.")
+
+    existing = db.scalar(select(GeneratedDocument).where(
+        GeneratedDocument.application_id == application.id,
+        GeneratedDocument.owner_id == owner_id,
+        GeneratedDocument.kind == kind,
+        GeneratedDocument.version == version,
+    ))
+    now = utc_now()
+    title = str(application.job.title or "Oportunidade")[:200]
+    company = str(application.job.company or "Empresa não informada")[:200]
+    filename = "curriculo.docx" if kind == "resume" else "carta.docx"
+    expires_at = now + timedelta(days=_generated_document_retention_days())
+    if existing is not None:
+        # A previously expired version can be regenerated under the same content hash.
+        existing.content = content
+        existing.title = title
+        existing.company = company
+        existing.filename = filename
+        existing.content_type = DOCUMENT_MIME_TYPE
+        existing.created_at = now
+        existing.expires_at = expires_at
+        db.flush()
+        return existing
+
+    document = GeneratedDocument(
+        owner_id=owner_id,
+        application_id=application.id,
+        kind=kind,
+        version=version,
+        title=title,
+        company=company,
+        filename=filename,
+        content_type=DOCUMENT_MIME_TYPE,
+        content=content,
+        created_at=now,
+        expires_at=expires_at,
+    )
+    db.add(document)
+    db.flush()
+    return document
+
+
+def _ensure_document_delivery(
+    db,
+    *,
+    owner_id: str,
+    application_id: int,
+    resume_document: GeneratedDocument,
+    cover_letter_document: GeneratedDocument,
+) -> DocumentDelivery:
+    delivery = db.scalar(select(DocumentDelivery).where(
+        DocumentDelivery.owner_id == owner_id,
+        DocumentDelivery.resume_document_id == resume_document.id,
+        DocumentDelivery.cover_letter_document_id == cover_letter_document.id,
+    ))
+    if delivery is None:
+        delivery = DocumentDelivery(
+            owner_id=owner_id,
+            application_id=application_id,
+            resume_document_id=resume_document.id,
+            cover_letter_document_id=cover_letter_document.id,
+            status="PENDING",
+            attempt_count=0,
+        )
+        db.add(delivery)
+        db.flush()
+    return delivery
+
+
+def _archive_application_documents(
+    db,
+    application: Application,
+    user: dict,
+) -> DocumentDelivery | None:
+    """Archive every current file and create a delivery only when both exist."""
+    owner_id = str(_owner_id(user) or application.job.owner_id or "").strip()
+    if not owner_id:
+        return None
+    current: dict[str, GeneratedDocument] = {}
+    for kind, raw_path, version in (
+        ("resume", application.document_path, application.resume_version),
+        ("cover_letter", application.cover_letter_path, application.cover_letter_version),
+    ):
+        if not raw_path:
+            continue
+        try:
+            path = resolve_document_path(raw_path)
+            if not path.is_file():
+                continue
+            content = path.read_bytes()
+            if not content.startswith(b"PK") or len(content) > MAX_DOCUMENT_FILE_BYTES:
+                logger.warning("Documento ignorado ao arquivar app_id=%s tipo=%s", application.id, kind)
+                continue
+            prefix = "cv" if kind == "resume" else "carta"
+            document_version = version or f"{prefix}-{hashlib.sha256(content).hexdigest()[:12]}"
+            current[kind] = _ensure_generated_document(
+                db,
+                owner_id=owner_id,
+                application=application,
+                kind=kind,
+                version=document_version,
+                path=path,
+            )
+        except (OSError, ValueError, HTTPException):
+            # A stale legacy pointer must not break generating/downloading a new file.
+            logger.warning("Documento legado indisponível ao arquivar app_id=%s tipo=%s", application.id, kind)
+    resume = current.get("resume")
+    letter = current.get("cover_letter")
+    if resume is None or letter is None:
+        return None
+    return _ensure_document_delivery(
+        db,
+        owner_id=owner_id,
+        application_id=application.id,
+        resume_document=resume,
+        cover_letter_document=letter,
+    )
+
+
+def _backfill_legacy_generated_document_pairs() -> int:
+    """Import existing saved DOCX files without re-sending e-mail."""
+    db = SessionLocal()
+    imported = 0
+    try:
+        applications = db.scalars(select(Application).where(
+            (Application.document_path.is_not(None))
+            | (Application.cover_letter_path.is_not(None))
+        )).all()
+        for application in applications:
+            owner_id = str(application.job.owner_id or "").strip()
+            if not owner_id:
+                continue
+            document_specs = (
+                ("resume", application.document_path, application.resume_version),
+                ("cover_letter", application.cover_letter_path, application.cover_letter_version),
+            )
+            imported_documents: dict[str, GeneratedDocument] = {}
+            for kind, raw_path, stored_version in document_specs:
+                if not raw_path:
+                    continue
+                try:
+                    path = resolve_document_path(raw_path)
+                    if not path.is_file():
+                        continue
+                    content = path.read_bytes()
+                    if not content.startswith(b"PK") or len(content) > MAX_DOCUMENT_FILE_BYTES:
+                        continue
+                    prefix = "cv" if kind == "resume" else "carta"
+                    version = stored_version or f"{prefix}-{hashlib.sha256(content).hexdigest()[:12]}"
+                    imported_documents[kind] = _ensure_generated_document(
+                        db,
+                        owner_id=owner_id,
+                        application=application,
+                        kind=kind,
+                        version=version,
+                        path=path,
+                    )
+                except (OSError, ValueError, HTTPException):
+                    continue
+            imported += len(imported_documents)
+            resume = imported_documents.get("resume")
+            letter = imported_documents.get("cover_letter")
+            if resume is None or letter is None:
+                continue
+            delivery = db.scalar(select(DocumentDelivery).where(
+                DocumentDelivery.owner_id == owner_id,
+                DocumentDelivery.resume_document_id == resume.id,
+                DocumentDelivery.cover_letter_document_id == letter.id,
+            ))
+            if delivery is None:
+                delivery = _ensure_document_delivery(
+                    db,
+                    owner_id=owner_id,
+                    application_id=application.id,
+                    resume_document=resume,
+                    cover_letter_document=letter,
+                )
+                delivery.status = "SKIPPED"
+                delivery.last_error = "Versão anterior à biblioteca; o envio por e-mail não foi repetido automaticamente."
+        db.commit()
+        return imported
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
+    """Send both DOCX files to the verified account e-mail with retry state."""
+    if delivery.status == "SENT":
+        return "sent"
+    if not _owner_id(user) or str(_owner_id(user)) != str(delivery.owner_id):
+        raise HTTPException(404, "Entrega de documentos não encontrada.")
+
+    resume = db.get(GeneratedDocument, delivery.resume_document_id)
+    letter = db.get(GeneratedDocument, delivery.cover_letter_document_id)
+    now = utc_now()
+    if (
+        resume is None
+        or letter is None
+        or resume.owner_id != delivery.owner_id
+        or letter.owner_id != delivery.owner_id
+        or _document_expired(resume, now)
+        or _document_expired(letter, now)
+    ):
+        delivery.status = "SKIPPED"
+        delivery.last_error = "Os documentos expiraram; gere novamente para renovar o acesso."
+        db.commit()
+        return "expired"
+
+    recipient = str(user.get("email") or "").strip()
+    if not recipient or not (user.get("email_confirmed_at") or user.get("confirmed_at")):
+        delivery.status = "SKIPPED"
+        delivery.last_error = "Confirme o e-mail da sua conta para receber os documentos."
+        delivery.last_attempt_at = now
+        db.commit()
+        return "skipped"
+
+    host = os.getenv("SMTP_HOST", "").strip()
+    sender = os.getenv("SMTP_FROM_EMAIL", "").strip()
+    if not host or not sender:
+        delivery.status = "SKIPPED"
+        delivery.last_error = "Envio por e-mail indisponível; os arquivos estão na biblioteca."
+        delivery.last_attempt_at = now
+        db.commit()
+        return "skipped"
+
+    if len(resume.content) + len(letter.content) > MAX_DOCUMENT_EMAIL_BYTES:
+        delivery.status = "SKIPPED"
+        delivery.last_error = "Os arquivos excedem o limite de anexos; baixe-os pela biblioteca."
+        delivery.last_attempt_at = now
+        db.commit()
+        return "skipped"
+
+    # Row locking prevents concurrent browser retries from sending the same pair twice.
+    locked = db.scalar(
+        select(DocumentDelivery)
+        .where(DocumentDelivery.id == delivery.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None:
+        raise HTTPException(404, "Entrega de documentos não encontrada.")
+    if locked.status == "SENT":
+        return "sent"
+    if locked.status == "SENDING" and locked.last_attempt_at is not None:
+        last_attempt = locked.last_attempt_at
+        if last_attempt.tzinfo is None:
+            last_attempt = last_attempt.replace(tzinfo=timezone.utc)
+        if now - last_attempt < timedelta(minutes=15):
+            return "sending"
+
+    locked.status = "SENDING"
+    locked.attempt_count += 1
+    locked.last_attempt_at = now
+    locked.last_error = None
+    db.commit()
+
+    message = EmailMessage()
+    message["Subject"] = "Seu currículo e sua carta estão prontos"
+    message["From"] = sender
+    message["To"] = recipient
+    message.set_content(
+        "Olá! Seu currículo personalizado e sua carta de apresentação foram gerados. "
+        "Os dois arquivos DOCX seguem anexos. Você também pode baixá-los na aba "
+        "Currículos do Agente de Candidaturas enquanto estiverem dentro do prazo de retenção."
+    )
+    message.add_attachment(
+        resume.content,
+        maintype="application",
+        subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=resume.filename,
+    )
+    message.add_attachment(
+        letter.content,
+        maintype="application",
+        subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=letter.filename,
+    )
+    try:
+        port = int(os.getenv("SMTP_PORT", "587"))
+    except ValueError:
+        port = 587
+    try:
+        username = os.getenv("SMTP_USERNAME", "").strip()
+        password = os.getenv("SMTP_PASSWORD", "")
+        with smtplib.SMTP(host, port, timeout=15) as smtp:
+            if os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false":
+                smtp.starttls()
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException, TimeoutError):
+        logger.warning("Falha no envio de documentos delivery_id=%s", delivery.id)
+        locked.status = "FAILED"
+        locked.last_error = "Falha de transporte SMTP; tente novamente."
+        db.commit()
+        return "failed"
+
+    locked.status = "SENT"
+    locked.sent_at = utc_now()
+    locked.last_error = None
     db.commit()
     return "sent"
 
@@ -2654,7 +3236,10 @@ def create_cover_letter_doc(job_id: int, user=Depends(authenticated_user), reque
         app.cover_letter_path = str(path)
         app.cover_letter_version = _content_version("carta", letter)
         _add_event(db, app, app.status, "Carta de apresentacao gerada.")
+        delivery = _archive_application_documents(db, app, user)
         db.commit()
+        if delivery is not None:
+            _send_document_delivery(db, delivery, user)
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name)
     finally: db.close()
 
@@ -2707,7 +3292,10 @@ def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request
         app.document_path = str(path)
         app.resume_version = _content_version("cv", arts["resume"])
         _advance_app(db, app, "CURRICULO_GERADO", "Curriculo personalizado gerado.")
+        delivery = _archive_application_documents(db, app, user)
         db.commit()
+        if delivery is not None:
+            _send_document_delivery(db, delivery, user)
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name, headers={"X-Application-Id": str(app.id), "X-Application-Status": app.status, "X-Analysis-Score": str(arts["analysis"]["score"]), "X-Personalization-Score": str(arts["personalization"]["personalization_score"])})
     finally: db.close()
 
@@ -2809,6 +3397,7 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
     """
     if request is not None:
         _enforce_rate_limit(request, "document-generation", str(_owner_id(user) or ""))
+    owner_id = _require_owner_id(user)
     db = SessionLocal()
     try:
         application = _application_for_user(db, req.application_id, user)
@@ -2859,14 +3448,47 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
         application.resume_version = _content_version("cv", arts["resume"])
         application.cover_letter_version = _content_version("carta", letter)
         _advance_app(db, application, "CURRICULO_GERADO", "Curriculo e carta personalizados liberados apos pagamento.")
+        resume_document = _ensure_generated_document(
+            db,
+            owner_id=owner_id,
+            application=application,
+            kind="resume",
+            version=application.resume_version,
+            path=resume_path,
+        )
+        letter_document = _ensure_generated_document(
+            db,
+            owner_id=owner_id,
+            application=application,
+            kind="cover_letter",
+            version=application.cover_letter_version,
+            path=letter_path,
+        )
+        delivery = _ensure_document_delivery(
+            db,
+            owner_id=owner_id,
+            application_id=application.id,
+            resume_document=resume_document,
+            cover_letter_document=letter_document,
+        )
         db.commit()
+        db.refresh(delivery)
+        email_status = _send_document_delivery(db, delivery, user)
+        db.refresh(delivery)
         return {
             "status": "DOCUMENTOS_GERADOS",
             "application_id": application.id,
             "job_id": job.id,
             "resume_url": f"/applications/{application.id}/document",
             "letter_url": f"/applications/{application.id}/cover-letter/document",
-            "message": "Pagamento confirmado. Curriculo e carta gerados.",
+            "delivery_id": delivery.id,
+            "email_status": delivery.status,
+            "email_message": delivery.last_error or (
+                "Currículo e carta enviados para o e-mail confirmado da conta."
+                if email_status == "sent"
+                else "Currículo e carta estão disponíveis na biblioteca de documentos."
+            ),
+            "message": "Pagamento confirmado. Currículo e carta gerados e salvos na biblioteca.",
         }
     except HTTPException:
         db.rollback()

@@ -9,7 +9,8 @@ from sqlalchemy import text
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.database import engine
+from app.database import Base, engine
+from app import models as _models  # Register tables before applying owner policies.
 
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,8 @@ DIRECT_OWNER_TABLES = (
     "processed_email_messages",
     "document_export_purchases",
     "billing_subscriptions",
+    "generated_documents",
+    "document_deliveries",
     "queue_items",
 )
 
@@ -85,6 +88,7 @@ def setup_rls() -> None:
         logger.info("RLS ignorado: o banco ativo nao e PostgreSQL.")
         return
 
+    Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
         for table in DIRECT_OWNER_TABLES:
             _create_policy(connection, table, "owner_id = auth.uid()::text")

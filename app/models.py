@@ -5,6 +5,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -297,6 +298,12 @@ class Application(Base):
         cascade="all, delete-orphan",
         order_by="ApplicationEvent.id",
     )
+    generated_documents = relationship(
+        "GeneratedDocument",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        order_by="GeneratedDocument.created_at.desc()",
+    )
 
 
 class ApplicationEvent(Base):
@@ -370,6 +377,81 @@ class BillingSubscription(Base):
     last_payment_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class GeneratedDocument(Base):
+    """Private, durable version of a generated document stored in PostgreSQL."""
+
+    __tablename__ = "generated_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id",
+            "kind",
+            "version",
+            name="uq_generated_document_application_kind_version",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    company: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+        default="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    application = relationship("Application", back_populates="generated_documents")
+
+
+class DocumentDelivery(Base):
+    """Idempotent e-mail delivery state for one resume/cover-letter version pair."""
+
+    __tablename__ = "document_deliveries"
+    __table_args__ = (
+        UniqueConstraint(
+            "resume_document_id",
+            "cover_letter_document_id",
+            name="uq_document_delivery_document_pair",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    resume_document_id: Mapped[int] = mapped_column(
+        ForeignKey("generated_documents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    cover_letter_document_id: Mapped[int] = mapped_column(
+        ForeignKey("generated_documents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
 
 
 # ============================================================
