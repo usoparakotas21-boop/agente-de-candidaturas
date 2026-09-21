@@ -1,7 +1,9 @@
 import asyncio
 import json
+import tempfile
 import unittest
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -87,6 +89,79 @@ class BillingSubscriptionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(subscription.mercadopago_preapproval_id, "preapproval-start")
         finally:
             db.close()
+
+    async def test_pro_checkout_uses_fixed_ninety_nine_brl_monthly_price(self):
+        captured = {}
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def post(self, url, *, headers, json):
+                captured.update(url=url, headers=headers, payload=json)
+                return httpx.Response(201, json={
+                    "id": "preapproval-pro",
+                    "status": "pending",
+                    "init_point": "https://www.mercadopago.com.br/subscriptions/checkout?id=preapproval-pro",
+                })
+
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_enforce_rate_limit"),
+            patch.object(main_module.httpx, "AsyncClient", FakeClient),
+            patch.dict("os.environ", {"MERCADOPAGO_ACCESS_TOKEN": "server-token"}),
+        ):
+            result = await main_module.create_subscription_checkout(
+                main_module.SubscriptionCheckoutRequest(plan_code="pro"),
+                self._request(),
+                {"id": "owner-pro", "email": "pro@example.com"},
+            )
+
+        self.assertEqual(captured["url"], "https://api.mercadopago.com/preapproval")
+        self.assertEqual(captured["payload"]["auto_recurring"], {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": 99.0,
+            "currency_id": "BRL",
+        })
+        self.assertEqual(result["monthly_amount"], 9900)
+        self.assertEqual(result["frequency"], "monthly")
+        db = self.session_factory()
+        try:
+            subscription = db.scalar(select(BillingSubscription))
+            self.assertEqual(subscription.owner_id, "owner-pro")
+            self.assertEqual(subscription.plan_code, "pro")
+            self.assertEqual(subscription.monthly_amount, 9900)
+        finally:
+            db.close()
+
+    def test_pro_ebook_download_is_plan_gated_and_handles_missing_asset(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            book_path = Path(temp_dir) / "hackeando_disc.docx"
+            book_path.write_bytes(b"ebook test asset")
+            pro_user = {"id": "ebook-pro", "app_metadata": {"plan": "pro"}}
+            start_user = {"id": "ebook-start", "app_metadata": {"plan": "start"}}
+            with (
+                patch.object(main_module, "SessionLocal", self.session_factory),
+                patch.object(main_module, "PRO_BOOK_PATH", book_path),
+            ):
+                response = main_module.download_pro_ebook(pro_user)
+                self.assertEqual(Path(response.path), book_path)
+                self.assertEqual(response.filename, "Hackeando-DISC.docx")
+                with self.assertRaises(HTTPException) as denied:
+                    main_module.download_pro_ebook(start_user)
+                self.assertEqual(denied.exception.status_code, 403)
+
+                with patch.object(main_module, "PRO_BOOK_PATH", Path(temp_dir) / "missing.docx"):
+                    with self.assertRaises(HTTPException) as unavailable:
+                        main_module.download_pro_ebook(pro_user)
+                self.assertEqual(unavailable.exception.status_code, 503)
 
     async def test_unknown_checkout_recovers_by_search_before_reusing_reference(self):
         external_reference = "subscription-start-recovery"
