@@ -91,6 +91,7 @@
   })();
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
+  globalThis.CandidaturaCertaFieldFiller = api;
   if (typeof chrome === "undefined" || !chrome.runtime?.onMessage || globalThis.__ccAutofillListenerInstalled) return;
   globalThis.__ccAutofillListenerInstalled = true;
 
@@ -110,12 +111,11 @@
     };
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
+  function fillProfileFields(profile) {
     try {
       const elements = [...document.querySelectorAll("input, textarea, select")];
       const descriptors = elements.map(describe);
-      const plan = api.createFillPlan(descriptors, message.profile || {});
+      const plan = api.createFillPlan(descriptors, profile || {});
       let filled = 0;
       const filledKeys = new Set();
       for (const item of plan) {
@@ -139,10 +139,16 @@
         filled += 1;
         filledKeys.add(item.key);
       }
-      sendResponse({ ok: true, filled, filledKeys: [...filledKeys] });
+      return { ok: true, filled, filledKeys: [...filledKeys] };
     } catch {
-      sendResponse({ ok: false, message: "Não foi possível preencher esta página. Confira se o formulário ainda está aberto." });
+      return { ok: false, message: "Não foi possível preencher esta página. Confira se o formulário ainda está aberto." };
     }
+  }
+
+  api.fillProfileFields = fillProfileFields;
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
+    sendResponse(fillProfileFields(message.profile || {}));
     return false;
   });
 })();

@@ -523,6 +523,25 @@ class EmailApplicationSubmission(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class CopilotPreparation(Base):
+    """Short-lived, PII-free audit and monthly-use record for assisted fills."""
+
+    __tablename__ = "copilot_preparations"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "request_id", name="uq_copilot_owner_request"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    request_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    portal_host: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PREPARED")
+    filled_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+
 class FollowupEmailOutbox(Base):
     """Durable owner-scoped digest of overdue applications without a reply."""
 

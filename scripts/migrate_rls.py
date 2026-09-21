@@ -28,6 +28,7 @@ DIRECT_OWNER_TABLES = (
     "generated_documents",
     "document_deliveries",
     "email_application_submissions",
+    "copilot_preparations",
     "followup_email_outbox",
     "queue_items",
 )

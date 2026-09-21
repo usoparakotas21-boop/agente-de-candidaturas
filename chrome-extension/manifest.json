@@ -2,11 +2,20 @@
   "manifest_version": 3,
   "name": "Candidatura Certa — candidaturas assistidas",
   "short_name": "Candidatura Certa",
-  "version": "0.3.0",
-  "description": "Preenche campos permitidos e anexa PDFs selecionados; bloqueia LinkedIn, Jobbol e Glassdoor.",
+  "version": "0.5.0",
+  "minimum_chrome_version": "116",
+  "description": "Prepara candidaturas em formulários permitidos, com revisão e envio controlados por você.",
   "action": {
     "default_title": "Candidatura Certa — preparar candidatura",
     "default_popup": "popup.html"
   },
-  "permissions": ["activeTab", "scripting", "storage"]
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "sidePanel", "clipboardWrite"],
+  "optional_permissions": ["cookies"],
+  "optional_host_permissions": [
+    "https://candidaturacerta.com.br/*",
+    "https://agente-de-candidaturas.onrender.com/*"
+  ]
 }

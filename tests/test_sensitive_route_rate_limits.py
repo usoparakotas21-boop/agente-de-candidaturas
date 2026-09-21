@@ -113,6 +113,9 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
     def test_sensitive_route_rate_limit_budgets(self):
         self.assertEqual(auth._RATE_LIMITS["ai-interview-evaluation"], (15, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["document-generation"], (20, 60 * 60))
+        self.assertEqual(auth._RATE_LIMITS["copilot-prepare"], (20, 60 * 60))
+        self.assertEqual(auth._RATE_LIMITS["copilot-profile"], (30, 60))
+        self.assertEqual(auth._RATE_LIMITS["copilot-documents"], (20, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["mercadopago-webhook"], (600, 60))
 
 

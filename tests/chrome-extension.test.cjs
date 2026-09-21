@@ -88,6 +88,12 @@ test("bloqueia portais que restringem automação e deixa o portal do empregador
   assert.equal(isRestrictedAutomationHost("linkedin.com.example.org"), false);
   assert.equal(isRestrictedAutomationHost("glassdoor.com.example.org"), false);
   assert.equal(isRestrictedAutomationHost("careers.example.org"), false);
+  const policy = require("../chrome-extension/automation-policy.js");
+  assert.equal(policy.isSupportedAutomationHost("boards.greenhouse.io"), false);
+  assert.equal(policy.isSupportedAutomationHost("careers.gupy.io"), true);
+  assert.equal(policy.isSupportedAutomationHost("www.vagas.com.br"), true);
+  assert.equal(policy.isSupportedAutomationHost("empregos.infojobs.com.br"), true);
+  assert.equal(policy.isSupportedAutomationHost("gupy.io.example.org"), false);
 });
 
 test("só reconhece uploads explicitamente identificados como currículo ou carta", () => {
@@ -100,28 +106,87 @@ test("só reconhece uploads explicitamente identificados como currículo ou cart
   assert.equal(classifyFileField({ labels: "Passaporte" }), null);
 });
 
-test("complemento não pede acesso permanente a sites nem dispara envio ou rede", () => {
+test("anexa PDF a um input oculto somente quando há rótulo visível e explícito", () => {
+  const previous = {
+    document: global.document,
+    getComputedStyle: global.getComputedStyle,
+    DataTransfer: global.DataTransfer,
+    File: global.File,
+  };
+  try {
+    const events = [];
+    const label = { innerText: "Currículo em PDF", getClientRects: () => [1], style: { display: "block", visibility: "visible" } };
+    const input = {
+      accept: ".pdf", disabled: false, files: [], labels: [label], name: "resume", id: "resume-upload",
+      title: "", closest: () => null, getClientRects: () => [],
+      getAttribute: () => "", dispatchEvent: event => events.push(event.type),
+    };
+    global.document = { querySelectorAll: () => [input] };
+    global.getComputedStyle = element => element.style || { display: "none", visibility: "hidden" };
+    global.File = class File { constructor(parts, name, options) { this.parts = parts; this.name = name; this.type = options.type; } };
+    global.DataTransfer = class DataTransfer {
+      constructor() { this.entries = []; this.items = { add: file => this.entries.push(file) }; }
+      get files() { return this.entries; }
+    };
+    const result = attachPdfsInPage({ resume: { name: "curriculo.pdf", base64: Buffer.from("%PDF-test").toString("base64") } });
+    assert.equal(result.ok, true);
+    assert.equal(input.files[0].name, "curriculo.pdf");
+    assert.deepEqual(events, ["input", "change"]);
+    input.labels = [];
+    input.files = [];
+    const unlabelled = attachPdfsInPage({ resume: { name: "curriculo.pdf", base64: Buffer.from("%PDF-test").toString("base64") } });
+    assert.equal(unlabelled.ok, false);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete global[key];
+      else global[key] = value;
+    }
+  }
+});
+
+test("complemento pede permissão do app só após clique e limita atuação à página ativa", () => {
   const root = path.resolve(__dirname, "../chrome-extension");
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   const filler = fs.readFileSync(path.join(root, "field-filler.js"), "utf8");
   const popup = fs.readFileSync(path.join(root, "popup.js"), "utf8");
   const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  const background = fs.readFileSync(path.join(root, "background.js"), "utf8");
+  const widget = fs.readFileSync(path.join(root, "copilot-widget.js"), "utf8");
+  const sidepanel = fs.readFileSync(path.join(root, "sidepanel.js"), "utf8");
   const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
   const attachment = fs.readFileSync(path.join(root, "pdf-attachment.js"), "utf8");
-  assert.deepEqual(manifest.permissions.sort(), ["activeTab", "scripting", "storage"]);
+  assert.deepEqual(manifest.permissions.sort(), ["activeTab", "clipboardWrite", "scripting", "sidePanel"]);
+  assert.deepEqual(manifest.optional_permissions, ["cookies"]);
+  assert.deepEqual(manifest.optional_host_permissions.sort(), [
+    "https://agente-de-candidaturas.onrender.com/*",
+    "https://candidaturacerta.com.br/*",
+  ]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined);
+  assert.equal(manifest.background.service_worker, "background.js");
+  assert.equal(manifest.minimum_chrome_version, "116");
   assert.doesNotMatch(filler, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(popup, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
-  assert.match(popupHtml, /Confirmei que este portal permite preenchimento assistido/);
-  assert.match(popupHtml, /transferir os PDFs selecionados para esta página/);
+  assert.doesNotMatch(widget, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
+  assert.doesNotMatch(sidepanel, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
+  assert.match(background, /https:\/\/candidaturacerta\.com\.br\$\{path\}/);
+  assert.match(background, /chrome\.cookies\.get/);
+  assert.doesNotMatch(background, /agente_refresh_token|X-CC-Refresh-Token/);
+  assert.match(background, /requirePopupSender/);
+  assert.match(background, /CC_GET_APPLICATION_PDFS/);
+  assert.doesNotMatch(background, /storage\.local|storage\.sync/);
+  assert.match(popup, /chrome\.permissions\.request\(sitePermission\(\)\)/);
+  assert.match(popup, /executeScript\(\{ target: \{ tabId: activeTab\.id \}, files: \["field-filler\.js", "copilot-widget\.js"\] \}\)/);
+  assert.match(popupHtml, /Confirmei que o portal permite preenchimento assistido/);
+  assert.match(popupHtml, /transferir os PDFs selecionados para campos de currículo ou carta nesta página/);
+  assert.match(popupHtml, /PDFs da sua biblioteca/);
+  assert.match(popup, /CC_LIST_DOCUMENTS/);
+  assert.match(popup, /CC_GET_APPLICATION_PDFS/);
   assert.ok(popup.includes("https:"));
   assert.ok(!popup.includes("https?:"));
-  assert.match(popupHtml, /vou revisar tudo antes de enviar/i);
+  assert.match(popupHtml, /Você revisa e envia/i);
   assert.match(popupHtml, /automation-policy\.js/);
   assert.match(policy, /linkedin\.com/);
-  assert.match(popup, /isActivePageRestricted/);
-  assert.equal((popup.match(/isActivePageRestricted\(tab\.url\)/g) || []).length, 2);
   assert.match(popupHtml, /id="attachmentConsent"/);
   assert.match(popup, /CandidaturaCertaPdfAttachment\.attachPdfsInPage/);
   assert.doesNotMatch(attachPdfsInPage.toString(), /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);

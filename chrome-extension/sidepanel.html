@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cópia rápida — Candidatura Certa</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#152b49;background:#f7f9fd;font-synthesis:none}*{box-sizing:border-box}body{margin:0;padding:16px}.brand{display:flex;align-items:center;gap:10px;margin:0 0 16px}.mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#153a70;color:#fff;font-weight:850}.brand h1{margin:0;font-size:16px}.brand p{margin:3px 0 0;color:#64758b;font-size:11px}.card{padding:14px;border:1px solid #dce5f2;border-radius:13px;background:#fff}button{min-height:36px;padding:8px 12px;border:1px solid #286be4;border-radius:9px;background:#286be4;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.status{min-height:18px;margin:10px 0 0;color:#52657e;font-size:11px;line-height:1.45}.status[data-state=error]{color:#b42318}.status[data-state=success]{color:#16794b}.notice{margin:0 0 12px;color:#52657e;font-size:11px;line-height:1.5}.items{display:grid;gap:10px;margin-top:12px}.item{padding:11px;border:1px solid #e1e8f2;border-radius:10px}.item-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.item h2{margin:0;font-size:12px}.item button{min-height:30px;padding:5px 9px;font-size:10px}.value{margin:8px 0 0;color:#3e526d;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}.footer{margin:14px 0 0;color:#78879b;font-size:10px;line-height:1.45}
+  </style>
+</head>
+<body>
+  <header class="brand"><span class="mark" aria-hidden="true">CC</span><div><h1>Candidatura Certa</h1><p>Cópia rápida do seu perfil</p></div></header>
+  <section class="card">
+    <p class="notice">Carregue os dados quando estiver numa vaga. Escolha o trecho e copie para o formulário; respostas abertas e envio continuam manuais.</p>
+    <button id="loadProfile" type="button">Carregar meu perfil</button>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <div id="items" class="items" aria-live="polite"></div>
+  </section>
+  <p class="footer">Os dados são buscados após seu clique e permanecem apenas nesta área enquanto ela estiver aberta. Feche o painel para removê-los da tela.</p>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

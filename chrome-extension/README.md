@@ -1,22 +1,36 @@
-# Candidatura Certa — preparação assistida de candidaturas no Chrome
+# Candidatura Certa — Copiloto de candidaturas
 
-O complemento prepara formulários de candidatura numa página HTTPS que a própria pessoa abriu. Depois de confirmar que o portal permite preenchimento assistido, marcar a autorização daquela página e clicar em **Preencher campos reconhecidos**, ele completa campos de texto conhecidos e seleciona cidade/estado apenas quando há uma opção exatamente compatível com o perfil. Os campos precisam estar vazios. Depois, a pessoa revisa as respostas e conclui o envio no portal.
+O copiloto adiciona um botão flutuante somente depois que você abre o complemento numa vaga HTTPS da Gupy, Vagas.com ou InfoJobs e confirma que o portal permite preenchimento assistido. Ao clicar no botão da página e autorizar o uso do perfil, ele consulta campos reconhecidos e vazios, preenche os dados correspondentes e mostra o limite mensal do seu plano. No popup, você também pode selecionar uma candidatura salva, buscar o currículo e a carta atuais na biblioteca e anexá-los aos campos identificados após uma confirmação separada. A revisão e o clique final em **Enviar** continuam com você.
 
-O complemento bloqueia páginas do LinkedIn (`linkedin.com` e `linkedin.cn`), Jobbol (`jobbol.com.br`) e Glassdoor (`glassdoor.com`), cujas regras oficiais restringem as extensões ou agentes automatizados. Se a vaga encaminhar para o portal de carreiras do empregador ou para outro ATS, use o complemento somente se esse destino permitir preenchimento assistido.
+O plano Essencial inclui até 30 preparações assistidas por mês, Start até 150 e Pro e Consultoria até 500. Cada preparação é contabilizada quando você autoriza a consulta do perfil, mesmo se a página não tiver campos compatíveis. O contador renova no primeiro dia do mês pelo horário de Brasília.
 
-O complemento não envia formulários, não faz login, não clica em botões do portal, não acessa páginas em segundo plano e não tenta resolver CAPTCHA nem contornar limites ou controles. Opcionalmente, você pode escolher um PDF de currículo e um de carta e autorizar separadamente que sejam anexados aos campos claramente identificados no anúncio ativo. Essa transferência vai para o portal que você abriu; os PDFs não são salvos no armazenamento do complemento. Arquivos não identificados com clareza, consentimentos, elegibilidade, pretensão salarial e respostas abertas continuam manuais. Use apenas em portais que permitam preenchimento e anexação assistidos; se aparecer uma verificação ou uma regra contra automação, pare e continue manualmente.
+O complemento bloqueia LinkedIn, Jobbol e Glassdoor. Ele não faz login nos portais, não envia formulários, não clica nos botões de candidatura, não responde perguntas abertas ou sensíveis, não resolve CAPTCHA e não contorna limites ou verificações. Campos já preenchidos, consentimentos, elegibilidade e pretensão salarial ficam com você; uploads só ocorrem após sua confirmação e em campos identificados como currículo ou carta.
 
-## Instalação
+## Instalação de teste
 
-1. Na página **Perfil** da Candidatura Certa, baixe o complemento e exporte seu perfil depois de salvar as alterações.
-2. Extraia o arquivo ZIP para uma pasta local.
-3. No Chrome, abra `chrome://extensions`, ative **Modo do desenvolvedor** e escolha **Carregar sem compactação**.
+1. Na página **Perfil**, baixe o ZIP do complemento e extraia-o numa pasta local.
+2. Use Chrome 116 ou posterior (ou Edge baseado em Chromium equivalente) e abra `chrome://extensions`; no Edge, abra `edge://extensions`.
+3. Ative o **Modo do desenvolvedor** e escolha **Carregar sem compactação**.
 4. Selecione a pasta extraída que contém `manifest.json`.
-5. Abra o menu do complemento, importe `candidatura-certa-perfil.json` e confirme o preenchimento apenas quando estiver num formulário compatível.
-6. Se o anúncio pedir anexos e o portal permitir, escolha os PDFs atuais do currículo e da carta, marque a autorização de anexação e clique em **Anexar PDFs selecionados nesta página**. Revise os nomes dos arquivos no portal; conclua o envio manualmente.
+5. Abra uma vaga compatível, clique no ícone do complemento e escolha **Conectar minha conta**. A permissão para ler o cookie de acesso dos domínios oficiais da Candidatura Certa é solicitada apenas nesse clique.
+6. Na vaga, marque a confirmação de permissão do portal e escolha **Mostrar copiloto nesta página**. Clique no botão flutuante, confirme o uso do perfil e revise os campos.
+
+A distribuição pela Chrome Web Store ou Edge Add-ons ainda não está publicada; por isso esta versão exige instalação de teste pelo modo de desenvolvedor.
 
 ## Dados e privacidade
 
-O complemento pede somente `activeTab`, `scripting` e `storage`. A permissão da aba ativa é usada após a pessoa clicar no ícone; não há acesso permanente a sites. O perfil importado é guardado em `chrome.storage.local` neste perfil do Chrome e não é enviado à Candidatura Certa nem a outros serviços. PDFs só são lidos quando você os escolhe no popup e autoriza o anexo; eles ficam apenas na memória durante a ação e são transferidos diretamente para o portal ativo. Em computador compartilhado, use **Apagar** para remover o perfil local ao terminar.
+O complemento usa `activeTab`, `scripting`, `sidePanel` e escrita de área de transferência para as ações solicitadas. O acesso aos cookies é opcional e depende de permissão explícita para `candidaturacerta.com.br` e o endereço de serviço antigo no Render. A extensão lê apenas o cookie `HttpOnly` de acesso para autenticar solicitações à API da Candidatura Certa por HTTPS. O token não é guardado no complemento nem exposto à página da vaga; o cookie de renovação fica reservado ao site para preservar a sessão.
 
-Campos de upload que não estejam claramente identificados para currículo ou carta, senhas, caixas de seleção, perguntas abertas, campos ocultos e campos que já têm valor são ignorados. Os PDFs selecionados só são ligados a um campo único e visível com rótulo correspondente; campos ambíguos ficam para preenchimento manual. Selects só são alterados para cidade/estado quando um valor ou rótulo de opção coincide exatamente com a localização do perfil. A extensão não escolhe salário, respostas de elegibilidade ou consentimentos, nem envia uma candidatura.
+O servidor envia à extensão apenas os campos selecionados do perfil da própria conta depois da autorização. Eles ficam em memória no complemento ou no painel lateral enquanto usados. O histórico de uso guarda o domínio do portal, contagem de campos e horários, sem a URL da vaga, o texto preenchido, senhas ou PDFs; esses registros são apagados em até 60 dias. O painel lateral busca o perfil somente após seu clique e oferece trechos do perfil para copiar; não inventa respostas personalizadas para perguntas abertas.
+
+Se você escolher PDFs locais ou buscar documentos na biblioteca e autorizar a anexação, os arquivos são lidos em memória e transferidos diretamente para o campo de upload claramente identificado no portal ativo. A extensão não os armazena. Feche o painel de cópia para deixar de exibir o perfil na tela e use **Desconectar** no popup para revogar a permissão de cookies.
+
+Os eventos `input` e `change` são usados para que o formulário reconheça a alteração de valor. Não são sintetizados gestos humanos, não se clica em envio e não se tenta contornar controles do portal.
+
+## Verificação
+
+Execute os testes unitários do complemento a partir da raiz do projeto:
+
+```sh
+node --test tests/chrome-extension.test.cjs
+```

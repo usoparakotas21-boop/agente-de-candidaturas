@@ -5,17 +5,29 @@
     { domain: "jobbol.com.br", brand: "Jobbol", reason: "proíbe bots, scripts e extensões para acessar ou interagir com a plataforma sem autorização expressa" },
     { domain: "glassdoor.com", brand: "Glassdoor", reason: "proíbe software ou agentes automatizados sem autorização expressa" },
   ];
+  const supportedDomains = ["gupy.io", "vagas.com.br", "infojobs.com.br"];
+
+  function normalizedHost(hostname) {
+    return typeof hostname === "string" ? hostname.trim().toLowerCase().replace(/\.$/, "") : "";
+  }
+
+  function matchesDomain(host, domain) {
+    return host === domain || host.endsWith(`.${domain}`);
+  }
 
   function isRestrictedAutomationHost(hostname) {
-    if (typeof hostname !== "string") return false;
-    const host = hostname.trim().toLowerCase().replace(/\.$/, "");
-    return restrictedDomains.some(({ domain }) => host === domain || host.endsWith(`.${domain}`));
+    const host = normalizedHost(hostname);
+    return restrictedDomains.some(({ domain }) => matchesDomain(host, domain));
+  }
+
+  function isSupportedAutomationHost(hostname) {
+    const host = normalizedHost(hostname);
+    return !isRestrictedAutomationHost(host) && supportedDomains.some(domain => matchesDomain(host, domain));
   }
 
   function restrictedMessageFor(hostname) {
-    if (typeof hostname !== "string") return "";
-    const host = hostname.trim().toLowerCase().replace(/\.$/, "");
-    const policy = restrictedDomains.find(({ domain }) => host === domain || host.endsWith(`.${domain}`));
+    const host = normalizedHost(hostname);
+    const policy = restrictedDomains.find(({ domain }) => matchesDomain(host, domain));
     return policy
       ? `${policy.brand} ${policy.reason}. Nada foi acessado ou preenchido. Abra o portal de carreiras do empregador e use o complemento somente se aquele destino permitir.`
       : "";
@@ -24,6 +36,7 @@
   const api = {
     isRestrictedAutomationHost,
     restrictedMessageFor,
+    isSupportedAutomationHost,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -45,8 +45,8 @@ PWNED_PASSWORD_TIMEOUT = 4.0
 # Keep the legal text versioned so each signup records exactly what the user
 # accepted.  A future policy change can bump these values without changing the
 # authentication contract.
-TERMS_VERSION = "2026-09-21-v2"
-PRIVACY_VERSION = "2026-09-21"
+TERMS_VERSION = "2026-09-21-v3"
+PRIVACY_VERSION = "2026-09-21-v2"
 logger = logging.getLogger(__name__)
 
 # A small in-process limiter protects the public auth endpoints even when the
@@ -66,6 +66,11 @@ _RATE_LIMITS = {
     "ai-interview-evaluation": (15, 60 * 60),
     "document-generation": (20, 60 * 60),
     "support-chat": (8, 60),
+    "copilot-prepare": (20, 60 * 60),
+    "copilot-complete": (60, 60 * 60),
+    "copilot-status": (60, 60),
+    "copilot-profile": (30, 60),
+    "copilot-documents": (20, 60 * 60),
     "mercadopago-webhook": (600, 60),
 }
 _rate_attempts: dict[str, deque[float]] = {}
@@ -598,6 +603,38 @@ async def authenticated_user(request: Request) -> dict:
     user = getattr(request.state, "user", None)
     if user is None:
         raise HTTPException(401, "Login necessario.")
+    return user
+
+
+async def extension_authenticated_user(request: Request) -> dict:
+    """Validate the user's current HttpOnly session tokens for the browser extension.
+
+    The extension reads the current access token only after the user grants
+    optional cookie permission. Refresh tokens remain exclusively in the
+    site's HttpOnly cookies so extension requests cannot rotate them.
+    """
+    authorization = str(request.headers.get("authorization") or "")
+    scheme, _, access_token = authorization.partition(" ")
+    if authorization and scheme.casefold() != "bearer":
+        raise HTTPException(401, "Conecte sua conta da Candidatura Certa no complemento.")
+    access_token = access_token.strip()
+    user = await user_from_token(access_token) if access_token else None
+    if user is None:
+        # Do not rotate Supabase refresh tokens from the extension: without
+        # updating the HttpOnly browser cookie, a successful one-off refresh
+        # would invalidate the site's stored refresh token and break login.
+        raise HTTPException(
+            401,
+            "Sua sessão venceu. Abra candidaturacerta.com.br, entre novamente e depois reconecte o complemento.",
+        )
+    if not _email_is_verified(user):
+        raise _email_confirmation_error()
+    if _session_requires_mfa(user, access_token):
+        raise HTTPException(
+            403,
+            "Conclua a verificação em duas etapas no site e reconecte o complemento.",
+            headers={"X-Auth-Reason": "mfa_required"},
+        )
     return user
 
 
@@ -1141,6 +1178,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/dashboard",
         "/health",
         "/api/support-chat",
+        # Browser-extension endpoints validate a separate, explicit bearer
+        # session with extension_authenticated_user rather than site cookies.
+        "/api/copilot/status",
+        "/api/copilot/profile",
+        "/api/copilot/prepare",
+        "/api/copilot/complete",
         "/auth/login",
         "/auth/signup",
         "/auth/session",
@@ -1170,7 +1213,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # They must remain readable without a session so the browser can load
         # the page's JavaScript/CSS enhancements after authentication is
         # enforced for the application routes.
-        if not AUTH_REQUIRED or request.url.path in self.PUBLIC_PATHS or request.url.path.startswith("/static/"):
+        extension_document_path = (
+            request.url.path == "/api/copilot/documents"
+            or request.url.path.startswith("/api/copilot/documents/")
+        )
+        if not AUTH_REQUIRED or request.url.path in self.PUBLIC_PATHS or extension_document_path or request.url.path.startswith("/static/"):
             return await call_next(request)
 
         if not _configuration_ready():

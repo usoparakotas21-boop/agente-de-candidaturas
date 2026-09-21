@@ -1,235 +1,284 @@
 (() => {
-  const PROFILE_KEY = "ccAutofillProfileV1";
-  const MAX_FILE_BYTES = 1_000_000;
-  const automationPolicy = globalThis.CandidaturaCertaAutomationPolicy;
+  const APP_ORIGINS = [
+    "https://candidaturacerta.com.br",
+    "https://agente-de-candidaturas.onrender.com",
+  ];
+  const MAX_ATTACHMENT_BYTES = 7 * 1024 * 1024;
   const $ = id => document.getElementById(id);
-  const state = $("profileState");
-  const fillButton = $("fillButton");
-  const clearButton = $("clearButton");
-  const consent = $("pageConsent");
+  const accountState = $("accountState");
+  const connectButton = $("connectButton");
+  const copyPanelButton = $("copyPanelButton");
+  const portalConsent = $("portalConsent");
+  const showWidgetButton = $("showWidgetButton");
+  const closeWidgetButton = $("closeWidgetButton");
   const attachButton = $("attachPdfsButton");
   const attachmentConsent = $("attachmentConsent");
-  const MAX_ATTACHMENT_BYTES = 7 * 1024 * 1024;
-  let savedProfile = null;
+  const loadLibraryButton = $("loadLibraryDocuments");
+  const libraryApplication = $("libraryApplication");
+  const libraryConsent = $("libraryAttachmentConsent");
+  const attachLibraryButton = $("attachLibraryDocuments");
+  let activeTab = null;
+  let connected = false;
   let activePageUrl = "";
-  const fieldLabels = {
-    name: "nome", first_name: "primeiro nome", last_name: "sobrenome", email: "e-mail", phone: "telefone",
-    linkedin: "LinkedIn", website: "site/portfólio", location: "localização", city: "cidade", state: "estado",
-    headline: "título profissional", summary: "resumo", experiences: "experiência", education: "formação",
-    skills: "competências", languages: "idiomas"
-  };
+  let libraryItems = [];
 
-  function message(text, type = "") {
-    const target = $("pageState");
-    target.textContent = text;
-    target.dataset.state = type;
+  function setMessage(element, message, state = "") {
+    element.textContent = message;
+    element.dataset.state = state;
   }
 
-  function clean(value, max = 12_000) {
-    return typeof value === "string" ? value.trim().slice(0, max) : "";
+  function sitePermission() {
+    return { permissions: ["cookies"], origins: APP_ORIGINS.map(origin => `${origin}/*`) };
   }
 
-  function normalizeProfile(raw) {
-    if (!raw || raw.schema_version !== 1 || !raw.profile || typeof raw.profile !== "object") {
-      throw new Error("Arquivo inválido. Exporte o perfil pela página Perfil da Candidatura Certa.");
-    }
-    const source = raw.profile;
-    const profile = {
-      name: clean(source.name, 180), email: clean(source.email, 240), phone: clean(source.phone, 80),
-      linkedin: clean(source.linkedin, 500), website: clean(source.website, 500), location: clean(source.location, 180),
-      headline: clean(source.headline, 500), summary: clean(source.summary, 5000),
-      experiences: Array.isArray(source.experiences) ? source.experiences.slice(0, 50).map(item => ({
-        role: clean(item?.role, 200), company: clean(item?.company, 200), period: clean(item?.period, 100), description: clean(item?.description, 5000)
-      })) : [],
-      education: Array.isArray(source.education) ? source.education.slice(0, 50).map(item => ({
-        course: clean(item?.course, 200), institution: clean(item?.institution, 200), period: clean(item?.period, 100)
-      })) : [],
-      skills: Array.isArray(source.skills) ? source.skills.slice(0, 100).map(item => clean(item, 200)).filter(Boolean) : [],
-      languages: Array.isArray(source.languages) ? source.languages.slice(0, 30).map(item => clean(item, 100)).filter(Boolean) : []
-    };
-    if (!profile.name && !profile.email && !profile.phone) throw new Error("O arquivo não contém dados básicos do perfil.");
-    return profile;
-  }
-
-  function updateProfileState(profile) {
-    savedProfile = profile || null;
-    state.textContent = profile ? (profile.name || profile.email || "Perfil importado") : "Nenhum perfil importado";
-    const restricted = isActivePageRestricted();
-    consent.disabled = restricted;
-    fillButton.disabled = !profile || !consent.checked || restricted;
-    clearButton.disabled = !profile;
-    updateAttachmentControls();
-    if (restricted) message(restrictedPageMessage(), "error");
-  }
-
-  function updateAttachmentControls() {
-    const resume = $("resumePdf").files?.[0];
-    const letter = $("letterPdf").files?.[0];
-    const selectedSize = (resume?.size || 0) + (letter?.size || 0);
-    const restricted = isActivePageRestricted();
-    attachButton.disabled = !resume || !attachmentConsent.checked || selectedSize > MAX_ATTACHMENT_BYTES || restricted;
-    if (selectedSize > MAX_ATTACHMENT_BYTES) {
-      $("attachmentState").textContent = "Os PDFs selecionados passam do limite combinado de 7 MB.";
-      $("attachmentState").dataset.state = "error";
-    } else if ($("attachmentState").dataset.state === "error") {
-      $("attachmentState").textContent = "";
-      $("attachmentState").dataset.state = "";
-    }
-  }
-
-  function readPdf(file) {
-    if (!file || !/\.pdf$/i.test(file.name)) {
-      throw new Error("Selecione arquivos PDF válidos para currículo e carta.");
-    }
-    if (file.size > MAX_ATTACHMENT_BYTES) throw new Error("Cada envio aceita até 7 MB no total.");
-    return file.arrayBuffer().then(buffer => {
-      const bytes = new Uint8Array(buffer);
-      if (bytes.length < 5 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") {
-        throw new Error("O arquivo selecionado não tem a assinatura de um PDF válido.");
-      }
-      let binary = "";
-      for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
-      }
-      return {
-        name: file.name.replace(/[^A-Za-z0-9._-]/g, "-").slice(-120) || "documento.pdf",
-        base64: btoa(binary),
-      };
-    });
-  }
-
-  function restrictedPageMessage(url = activePageUrl) {
+  function hostIsSupported(url = activePageUrl) {
     try {
-      return automationPolicy.restrictedMessageFor(new URL(url).hostname);
-    } catch {
-      return "Este portal restringe automação de terceiros. Nada foi acessado ou preenchido.";
-    }
-  }
-
-  function isActivePageRestricted(url = activePageUrl) {
-    try {
-      return automationPolicy.isRestrictedAutomationHost(new URL(url).hostname);
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" && globalThis.CandidaturaCertaAutomationPolicy.isSupportedAutomationHost(parsed.hostname);
     } catch {
       return false;
     }
   }
 
-  async function loadProfile() {
-    const stored = await chrome.storage.local.get(PROFILE_KEY);
-    if (!stored[PROFILE_KEY]) return updateProfileState(null);
-    try { updateProfileState(normalizeProfile(stored[PROFILE_KEY])); }
-    catch { await chrome.storage.local.remove(PROFILE_KEY); updateProfileState(null); }
+  function updatePageControls() {
+    const supported = hostIsSupported();
+    const checked = Boolean(portalConsent.checked);
+    showWidgetButton.disabled = !connected || !supported || !checked || !activeTab?.id;
+    closeWidgetButton.disabled = !supported || !activeTab?.id;
+    updateLibraryControls();
+    if (!supported) {
+      let host = "página indisponível";
+      try { host = new URL(activePageUrl).hostname; } catch { /* página sem URL web */ }
+      $("activePage").textContent = `Página ativa: ${host}. O copiloto está disponível em Gupy, Vagas.com e InfoJobs.`;
+      if (globalThis.CandidaturaCertaAutomationPolicy.isRestrictedAutomationHost(host)) {
+        setMessage($("pageState"), globalThis.CandidaturaCertaAutomationPolicy.restrictedMessageFor(host), "error");
+      }
+    }
   }
 
-  chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-    let host = "Página indisponível";
-    activePageUrl = tab?.url || "";
-    try { host = new URL(activePageUrl).hostname || host; } catch { /* páginas internas não têm host HTTPS */ }
-    $("activePage").textContent = `Página ativa: ${host}`;
-    updateProfileState(savedProfile);
-  }).catch(() => { $("activePage").textContent = "Não foi possível identificar a página ativa."; });
+  function updateLibraryControls() {
+    const supported = hostIsSupported() && Boolean(activeTab?.id);
+    loadLibraryButton.disabled = !connected || !supported;
+    libraryApplication.disabled = !connected || !supported || !libraryItems.length;
+    attachLibraryButton.disabled = !connected || !supported || !libraryApplication.value || !libraryConsent.checked;
+  }
 
-  $("profileFile").addEventListener("change", async event => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (file.size > MAX_FILE_BYTES) return message("O arquivo passa do limite de 1 MB.", "error");
+  async function getPermission() {
+    return chrome.permissions.contains(sitePermission());
+  }
+
+  async function refreshAccountStatus() {
+    connected = false;
+    copyPanelButton.disabled = true;
+    updateLibraryControls();
+    if (!(await getPermission())) {
+      connectButton.textContent = "Conectar minha conta";
+      setMessage(accountState, "Conecte sua conta para consultar seu perfil e o limite do plano.");
+      updatePageControls();
+      return;
+    }
+    setMessage(accountState, "Verificando sua sessão…");
+    const result = await chrome.runtime.sendMessage({ type: "CC_GET_STATUS" });
+    if (!result?.ok) {
+      connectButton.textContent = "Reconectar minha conta";
+      setMessage(accountState, result?.message || "Sua sessão não está disponível. Entre no site e tente novamente.", "error");
+      updatePageControls();
+      return;
+    }
+    connected = true;
+    const usage = result.value;
+    const plan = { essential: "Essencial", start: "Start", pro: "Pro", consultoria: "Consultoria" }[usage.plan_code] || "Essencial";
+    setMessage(accountState, `Conectado · ${plan} · preparações neste mês: ${usage.used}/${usage.limit}. Renova em ${new Date(usage.resets_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.`, "success");
+    connectButton.textContent = "Desconectar";
+    copyPanelButton.disabled = false;
+    updatePageControls();
+  }
+
+  connectButton.addEventListener("click", async () => {
+    connectButton.disabled = true;
     try {
-      const parsed = JSON.parse(await file.text());
-      const profile = normalizeProfile(parsed);
-      await chrome.storage.local.set({ [PROFILE_KEY]: { schema_version: 1, profile } });
-      consent.checked = false;
-      updateProfileState(profile);
-      message("Perfil importado somente neste Chrome. Marque a autorização para preencher uma página.", "success");
+      if (connected) {
+        await chrome.permissions.remove(sitePermission());
+        connected = false;
+        setMessage(accountState, "Complemento desconectado. Nenhum token fica guardado nele.", "success");
+        connectButton.textContent = "Conectar minha conta";
+        copyPanelButton.disabled = true;
+        updatePageControls();
+      } else {
+        // This permission prompt is intentionally opened only by this click.
+        const granted = await chrome.permissions.request(sitePermission());
+        if (!granted) throw new Error("A permissão não foi concedida. Você pode continuar usando o site sem conectar o complemento.");
+        await refreshAccountStatus();
+      }
     } catch (error) {
-      message(error instanceof Error ? error.message : "Não foi possível ler o arquivo.", "error");
+      setMessage(accountState, error instanceof Error ? error.message : "Não foi possível conectar a conta.", "error");
+    } finally {
+      connectButton.disabled = false;
     }
   });
 
-  consent.addEventListener("change", () => { fillButton.disabled = !savedProfile || !consent.checked || isActivePageRestricted(); });
-
-  [$("resumePdf"), $("letterPdf")].forEach(input => input.addEventListener("change", () => {
-    if ($("attachmentState").dataset.state === "success") {
-      $("attachmentState").textContent = "";
-      $("attachmentState").dataset.state = "";
-    }
-    updateAttachmentControls();
-  }));
-  attachmentConsent.addEventListener("change", updateAttachmentControls);
-
-  attachButton.addEventListener("click", async () => {
-    if (isActivePageRestricted()) {
-      $("attachmentState").textContent = restrictedPageMessage();
-      $("attachmentState").dataset.state = "error";
-      return;
-    }
-    if (!attachmentConsent.checked) return;
-    attachButton.disabled = true;
-    $("attachmentState").textContent = "Verificando os campos de arquivo desta aba…";
-    $("attachmentState").dataset.state = "";
+  copyPanelButton.addEventListener("click", async () => {
+    if (!connected || !activeTab?.id) return;
     try {
+      await chrome.sidePanel.open({ tabId: activeTab.id });
+    } catch {
+      setMessage(accountState, "Não foi possível abrir o painel. Atualize o Chrome e tente novamente.", "error");
+    }
+  });
+
+  portalConsent.addEventListener("change", updatePageControls);
+  showWidgetButton.addEventListener("click", async () => {
+    showWidgetButton.disabled = true;
+    try {
+      if (!activeTab?.id || !hostIsSupported()) throw new Error("Abra uma página HTTPS de vaga na Gupy, Vagas.com ou InfoJobs.");
+      await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: ["field-filler.js", "copilot-widget.js"] });
+      setMessage($("pageState"), "Botão adicionado nesta página. Clique nele, confirme o uso do seu perfil e revise antes de enviar.", "success");
+      portalConsent.checked = false;
+    } catch (error) {
+      setMessage($("pageState"), error instanceof Error ? error.message : "O Chrome não permitiu adicionar o botão nesta página.", "error");
+    } finally {
+      updatePageControls();
+    }
+  });
+
+  closeWidgetButton.addEventListener("click", async () => {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: () => {
+          document.getElementById("cc-copilot-widget-host")?.remove();
+          globalThis.__ccCopilotWidgetInstalled = false;
+          globalThis.__ccAutofillListenerInstalled = false;
+          delete globalThis.CandidaturaCertaFieldFiller;
+        },
+      });
+      setMessage($("pageState"), "Botão removido desta página.", "success");
+    } catch {
+      setMessage($("pageState"), "Não há um botão ativo nesta página ou ela foi fechada.");
+    }
+  });
+
+  function readPdf(file) {
+    if (!file || !/\.pdf$/i.test(file.name)) throw new Error("Selecione arquivos PDF válidos para currículo e carta.");
+    if (file.size > MAX_ATTACHMENT_BYTES) throw new Error("O tamanho combinado dos PDFs não pode passar de 7 MB.");
+    return file.arrayBuffer().then(buffer => {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length < 5 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") throw new Error("O arquivo selecionado não parece ser um PDF válido.");
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
+      return { name: file.name.replace(/[^A-Za-z0-9._-]/g, "-").slice(-120) || "documento.pdf", base64: btoa(binary) };
+    });
+  }
+
+  async function attachFilesOnActivePage(files) {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: globalThis.CandidaturaCertaPdfAttachment.attachPdfsInPage,
+      args: [files],
+    });
+    if (!result?.result?.ok) throw new Error(result?.result?.message || "Nenhum campo de anexo de currículo ou carta foi identificado com segurança.");
+    return result.result.message;
+  }
+
+  function updateAttachmentControls() {
+    const resume = $("resumePdf").files?.[0];
+    const letter = $("letterPdf").files?.[0];
+    const total = (resume?.size || 0) + (letter?.size || 0);
+    attachButton.disabled = !resume || !attachmentConsent.checked || total > MAX_ATTACHMENT_BYTES || !hostIsSupported();
+    if (total > MAX_ATTACHMENT_BYTES) setMessage($("attachmentState"), "Os PDFs selecionados passam do limite combinado de 7 MB.", "error");
+  }
+
+  [$("resumePdf"), $("letterPdf")].forEach(input => input.addEventListener("change", updateAttachmentControls));
+  attachmentConsent.addEventListener("change", updateAttachmentControls);
+  attachButton.addEventListener("click", async () => {
+    attachButton.disabled = true;
+    try {
+      if (!attachmentConsent.checked || !hostIsSupported()) throw new Error("Confirme que este portal permite anexação assistida.");
       const resume = $("resumePdf").files?.[0];
       const letter = $("letterPdf").files?.[0];
-      if (!resume) throw new Error("Escolha o currículo em PDF que deseja anexar.");
-      const totalSize = (resume?.size || 0) + (letter?.size || 0);
-      if (totalSize > MAX_ATTACHMENT_BYTES) throw new Error("Os PDFs selecionados passam do limite combinado de 7 MB.");
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id || !/^https:\/\//i.test(tab.url || "")) throw new Error("Abra o formulário HTTPS da vaga e tente novamente.");
-      if (isActivePageRestricted(tab.url)) throw new Error(restrictedPageMessage(tab.url));
-      const files = {
-        resume: await readPdf(resume),
-        letter: letter ? await readPdf(letter) : null,
-      };
-      const [result] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: globalThis.CandidaturaCertaPdfAttachment.attachPdfsInPage,
-        args: [files],
-      });
-      if (!result?.result?.ok) throw new Error(result?.result?.message || "Nenhum campo de upload claramente identificado foi alterado.");
-      $("attachmentState").textContent = result.result.message;
-      $("attachmentState").dataset.state = "success";
+      const total = (resume?.size || 0) + (letter?.size || 0);
+      if (total > MAX_ATTACHMENT_BYTES) throw new Error("Os PDFs selecionados passam do limite combinado de 7 MB.");
+      const files = { resume: await readPdf(resume), letter: letter ? await readPdf(letter) : null };
+      const message = await attachFilesOnActivePage(files);
+      setMessage($("attachmentState"), message, "success");
       $("resumePdf").value = "";
       $("letterPdf").value = "";
       attachmentConsent.checked = false;
     } catch (error) {
-      $("attachmentState").textContent = error instanceof Error ? error.message : "Não foi possível anexar os PDFs nesta página.";
-      $("attachmentState").dataset.state = "error";
+      setMessage($("attachmentState"), error instanceof Error ? error.message : "Não foi possível anexar os PDFs nesta página.", "error");
     } finally {
       updateAttachmentControls();
     }
   });
 
-  fillButton.addEventListener("click", async () => {
-    if (isActivePageRestricted()) {
-      message(restrictedPageMessage(), "error");
-      return;
-    }
-    if (!savedProfile || !consent.checked) return;
-    fillButton.disabled = true;
-    message("Analisando apenas os campos visíveis desta aba…");
+  loadLibraryButton.addEventListener("click", async () => {
+    loadLibraryButton.disabled = true;
+    setMessage($("libraryState"), "Buscando seus documentos salvos…");
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id || !/^https:\/\//i.test(tab.url || "")) throw new Error("Abra um formulário seguro em uma página HTTPS e tente novamente.");
-      if (isActivePageRestricted(tab.url)) throw new Error(restrictedPageMessage(tab.url));
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["field-filler.js"] });
-      const result = await chrome.tabs.sendMessage(tab.id, { type: "CC_FILL_PROFILE_FIELDS", profile: savedProfile });
-      if (!result?.ok) throw new Error(result?.message || "Não foi possível preencher esta página.");
-      const labels = [...new Set((result.filledKeys || []).map(key => fieldLabels[key]).filter(Boolean))];
-      const summary = labels.length ? ` Campos: ${labels.join(", ")}.` : "";
-      message(result.filled ? `${result.filled} campo(s) em branco preenchido(s).${summary} Confira cada resposta e envie pelo portal.` : "Nenhum campo compatível e vazio foi encontrado. Nada foi enviado.", result.filled ? "success" : "");
+      const response = await chrome.runtime.sendMessage({ type: "CC_LIST_DOCUMENTS" });
+      if (!response?.ok) throw new Error(response?.message || "Não foi possível carregar sua biblioteca.");
+      libraryItems = Array.isArray(response.value?.items) ? response.value.items : [];
+      libraryApplication.replaceChildren();
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = libraryItems.length ? "Selecione a vaga" : "Nenhum par de documentos disponível";
+      libraryApplication.append(placeholder);
+      for (const item of libraryItems) {
+        const option = document.createElement("option");
+        option.value = String(item.application_id);
+        option.textContent = `${item.title || "Oportunidade"} · ${item.company || "Empresa não informada"}`;
+        libraryApplication.append(option);
+      }
+      setMessage($("libraryState"), libraryItems.length
+        ? `${libraryItems.length} candidatura(s) com currículo e carta atuais disponíveis.`
+        : "Gere e salve o currículo e a carta de uma vaga no site; depois eles aparecerão aqui.");
+      libraryConsent.checked = false;
+      updateLibraryControls();
     } catch (error) {
-      message(error instanceof Error ? error.message : "O Chrome bloqueou o preenchimento desta página.", "error");
+      setMessage($("libraryState"), error instanceof Error ? error.message : "Não foi possível carregar sua biblioteca.", "error");
     } finally {
-      fillButton.disabled = !savedProfile || !consent.checked || isActivePageRestricted();
+      updateLibraryControls();
     }
   });
 
-  clearButton.addEventListener("click", async () => {
-    await chrome.storage.local.remove(PROFILE_KEY);
-    consent.checked = false;
-    updateProfileState(null);
-    message("Perfil removido do armazenamento local do complemento.", "success");
+  libraryApplication.addEventListener("change", updateLibraryControls);
+  libraryConsent.addEventListener("change", updateLibraryControls);
+  attachLibraryButton.addEventListener("click", async () => {
+    attachLibraryButton.disabled = true;
+    try {
+      const applicationId = Number(libraryApplication.value);
+      if (!connected || !libraryConsent.checked || !hostIsSupported() || !Number.isSafeInteger(applicationId) || applicationId < 1) {
+        throw new Error("Selecione uma vaga salva, confirme o uso dos PDFs e abra um portal compatível.");
+      }
+      setMessage($("libraryState"), "Buscando os PDFs atuais e procurando campos identificados…");
+      const response = await chrome.runtime.sendMessage({
+        type: "CC_GET_APPLICATION_PDFS",
+        applicationId,
+        tabId: activeTab.id,
+      });
+      if (!response?.ok) throw new Error(response?.message || "Não foi possível buscar os documentos atuais.");
+      const message = await attachFilesOnActivePage({
+        resume: response.value.resume,
+        letter: response.value.letter,
+      });
+      setMessage($("libraryState"), message, "success");
+      libraryConsent.checked = false;
+    } catch (error) {
+      setMessage($("libraryState"), error instanceof Error ? error.message : "Não foi possível anexar os PDFs da biblioteca.", "error");
+    } finally {
+      updateLibraryControls();
+    }
   });
 
-  loadProfile().catch(() => message("Não foi possível acessar o armazenamento deste Chrome.", "error"));
+  chrome.tabs.query({ active: true, currentWindow: true }).then(async ([tab]) => {
+    activeTab = tab || null;
+    activePageUrl = tab?.url || "";
+    let host = "página indisponível";
+    try { host = new URL(activePageUrl).hostname; } catch { /* página interna */ }
+    $("activePage").textContent = `Página ativa: ${host}`;
+    updatePageControls();
+    updateAttachmentControls();
+    try { await refreshAccountStatus(); }
+    catch (error) { setMessage(accountState, error instanceof Error ? error.message : "Conecte sua conta para continuar."); }
+  }).catch(() => setMessage($("activePage"), "Não foi possível identificar a página ativa.", "error"));
 })();

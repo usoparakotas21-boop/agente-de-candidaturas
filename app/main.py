@@ -22,11 +22,11 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import inspect, select, text, update
+from sqlalchemy import func, inspect, select, text, update
 from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
 
-from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, router as auth_router
+from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, extension_authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
 from .outlook_integration import router as outlook_router
 from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
@@ -40,7 +40,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -58,6 +58,7 @@ from .plan_limits import (
     MONTHLY_OPPORTUNITY_LIMITS,
     PlanLimitReachedError,
     ensure_opportunity_capacity,
+    month_window,
     monthly_opportunity_usage,
 )
 from .ai_provider import AIProviderError, evaluate_interview_answer
@@ -185,6 +186,7 @@ async def _document_retention_loop():
             await asyncio.to_thread(_cleanup_followup_email_outbox)
             await asyncio.to_thread(_cleanup_interview_email_outbox)
             await asyncio.to_thread(_cleanup_expiration_email_outbox)
+            await asyncio.to_thread(_cleanup_copilot_preparations)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             raise
@@ -255,6 +257,21 @@ def _cleanup_interview_email_outbox() -> int:
     db = SessionLocal()
     try:
         return cleanup_interview_email_outbox(db)
+    finally:
+        db.close()
+
+
+def _cleanup_copilot_preparations() -> int:
+    """Remove the extension's minimal usage/audit records after 60 days."""
+    db = SessionLocal()
+    try:
+        cutoff = utc_now() - timedelta(days=60)
+        deleted = db.query(CopilotPreparation).filter(CopilotPreparation.created_at < cutoff).delete(synchronize_session=False)
+        db.commit()
+        return int(deleted or 0)
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -440,7 +457,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js?v=2"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
-    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=4"></script>'
+    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=5"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'
@@ -859,6 +876,14 @@ class ApplicationStatusRequest(BaseModel):
     external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = False; notify_interviews_consent: bool = False; notify_expiring: bool = False; notify_expiring_consent: bool = False; notify_followups: bool = False
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
+class CopilotPrepareRequest(BaseModel):
+    request_id: str = Field(min_length=36, max_length=36)
+    portal_host: str = Field(min_length=3, max_length=255)
+    portal_allowed: bool = False
+
+class CopilotCompleteRequest(BaseModel):
+    request_id: str = Field(min_length=36, max_length=36)
+    filled_count: int = Field(ge=0, le=100)
 class ProfileExperienceRequest(BaseModel):
     role: str = Field(min_length=1, max_length=200)
     company: str = Field(default="", max_length=200)
@@ -1154,7 +1179,7 @@ def startup():
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
-            for table in ("generated_documents", "document_deliveries", "followup_email_outbox", "email_application_submissions"):
+            for table in ("generated_documents", "document_deliveries", "followup_email_outbox", "email_application_submissions", "copilot_preparations"):
                 policy = f"{table}_owner"
                 db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
                 db.execute(text(f"""
@@ -1337,6 +1362,7 @@ def startup():
     _cleanup_followup_email_outbox()
     _cleanup_interview_email_outbox()
     _cleanup_expiration_email_outbox()
+    _cleanup_copilot_preparations()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
     _start_purchase_generation_worker()
@@ -1505,6 +1531,324 @@ def get_profile(user=Depends(authenticated_user)):
         manual_sections = data.get("_manual_sections", [])
         return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills), "experience_items": [{"role": e.role, "company": e.company, "start_date": e.start_date or "", "end_date": e.end_date or "", "period": " - ".join([v for v in (e.start_date, e.end_date) if v]), "description": e.description or ""} for e in c.experiences], "skill_items": [s.name for s in c.skills], "education_items": education if isinstance(education, list) else [], "language_items": languages if isinstance(languages, list) else [], "manual_sections": manual_sections if isinstance(manual_sections, list) else []}
     finally: db.close()
+
+
+COPILOT_MONTHLY_LIMITS = {"essential": 30, "start": 150, "pro": 500, "consultoria": 500}
+COPILOT_SUPPORTED_HOSTS = ("gupy.io", "vagas.com.br", "infojobs.com.br")
+
+
+def _copilot_host_allowed(host: str) -> str | None:
+    normalized = str(host or "").strip().lower().rstrip(".")
+    if not normalized or "/" in normalized or ":" in normalized:
+        return None
+    return normalized if any(
+        normalized == domain or normalized.endswith("." + domain)
+        for domain in COPILOT_SUPPORTED_HOSTS
+    ) else None
+
+
+def _copilot_plan_usage(db, owner_id: str, now: datetime | None = None) -> dict[str, Any]:
+    current = now or utc_now()
+    period_start, period_end = month_window(current)
+    subscription = db.scalar(
+        select(BillingSubscription)
+        .where(BillingSubscription.owner_id == owner_id)
+        .order_by(BillingSubscription.updated_at.desc())
+        .limit(1)
+    )
+    plan = "essential"
+    if subscription and _subscription_is_entitled(subscription):
+        candidate_plan = str(subscription.plan_code or "").casefold()
+        if candidate_plan in COPILOT_MONTHLY_LIMITS:
+            plan = candidate_plan
+    limit = COPILOT_MONTHLY_LIMITS[plan]
+    used = int(db.scalar(
+        select(func.count(CopilotPreparation.id)).where(
+            CopilotPreparation.owner_id == owner_id,
+            CopilotPreparation.created_at >= period_start,
+            CopilotPreparation.created_at < period_end,
+        )
+    ) or 0)
+    return {
+        "plan_code": plan,
+        "used": used,
+        "limit": limit,
+        "remaining": max(0, limit - used),
+        "period_start": period_start,
+        "resets_at": period_end,
+    }
+
+
+def _copilot_profile_payload(db, user: dict) -> dict[str, Any]:
+    candidate = _candidate_for_user(db, user)
+    if candidate is None:
+        raise HTTPException(409, "Complete e salve seu perfil antes de usar o copiloto.")
+    try:
+        raw = json.loads(candidate.profile_data or "{}")
+        profile_data = raw if isinstance(raw, dict) else {}
+    except (TypeError, ValueError):
+        profile_data = {}
+
+    def clean(value: Any, maximum: int) -> str:
+        return sanitize_untrusted_text(str(value or ""), max_chars=maximum).strip()
+
+    experiences = [{
+        "role": clean(item.role, 200),
+        "company": clean(item.company, 200),
+        "period": clean(" - ".join(part for part in (item.start_date, item.end_date) if part), 100),
+        "description": clean(item.description, 5000),
+    } for item in candidate.experiences[:50]]
+    raw_education = profile_data.get("education", [])
+    education = []
+    if isinstance(raw_education, list):
+        for item in raw_education[:50]:
+            if isinstance(item, str):
+                education.append({"course": clean(item, 200), "institution": "", "period": ""})
+            elif isinstance(item, dict):
+                education.append({
+                    "course": clean(item.get("course") or item.get("title"), 200),
+                    "institution": clean(item.get("institution") or item.get("school"), 200),
+                    "period": clean(item.get("period") or item.get("year"), 100),
+                })
+    raw_languages = profile_data.get("languages", [])
+    languages = [clean(item, 100) for item in raw_languages[:30] if isinstance(item, str)] if isinstance(raw_languages, list) else []
+    return {
+        "name": clean(candidate.name, 180),
+        "email": clean(user.get("email") or candidate.email, 240),
+        "phone": clean(candidate.phone, 80),
+        "linkedin": clean(candidate.linkedin, 500),
+        "website": clean(profile_data.get("website"), 500),
+        "location": clean(candidate.location, 180),
+        "headline": clean(profile_data.get("headline"), 500),
+        "summary": clean(candidate.summary, 5000),
+        "experiences": experiences,
+        "education": education,
+        "skills": [clean(item.name, 200) for item in candidate.skills[:100]],
+        "languages": languages,
+    }
+
+
+def _copilot_status_payload(db, owner_id: str) -> dict[str, Any]:
+    usage = _copilot_plan_usage(db, owner_id)
+    return {
+        "plan_code": usage["plan_code"],
+        "used": usage["used"],
+        "limit": usage["limit"],
+        "remaining": usage["remaining"],
+        "resets_at": usage["resets_at"].isoformat(),
+    }
+
+
+def _copilot_json(payload: dict[str, Any]) -> JSONResponse:
+    return JSONResponse(payload, headers={"Cache-Control": "private, no-store", "Pragma": "no-cache"})
+
+
+@app.get("/api/copilot/status")
+def copilot_status(request: Request, user=Depends(extension_authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    _enforce_rate_limit(request, "copilot-status", owner_id)
+    db = SessionLocal()
+    try:
+        return _copilot_json(_copilot_status_payload(db, owner_id))
+    finally:
+        db.close()
+
+
+@app.get("/api/copilot/profile")
+def copilot_profile(request: Request, user=Depends(extension_authenticated_user)):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    _enforce_rate_limit(request, "copilot-profile", owner_id)
+    db = SessionLocal()
+    try:
+        return _copilot_json({"profile": _copilot_profile_payload(db, user), "usage": _copilot_status_payload(db, owner_id)})
+    finally:
+        db.close()
+
+
+@app.get("/api/copilot/documents")
+def copilot_documents(request: Request, user=Depends(extension_authenticated_user)):
+    """List this user's unexpired generated-document pairs for optional attachment."""
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    _enforce_rate_limit(request, "copilot-documents", owner_id)
+    result = list_generated_documents(user)
+    items = [
+        {
+            "application_id": item["application_id"],
+            "title": item["title"],
+            "company": item["company"],
+            "created_at": item["created_at"],
+            "expires_at": item["expires_at"],
+        }
+        for item in result["items"]
+        if item.get("application_id") is not None and item.get("resume") and item.get("cover_letter")
+    ]
+    return _copilot_json({"items": items})
+
+
+@app.get("/api/copilot/documents/{application_id}/pdfs")
+def copilot_application_pdfs(
+    application_id: int,
+    request: Request,
+    user=Depends(extension_authenticated_user),
+):
+    """Return only current, owner-scoped PDFs for a chosen saved application."""
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    _enforce_rate_limit(request, "copilot-documents", owner_id)
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, application_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura não encontrada.")
+        resume, letter = _current_application_documents(db, application, user)
+        resume_pdf = docx_to_pdf(resume.content, title=resume.title or "Currículo")
+        letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentação")
+        if len(resume_pdf) + len(letter_pdf) > 7 * 1024 * 1024:
+            raise HTTPException(413, "Os PDFs excedem o limite combinado de 7 MB do complemento.")
+        db.commit()
+        return _copilot_json({
+            "application_id": application.id,
+            "title": application.job.title,
+            "company": application.job.company,
+            "resume": {
+                "name": re.sub(r"[^A-Za-z0-9._-]", "-", Path(resume.filename).stem)[:115] + ".pdf",
+                "base64": base64.b64encode(resume_pdf).decode("ascii"),
+            },
+            "letter": {
+                "name": re.sub(r"[^A-Za-z0-9._-]", "-", Path(letter.filename).stem)[:115] + ".pdf",
+                "base64": base64.b64encode(letter_pdf).decode("ascii"),
+            },
+        })
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Falha ao preparar PDFs do copiloto application_id=%s", application_id)
+        if isinstance(exc, ValueError):
+            raise HTTPException(409, "Não foi possível converter os documentos desta candidatura em PDF.") from exc
+        raise
+    finally:
+        db.close()
+
+
+@app.post("/api/copilot/prepare")
+def copilot_prepare(
+    payload: CopilotPrepareRequest,
+    request: Request,
+    user=Depends(extension_authenticated_user),
+):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    if not payload.portal_allowed:
+        raise HTTPException(403, "Confirme que o portal permite preenchimento assistido.")
+    portal_host = _copilot_host_allowed(payload.portal_host)
+    if not portal_host:
+        raise HTTPException(403, "O copiloto está habilitado somente para Gupy, Vagas.com e InfoJobs nesta versão.")
+    try:
+        request_id = str(uuid.UUID(payload.request_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(422, "Identificador da preparação inválido.") from exc
+    _enforce_rate_limit(request, "copilot-prepare", owner_id)
+    db = SessionLocal()
+    try:
+        now = utc_now()
+        period_start, _ = month_window(now)
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:scope), hashtext(:owner_period))"),
+                {"scope": "copilot-monthly-limit", "owner_period": f"{owner_id}:{period_start.date().isoformat()}"},
+            )
+        if db.scalar(select(CopilotPreparation.id).where(
+            CopilotPreparation.owner_id == owner_id,
+            CopilotPreparation.request_id == request_id,
+        )):
+            raise HTTPException(409, "Esta preparação já foi iniciada. Atualize a página para começar outra.")
+        usage = _copilot_plan_usage(db, owner_id, now)
+        if usage["used"] >= usage["limit"]:
+            raise HTTPException(
+                403,
+                f"Você atingiu o limite mensal de {usage['limit']} preparações assistidas do plano {usage['plan_code'].title()}. O limite será renovado em {usage['resets_at']:%d/%m/%Y}.",
+                headers={"X-Copilot-Limit": "reached"},
+            )
+        profile = _copilot_profile_payload(db, user)
+        if not any((profile["name"], profile["email"], profile["phone"])):
+            raise HTTPException(409, "Complete e salve os dados básicos do seu perfil antes de continuar.")
+        db.add(CopilotPreparation(
+            owner_id=owner_id,
+            request_id=request_id,
+            portal_host=portal_host,
+            status="PREPARED",
+            filled_count=0,
+            consented_at=now,
+            created_at=now,
+        ))
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(409, "Esta preparação já foi iniciada. Atualize a página para começar outra.") from exc
+        usage["used"] += 1
+        usage["remaining"] = max(0, usage["limit"] - usage["used"])
+        return _copilot_json({
+            "request_id": request_id,
+            "profile": profile,
+            "usage": {
+                "plan_code": usage["plan_code"],
+                "used": usage["used"],
+                "limit": usage["limit"],
+                "remaining": usage["remaining"],
+                "resets_at": usage["resets_at"].isoformat(),
+            },
+        })
+    except HTTPException:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+@app.post("/api/copilot/complete")
+def copilot_complete(
+    payload: CopilotCompleteRequest,
+    request: Request,
+    user=Depends(extension_authenticated_user),
+):
+    owner_id = str(_owner_id(user) or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
+    try:
+        request_id = str(uuid.UUID(payload.request_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(422, "Identificador da preparação inválido.") from exc
+    _enforce_rate_limit(request, "copilot-complete", owner_id)
+    db = SessionLocal()
+    try:
+        entry = db.scalar(select(CopilotPreparation).where(
+            CopilotPreparation.owner_id == owner_id,
+            CopilotPreparation.request_id == request_id,
+        ))
+        if entry is None:
+            raise HTTPException(404, "A preparação não foi encontrada.")
+        if entry.status == "PREPARED":
+            entry.filled_count = payload.filled_count
+            entry.status = "FILLED" if payload.filled_count else "NO_MATCH"
+            entry.completed_at = utc_now()
+            db.commit()
+        return _copilot_json({"status": entry.status, "filled_count": entry.filled_count})
+    except HTTPException:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 @app.put("/profile")
 def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
@@ -2257,18 +2601,21 @@ def privacy_export(user=Depends(authenticated_user)):
         purchases_query = select(DocumentExportPurchase).order_by(DocumentExportPurchase.created_at.asc())
         notification_query = select(FollowupEmailOutbox).order_by(FollowupEmailOutbox.created_at.asc())
         expiration_notification_query = select(ExpiringJobEmailOutbox).order_by(ExpiringJobEmailOutbox.created_at.asc())
+        copilot_query = select(CopilotPreparation).order_by(CopilotPreparation.created_at.asc())
         if oid:
             candidate_query = candidate_query.where(Candidate.owner_id == oid)
             jobs_query = jobs_query.where(Job.owner_id == oid)
             purchases_query = purchases_query.where(DocumentExportPurchase.owner_id == oid)
             notification_query = notification_query.where(FollowupEmailOutbox.owner_id == oid)
             expiration_notification_query = expiration_notification_query.where(ExpiringJobEmailOutbox.owner_id == oid)
+            copilot_query = copilot_query.where(CopilotPreparation.owner_id == oid)
         candidate = db.scalar(candidate_query)
         jobs = db.scalars(jobs_query).all()
         applications = [job.application for job in jobs if job.application is not None]
         purchases = db.scalars(purchases_query).all()
         notifications = db.scalars(notification_query).all()
         expiration_notifications = db.scalars(expiration_notification_query).all()
+        copilot_preparations = db.scalars(copilot_query).all()
 
         def iso(value):
             return value.isoformat() if value else None
@@ -2298,6 +2645,7 @@ def privacy_export(user=Depends(authenticated_user)):
             "purchases": [{"order_nsu": item.order_nsu, "amount": item.amount, "paid_amount": item.paid_amount, "status": item.status, "created_at": iso(item.created_at), "paid_at": iso(item.paid_at)} for item in purchases],
             "followup_email_notifications": [{"frequency": item.frequency, "status": item.status, "application_count": len(item.application_ids or []), "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in notifications],
             "expiring_job_email_notifications": [{"job_id": item.job_id, "deadline": item.deadline_key, "frequency": item.frequency, "status": item.status, "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in expiration_notifications],
+            "copilot_preparations": [{"portal_host": item.portal_host, "status": item.status, "filled_count": item.filled_count, "consented_at": iso(item.consented_at), "created_at": iso(item.created_at), "completed_at": iso(item.completed_at)} for item in copilot_preparations],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
         db.close()
@@ -2330,6 +2678,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
         (FollowupEmailOutbox, FollowupEmailOutbox.owner_id),
         (DocumentDelivery, DocumentDelivery.owner_id),
         (EmailApplicationSubmission, EmailApplicationSubmission.owner_id),
+        (CopilotPreparation, CopilotPreparation.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),
         (ConsultationCredit, ConsultationCredit.owner_id),

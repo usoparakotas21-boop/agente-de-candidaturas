@@ -34,10 +34,16 @@
       const style = getComputedStyle(input);
       const visible = input.getClientRects().length > 0 && style.display !== "none" && style.visibility !== "hidden";
       const labels = input.labels ? [...input.labels].map(label => label.innerText || label.textContent || "").join(" ") : "";
+      const hasVisibleLabel = input.labels ? [...input.labels].some(label => {
+        const labelStyle = getComputedStyle(label);
+        return label.getClientRects().length > 0 && labelStyle.display !== "none" && labelStyle.visibility !== "hidden";
+      }) : false;
+      const groupStyle = fieldset ? getComputedStyle(fieldset) : null;
+      const hasVisibleGroup = Boolean(fieldset && fieldset.getClientRects().length > 0 && groupStyle.display !== "none" && groupStyle.visibility !== "hidden");
       const groupLabel = fieldset ? String(fieldset.innerText || fieldset.textContent || "").slice(0, 500) : "";
       const accept = String(input.accept || "").toLowerCase();
       const acceptsPdf = !accept || accept.includes(".pdf") || accept.includes("application/pdf") || accept.includes("*/*");
-      return { input, kind: classify({ labels, ariaLabel: input.getAttribute("aria-label"), title: input.title, name: input.name, id: input.id, groupLabel }), eligible: visible && !input.disabled && acceptsPdf };
+      return { input, kind: classify({ labels, ariaLabel: input.getAttribute("aria-label"), title: input.title, name: input.name, id: input.id, groupLabel }), eligible: (visible || hasVisibleLabel || hasVisibleGroup) && !input.disabled && acceptsPdf };
     });
     const plan = [];
     for (const kind of ["resume", "letter"]) {
