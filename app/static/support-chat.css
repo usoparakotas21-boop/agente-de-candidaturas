@@ -7,3 +7,5 @@
 @media(prefers-reduced-motion:reduce){.cc-support-launcher{transition:none}}
 .cc-support-links{flex-wrap:wrap;gap:6px 8px}
 .cc-support-safe-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}
+.cc-support-launcher.cc-support-near-footer{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+.cc-support-panel.cc-support-near-footer{bottom:calc(230px + env(safe-area-inset-bottom,0px));height:min(540px,calc(100dvh - 246px - env(safe-area-inset-bottom,0px)));min-height:min(330px,calc(100dvh - 246px - env(safe-area-inset-bottom,0px)))}

@@ -4,7 +4,7 @@
 
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "/static/support-chat.css?v=3";
+  stylesheet.href = "/static/support-chat.css?v=4";
   document.head.append(stylesheet);
 
   const make = (tag, className, text) => {
@@ -99,6 +99,20 @@
   footer.append(disclosure, form, links, status);
   panel.append(header, messages, footer);
   document.body.append(launcher, panel);
+
+  // Move the fixed launcher above the page footer while it is on screen so it
+  // cannot cover the support links on narrow viewports.
+  const pageFooter = document.querySelector(".cc-support-safe-footer, .global-footer");
+  if (pageFooter && "IntersectionObserver" in window) {
+    const setFooterMode = (nearFooter) => {
+      launcher.classList.toggle("cc-support-near-footer", nearFooter);
+      panel.classList.toggle("cc-support-near-footer", nearFooter);
+    };
+    const footerObserver = new IntersectionObserver(([entry]) => {
+      setFooterMode(Boolean(entry && entry.isIntersecting));
+    }, { threshold: 0 });
+    footerObserver.observe(pageFooter);
+  }
 
   const addMessage = (role, text, pending = false) => {
     const bubble = make("div", "cc-support-message", text);
