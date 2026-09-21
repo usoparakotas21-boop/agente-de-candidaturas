@@ -6,9 +6,11 @@ import json
 import re
 import socket
 import unicodedata
+from datetime import datetime, time, timezone
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urljoin, urlparse
+from zoneinfo import ZoneInfo
 
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
@@ -107,6 +109,31 @@ def _location(value: Any) -> str:
     return "/".join(str(item).strip() for item in parts if item)
 
 
+def _valid_through(value: Any) -> str | None:
+    """Parse only an explicit Schema.org JobPosting.validThrough deadline."""
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip()
+    if not candidate or len(candidate) > 64:
+        return None
+    try:
+        # A date-only deadline remains valid through the end of that date in
+        # the application's operating timezone. Explicit offsets are honored.
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", candidate):
+            parsed = datetime.combine(
+                datetime.fromisoformat(candidate).date(),
+                time(23, 59, 59),
+                tzinfo=ZoneInfo("America/Sao_Paulo"),
+            )
+        else:
+            parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        return parsed.astimezone(timezone.utc).isoformat()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def extract_job_posting_html(page_html: str, url: str) -> dict[str, Any] | None:
     parser = _StructuredDataParser()
     parser.feed(page_html)
@@ -147,6 +174,7 @@ def extract_job_posting_html(page_html: str, url: str) -> dict[str, Any] | None:
         "salary": "",
         "url": url,
         "employment_type": str(employment or ""),
+        "valid_through": _valid_through(posting.get("validThrough")),
         "confidence": min(confidence, 100),
         "method": "jobposting_jsonld",
     }

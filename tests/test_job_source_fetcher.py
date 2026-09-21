@@ -29,6 +29,24 @@ class JobSourceFetcherTest(unittest.TestCase):
         self.assertEqual(result["title"], "Coordenador de Recursos Humanos Generalista")
         self.assertIn("Lauro de Freitas", result["location"])
 
+    def test_extracts_explicit_valid_through_deadline(self):
+        page = '''
+        <script type="application/ld+json">
+        {"@type":"JobPosting","title":"Analista","validThrough":"2026-10-02"}
+        </script>
+        '''
+        result = extract_job_posting_html(page, "https://example.com/jobs/1")
+        self.assertEqual(result["valid_through"], "2026-10-03T02:59:59+00:00")
+
+    def test_ignores_invalid_or_missing_expiry_deadline(self):
+        page = '''
+        <script type="application/ld+json">
+        {"@type":"JobPosting","title":"Analista","validThrough":"a combinar"}
+        </script>
+        '''
+        result = extract_job_posting_html(page, "https://example.com/jobs/1")
+        self.assertIsNone(result["valid_through"])
+
     def test_infers_bebee_company_from_public_url(self):
         result = infer_from_public_url(
             {

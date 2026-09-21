@@ -110,6 +110,7 @@ class Job(Base):
     salary: Mapped[str] = mapped_column(String(200), default="")
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    valid_through: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     url: Mapped[str] = mapped_column(String(1000))
     description: Mapped[str] = mapped_column(Text)
 

@@ -460,6 +460,16 @@ body{min-height:100vh;display:flex;flex-direction:column}
 def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
 
 
+def _job_deadline_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    # SQLite returns timezone-aware DateTime values as naive; these were
+    # normalized to UTC when extracted from Schema.org metadata.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
 def _document_export_price() -> str:
     configured = os.getenv("DOCUMENT_EXPORT_PRICE", "").strip()
     if configured:
@@ -784,9 +794,42 @@ def _application_for_user(db, app_id, user):
     return db.scalar(q)
 
 class JobRequest(BaseModel): title: str; description: str
-class JobCreateRequest(BaseModel): source: str = "manual"; external_id: str; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str
+class JobCreateRequest(BaseModel):
+    source: str = "manual"
+    external_id: str
+    company: str
+    title: str
+    location: str = ""
+    modality: str = ""
+    contract_type: str = ""
+    modality_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary_confidence: int | None = Field(default=None, ge=0, le=100)
+    contract_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary: str = ""
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    valid_through: datetime | None = None
+    url: str = ""
+    description: str
 class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_analyze: bool = True; reprocess_existing: bool = False
-class JobIntakeConfirmRequest(BaseModel): external_id: str; source: str = "print"; company: str; title: str; location: str = ""; modality: str = ""; contract_type: str = ""; modality_confidence: int | None = Field(default=None, ge=0, le=100); salary_confidence: int | None = Field(default=None, ge=0, le=100); contract_confidence: int | None = Field(default=None, ge=0, le=100); salary: str = ""; salary_min: int | None = Field(default=None, ge=0); salary_max: int | None = Field(default=None, ge=0); url: str = ""; description: str; auto_analyze: bool = True
+class JobIntakeConfirmRequest(BaseModel):
+    external_id: str
+    source: str = "print"
+    company: str
+    title: str
+    location: str = ""
+    modality: str = ""
+    contract_type: str = ""
+    modality_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary_confidence: int | None = Field(default=None, ge=0, le=100)
+    contract_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary: str = ""
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    valid_through: datetime | None = None
+    url: str = ""
+    description: str
+    auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
 class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro", "consultoria"]
@@ -1142,7 +1185,7 @@ def startup():
                     "owner_id": "VARCHAR(36)", "profile_data": "TEXT", "resume_filename": "TEXT", "preferences_data": "TEXT",
                 },
                 "jobs": {
-                    "owner_id": "VARCHAR(36)", "contract_type": "VARCHAR(50) DEFAULT ''", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
+                    "owner_id": "VARCHAR(36)", "contract_type": "VARCHAR(50) DEFAULT ''", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER", "valid_through": "TIMESTAMP WITH TIME ZONE",
                 },
                 "queue_items": {
                     "contract_type": "VARCHAR(50)", "salary": "VARCHAR(200)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
@@ -1168,6 +1211,7 @@ def startup():
                 "CREATE INDEX IF NOT EXISTS ix_applications_followup_notification_outbox_id ON applications (followup_notification_outbox_id)",
                 "CREATE INDEX IF NOT EXISTS idx_candidates_owner_id ON candidates (owner_id)",
                 "CREATE INDEX IF NOT EXISTS idx_jobs_owner_id ON jobs (owner_id)",
+                "CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)",
             ):
                 db.execute(text(statement))
             db.commit()
@@ -1197,6 +1241,7 @@ def startup():
             "contract_confidence": "INTEGER",
             "salary_min": "INTEGER",
             "salary_max": "INTEGER",
+            "valid_through": "TIMESTAMP WITH TIME ZONE",
         }.items():
             if col not in job_columns:
                 db.execute(text(f"ALTER TABLE jobs ADD COLUMN {col} {ddl}"))
@@ -1261,6 +1306,7 @@ def startup():
                 db.execute(text(f"ALTER TABLE application_events ADD COLUMN {col} VARCHAR(32)"))
         for idx in ["idx_applications_status", "idx_applications_updated_at", "idx_applications_queue_decision", "idx_candidates_owner_id", "idx_jobs_owner_id"]:
             db.execute(text(f"CREATE INDEX IF NOT EXISTS {idx} ON {'applications' if 'applications' in idx else 'candidates' if 'candidates' in idx else 'jobs'} ({'status' if 'status' in idx else 'updated_at' if 'updated' in idx else 'queue_decision' if 'queue' in idx else 'owner_id'})"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)"))
         for job in db.scalars(select(Job)).all():
             cand = db.scalar(select(Candidate).where(Candidate.owner_id == job.owner_id).order_by(Candidate.id))
             _ensure_app(db, job, cand)
@@ -1755,7 +1801,7 @@ def create_job(req: JobCreateRequest, user=Depends(authenticated_user)):
         _save_quality(app, quality)
         _apply_decision(app, c, None)
         db.commit(); db.refresh(job); db.refresh(app)
-        return {"status": "VAGA_CADASTRADA", "job": {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url}, "application": {"id": app.id, "status": app.status}}
+        return {"status": "VAGA_CADASTRADA", "job": {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "valid_through": _job_deadline_iso(job.valid_through), "url": job.url}, "application": {"id": app.id, "status": app.status}}
     finally: db.close()
 
 @app.post("/intake/text")
@@ -1943,7 +1989,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
             structured = None; fetch_error = str(e)
         if structured:
             enriched = dict(parsed)
-            for f in ("title", "company", "description", "location", "modality", "salary", "url"):
+            for f in ("title", "company", "description", "location", "modality", "salary", "url", "valid_through"):
                 if structured.get(f): enriched[f] = structured[f]
             enriched["confidence"] = structured["confidence"]; enriched["method"] = structured["method"]
     selected = enriched or dict(parsed)
@@ -1952,7 +1998,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
     if confidence >= 85:
         confirmed = await _run_document_work(
             confirm_job_intake,
-            JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], contract_type=selected.get("contract_type", parsed.get("contract_type", "")), modality_confidence=selected.get("modality_confidence", parsed.get("modality_confidence")), salary_confidence=selected.get("salary_confidence", parsed.get("salary_confidence")), contract_confidence=selected.get("contract_confidence", parsed.get("contract_confidence")), salary=selected["salary"], salary_min=selected.get("salary_min", parsed.get("salary_min")), salary_max=selected.get("salary_max", parsed.get("salary_max")), url=selected["url"], description=selected["description"], auto_analyze=True),
+            JobIntakeConfirmRequest(external_id=parsed["external_id"], source=parsed["source"], company=selected["company"], title=selected["title"], location=selected["location"], modality=selected["modality"], contract_type=selected.get("contract_type", parsed.get("contract_type", "")), modality_confidence=selected.get("modality_confidence", parsed.get("modality_confidence")), salary_confidence=selected.get("salary_confidence", parsed.get("salary_confidence")), contract_confidence=selected.get("contract_confidence", parsed.get("contract_confidence")), salary=selected["salary"], salary_min=selected.get("salary_min", parsed.get("salary_min")), salary_max=selected.get("salary_max", parsed.get("salary_max")), valid_through=selected.get("valid_through"), url=selected["url"], description=selected["description"], auto_analyze=True),
             user,
         )
         confirmed.update({
@@ -1965,7 +2011,7 @@ async def preview_file(file: UploadFile = File(...), source: str = "print", user
             "salary_confidence": selected.get("salary_confidence", parsed.get("salary_confidence", 0)),
         })
         return confirmed
-    return {"status": "REVISAO_NECESSARIA", "message": "Confianca abaixo do limite.", "external_id": parsed["external_id"], "source": parsed["source"], "company": selected["company"], "title": selected["title"], "location": selected["location"], "modality": selected["modality"], "modality_confidence": selected.get("modality_confidence", parsed.get("modality_confidence", 0)), "contract_type": selected.get("contract_type", parsed.get("contract_type", "")), "contract_confidence": selected.get("contract_confidence", parsed.get("contract_confidence", 0)), "salary": selected["salary"], "salary_confidence": selected.get("salary_confidence", parsed.get("salary_confidence", 0)), "url": selected["url"], "description": selected["description"], "confidence": confidence, "extraction_method": method, "fetch_error": fetch_error, "extraction": {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}}
+    return {"status": "REVISAO_NECESSARIA", "message": "Confianca abaixo do limite.", "external_id": parsed["external_id"], "source": parsed["source"], "company": selected["company"], "title": selected["title"], "location": selected["location"], "modality": selected["modality"], "modality_confidence": selected.get("modality_confidence", parsed.get("modality_confidence", 0)), "contract_type": selected.get("contract_type", parsed.get("contract_type", "")), "contract_confidence": selected.get("contract_confidence", parsed.get("contract_confidence", 0)), "salary": selected["salary"], "salary_confidence": selected.get("salary_confidence", parsed.get("salary_confidence", 0)), "valid_through": selected.get("valid_through"), "url": selected["url"], "description": selected["description"], "confidence": confidence, "extraction_method": method, "fetch_error": fetch_error, "extraction": {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}}
 
 @app.post("/intake/confirm")
 def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user)):
@@ -1985,7 +2031,7 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
             except PlanLimitReachedError as exc:
                 raise HTTPException(429, str(exc)) from exc
         previous_job_signature = _job_risk_content_signature(job) if job is not None else None
-        vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "contract_type": sanitize_untrusted_text(req.contract_type, max_chars=50).strip(), "modality_confidence": req.modality_confidence, "salary_confidence": req.salary_confidence, "contract_confidence": req.contract_confidence, "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "salary_min": req.salary_min, "salary_max": req.salary_max, "url": req.url.strip()[:1000], "description": safe_description}
+        vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "contract_type": sanitize_untrusted_text(req.contract_type, max_chars=50).strip(), "modality_confidence": req.modality_confidence, "salary_confidence": req.salary_confidence, "contract_confidence": req.contract_confidence, "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "salary_min": req.salary_min, "salary_max": req.salary_max, "valid_through": req.valid_through, "url": req.url.strip()[:1000], "description": safe_description}
         if job is None:
             job = Job(owner_id=oid, external_id=ext_id, **vals); db.add(job); db.flush()
         else:
@@ -2010,7 +2056,7 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
         else:
             _apply_decision(app, c, None)
         db.commit(); db.refresh(job); db.refresh(app)
-        return {"status": "VAGA_ATUALIZADA" if updated else "VAGA_CAPTADA", "updated": updated, "job_id": job.id, "application_id": app.id, "application_status": app.status, "company": job.company, "job_title": job.title, "analysis": analysis}
+        return {"status": "VAGA_ATUALIZADA" if updated else "VAGA_CAPTADA", "updated": updated, "job_id": job.id, "application_id": app.id, "application_status": app.status, "company": job.company, "job_title": job.title, "valid_through": _job_deadline_iso(job.valid_through), "analysis": analysis}
     except: db.rollback(); raise
     finally: db.close()
 
@@ -2022,7 +2068,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "contract_type": j.contract_type, "modality_confidence": j.modality_confidence, "salary_confidence": j.salary_confidence, "contract_confidence": j.contract_confidence, "salary": j.salary, "salary_min": j.salary_min, "salary_max": j.salary_max, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": _score_percent(j.application.analysis_score) if j.application else None, "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "contract_type": j.contract_type, "modality_confidence": j.modality_confidence, "salary_confidence": j.salary_confidence, "contract_confidence": j.contract_confidence, "salary": j.salary, "salary_min": j.salary_min, "salary_max": j.salary_max, "valid_through": _job_deadline_iso(j.valid_through), "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": _score_percent(j.application.analysis_score) if j.application else None, "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")
@@ -2031,7 +2077,7 @@ def get_job_endpoint(job_id: int, user=Depends(authenticated_user)):
     try:
         job = _job_for_user(db, job_id, user)
         if job is None: raise HTTPException(404, "Vaga nao encontrada.")
-        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None}
+        return {"id": job.id, "source": job.source, "external_id": job.external_id, "company": job.company, "title": job.title, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "modality_confidence": job.modality_confidence, "salary_confidence": job.salary_confidence, "contract_confidence": job.contract_confidence, "salary": job.salary, "salary_min": job.salary_min, "salary_max": job.salary_max, "valid_through": _job_deadline_iso(job.valid_through), "url": job.url, "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None}
     finally: db.close()
 
 @app.get("/applications")
