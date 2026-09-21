@@ -2,7 +2,7 @@
 
 **Atualizado em:** 21/09/2026
 **Versão declarada da API:** 0.24.0  
-**Git e produção:** o commit `58d286a` está sincronizado com o GitHub e foi confirmado como **Live** no Render; a revisão funcional do simulador cobriu fallback local e a rota contextual.
+**Git e produção:** o commit `8c604fd` está sincronizado com o GitHub e foi confirmado como **Live** no Render; a revisão da Central de Ajuda e do simulador contextual cobriu os fluxos publicados.
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
@@ -25,11 +25,18 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 | P1.18 | Suporte ao cliente | **0% canal / 90% central de ajuda** | `/ajuda` agora cobre formatos, candidatura manual, privacidade, pagamentos avulsos e mensais, entrega de documentos e simulador; falta um endereço/canal real de atendimento definido pelo proprietário. |
 | P1.6 | Prova operacional de exclusão LGPD | **90% (estimativa)** | Código e testes estão prontos; falta executar com uma conta descartável confirmada e verificar o resultado em produção. |
 | P1.17 | Polimento visual residual | **98% (estimativa)** | Correções de candidaturas, segurança, configurações e grade responsiva dos preços estão Live; o ajuste foi conferido em prévia local. Falta a revisão residual em telas autenticadas no navegador real. |
-| P1.21 | Simulador contextual e feedback de entrevista por IA | **85% (estimativa)** | O roteiro por candidatura, feedback identificado e reinício sem contexto antigo estão Live em `58d286a`; a variável Gemini está presente no Render, mas sua validade e o fluxo Pro real ainda precisam de confirmação autenticada. |
+| P1.21 | Simulador contextual e feedback de entrevista por IA | **90% (estimativa)** | Fluxo contextual, reinício seguro, validação/limites da resposta Gemini e fallback do roteiro para dados antigos ou malformados estão Live em `58d286a`, `b7bfe46` e `8c604fd`; faltam confirmar a chave Gemini e o fluxo real numa conta Pro autenticada. |
 | P1.20 | Governança legal/proveniência de fontes | **40% (estimativa)** | Matriz de fontes pesquisada e gate deny-by-default implementado; falta autorização documentada por quadro/fonte antes de qualquer coleta automática. |
 | P1.1 | Métricas de resultado | **100% código** | Aguarda volume real suficiente; a interface evita conclusões antes do mínimo de candidaturas. |
 | P2.1–P2.6 | APIs/ATS, ingestão, workers, observabilidade e proxies/stealth condicionados | **0% integração** | Permanecem bloqueados pelo gate P1.20 e pela escolha/autorização das fontes. |
 | P2.7+ | Domínio próprio, Kanban, exportação e extensão de navegador | **0%** | Escopo de escala, depois de fechar o P1. |
+
+### Atualização operacional — 21/09/2026
+
+- `8e9b54a` ampliou a Central de Ajuda e foi confirmado **Live** no Render. A revisão em produção confirmou as respostas sobre renovação mensal/cancelamento, biblioteca/reenvio de documentos e preparação contextual para entrevista.
+- `b7bfe46` endureceu a integração Gemini: respostas acima de 64 KiB são rejeitadas antes do parse, a geração limita a saída a 2048 tokens, o score deve ser numérico/finito e todos os campos de texto/listas têm limites. `8c604fd` protege o roteiro contextual contra JSON armazenado fora do formato e limita gaps/pontos fortes. Ambos foram confirmados **Live** no Render.
+- A suíte Python executada nesta rodada passou **327 testes** (excluído somente `test_ats_registry_domains.py`, que depende de `pytest` indisponível no runtime usado); os dois testes Node do reinício/troca de contexto também passaram. Ainda falta validar o Gemini com conta Pro real autenticada; a sessão de teste aberta estava deslogada, então nenhum pagamento ou acesso de conta foi simulado.
+- O restante do P1 está corretamente separado entre bloqueios de integração/produção e decisões do proprietário: SMTP e testes de entrega (P1.10/P1.19), contratação recorrente (Start/Pro), conta descartável de exclusão LGPD (P1.6), dados legais (P1.11), canal de suporte (P1.18), revisão visual autenticada (P1.17), aprovação de fontes (P1.20) e operação/entrega editorial (e-book e consultoria).
 
 ## O que existe de fato
 
