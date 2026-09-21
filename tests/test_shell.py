@@ -55,6 +55,12 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('animation: online-pulse 1.6s ease-in-out infinite', html)
         self.assertIn('transform: scale(.78)', html)
 
+    def test_dashboard_logout_returns_to_public_homepage(self):
+        html = main_module._page(Path(main_module.DASHBOARD_PATH)).body.decode("utf-8")
+        self.assertIn('async function logout()', html)
+        self.assertIn('credentials: "same-origin"', html)
+        self.assertIn('window.location.assign("/")', html)
+
     def test_active_templates_do_not_require_inline_style_attributes(self):
         templates = [
             path for path in Path(main_module.STATIC_DIR).glob("*.html")

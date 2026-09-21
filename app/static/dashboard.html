@@ -1219,16 +1219,11 @@
     }
 
     async function logout() {
-      await fetch("/auth/logout", {method: "POST"});
-      applications = [];
-      queueItems = [];
-      selectedQueueIds.clear();
-      selectedId = null;
-      $("appShell").hidden = true;
-      $("authGate").hidden = false;
-      $("userEmail").textContent = "";
-      $("logoutButton").hidden = true;
-      showAuthMode("login");
+      try {
+        await fetch("/auth/logout", {method: "POST", credentials: "same-origin"});
+      } finally {
+        window.location.assign("/");
+      }
     }
 
     const statusLabels = {
