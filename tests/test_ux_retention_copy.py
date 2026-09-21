@@ -1,0 +1,34 @@
+import unittest
+from pathlib import Path
+
+
+STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
+
+
+class RetentionExperienceCopyTests(unittest.TestCase):
+    def test_expiring_alert_explains_why_it_is_not_available_yet(self):
+        html = (STATIC / "configuracoes.html").read_text(encoding="utf-8")
+        self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
+        self.assertIn("Aguardando validação de fontes oficiais", html)
+        self.assertIn("datas confiáveis de validade", html)
+
+    def test_document_email_tooltip_is_accessible_and_touch_friendly(self):
+        html = (STATIC / "curriculos.html").read_text(encoding="utf-8")
+        self.assertIn("delivery-info-wrap:hover .delivery-tooltip", html)
+        self.assertIn("aria-describedby',tooltipId", html)
+        self.assertIn("aria-expanded','false", html)
+        self.assertIn("help.classList.toggle('is-open')", html)
+        self.assertIn("Seu documento está salvo na biblioteca privada", html)
+        self.assertIn("O envio por e-mail ainda depende da configuração do serviço", html)
+
+    def test_terms_disclose_sixty_day_raw_message_retention(self):
+        html = (STATIC / "termos.html").read_text(encoding="utf-8")
+        self.assertIn("9. Retenção de mensagens e alertas", html)
+        self.assertIn("mensagens brutas de e-mail processadas", html)
+        self.assertIn("trechos originais dos alertas", html)
+        self.assertIn("após 60 dias", html)
+        self.assertIn("histórico de decisões e candidaturas podem permanecer", html)
+
+
+if __name__ == "__main__":
+    unittest.main()
