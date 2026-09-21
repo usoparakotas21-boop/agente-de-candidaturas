@@ -48,7 +48,7 @@ PWNED_PASSWORD_TIMEOUT = 4.0
 # Keep the legal text versioned so each signup records exactly what the user
 # accepted.  A future policy change can bump these values without changing the
 # authentication contract.
-TERMS_VERSION = "2026-09-20"
+TERMS_VERSION = "2026-09-21"
 PRIVACY_VERSION = "2026-09-20"
 logger = logging.getLogger(__name__)
 
