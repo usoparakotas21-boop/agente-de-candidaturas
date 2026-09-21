@@ -734,8 +734,26 @@ def interview_prep(app_id: int, user=Depends(authenticated_user)):
                 analysis = json.loads(application.analysis_data)
             except (TypeError, ValueError):
                 analysis = {}
-        gaps = [str(value) for value in (analysis.get("gaps") or []) if str(value).strip()][:6]
-        strengths = [str(value) for value in (analysis.get("strengths") or []) if str(value).strip()][:6]
+        if not isinstance(analysis, dict):
+            analysis = {}
+
+        def bounded_items(key: str) -> list[str]:
+            values = analysis.get(key)
+            if not isinstance(values, list):
+                return []
+            result: list[str] = []
+            for value in values:
+                if not isinstance(value, str):
+                    continue
+                cleaned = value.strip()[:300]
+                if cleaned:
+                    result.append(cleaned)
+                if len(result) >= 6:
+                    break
+            return result
+
+        gaps = bounded_items("gaps")
+        strengths = bounded_items("strengths")
         questions = [
             f"Conte uma situação em que você aplicou {gap} e qual foi o resultado."
             for gap in gaps

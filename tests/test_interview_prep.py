@@ -57,6 +57,39 @@ class InterviewPrepTest(unittest.TestCase):
 
         self.assertEqual(raised.exception.status_code, 404)
 
+    def _set_analysis_data(self, value):
+        db = self.session_factory()
+        try:
+            application = db.get(Application, self.application_id)
+            application.analysis_data = value
+            db.commit()
+        finally:
+            db.close()
+
+    def test_malformed_analysis_shapes_fall_back_to_general_questions(self):
+        for raw_analysis in ("[\"unexpected\"]", "{invalid json"):
+            with self.subTest(analysis=raw_analysis):
+                self._set_analysis_data(raw_analysis)
+                with patch.object(main_module, "SessionLocal", self.session_factory):
+                    result = main_module.interview_prep(self.application_id, {"id": "owner-a"})
+
+                self.assertEqual(result["gaps"], [])
+                self.assertEqual(result["strengths"], [])
+                self.assertEqual(len(result["questions"]), 3)
+
+    def test_analysis_fields_are_normalized_and_bounded(self):
+        self._set_analysis_data(json.dumps({
+            "gaps": "not a list",
+            "strengths": ["  " + "S" * 400, 23, "Força concreta"],
+        }))
+
+        with patch.object(main_module, "SessionLocal", self.session_factory):
+            result = main_module.interview_prep(self.application_id, {"id": "owner-a"})
+
+        self.assertEqual(result["gaps"], [])
+        self.assertEqual(result["strengths"], ["S" * 300, "Força concreta"])
+        self.assertEqual(len(result["questions"]), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
