@@ -6,6 +6,8 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
+    domains:
+      - candidaturacerta.com.br
     envVars:
       - key: AUTH_REQUIRED
         value: "true"
