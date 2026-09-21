@@ -1,6 +1,8 @@
-# Candidatura Certa — preparação automática de candidaturas no Chrome
+# Candidatura Certa — preparação assistida de candidaturas no Chrome
 
 O complemento prepara formulários de candidatura numa página HTTPS que a própria pessoa abriu. Depois de confirmar que o portal permite preenchimento assistido, marcar a autorização daquela página e clicar em **Preencher campos reconhecidos**, ele completa campos de texto conhecidos e seleciona cidade/estado apenas quando há uma opção exatamente compatível com o perfil. Os campos precisam estar vazios. Depois, a pessoa revisa as respostas e conclui o envio no portal.
+
+O complemento bloqueia páginas do LinkedIn (`linkedin.com` e `linkedin.cn`), Jobbol (`jobbol.com.br`) e Glassdoor (`glassdoor.com`), cujas regras oficiais restringem as extensões ou agentes automatizados. Se a vaga encaminhar para o portal de carreiras do empregador ou para outro ATS, use o complemento somente se esse destino permitir preenchimento assistido.
 
 O complemento não envia formulários, não faz login, não clica em botões do portal, não abre currículos/arquivos do computador (lê apenas o JSON de perfil que você escolhe importar), não acessa páginas em segundo plano e não tenta resolver CAPTCHA nem contornar limites ou controles. Ele ignora arquivos, consentimentos, elegibilidade, pretensão salarial e respostas abertas. Use apenas em portais que permitam preenchimento assistido; se aparecer uma verificação ou uma regra contra automação, pare e continue manualmente.
 

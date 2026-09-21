@@ -1,12 +1,14 @@
 (() => {
   const PROFILE_KEY = "ccAutofillProfileV1";
   const MAX_FILE_BYTES = 1_000_000;
+  const automationPolicy = globalThis.CandidaturaCertaAutomationPolicy;
   const $ = id => document.getElementById(id);
   const state = $("profileState");
   const fillButton = $("fillButton");
   const clearButton = $("clearButton");
   const consent = $("pageConsent");
   let savedProfile = null;
+  let activePageUrl = "";
   const fieldLabels = {
     name: "nome", first_name: "primeiro nome", last_name: "sobrenome", email: "e-mail", phone: "telefone",
     linkedin: "LinkedIn", website: "site/portfólio", location: "localização", city: "cidade", state: "estado",
@@ -49,8 +51,27 @@
   function updateProfileState(profile) {
     savedProfile = profile || null;
     state.textContent = profile ? (profile.name || profile.email || "Perfil importado") : "Nenhum perfil importado";
-    fillButton.disabled = !profile || !consent.checked;
+    const restricted = isActivePageRestricted();
+    consent.disabled = restricted;
+    fillButton.disabled = !profile || !consent.checked || restricted;
     clearButton.disabled = !profile;
+    if (restricted) message(restrictedPageMessage(), "error");
+  }
+
+  function restrictedPageMessage() {
+    try {
+      return automationPolicy.restrictedMessageFor(new URL(activePageUrl).hostname);
+    } catch {
+      return "Este portal restringe automação de terceiros. Nada foi acessado ou preenchido.";
+    }
+  }
+
+  function isActivePageRestricted() {
+    try {
+      return automationPolicy.isRestrictedAutomationHost(new URL(activePageUrl).hostname);
+    } catch {
+      return false;
+    }
   }
 
   async function loadProfile() {
@@ -62,8 +83,10 @@
 
   chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
     let host = "Página indisponível";
-    try { host = new URL(tab?.url || "").hostname || host; } catch { /* páginas internas não têm host HTTPS */ }
+    activePageUrl = tab?.url || "";
+    try { host = new URL(activePageUrl).hostname || host; } catch { /* páginas internas não têm host HTTPS */ }
     $("activePage").textContent = `Página ativa: ${host}`;
+    updateProfileState(savedProfile);
   }).catch(() => { $("activePage").textContent = "Não foi possível identificar a página ativa."; });
 
   $("profileFile").addEventListener("change", async event => {
@@ -83,9 +106,13 @@
     }
   });
 
-  consent.addEventListener("change", () => { fillButton.disabled = !savedProfile || !consent.checked; });
+  consent.addEventListener("change", () => { fillButton.disabled = !savedProfile || !consent.checked || isActivePageRestricted(); });
 
   fillButton.addEventListener("click", async () => {
+    if (isActivePageRestricted()) {
+      message(restrictedPageMessage(), "error");
+      return;
+    }
     if (!savedProfile || !consent.checked) return;
     fillButton.disabled = true;
     message("Analisando apenas os campos visíveis desta aba…");
@@ -101,7 +128,7 @@
     } catch (error) {
       message(error instanceof Error ? error.message : "O Chrome bloqueou o preenchimento desta página.", "error");
     } finally {
-      fillButton.disabled = !savedProfile || !consent.checked;
+      fillButton.disabled = !savedProfile || !consent.checked || isActivePageRestricted();
     }
   });
 

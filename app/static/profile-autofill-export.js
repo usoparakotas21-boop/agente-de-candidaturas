@@ -11,11 +11,11 @@
   card.className = "card";
   card.setAttribute("aria-labelledby", "browser-assistant-title");
   card.innerHTML = `
-    <h2 id="browser-assistant-title">Preparação automática da candidatura no navegador</h2>
+    <h2 id="browser-assistant-title">Preparação da candidatura no navegador</h2>
     <p>O complemento preenche dados do seu perfil e cidade/estado quando encontra opções compatíveis. Você confere as respostas e conclui o envio no portal.</p>
-    <div class="tip cc-assistant-note">O complemento não envia candidaturas, não faz login, não resolve CAPTCHA e não contorna regras do portal. Use somente onde o preenchimento assistido for permitido. Seus dados ficam no perfil local do Chrome e não são enviados pelo complemento.</div>
+    <div class="tip cc-assistant-note">O complemento não envia candidaturas, não faz login, não resolve CAPTCHA e não contorna regras do portal. Ele bloqueia LinkedIn, Jobbol e Glassdoor, cujas regras restringem automação de terceiros. Em outros portais, use somente onde o preenchimento assistido for permitido. Seus dados ficam no perfil local do Chrome e não são enviados pelo complemento.</div>
     <div class="actions cc-assistant-actions">
-      <a class="secondary" href="/static/candidatura-certa-autopreenchimento.zip?v=2" download>Baixar complemento para Chrome</a>
+      <a class="secondary" href="/static/candidatura-certa-autopreenchimento.zip?v=3" download>Baixar complemento para Chrome</a>
       <button class="primary" type="button" id="exportBrowserProfile">Exportar meu perfil para o complemento</button>
     </div>
     <p id="browserProfileExportStatus" class="status cc-assistant-status" role="status" aria-live="polite"></p>

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createFillPlan } = require("../chrome-extension/field-filler.js");
+const { isRestrictedAutomationHost } = require("../chrome-extension/automation-policy.js");
 
 const profile = {
   name: "Ana Beatriz Souza",
@@ -77,12 +78,24 @@ test("não corta silenciosamente respostas para caber no limite do portal", () =
   assert.deepEqual(createFillPlan(descriptors, profile), []);
 });
 
+test("bloqueia portais que restringem automação e deixa o portal do empregador disponível", () => {
+  assert.equal(isRestrictedAutomationHost("linkedin.com"), true);
+  assert.equal(isRestrictedAutomationHost("www.linkedin.com"), true);
+  assert.equal(isRestrictedAutomationHost("jobs.linkedin.cn"), true);
+  assert.equal(isRestrictedAutomationHost("candidatos.jobbol.com.br"), true);
+  assert.equal(isRestrictedAutomationHost("www.glassdoor.com"), true);
+  assert.equal(isRestrictedAutomationHost("linkedin.com.example.org"), false);
+  assert.equal(isRestrictedAutomationHost("glassdoor.com.example.org"), false);
+  assert.equal(isRestrictedAutomationHost("careers.example.org"), false);
+});
+
 test("complemento não pede acesso permanente a sites nem dispara envio ou rede", () => {
   const root = path.resolve(__dirname, "../chrome-extension");
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   const filler = fs.readFileSync(path.join(root, "field-filler.js"), "utf8");
   const popup = fs.readFileSync(path.join(root, "popup.js"), "utf8");
   const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+  const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "scripting", "storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined);
@@ -92,4 +105,7 @@ test("complemento não pede acesso permanente a sites nem dispara envio ou rede"
   assert.ok(popup.includes("https:"));
   assert.ok(!popup.includes("https?:"));
   assert.match(popupHtml, /vou revisar tudo antes de enviar/i);
+  assert.match(popupHtml, /automation-policy\.js/);
+  assert.match(policy, /linkedin\.com/);
+  assert.match(popup, /isActivePageRestricted/);
 });
