@@ -6,3 +6,4 @@
 @media(max-width:520px){.cc-support-launcher{right:14px;bottom:14px;min-height:54px;padding-right:14px}.cc-support-panel{right:10px;bottom:78px;width:calc(100vw - 20px);height:min(590px,calc(100dvh - 96px));min-height:330px}}
 @media(prefers-reduced-motion:reduce){.cc-support-launcher{transition:none}}
 .cc-support-links{flex-wrap:wrap;gap:6px 8px}
+.cc-support-safe-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}

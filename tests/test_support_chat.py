@@ -161,7 +161,8 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=2", landing)
+        self.assertIn("/static/support-chat.js?v=3", landing)
+        self.assertIn('class="cc-support-safe-footer"', landing)
         self.assertNotIn("CANDIDATURA_CERTA_DEMO_VIDEO", landing)
         self.assertNotIn('id="demonstracao"', landing)
 
@@ -180,7 +181,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
     def test_authenticated_shell_has_widget(self):
         dashboard = main._page(main.DASHBOARD_PATH).body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=2", dashboard)
+        self.assertIn("/static/support-chat.js?v=3", dashboard)
 
     def test_widget_shows_accessible_common_question_shortcuts_without_html_injection(self):
         widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
@@ -191,6 +192,12 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("form.requestSubmit()", widget)
         self.assertIn("textContent", widget)
         self.assertNotIn("innerHTML", widget)
+
+    def test_support_chat_reserves_space_below_public_footer(self):
+        css = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.css").read_text(encoding="utf-8")
+        widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
+        self.assertIn(".cc-support-safe-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}", css)
+        self.assertIn("/static/support-chat.css?v=3", widget)
 
 
 if __name__ == "__main__":

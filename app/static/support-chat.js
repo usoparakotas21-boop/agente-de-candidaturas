@@ -4,7 +4,7 @@
 
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "/static/support-chat.css?v=2";
+  stylesheet.href = "/static/support-chat.css?v=3";
   document.head.append(stylesheet);
 
   const make = (tag, className, text) => {
