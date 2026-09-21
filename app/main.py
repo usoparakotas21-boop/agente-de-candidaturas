@@ -1753,6 +1753,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
         (DocumentDelivery, DocumentDelivery.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),
+        (BillingSubscription, BillingSubscription.owner_id),
         (ProcessedEmailMessage, ProcessedEmailMessage.owner_id),
         (EmailIntegration, EmailIntegration.owner_id),
         (QueueItem, QueueItem.owner_id),
@@ -1929,12 +1930,17 @@ def retry_document_delivery(
         db.close()
 
 
-async def _delete_supabase_auth_user(request: Request, user: dict) -> None:
+def _supabase_auth_delete_config(user: dict) -> tuple[str, str, str]:
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
     user_id = str(user.get("id") or "").strip()
     if not service_key or not supabase_url or not user_id:
         raise HTTPException(503, "A exclusao definitiva ainda nao esta configurada no servidor.")
+    return supabase_url, service_key, user_id
+
+
+async def _delete_supabase_auth_user(request: Request, user: dict) -> None:
+    supabase_url, service_key, user_id = _supabase_auth_delete_config(user)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.delete(
@@ -1943,7 +1949,10 @@ async def _delete_supabase_auth_user(request: Request, user: dict) -> None:
             )
     except httpx.HTTPError as exc:
         raise HTTPException(503, "Nao foi possivel confirmar a exclusao no provedor de autenticacao.") from exc
-    if response.status_code not in {200, 204}:
+    # A previous attempt may already have removed the identity while its
+    # response was lost. Treating 404 as success makes the final step safely
+    # retryable without touching any other account.
+    if response.status_code not in {200, 204, 404}:
         logger.warning("Supabase recusou exclusao de conta status=%s", response.status_code)
         raise HTTPException(503, "Nao foi possivel confirmar a exclusao no provedor de autenticacao.")
 
@@ -1959,12 +1968,30 @@ async def delete_account(
     owner_id = _owner_id(user)
     if not owner_id:
         raise HTTPException(401, "Login necessario.")
+    # Catch missing server configuration before irreversibly purging local
+    # records. Network/provider errors after commit remain explicitly retryable.
+    _supabase_auth_delete_config(user)
 
     db = SessionLocal()
     paths: list[Path] = []
     try:
         paths = _delete_local_owner_data(db, owner_id)
-        await _delete_supabase_auth_user(request, user)
+        # Remove legacy filesystem copies while the Auth identity is intact.
+        # A failure aborts the database transaction so the caller can retry
+        # without losing access to the account.
+        for path in set(paths):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning("Nao foi possivel remover documento privado durante exclusao: %s", path.name)
+                raise HTTPException(
+                    503,
+                    "Nao foi possivel remover todos os arquivos privados da conta. Os dados e o acesso foram preservados; tente novamente.",
+                ) from exc
+        # Commit the local purge before deleting the identity-provider account.
+        # If the database commit fails, Supabase Auth remains intact; deleting
+        # Auth first could leave committed personal data with no account able
+        # to access or request its removal.
         db.commit()
     except HTTPException:
         db.rollback()
@@ -1976,11 +2003,23 @@ async def delete_account(
     finally:
         db.close()
 
-    for path in set(paths):
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            logger.warning("Nao foi possivel remover documento privado apos exclusao: %s", path.name)
+    # The local personal data is already durably removed. Provider failures
+    # are retryable and cannot roll back the database or strand local records
+    # behind a deleted Auth identity.
+    try:
+        await _delete_supabase_auth_user(request, user)
+    except HTTPException as exc:
+        raise HTTPException(
+            503,
+            "Os dados locais foram excluidos, mas nao foi possivel confirmar a remocao da conta no provedor de autenticacao. Os dados locais nao serao restaurados; tente novamente para concluir.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Falha ao encerrar identidade apos exclusao dos dados locais")
+        raise HTTPException(
+            503,
+            "Os dados locais foram excluidos, mas nao foi possivel confirmar a remocao da conta no provedor de autenticacao. Os dados locais nao serao restaurados; tente novamente para concluir.",
+        ) from exc
+
     response = JSONResponse({"deleted": True, "message": "Conta e dados excluidos."})
     response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
     response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
