@@ -19,7 +19,11 @@ from .text_sanitization import sanitize_untrusted_text
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["suporte"])
 
-MODEL = os.getenv("GEMINI_SUPPORT_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+MODEL = (
+    os.getenv("GEMINI_SUPPORT_MODEL", "").strip()
+    or os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
+    or "gemini-3.6-flash"
+)
 MAX_RESPONSE_BYTES = 16 * 1024
 ALLOWED_TOPICS = (
     "greeting",

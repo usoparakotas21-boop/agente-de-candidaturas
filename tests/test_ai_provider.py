@@ -10,6 +10,7 @@ from app import ai_provider
 class _FakeGeminiClient:
     raw_result = {"score": 80, "title": "Boa resposta", "strengths": ["Clareza"], "improvements": ["Detalhar o resultado"], "rewritten": "Uma resposta melhor", "next_tip": "Use um exemplo concreto."}
     raw_body = None
+    last_url = None
 
     def __init__(self, *, timeout):
         pass
@@ -21,6 +22,7 @@ class _FakeGeminiClient:
         return False
 
     async def post(self, url, *, params, json):
+        type(self).last_url = url
         if self.raw_body is not None:
             return httpx.Response(200, content=self.raw_body)
         return httpx.Response(
@@ -63,6 +65,8 @@ class AiProviderResponseContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["improvements"], [])
         self.assertEqual(len(result["rewritten"]), 4000)
         self.assertEqual(len(result["next_tip"]), 500)
+        self.assertEqual(result["provider"], "gemini-3.6-flash")
+        self.assertIn("/models/gemini-3.6-flash:generateContent", _FakeGeminiClient.last_url)
 
     async def test_non_object_result_is_controlled_provider_error(self):
         _FakeGeminiClient.raw_result = ["unexpected", "array"]

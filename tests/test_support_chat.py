@@ -48,6 +48,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(topic, "plans")
         request = _FakeGeminiClient.last_request
+        self.assertIn("/models/gemini-3.6-flash:generateContent", request["url"])
         self.assertEqual(request["headers"]["x-goog-api-key"], "test-secret")
         self.assertNotIn("test-secret", request["url"])
         schema = request["json"]["generationConfig"]["responseSchema"]
