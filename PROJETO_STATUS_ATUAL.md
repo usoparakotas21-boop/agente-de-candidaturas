@@ -2,7 +2,7 @@
 
 **Atualizado em:** 21/09/2026
 **Versão declarada da API:** 0.24.0  
-**Git e produção:** o commit `8c604fd` está sincronizado com o GitHub e foi confirmado como **Live** no Render; a revisão da Central de Ajuda e do simulador contextual cobriu os fluxos publicados.
+**Git e produção:** o deploy mais recente (`deda189`, documentação) está **Live** no Render; a última alteração funcional (`8c604fd`, proteção do simulador contextual) também está sincronizada e publicada. A Central de Ajuda e os fluxos do simulador foram revisados em produção.
 **Produção:** `https://agente-de-candidaturas.onrender.com`  
 **Repositório:** `usoparakotas21-boop/agente-de-candidaturas`  
 **Diretório local:** `C:\agente_curriculos`
