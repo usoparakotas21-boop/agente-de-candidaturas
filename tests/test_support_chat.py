@@ -120,6 +120,19 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("até 500", response.json()["answer"])
 
+    def test_public_route_accepts_question_field_from_integration_example(self):
+        app = FastAPI()
+        app.include_router(support_chat.router)
+        with (
+            patch.object(support_chat, "_enforce_rate_limit"),
+            patch.object(support_chat, "classify_support_topic", new=AsyncMock(return_value="contact")),
+            TestClient(app) as client,
+        ):
+            response = client.post("/api/support-chat", json={"question": "Como falo com o suporte?"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("(71) 99182-4951", response.json()["answer"])
+
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")

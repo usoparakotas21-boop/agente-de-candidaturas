@@ -115,7 +115,10 @@ def _safe_provider_error(response: httpx.Response) -> str:
 
 
 class SupportChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=1200)
+    # Keep the existing widget contract and accept the `question` field used
+    # by the integration example, so both clients can call the same endpoint.
+    message: str | None = Field(default=None, max_length=1200)
+    question: str | None = Field(default=None, max_length=1200)
 
 
 async def classify_support_topic(message: str) -> str:
@@ -212,7 +215,8 @@ async def support_chat(request_body: SupportChatRequest, request: Request):
     account_id = str(user.get("id") or "") if isinstance(user, dict) else ""
     _enforce_rate_limit(request, "support-chat", account_id)
 
-    cleaned = sanitize_untrusted_text(request_body.message, max_chars=1200).strip()
+    raw_message = request_body.message or request_body.question or ""
+    cleaned = sanitize_untrusted_text(raw_message, max_chars=1200).strip()
     if not cleaned:
         raise HTTPException(422, "Escreva uma dúvida para continuar.")
     try:
