@@ -1,12 +1,19 @@
 import base64
 import unittest
+from unittest.mock import patch
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.gmail_monitor import (
     _capture_source,
     _message_content,
     _message_source_ref,
     _source_for,
+    sync_integration,
 )
+from app.database import Base
+from app.models import EmailIntegration, ProcessedEmailMessage, QueueItem
 from app.job_quality import split_job_alert
 
 
@@ -102,6 +109,71 @@ class GmailMonitorContentTest(unittest.TestCase):
         parsed = _message_content(message)
         self.assertNotIn("mj-outlook", parsed["content"])
         self.assertIn("Analista de Recursos Humanos", parsed["content"])
+
+
+class GmailQuotaGateTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.session_factory = sessionmaker(bind=self.engine, autoflush=False)
+        with self.session_factory() as db:
+            for index in range(30):
+                db.add(
+                    QueueItem(
+                        owner_id="free-owner",
+                        source="gmail",
+                        decision="REVISAR",
+                        decision_engine_version="test",
+                        dedup_hash=f"{index:064x}",
+                    )
+                )
+            db.commit()
+
+    def tearDown(self):
+        self.engine.dispose()
+
+    async def test_full_monthly_allowance_defers_mail_without_marking_it_processed(self):
+        integration = EmailIntegration(
+            id=1,
+            owner_id="free-owner",
+            provider="gmail",
+            email="candidate@example.com",
+            encrypted_refresh_token="encrypted",
+            scopes="gmail.readonly",
+        )
+        fetched = False
+
+        async def list_ids(_access_token):
+            return ["message-pending-for-next-month"]
+
+        async def get_message(_access_token, _message_id):
+            nonlocal fetched
+            fetched = True
+            return {}
+
+        with patch("app.gmail_monitor.SessionLocal", self.session_factory):
+            result = await sync_integration(
+                integration,
+                access_token="test-token",
+                list_message_ids=list_ids,
+                get_message=get_message,
+            )
+
+        self.assertEqual(result["limit_reached"], 1)
+        self.assertFalse(fetched)
+        with self.session_factory() as db:
+            self.assertIsNone(
+                db.scalar(
+                    select(ProcessedEmailMessage).where(
+                        ProcessedEmailMessage.provider_message_id
+                        == "message-pending-for-next-month"
+                    )
+                )
+            )
 
 
 if __name__ == "__main__":

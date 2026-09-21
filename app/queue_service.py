@@ -17,6 +17,7 @@ from app.models import (
     QueueItem,
 )
 from app.decision_reasons import get_reason_label
+from app.plan_limits import ensure_opportunity_capacity
 
 
 class QueueRiskBlockedError(ValueError):
@@ -112,6 +113,8 @@ def enqueue(
         existing.last_seen_at = utc_now()
         session.commit()
         return existing, False
+
+    ensure_opportunity_capacity(session, effective_owner_id)
 
     # Criar novo item
     item = QueueItem(

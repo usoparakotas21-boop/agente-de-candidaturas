@@ -51,6 +51,12 @@ from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
 from .queue_service import enqueue
+from .plan_limits import (
+    MONTHLY_OPPORTUNITY_LIMITS,
+    PlanLimitReachedError,
+    ensure_opportunity_capacity,
+    monthly_opportunity_usage,
+)
 from .ai_provider import AIProviderError, evaluate_interview_answer
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
@@ -395,8 +401,8 @@ def _document_export_price() -> str:
 
 
 SUBSCRIPTION_PLANS: dict[str, dict[str, Any]] = {
-    "start": {"name": "Start", "amount": 3490},
-    "pro": {"name": "Pro", "amount": 9900},
+    "start": {"name": "Start", "amount": 3490, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
+    "pro": {"name": "Pro", "amount": 9900, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["pro"]},
 }
 _SUBSCRIPTION_CHECKOUT_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
@@ -1591,6 +1597,10 @@ def create_job(req: JobCreateRequest, user=Depends(authenticated_user)):
         oid = _owner_id(user)
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         if db.scalar(select(Job).where(Job.external_id == ext_id)): raise HTTPException(409, "Vaga ja cadastrada.")
+        try:
+            ensure_opportunity_capacity(db, oid)
+        except PlanLimitReachedError as exc:
+            raise HTTPException(429, str(exc)) from exc
         data = req.model_dump(); data["external_id"] = ext_id
         for field, limit in (("source", 50), ("company", 200), ("title", 200), ("location", 200), ("modality", 50), ("contract_type", 50), ("salary", 100), ("description", 80_000)):
             data[field] = sanitize_untrusted_text(data.get(field, ""), max_chars=limit).strip()
@@ -1748,6 +1758,9 @@ def intake_text(req: JobIntakeRequest, user=Depends(authenticated_user)):
         "salary_confidence": parsed.get("salary_confidence", 0),
         "url": parsed.get("url"),
         }
+    except PlanLimitReachedError as exc:
+        db.rollback()
+        raise HTTPException(429, str(exc)) from exc
     except Exception:
         db.rollback()
         raise
@@ -1824,6 +1837,11 @@ def confirm_intake(req: JobIntakeConfirmRequest, user=Depends(authenticated_user
         ext_id = f"{oid}:{req.external_id}" if oid else req.external_id
         job = db.scalar(select(Job).where(Job.external_id == ext_id))
         updated = job is not None
+        if job is None:
+            try:
+                ensure_opportunity_capacity(db, oid)
+            except PlanLimitReachedError as exc:
+                raise HTTPException(429, str(exc)) from exc
         previous_job_signature = _job_risk_content_signature(job) if job is not None else None
         vals = {"source": sanitize_untrusted_text(req.source, max_chars=50).strip(), "company": sanitize_untrusted_text(req.company, max_chars=200).strip(), "title": sanitize_untrusted_text(req.title, max_chars=200).strip(), "location": sanitize_untrusted_text(req.location, max_chars=200).strip(), "modality": sanitize_untrusted_text(req.modality, max_chars=50).strip(), "contract_type": sanitize_untrusted_text(req.contract_type, max_chars=50).strip(), "modality_confidence": req.modality_confidence, "salary_confidence": req.salary_confidence, "contract_confidence": req.contract_confidence, "salary": sanitize_untrusted_text(req.salary, max_chars=100).strip(), "salary_min": req.salary_min, "salary_max": req.salary_max, "url": req.url.strip()[:1000], "description": safe_description}
         if job is None:
@@ -3511,6 +3529,7 @@ def get_current_subscription(user=Depends(authenticated_user)):
         raise HTTPException(401, "Login necessário.")
     db = SessionLocal()
     try:
+        opportunity_usage = monthly_opportunity_usage(db, owner_id)
         subscription = db.scalar(
             select(BillingSubscription)
             .where(BillingSubscription.owner_id == owner_id)
@@ -3518,7 +3537,18 @@ def get_current_subscription(user=Depends(authenticated_user)):
             .limit(1)
         )
         if subscription is None:
-            return {"plan_code": "essential", "status": "free", "active": False}
+            return {
+                "plan_code": "essential",
+                "plan_name": "Essencial",
+                "status": "free",
+                "active": False,
+                "opportunities": {
+                    "used": opportunity_usage["used"],
+                    "limit": opportunity_usage["limit"],
+                    "remaining": opportunity_usage["remaining"],
+                    "resets_at": opportunity_usage["resets_at"].isoformat(),
+                },
+            }
         plan = SUBSCRIPTION_PLANS.get(subscription.plan_code, {})
         return {
             "plan_code": subscription.plan_code,
@@ -3530,6 +3560,12 @@ def get_current_subscription(user=Depends(authenticated_user)):
             "next_payment_at": subscription.next_payment_at.isoformat() if subscription.next_payment_at else None,
             "access_until": subscription.access_until.isoformat() if subscription.access_until else None,
             "can_cancel": bool(subscription.mercadopago_preapproval_id and subscription.status in {"pending", "authorized", "paused"}),
+            "opportunities": {
+                "used": opportunity_usage["used"],
+                "limit": opportunity_usage["limit"],
+                "remaining": opportunity_usage["remaining"],
+                "resets_at": opportunity_usage["resets_at"].isoformat(),
+            },
         }
     finally:
         db.close()

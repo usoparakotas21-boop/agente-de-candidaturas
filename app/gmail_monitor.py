@@ -33,6 +33,7 @@ from .job_quality import (
     split_job_alert,
 )
 from .models import EmailIntegration, ProcessedEmailMessage
+from .plan_limits import PlanLimitReachedError, monthly_opportunity_usage
 from .queue_service import enqueue
 from .text_sanitization import sanitize_untrusted_text
 
@@ -391,7 +392,22 @@ async def sync_integration(
         "ignored": 0,
         "errors": 0,
         "queue": 0,
+        "limit_reached": 0,
     }
+
+    unprocessed = [message_id for message_id in message_ids if message_id not in processed]
+    if unprocessed:
+        quota_db = SessionLocal()
+        try:
+            usage = monthly_opportunity_usage(quota_db, integration.owner_id)
+        finally:
+            quota_db.close()
+        if usage["used"] >= usage["limit"]:
+            # Defer remaining messages without fetching/marking them, so they
+            # can be processed when the next allowance begins.
+            counters["new"] = len(unprocessed)
+            counters["limit_reached"] = len(unprocessed)
+            return counters
 
     for message_id in reversed(message_ids):
         if message_id in processed:
@@ -514,6 +530,12 @@ async def sync_integration(
                     else:
                         message_duplicates += 1
                         
+                except PlanLimitReachedError:
+                    db.rollback()
+                    counters["limit_reached"] += 1
+                    # Keep this message unrecorded so it can be captured after
+                    # the user's allowance renews or the plan changes.
+                    return counters
                 except Exception as exc:
                     db.rollback()
                     logger.error("Erro ao enfileirar vaga: %s", exc)

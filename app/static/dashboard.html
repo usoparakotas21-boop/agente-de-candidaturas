@@ -1076,7 +1076,8 @@
         toast(
           `${payload.captured} vaga(s) capturada(s), ${payload.review || 0} para revisar, ` +
           `${payload.duplicate} repetida(s) e ${payload.ignored} ignorada(s) ` +
-          `(de ${payload.found || 0} e-mail(s) encontrados).`
+          `(de ${payload.found || 0} e-mail(s) encontrados).` +
+          (payload.limit_reached ? " Limite mensal atingido; os alertas restantes poderão ser processados quando houver novas vagas disponíveis no plano." : "")
         );
       } catch (error) {
         toast(error.message);
