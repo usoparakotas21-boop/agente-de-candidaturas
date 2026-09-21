@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Confirme seu e-mail · Agente de Candidaturas</title>
+  <title>Confirme seu e-mail · Candidatura Certa</title>
   <style>
     :root { color-scheme: light; --navy:#10234f; --blue:#4f5bea; --muted:#60708b; --line:#dce4f2; --paper:#f6f8fc; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; color:var(--navy); background:var(--paper); font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
     main { width:min(100%,520px); padding:34px; border:1px solid var(--line); border-radius:20px; background:#fff; box-shadow:0 18px 50px rgba(16,35,79,.10); }
-    .mark { width:44px; height:44px; display:grid; place-items:center; border-radius:13px; color:#fff; background:var(--blue); font-weight:850; }
+    .mark { display:block; width:44px; height:44px; border-radius:50%; object-fit:cover; }
     h1 { margin:22px 0 8px; font-size:clamp(25px,5vw,34px); line-height:1.1; }
     p { margin:10px 0; color:var(--muted); }
     form { display:grid; gap:10px; margin-top:22px; }
@@ -26,7 +26,7 @@
 </head>
 <body>
   <main>
-    <div class="mark" aria-hidden="true">AC</div>
+    <img class="mark" src="/static/favicon.svg" alt="Candidatura Certa" width="44" height="44">
     <h1>Confirme seu e-mail</h1>
     <p>Para entrar no painel, abra o link enviado para o seu e-mail. A confirmação protege sua conta e evita acessos indevidos.</p>
     <form id="confirmationForm">

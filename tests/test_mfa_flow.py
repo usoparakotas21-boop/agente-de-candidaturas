@@ -264,7 +264,7 @@ class MfaFlowTest(unittest.IsolatedAsyncioTestCase):
                 "id": "factor-1",
                 "factor_type": "totp",
                 "status": "verified",
-                "friendly_name": "Agente de Candidaturas",
+                "friendly_name": "Candidatura Certa",
             }]},
         )
 

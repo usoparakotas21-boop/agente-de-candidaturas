@@ -336,7 +336,7 @@ def _render_digest_message(sender: str, recipient: str, owner_id: str, period_ke
     message["From"] = sender
     message["To"] = recipient
     digest_id = hashlib.sha256(f"{owner_id}:{period_key}".encode("utf-8")).hexdigest()[:32]
-    message["Message-ID"] = f"<followup-{digest_id}@agente-de-candidaturas>"
+    message["Message-ID"] = f"<followup-{digest_id}@candidaturacerta.com.br>"
     lines = [
         "Olá! Estas candidaturas estão há pelo menos 7 dias sem retorno:",
         "",

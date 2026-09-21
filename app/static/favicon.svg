@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AC">
-  <rect width="64" height="64" rx="16" fill="#092f56"/>
-  <text x="32" y="42" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" letter-spacing="-1">AC</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Candidatura Certa"><circle cx="32" cy="32" r="32" fill="#103b66"/><path d="M20 12h16l9 9v30H20z" fill="#fff"/><path d="M36 12v10h9" fill="#cfe5ff"/><path d="M26 29h13M26 35h9" fill="none" stroke="#3978bd" stroke-linecap="round" stroke-width="2.5"/><circle cx="44" cy="45" r="11" fill="#54ddbb"/><path d="m39 45 3.4 3.5 6.7-7" fill="none" stroke="#103b66" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.7"/></svg>

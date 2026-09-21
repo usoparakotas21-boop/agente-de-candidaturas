@@ -54,7 +54,7 @@ from .queue_service import enqueue
 from .ai_provider import AIProviderError, evaluate_interview_answer
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
-app = FastAPI(title="Agente de Candidaturas", version="0.24.0")
+app = FastAPI(title="Candidatura Certa", version="0.24.0")
 logger = logging.getLogger(__name__)
 
 
@@ -338,7 +338,7 @@ def _page(path: Path) -> HTMLResponse:
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
         html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">Não conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">Não conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
-    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-nav a:hover{text-decoration:underline}.global-status{display:inline-flex;align-items:center;gap:6px;color:#b9f1d2;font-size:11px;white-space:nowrap}.global-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#58d68d;animation:global-online-pulse 2s ease-in-out infinite}.global-logout{margin:0}.global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}.global-logout button:hover{background:#ffffff18}.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}.breadcrumbs a{color:#3975a8;text-decoration:none}@keyframes global-online-pulse{0%,100%{box-shadow:0 0 0 0 rgba(88,214,141,.38)}50%{box-shadow:0 0 0 5px rgba(88,214,141,0)}}@media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}</style><nav class="global-nav"><a href="/dashboard">AC · Agente de Candidaturas</a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+    nav = '''<style>.global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}.global-nav a{color:#dcecf8;text-decoration:none}.global-nav a:first-child{color:#fff;font-weight:800;margin-right:auto}.global-brand{display:inline-flex;align-items:center;gap:8px}.global-brand-icon{width:28px;height:28px;display:block;border-radius:50%}.global-nav a:hover{text-decoration:underline}.global-status{display:inline-flex;align-items:center;gap:6px;color:#b9f1d2;font-size:11px;white-space:nowrap}.global-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#58d68d;animation:global-online-pulse 2s ease-in-out infinite}.global-logout{margin:0}.global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}.global-logout button:hover{background:#ffffff18}.breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}.breadcrumbs a{color:#3975a8;text-decoration:none}@keyframes global-online-pulse{0%,100%{box-shadow:0 0 0 0 rgba(88,214,141,.38)}50%{box-shadow:0 0 0 5px rgba(88,214,141,0)}}@media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}</style><nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
         # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.
@@ -1164,7 +1164,7 @@ async def shutdown():
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root():
     if not LANDING_PATH.is_file():
-        return {"agente": "Agente de Candidaturas", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
+        return {"agente": "Candidatura Certa", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
     html = LANDING_PATH.read_text(encoding="utf-8")
     html = _with_favicon(html)
     auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
@@ -2516,16 +2516,17 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     except ValueError:
         port = 587
     message = EmailMessage()
-    message["Subject"] = "Comprovante da exportação — Agente de Candidaturas"
+    message["Subject"] = "Comprovante da exportação — Candidatura Certa"
     message["From"] = sender
     message["To"] = recipient
     amount = f"R$ {int(purchase.paid_amount or purchase.amount) / 100:.2f}".replace(".", ",")
     message.set_content(
-        "Pagamento confirmado no Agente de Candidaturas.\n\n"
+        "Pagamento confirmado na Candidatura Certa.\n\n"
         f"Pedido: {purchase.order_nsu}\nValor: {amount}\n"
         f"Transação: {purchase.transaction_nsu or 'confirmada'}\n\n"
         "O currículo e a carta ficarão disponíveis na biblioteca assim que a geração for concluída. "
-        "Se o envio por e-mail estiver configurado, você também receberá os dois arquivos."
+        "Se o envio por e-mail estiver configurado, você também receberá os dois arquivos.\n\n"
+        "Precisa de ajuda? contato@candidaturacerta.com.br | WhatsApp: (71) 99182-4951."
     )
     # Persist the attempt and release the row lock before network I/O. The
     # document worker can finish archiving while SMTP is slow or unavailable.
@@ -3204,7 +3205,7 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
     message.set_content(
         "Olá! Seu currículo personalizado e sua carta de apresentação foram gerados. "
         "Os dois arquivos DOCX seguem anexos. Você também pode baixá-los na aba "
-        "Currículos do Agente de Candidaturas enquanto estiverem dentro do prazo de retenção."
+        "na biblioteca de documentos da Candidatura Certa enquanto estiverem dentro do prazo de retenção."
     )
     message.add_attachment(
         resume.content,
@@ -3404,7 +3405,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
 
     base_url = _public_base_url()
     payload = {
-        "reason": f"Agente de Candidaturas — Plano {plan['name']} mensal",
+        "reason": f"Candidatura Certa — Plano {plan['name']} mensal",
         "external_reference": external_reference,
         "payer_email": email,
         "auto_recurring": {

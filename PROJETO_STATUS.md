@@ -1,6 +1,6 @@
-# Projeto — Agente de Candidaturas
+# Projeto — Candidatura Certa
 
-Última atualização: 17/09/2026
+Última atualização: 21/09/2026
 Versão atual confirmada no código: **0.24.0**  
 Diretório principal: `C:\agente_curriculos`  
 Estado: aplicação local funcional, com autenticação, banco Supabase, importação e personalização de currículo, captação de vagas por texto/arquivo e leitura automática do Gmail.
@@ -158,7 +158,7 @@ Currículos, cartas, vagas e histórico
 
 ### Google Cloud
 
-- Projeto: `agente-de-candidaturas`.
+- Produto: Candidatura Certa. Serviço/repositório atual: `agente-de-candidaturas` (identificador operacional mantido).
 - Gmail API ativada.
 - Tela de consentimento configurada para testes.
 - Escopo usado: `gmail.readonly`.

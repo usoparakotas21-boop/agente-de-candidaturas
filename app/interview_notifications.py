@@ -294,7 +294,7 @@ def _message(sender: str, recipient: str, owner_id: str, events: list[dict]) -> 
     message["Subject"] = "Resumo de candidaturas marcadas como entrevista"
     message["From"] = sender
     message["To"] = recipient
-    message["Message-ID"] = f"<interview-{digest}@agente-de-candidaturas>"
+    message["Message-ID"] = f"<interview-{digest}@candidaturacerta.com.br>"
     message.set_content(
         "Olá! Você atualizou manualmente o andamento destas candidaturas para entrevista:\n\n"
         f"{chr(10).join(entries)}\n\n"
