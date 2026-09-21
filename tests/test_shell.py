@@ -13,6 +13,7 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('data-plan-checkout="consultoria"', landing)
         self.assertNotIn("consultation-contact", landing)
         self.assertNotIn("5571993494443", landing)
+        self.assertNotIn("WhatsApp da Consultoria", landing)
 
         settings = (Path(main_module.STATIC_DIR) / "configuracoes.html").read_text(encoding="utf-8")
         self.assertIn('id="consultationPanel"', settings)
