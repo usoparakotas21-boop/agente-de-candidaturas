@@ -146,6 +146,13 @@ class ShellLayoutTest(unittest.TestCase):
         profile = (Path(main_module.STATIC_DIR) / "profile.html").read_text(encoding="utf-8")
         settings = (Path(main_module.STATIC_DIR) / "settings.html").read_text(encoding="utf-8")
         self.assertIn("Não foi possível carregar seu perfil. Tente novamente.", profile)
+        self.assertNotIn('<header class="top">', profile)
+        settings_page = main_module._page(main_module.SETTINGS_PATH).body.decode("utf-8")
+        profile_page = main_module._page(main_module.PROFILE_PAGE_PATH).body.decode("utf-8")
+        interviews_page = main_module._page(main_module.SIMULATOR_SMART_PATH).body.decode("utf-8")
+        for page in (settings_page, profile_page, interviews_page):
+            self.assertEqual(page.count('<nav class="global-nav">'), 1)
+            self.assertNotIn('<header class="top">', page)
         self.assertIn("Não foi possível salvar seu perfil. Tente novamente.", profile)
         self.assertIn("Não foi possível carregar suas preferências. Tente novamente.", settings)
         self.assertIn("Não foi possível salvar suas preferências. Tente novamente.", settings)
@@ -153,6 +160,8 @@ class ShellLayoutTest(unittest.TestCase):
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")
         self.assertIn('id="extractSummary"', html)
+        self.assertIn('class="card extract-summary-card" id="extractSummary"', html)
+        self.assertIn('.extract-summary-card{grid-column:1/-1}', html)
         self.assertIn('id="experienceItems"', html)
         self.assertIn('id="skillItems"', html)
         self.assertIn('id="educationItems"', html)

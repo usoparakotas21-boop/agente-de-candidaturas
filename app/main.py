@@ -384,7 +384,7 @@ def _style_nonce_bootstrap(nonce: str) -> str:
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
     html = _with_favicon(html)
-    html = html.replace("</body>", '<script src="/static/support-chat.js?v=4" defer></script></body>', 1)
+    html = html.replace("</body>", '<script src="/static/support-chat.js?v=5" defer></script></body>', 1)
     if path.name == "settings.html":
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
@@ -1321,7 +1321,7 @@ def root():
     rendered = html.replace(
         "</body>",
         _style_nonce_bootstrap(nonce)
-        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=4" defer></script></body>',
+        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=5" defer></script></body>',
         1,
     )
     return HTMLResponse(rendered)

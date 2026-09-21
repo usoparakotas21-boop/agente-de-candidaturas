@@ -9,3 +9,7 @@
 .cc-support-safe-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}
 .cc-support-launcher.cc-support-near-footer{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 .cc-support-panel.cc-support-near-footer{bottom:calc(230px + env(safe-area-inset-bottom,0px));height:min(540px,calc(100dvh - 246px - env(safe-area-inset-bottom,0px)));min-height:min(330px,calc(100dvh - 246px - env(safe-area-inset-bottom,0px)))}
+
+.cc-support-launcher{width:58px;height:58px;min-height:58px;justify-content:center;gap:0;padding:8px}
+.cc-support-launcher .cc-support-avatar{flex:0 0 42px;width:42px;height:42px}
+@media(max-width:520px){.cc-support-launcher{width:54px;height:54px;min-height:54px;padding:6px}.cc-support-launcher .cc-support-avatar{flex-basis:40px;width:40px;height:40px}}

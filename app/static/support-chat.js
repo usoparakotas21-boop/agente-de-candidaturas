@@ -4,7 +4,14 @@
 
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "/static/support-chat.css?v=4";
+  stylesheet.href = "/static/support-chat.css?v=5";
+  const styleGuard = document.createElement("style");
+  styleGuard.textContent = ".cc-support-launcher,.cc-support-panel{visibility:hidden!important}";
+  document.head.append(styleGuard);
+  stylesheet.addEventListener("load", () => styleGuard.remove(), { once: true });
+  stylesheet.addEventListener("error", () => {
+    styleGuard.textContent = ".cc-support-launcher{position:fixed;z-index:10000;right:22px;bottom:22px;width:58px;height:58px;display:grid;place-items:center;padding:8px;border:0;border-radius:50%;background:#125ea0}.cc-support-avatar{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;overflow:hidden}.cc-support-avatar img{width:100%;height:100%;object-fit:contain}";
+  }, { once: true });
   document.head.append(stylesheet);
 
   const make = (tag, className, text) => {
@@ -23,8 +30,9 @@
     return wrap;
   };
 
-  const launcher = make("button", "cc-support-launcher", "Fale com a Candidatura Certa");
+  const launcher = make("button", "cc-support-launcher");
   launcher.type = "button";
+  launcher.title = "Fale com a Candidatura Certa";
   launcher.setAttribute("aria-expanded", "false");
   launcher.setAttribute("aria-controls", "cc-support-panel");
   launcher.setAttribute("aria-label", "Abrir chat de suporte da Candidatura Certa");

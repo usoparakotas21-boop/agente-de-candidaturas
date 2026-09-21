@@ -161,7 +161,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=4", landing)
+        self.assertIn("/static/support-chat.js?v=5", landing)
         self.assertIn('class="cc-support-safe-footer"', landing)
         self.assertNotIn("CANDIDATURA_CERTA_DEMO_VIDEO", landing)
         self.assertNotIn('id="demonstracao"', landing)
@@ -181,7 +181,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
     def test_authenticated_shell_has_widget(self):
         dashboard = main._page(main.DASHBOARD_PATH).body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=4", dashboard)
+        self.assertIn("/static/support-chat.js?v=5", dashboard)
 
     def test_widget_shows_accessible_common_question_shortcuts_without_html_injection(self):
         widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
@@ -199,7 +199,11 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         css = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.css").read_text(encoding="utf-8")
         widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
         self.assertIn(".cc-support-safe-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}", css)
-        self.assertIn("/static/support-chat.css?v=4", widget)
+        self.assertIn("/static/support-chat.css?v=5", widget)
+        self.assertIn("styleGuard.textContent = \".cc-support-launcher,.cc-support-panel{visibility:hidden!important}\"", widget)
+        self.assertIn("stylesheet.addEventListener(\"load\"", widget)
+        self.assertIn('const launcher = make("button", "cc-support-launcher");', widget)
+        self.assertIn(".cc-support-launcher{width:58px;height:58px", css)
         self.assertIn(".cc-support-launcher.cc-support-near-footer{bottom:calc(160px + env(safe-area-inset-bottom,0px))}", css)
         self.assertIn(".cc-support-panel.cc-support-near-footer{bottom:calc(230px + env(safe-area-inset-bottom,0px))", css)
 
