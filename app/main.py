@@ -631,6 +631,26 @@ class ApplicationStatusRequest(BaseModel):
     external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
 class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = True; notify_expiring: bool = False; notify_followups: bool = True
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
+class ProfileExperienceRequest(BaseModel):
+    role: str = Field(min_length=1, max_length=200)
+    company: str = Field(default="", max_length=200)
+    start_date: str = Field(default="", max_length=50)
+    end_date: str = Field(default="", max_length=50)
+    description: str = Field(default="", max_length=5000)
+
+class ProfileEducationRequest(BaseModel):
+    course: str = Field(min_length=1, max_length=200)
+    institution: str = Field(default="", max_length=200)
+    period: str = Field(default="", max_length=100)
+
+PROFILE_EXTRACTED_SECTIONS = frozenset({"experiences", "skills", "education", "languages"})
+
+class ExtractedProfileUpdateRequest(BaseModel):
+    experiences: list[ProfileExperienceRequest] = Field(default_factory=list, max_length=50)
+    skills: list[str] = Field(default_factory=list, max_length=100)
+    education: list[ProfileEducationRequest] = Field(default_factory=list, max_length=50)
+    languages: list[str] = Field(default_factory=list, max_length=30)
+    manual_sections: list[Literal["experiences", "skills", "education", "languages"]] = Field(default_factory=list, max_length=4)
 class InterviewAnswerRequest(BaseModel): question: str = Field(min_length=3, max_length=500); answer: str = Field(min_length=5, max_length=12000); context: str = Field(default="", max_length=4000)
 
 @app.post("/api/interviews/evaluate")
@@ -1182,7 +1202,10 @@ def get_profile(user=Depends(authenticated_user)):
         if c.profile_data:
             try: data = json.loads(c.profile_data)
             except: data = {}
-        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills), "experience_items": [{"role": e.role, "company": e.company, "period": " - ".join([v for v in (e.start_date, e.end_date) if v])} for e in c.experiences[:6]], "skill_items": [s.name for s in c.skills[:12]], "education_items": data.get("education", [])[:6] if isinstance(data.get("education", []), list) else [], "language_items": data.get("languages", [])[:6] if isinstance(data.get("languages", []), list) else []}
+        education = data.get("education", [])
+        languages = data.get("languages", [])
+        manual_sections = data.get("_manual_sections", [])
+        return {"configured": True, "name": c.name, "location": c.location, "email": c.email, "phone": c.phone, "linkedin": c.linkedin, "target_roles": _split_target_roles(c.target_roles), "summary": c.summary, "headline": data.get("headline", ""), "website": data.get("website", ""), "industry": data.get("industry", ""), "photo_data": data.get("photo_data", ""), "resume_filename": c.resume_filename, "experiences": len(c.experiences), "skills": len(c.skills), "experience_items": [{"role": e.role, "company": e.company, "start_date": e.start_date or "", "end_date": e.end_date or "", "period": " - ".join([v for v in (e.start_date, e.end_date) if v]), "description": e.description or ""} for e in c.experiences], "skill_items": [s.name for s in c.skills], "education_items": education if isinstance(education, list) else [], "language_items": languages if isinstance(languages, list) else [], "manual_sections": manual_sections if isinstance(manual_sections, list) else []}
     finally: db.close()
 
 @app.put("/profile")
@@ -1208,6 +1231,121 @@ def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
     except Exception:
         db.rollback(); raise
     finally: db.close()
+
+@app.put("/profile/extracted")
+def update_extracted_profile(req: ExtractedProfileUpdateRequest, user=Depends(authenticated_user)):
+    """Replace the user's editable resume sections atomically and mark them as manual."""
+    oid = str(_owner_id(user) or "").strip()
+    if not oid:
+        raise HTTPException(409, "Esta ação exige uma conta autenticada.")
+    db = SessionLocal()
+    try:
+        c = db.scalar(select(Candidate).where(Candidate.owner_id == oid).order_by(Candidate.id))
+        if c is None:
+            raise HTTPException(409, "Salve as informações principais do perfil antes de editar os dados do currículo.")
+
+        def clean(value: str, maximum: int) -> str:
+            return sanitize_untrusted_text(value, max_chars=maximum).strip()
+
+        experiences = []
+        for item in req.experiences:
+            role = clean(item.role, 200)
+            if not role:
+                raise HTTPException(422, "Cada experiência precisa informar o cargo.")
+            experiences.append({
+                "role": role,
+                "company": clean(item.company, 200),
+                "start_date": clean(item.start_date, 50),
+                "end_date": clean(item.end_date, 50),
+                "description": clean(item.description, 5000),
+            })
+
+        education = []
+        for item in req.education:
+            course = clean(item.course, 200)
+            if not course:
+                raise HTTPException(422, "Cada formação precisa informar o curso ou título.")
+            education.append({
+                "course": course,
+                "institution": clean(item.institution, 200),
+                "period": clean(item.period, 100),
+            })
+
+        skills = []
+        seen_skills = set()
+        for raw_skill in req.skills:
+            name = clean(raw_skill, 200)
+            if not name:
+                continue
+            key = name.casefold()
+            if key not in seen_skills:
+                seen_skills.add(key)
+                skills.append(name)
+
+        languages = []
+        seen_languages = set()
+        for raw_language in req.languages:
+            language = clean(raw_language, 100)
+            if not language:
+                continue
+            key = language.casefold()
+            if key not in seen_languages:
+                seen_languages.add(key)
+                languages.append(language)
+
+        profile_data = {}
+        if c.profile_data:
+            try:
+                parsed_data = json.loads(c.profile_data)
+                if isinstance(parsed_data, dict):
+                    profile_data = parsed_data
+            except (TypeError, ValueError):
+                pass
+        existing_manual = profile_data.get("_manual_sections", [])
+        manual_sections = {
+            section for section in existing_manual
+            if isinstance(section, str) and section in PROFILE_EXTRACTED_SECTIONS
+        } if isinstance(existing_manual, list) else set()
+        requested_sections = set(req.manual_sections)
+        manual_sections.update(requested_sections)
+
+        if "experiences" in requested_sections:
+            c.experiences.clear()
+            for item in experiences:
+                c.experiences.append(Experience(
+                    company=item["company"], role=item["role"],
+                    start_date=item["start_date"], end_date=item["end_date"],
+                    description=item["description"],
+                ))
+        if "skills" in requested_sections:
+            previous_skills = {skill.name.casefold(): skill for skill in c.skills if skill.name}
+            c.skills.clear()
+            for name in skills:
+                previous = previous_skills.get(name.casefold())
+                c.skills.append(Skill(
+                    name=name,
+                    category=previous.category if previous else "Manual",
+                    proficiency=previous.proficiency if previous else "Não informada",
+                ))
+        if "education" in requested_sections:
+            profile_data["education"] = education
+        if "languages" in requested_sections:
+            profile_data["languages"] = languages
+        if manual_sections:
+            profile_data["_manual_sections"] = sorted(manual_sections)
+        c.profile_data = json.dumps(profile_data, ensure_ascii=False)
+        if not requested_sections:
+            return {"status": "SEM_ALTERACOES", "experiences": len(c.experiences), "skills": len(c.skills), "education": len(profile_data.get("education", [])), "languages": len(profile_data.get("languages", []))}
+        db.commit()
+        return {"status": "DADOS_DO_CURRICULO_ATUALIZADOS", "experiences": len(c.experiences), "skills": len(c.skills), "education": len(profile_data.get("education", [])), "languages": len(profile_data.get("languages", []))}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 @app.post("/profile/photo")
 async def upload_profile_photo(file: UploadFile = File(...), user=Depends(authenticated_user)):
@@ -1280,15 +1418,52 @@ async def upload_resume(file: UploadFile = File(...), user=Depends(authenticated
             c = Candidate(owner_id=oid, name=parsed["name"], location=parsed["location"], email=parsed["email"], phone=parsed["phone"], linkedin=parsed["linkedin"], target_roles=parsed["target_roles"], summary=parsed["summary"])
             db.add(c); db.flush()
         else:
-            c.name = parsed["name"]; c.location = parsed["location"]; c.email = parsed["email"]; c.phone = parsed["phone"]; c.linkedin = parsed["linkedin"]; c.target_roles = parsed["target_roles"]; c.summary = parsed["summary"]; c.experiences.clear(); c.skills.clear()
-        c.profile_data = json.dumps({"headline": parsed["headline"], "education": parsed["education"], "languages": parsed["languages"]}, ensure_ascii=False)
+            # Incomplete parsers must not erase contact/profile values already
+            # reviewed by the person. Non-empty resume values can still refresh
+            # these fields; extracted sections have their own manual lock below.
+            for field in ("name", "location", "email", "phone", "linkedin", "target_roles", "summary"):
+                value = str(parsed.get(field) or "").strip()
+                if value:
+                    setattr(c, field, value)
+
+        profile_data = {}
+        if c.profile_data:
+            try:
+                existing_data = json.loads(c.profile_data)
+                if isinstance(existing_data, dict):
+                    profile_data = existing_data
+            except (TypeError, ValueError):
+                pass
+        existing_manual_sections = profile_data.get("_manual_sections", [])
+        manual_sections = {
+            section for section in existing_manual_sections
+            if isinstance(section, str) and section in PROFILE_EXTRACTED_SECTIONS
+        } if isinstance(existing_manual_sections, list) else set()
+
+        # Keep unrelated metadata and a previously saved headline. Only fill
+        # missing extracted values; a reimport is not allowed to reset them.
+        if not str(profile_data.get("headline") or "").strip() and str(parsed.get("headline") or "").strip():
+            profile_data["headline"] = str(parsed["headline"]).strip()
+        for section in ("education", "languages"):
+            parsed_values = parsed.get(section)
+            if section not in manual_sections and isinstance(parsed_values, list) and parsed_values:
+                profile_data[section] = parsed_values
+            elif section not in profile_data:
+                profile_data[section] = parsed_values if isinstance(parsed_values, list) else []
+        if manual_sections:
+            profile_data["_manual_sections"] = sorted(manual_sections)
+        c.profile_data = json.dumps(profile_data, ensure_ascii=False)
         c.resume_filename = parsed["source_filename"]
-        for item in parsed["experiences"]:
-            c.experiences.append(Experience(company=item["company"], role=item["role"], start_date=item["start_date"], end_date=item["end_date"], description=item["description"]))
-        for skill in parsed["skills"]:
-            c.skills.append(Skill(name=skill, category="Importada", proficiency="Nao informada"))
+        if "experiences" not in manual_sections and parsed.get("experiences"):
+            c.experiences.clear()
+            for item in parsed["experiences"]:
+                c.experiences.append(Experience(company=item.get("company", ""), role=item.get("role", ""), start_date=item.get("start_date", ""), end_date=item.get("end_date", ""), description=item.get("description", "")))
+        if "skills" not in manual_sections and parsed.get("skills"):
+            c.skills.clear()
+            for skill in parsed["skills"]:
+                c.skills.append(Skill(name=skill, category="Importada", proficiency="Nao informada"))
         db.commit()
-        return {"status": "PERFIL_IMPORTADO", "name": c.name, "filename": c.resume_filename, "experiences": len(parsed["experiences"]), "skills": len(parsed["skills"]), "education": len(parsed["education"]), "languages": len(parsed["languages"])}
+        return {"status": "PERFIL_IMPORTADO", "name": c.name, "filename": c.resume_filename, "experiences": len(parsed.get("experiences") or []), "skills": len(parsed.get("skills") or []), "education": len(parsed.get("education") or []), "languages": len(parsed.get("languages") or [])}
     except: db.rollback(); raise
     finally: db.close()
 
