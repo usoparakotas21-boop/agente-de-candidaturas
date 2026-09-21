@@ -81,7 +81,8 @@ def default_preferences(
         "salary_min": None,
         "salary_max": None,
         "notification_frequency": "daily",
-        "notify_interviews": True,
+        "notify_interviews": False,
+        "notify_interviews_consent_at": None,
         "notify_expiring": False,
         "notify_followups": False,
     }
@@ -125,7 +126,9 @@ def normalize_preferences(
     result["allow_automatic"] = bool(supplied.get("allow_automatic", False))
     frequency = str(supplied.get("notification_frequency", "daily")).strip().casefold()
     result["notification_frequency"] = frequency if frequency in {"daily", "immediate", "weekly", "none"} else "daily"
-    result["notify_interviews"] = bool(supplied.get("notify_interviews", True))
+    interview_consent = supplied.get("notify_interviews_consent_at")
+    result["notify_interviews_consent_at"] = interview_consent if isinstance(interview_consent, str) and interview_consent.strip() else None
+    result["notify_interviews"] = bool(supplied.get("notify_interviews", False) and result["notify_interviews_consent_at"])
     result["notify_expiring"] = bool(supplied.get("notify_expiring", False))
     consented_at = supplied.get("notify_followups_consent_at")
     result["notify_followups_consent_at"] = consented_at if isinstance(consented_at, str) and consented_at.strip() else None

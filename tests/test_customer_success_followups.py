@@ -232,6 +232,47 @@ class CustomerSuccessFollowupTest(unittest.TestCase):
         finally:
             db.close()
 
+    def test_interview_emails_require_explicit_opt_in_and_legacy_settings_stay_off(self):
+        db = self.factory()
+        try:
+            candidate = db.scalar(select(Candidate).where(Candidate.owner_id == "owner-a"))
+            candidate.preferences_data = json.dumps({
+                "notification_frequency": "immediate",
+                "notify_interviews": True,
+            })
+            db.commit()
+        finally:
+            db.close()
+
+        legacy_request = main_module.CandidatePreferencesRequest(
+            notification_frequency="immediate",
+            notify_interviews=True,
+        )
+        self.assertFalse(main_module.CandidatePreferencesRequest().notify_interviews)
+        with patch.object(main_module, "SessionLocal", self.factory):
+            legacy_result = main_module.update_preferences(legacy_request, {"id": "owner-a"})
+        self.assertFalse(legacy_result["preferences"]["notify_interviews"])
+        self.assertIsNone(legacy_result["preferences"]["notify_interviews_consent_at"])
+
+        consented_request = main_module.CandidatePreferencesRequest(
+            notification_frequency="immediate",
+            notify_interviews=True,
+            notify_interviews_consent=True,
+        )
+        with patch.object(main_module, "SessionLocal", self.factory):
+            consented_result = main_module.update_preferences(consented_request, {"id": "owner-a"})
+        self.assertTrue(consented_result["preferences"]["notify_interviews"])
+        self.assertTrue(consented_result["preferences"]["notify_interviews_consent_at"])
+
+        revoked_request = main_module.CandidatePreferencesRequest(
+            notification_frequency="immediate",
+            notify_interviews=False,
+        )
+        with patch.object(main_module, "SessionLocal", self.factory):
+            revoked_result = main_module.update_preferences(revoked_request, {"id": "owner-a"})
+        self.assertFalse(revoked_result["preferences"]["notify_interviews"])
+        self.assertIsNone(revoked_result["preferences"]["notify_interviews_consent_at"])
+
     def test_scheduler_is_idempotent_for_same_application(self):
         db = self.factory()
         self.assertEqual(schedule_followup_digests(db, self.now), 1)

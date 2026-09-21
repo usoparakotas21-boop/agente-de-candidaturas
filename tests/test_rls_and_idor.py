@@ -1,6 +1,8 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from sqlalchemy import create_engine, select
@@ -8,14 +10,15 @@ from sqlalchemy.orm import sessionmaker
 
 from app import main as main_module
 from app.database import Base
-from app.models import Application, Candidate, DocumentExportPurchase, Job
-from scripts.migrate_rls import CHILD_POLICIES, DIRECT_OWNER_TABLES
+from app.models import Application, Candidate, DocumentExportPurchase, InterviewEmailOutbox, Job, utc_now
+from scripts.migrate_rls import CHILD_POLICIES, DIRECT_OWNER_TABLES, INTERNAL_RLS_TABLES
 
 
 class RlsCoverageTest(unittest.TestCase):
     def test_every_model_table_is_covered_by_rls_migration(self):
-        configured = set(DIRECT_OWNER_TABLES) | set(CHILD_POLICIES)
+        configured = set(DIRECT_OWNER_TABLES) | set(CHILD_POLICIES) | set(INTERNAL_RLS_TABLES)
         self.assertEqual(set(Base.metadata.tables), configured)
+        self.assertNotIn("interview_email_outbox", DIRECT_OWNER_TABLES)
 
 
 class CrossUserIsolationTest(unittest.TestCase):
@@ -148,6 +151,48 @@ class CrossUserIsolationTest(unittest.TestCase):
         with self.assertRaises(HTTPException) as letter_error:
             main_module.download_cover_letter(foreign_application_id, self.user_b)
         self.assertEqual(letter_error.exception.status_code, 404)
+
+    def test_interview_email_is_queued_only_on_a_real_status_transition(self):
+        db = self.testing_session()
+        try:
+            candidate = db.scalar(select(Candidate).where(Candidate.owner_id == "owner-a"))
+            candidate.preferences_data = json.dumps({
+                "notification_frequency": "daily",
+                "notify_interviews": True,
+                "notify_interviews_consent_at": utc_now().isoformat(),
+            })
+            db.commit()
+        finally:
+            db.close()
+
+        patches = (
+            patch.object(main_module, "_refresh_application_risk"),
+            patch.object(main_module, "_enforce_application_risk_gate"),
+            patch.object(main_module, "_document_export_metadata", return_value={"allowed": False}),
+        )
+        with patches[0], patches[1], patches[2]:
+            first = main_module.update_app_status(
+                self.application_ids["owner-a"],
+                main_module.ApplicationStatusRequest(status="ENTREVISTA"),
+                self.user_a,
+            )
+            repeated = main_module.update_app_status(
+                self.application_ids["owner-a"],
+                main_module.ApplicationStatusRequest(status="ENTREVISTA", note="Atualizei os detalhes."),
+                self.user_a,
+            )
+
+        self.assertEqual(first["status"], "ENTREVISTA")
+        self.assertEqual(repeated["status"], "ENTREVISTA")
+        db = self.testing_session()
+        try:
+            rows = db.scalars(select(InterviewEmailOutbox)).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].owner_id, "owner-a")
+            self.assertEqual(rows[0].application_id, self.application_ids["owner-a"])
+            self.assertEqual(rows[0].event_id, first["events"][-1]["id"])
+        finally:
+            db.close()
 
     def test_risk_review_is_owner_scoped_and_audited(self):
         app_id = self.application_ids["owner-a"]

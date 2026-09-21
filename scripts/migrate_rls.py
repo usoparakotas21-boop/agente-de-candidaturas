@@ -30,6 +30,10 @@ DIRECT_OWNER_TABLES = (
     "queue_items",
 )
 
+# Internal lifecycle dispatch records are server-only. RLS is enabled, with
+# deliberately no authenticated policy exposing attempts, timing, or payload IDs.
+INTERNAL_RLS_TABLES = ("interview_email_outbox",)
+
 CHILD_POLICIES = {
     "experiences": """
         EXISTS (
@@ -93,10 +97,15 @@ def setup_rls() -> None:
     with engine.begin() as connection:
         for table in DIRECT_OWNER_TABLES:
             _create_policy(connection, table, "owner_id = auth.uid()::text")
+        for table in INTERNAL_RLS_TABLES:
+            connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
         for table, expression in CHILD_POLICIES.items():
             _create_policy(connection, table, " ".join(expression.split()))
 
-    logger.info("RLS configurado em %d tabelas.", len(DIRECT_OWNER_TABLES) + len(CHILD_POLICIES))
+    logger.info(
+        "RLS configurado em %d tabelas.",
+        len(DIRECT_OWNER_TABLES) + len(CHILD_POLICIES) + len(INTERNAL_RLS_TABLES),
+    )
 
 
 if __name__ == "__main__":

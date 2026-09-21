@@ -190,8 +190,11 @@ class ShellLayoutTest(unittest.TestCase):
         self.assertIn('id="notificationFrequency"', html)
         self.assertIn('id="notifyInterviews"', html)
         self.assertIn('id="notifyFollowups"', html)
+        self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
+        self.assertIn('value="immediate">Imediatamente (em até 5 minutos)</option>', html)
         self.assertIn('notification_frequency:', html)
-        self.assertIn('notify_expiring:', html)
+        self.assertIn('notify_expiring:false', html)
+        self.assertIn('Vagas expirando ainda não geram e-mail.', html)
 
     def test_security_page_exposes_confirmed_account_deletion(self):
         html = (Path(main_module.STATIC_DIR) / "security.html").read_text(encoding="utf-8")

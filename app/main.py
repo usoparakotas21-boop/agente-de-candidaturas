@@ -39,13 +39,14 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
 from .data_retention import cleanup_expired_raw_data
 from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle
+from .interview_notifications import cleanup_interview_email_outbox, enqueue_interview_notification, run_interview_notification_cycle
 from .resume_document import MASTER_PROFILE, generate_docx
 from .resume_generator import generate_resume
 from .resume_personalizer import personalize_resume
@@ -171,6 +172,7 @@ async def _document_retention_loop():
             await asyncio.to_thread(_cleanup_generated_document_records)
             await asyncio.to_thread(_cleanup_raw_intake_data)
             await asyncio.to_thread(_cleanup_followup_email_outbox)
+            await asyncio.to_thread(_cleanup_interview_email_outbox)
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             raise
@@ -201,15 +203,22 @@ async def _paid_document_generation_loop():
 
 
 async def _lifecycle_email_loop():
-    """Dispatch durable, opt-in follow-up digests when SMTP is configured."""
+    """Dispatch durable, opt-in interview and follow-up emails."""
     while True:
         try:
-            await asyncio.to_thread(run_followup_digest_cycle, SessionLocal)
+            for dispatcher, label in (
+                (run_followup_digest_cycle, "lembretes de candidatura"),
+                (run_interview_notification_cycle, "avisos de entrevista"),
+            ):
+                try:
+                    await asyncio.to_thread(dispatcher, SessionLocal)
+                except Exception:
+                    logger.exception("Falha no reconciliador de %s", label)
             await asyncio.sleep(FOLLOWUP_POLL_SECONDS)
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("Falha no reconciliador de lembretes de candidatura")
+            logger.exception("Falha no loop de e-mails de ciclo de vida")
             await asyncio.sleep(FOLLOWUP_POLL_SECONDS)
 
 
@@ -225,6 +234,14 @@ def _cleanup_followup_email_outbox() -> int:
     db = SessionLocal()
     try:
         return cleanup_followup_email_outbox_records(db)
+    finally:
+        db.close()
+
+
+def _cleanup_interview_email_outbox() -> int:
+    db = SessionLocal()
+    try:
+        return cleanup_interview_email_outbox(db)
     finally:
         db.close()
 
@@ -659,7 +676,7 @@ class ApplicationStatusRequest(BaseModel):
     note: str = Field(default="", max_length=2000)
     channel: Literal["", "manual", "gmail", "linkedin", "gupy", "indeed", "site_empresa", "indicacao", "outro"] = ""
     external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
-class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = True; notify_expiring: bool = False; notify_followups: bool = False
+class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = False; notify_interviews_consent: bool = False; notify_expiring: bool = False; notify_followups: bool = False
 class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
 class ProfileExperienceRequest(BaseModel):
     role: str = Field(min_length=1, max_length=200)
@@ -772,7 +789,7 @@ def _content_version(prefix: str, value: Any) -> str:
 
 def _add_event(db, app, status, note="", channel="", external_result=""):
     app.status = status
-    db.add(ApplicationEvent(
+    event = ApplicationEvent(
         application_id=app.id,
         status=status,
         note=note or None,
@@ -780,7 +797,9 @@ def _add_event(db, app, status, note="", channel="", external_result=""):
         external_result=external_result or None,
         resume_version=app.resume_version,
         cover_letter_version=app.cover_letter_version,
-    ))
+    )
+    db.add(event)
+    return event
 def _ensure_app(db, job, cand):
     a = db.scalar(select(Application).where(Application.job_id == job.id))
     if a: return a
@@ -933,6 +952,8 @@ def startup():
                         END IF;
                     END $$;
                 """))
+            # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
+            db.execute(text("ALTER TABLE interview_email_outbox ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
             db.execute(text("""
                 DO $$
@@ -990,6 +1011,7 @@ def startup():
             _backfill_legacy_generated_document_pairs()
             _cleanup_raw_intake_data()
             _cleanup_followup_email_outbox()
+            _cleanup_interview_email_outbox()
             if _retention_task is None or _retention_task.done():
                 _retention_task = asyncio.create_task(_document_retention_loop())
             _start_purchase_generation_worker()
@@ -1085,6 +1107,7 @@ def startup():
     _backfill_legacy_generated_document_pairs()
     _cleanup_raw_intake_data()
     _cleanup_followup_email_outbox()
+    _cleanup_interview_email_outbox()
     if _retention_task is None or _retention_task.done():
         _retention_task = asyncio.create_task(_document_retention_loop())
     _start_purchase_generation_worker()
@@ -1428,7 +1451,20 @@ def update_preferences(req: CandidatePreferencesRequest, user=Depends(authentica
     try:
         c = _candidate_for_user(db, user)
         if c is None: raise HTTPException(409, "Importe o curriculo primeiro.")
+        try:
+            existing_preferences = json.loads(c.preferences_data or "{}")
+        except (TypeError, ValueError):
+            existing_preferences = {}
+        previous_preferences = normalize_preferences(existing_preferences)
         prefs = normalize_preferences(req.model_dump())
+        if req.notify_interviews and (req.notify_interviews_consent or previous_preferences["notify_interviews"]):
+            prefs["notify_interviews"] = True
+            prefs["notify_interviews_consent_at"] = (
+                previous_preferences["notify_interviews_consent_at"] or utc_now().isoformat()
+            )
+        else:
+            prefs["notify_interviews"] = False
+            prefs["notify_interviews_consent_at"] = None
         if req.notify_followups:
             prefs["notify_followups"] = True
             prefs["notify_followups_consent_at"] = utc_now().isoformat()
@@ -2034,6 +2070,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
                 logger.warning("Ignorando caminho de documento fora do armazenamento privado durante exclusao")
 
     for model, column in (
+        (InterviewEmailOutbox, InterviewEmailOutbox.owner_id),
         (FollowupEmailOutbox, FollowupEmailOutbox.owner_id),
         (DocumentDelivery, DocumentDelivery.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
@@ -3897,9 +3934,28 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
             _refresh_application_risk(app)
             db.commit()
             db.refresh(app)
+        db.refresh(app, with_for_update=True)
+        previous_status = app.status
         _enforce_application_risk_gate(app, req.status)
+        event = None
         if app.status != req.status or req.note or req.channel or req.external_result:
-            _add_event(db, app, req.status, req.note, req.channel, req.external_result)
+            event = _add_event(db, app, req.status, req.note, req.channel, req.external_result)
+        if event is not None and previous_status != "ENTREVISTA" and req.status == "ENTREVISTA":
+            db.flush()
+            candidate = _candidate_for_user(db, user)
+            try:
+                candidate_preferences = json.loads(candidate.preferences_data or "{}") if candidate else {}
+            except (TypeError, ValueError):
+                candidate_preferences = {}
+            preferences = normalize_preferences(candidate_preferences)
+            enqueue_interview_notification(
+                db,
+                str(_owner_id(user) or ""),
+                app.id,
+                event.id,
+                preferences["notification_frequency"],
+                now=utc_now(),
+            )
         db.commit(); db.refresh(app)
         allowed = _document_export_metadata(user)["allowed"]
         return _serialize_app(app, allowed, allowed)
