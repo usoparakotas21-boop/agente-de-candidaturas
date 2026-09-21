@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import math
 import os
 import re
 import smtplib
@@ -894,7 +895,7 @@ def interview_prep(app_id: int, user=Depends(authenticated_user)):
             "application_id": application.id,
             "job_title": application.job.title,
             "company": application.job.company,
-            "analysis_score": application.analysis_score,
+            "analysis_score": _score_percent(application.analysis_score),
             "gaps": gaps,
             "strengths": strengths,
             "questions": questions,
@@ -978,11 +979,29 @@ def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_
     if a.analysis_data:
         try: an = json.loads(a.analysis_data)
         except: pass
+    raw_score = a.analysis_score
+    if raw_score is None and isinstance(an, dict):
+        raw_score = an.get("score")
+    score = _score_percent(raw_score)
+    if isinstance(an, dict) and an.get("score") is not None:
+        an["score"] = score
     try: dr = json.loads(a.decision_reasons or "[]")
     except: dr = []
     try: fc = json.loads(a.field_confidence or "{}")
     except: fc = {}
-    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": a.analysis_score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "health_score": a.health_score, "health_band": a.health_band, "health_signals": a.health_signals or [], "fraud_suspected": a.fraud_suspected, "risk_reviewed_at": a.risk_reviewed_at.isoformat() if a.risk_reviewed_at else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "health_score": a.health_score, "health_band": a.health_band, "health_signals": a.health_signals or [], "fraud_suspected": a.fraud_suspected, "risk_reviewed_at": a.risk_reviewed_at.isoformat() if a.risk_reviewed_at else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
+
+
+def _score_percent(value):
+    if value is None:
+        return None
+    try:
+        score = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(score):
+        return None
+    return round(max(0.0, min(100.0, score)))
 def _cand_prefs(cand):
     s = {}
     if cand and cand.preferences_data:
@@ -2002,7 +2021,7 @@ def list_jobs_endpoint(user=Depends(authenticated_user)):
         oid = _owner_id(user)
         if oid: q = q.where(Job.owner_id == oid)
         jobs = db.scalars(q).all()
-        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "contract_type": j.contract_type, "modality_confidence": j.modality_confidence, "salary_confidence": j.salary_confidence, "contract_confidence": j.contract_confidence, "salary": j.salary, "salary_min": j.salary_min, "salary_max": j.salary_max, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": getattr(j.application, "analysis_score", None), "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
+        return {"total": len(jobs), "jobs": [{"id": j.id, "source": j.source, "external_id": j.external_id, "company": j.company, "title": j.title, "location": j.location, "modality": j.modality, "contract_type": j.contract_type, "modality_confidence": j.modality_confidence, "salary_confidence": j.salary_confidence, "contract_confidence": j.contract_confidence, "salary": j.salary, "salary_min": j.salary_min, "salary_max": j.salary_max, "url": j.url, "application_id": j.application.id if j.application else None, "application_status": j.application.status if j.application else None, "match_score": _score_percent(j.application.analysis_score) if j.application else None, "captured_at": j.application.created_at.isoformat() if j.application and j.application.created_at else None} for j in jobs]}
     finally: db.close()
 
 @app.get("/jobs/{job_id}")

@@ -8,7 +8,7 @@
     enhancing=true;
     try {
       const cards=[...list.querySelectorAll('.job')];
-      cards.forEach(c=>{const title=c.querySelector('h2')?.textContent||'',j=state.jobs.find(x=>(x.title||'')===title); if(j&&!c.querySelector('.match-badge')){const b=document.createElement('span');b.className='badge match-badge match-badge-positive';b.textContent=j.match_score==null?'Match pendente':Math.round(j.match_score)+'% match';c.querySelector('.meta')?.appendChild(b);c.dataset.match=j.match_score??-1;c.dataset.date=j.captured_at||'';} });
+      cards.forEach(c=>{const title=c.querySelector('h2')?.textContent||'',j=state.jobs.find(x=>(x.title||'')===title); if(j&&!c.querySelector('.match-badge')){const b=document.createElement('span');b.className='badge match-badge';const score=Number(j.match_score);if(j.match_score!=null&&Number.isFinite(score)){const rounded=Math.round(Math.max(0,Math.min(100,score)));b.classList.add(rounded>=75?'match-badge-positive':rounded>=50?'match-badge-attention':'match-badge-low');b.textContent=rounded+'% match';c.dataset.match=rounded;}else{b.classList.add('match-badge-pending');b.textContent='Match pendente';c.dataset.match=-1;}c.querySelector('.meta')?.appendChild(b);c.dataset.date=j.captured_at||'';} });
       const order=sort.value;
       const sorted=cards.slice().sort((a,b)=>order==='match'?Number(b.dataset.match)-Number(a.dataset.match):order==='date'?String(b.dataset.date).localeCompare(String(a.dataset.date)):0);
       if(sorted.some((card,index)=>card!==cards[index])) sorted.forEach(card=>list.appendChild(card));

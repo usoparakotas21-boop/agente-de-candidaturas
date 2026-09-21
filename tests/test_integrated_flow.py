@@ -186,6 +186,25 @@ class IntegratedFlowTest(unittest.TestCase):
         self.assertEqual(saved["analysis"]["strengths"], result["analysis"]["strengths"])
         self.assertEqual(saved["analysis"]["gaps"], result["analysis"]["gaps"])
 
+    def test_legacy_out_of_range_score_is_bounded_in_job_and_application_views(self):
+        main_module.analyze_saved_job(1)
+        db = self.testing_session()
+        application = db.query(Application).filter_by(job_id=1).one()
+        application.analysis_score = -86
+        db.commit()
+        db.close()
+
+        listed_application = main_module.list_applications(user={})["applications"][0]
+        listed_job = main_module.list_jobs_endpoint(user={})["jobs"][0]
+        self.assertEqual(listed_application["analysis_score"], 0)
+        self.assertEqual(listed_application["analysis"]["score"], 0)
+        self.assertEqual(listed_job["match_score"], 0)
+
+        db = self.testing_session()
+        persisted_score = db.query(Application).filter_by(job_id=1).one().analysis_score
+        db.close()
+        self.assertEqual(persisted_score, -86)
+
     def test_application_status_history(self):
         main_module.generate_document_for_job(1)
         request = main_module.ApplicationStatusRequest(
