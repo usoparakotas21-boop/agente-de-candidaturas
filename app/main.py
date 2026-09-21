@@ -3154,7 +3154,7 @@ def _email_transport_config() -> dict[str, object] | None:
     if config is not None or not _brevo_api_key():
         return config
     sender = os.getenv("SMTP_FROM_EMAIL", "contato@candidaturacerta.com.br").strip()
-    return {"sender": sender} if sender else None
+    return {"transport": "brevo_api", "sender": sender} if sender else None
 
 
 def _send_via_brevo_api(message: EmailMessage, *, timeout: float) -> None:
@@ -3208,14 +3208,45 @@ def _send_via_brevo_api(message: EmailMessage, *, timeout: float) -> None:
     response.raise_for_status()
 
 
+def _set_email_transport_stage(exc: BaseException, stage: str) -> None:
+    """Annotate a transport error without exposing credentials in its text."""
+    try:
+        setattr(exc, "smtp_stage", stage)
+    except Exception:
+        # Some third-party exception types can disallow custom attributes;
+        # callers still retain their safe default stage in that case.
+        return
+
+
 def _send_email_message(message: EmailMessage, config: dict[str, object], *, timeout: float) -> str:
     """Send via Brevo HTTPS when configured, otherwise use the relay SMTP."""
-    if _brevo_api_key():
-        _send_via_brevo_api(message, timeout=timeout)
+    # A complete SMTP configuration always wins.  This matters when a local
+    # process still has BREVO_API_KEY in its environment while production is
+    # intentionally configured for SMTP (and keeps retries deterministic).
+    if config.get("transport") == "brevo_api":
+        try:
+            _send_via_brevo_api(message, timeout=timeout)
+        except Exception as exc:
+            _set_email_transport_stage(exc, "api")
+            raise
         return "api"
-    with _smtp_client(config, timeout=timeout) as smtp:
-        smtp.login(str(config["username"]), str(config["password"]))
-        smtp.send_message(message)
+    try:
+        # Connection and STARTTLS happen while entering this context manager.
+        with _smtp_client(config, timeout=timeout) as smtp:
+            try:
+                smtp.login(str(config["username"]), str(config["password"]))
+            except Exception as exc:
+                _set_email_transport_stage(exc, "auth")
+                raise
+            try:
+                smtp.send_message(message)
+            except Exception as exc:
+                _set_email_transport_stage(exc, "send")
+                raise
+    except Exception as exc:
+        if not getattr(exc, "smtp_stage", None):
+            _set_email_transport_stage(exc, "connect")
+        raise
     return "smtp"
 
 
@@ -3263,10 +3294,11 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     purchase.receipt_email_status = "SENDING"
     purchase.receipt_email_started_at = utc_now()
     db.commit()
-    smtp_stage = "api" if _brevo_api_key() else "connect"
+    smtp_stage = "api" if smtp_config.get("transport") == "brevo_api" else "connect"
     try:
         _send_email_message(message, smtp_config, timeout=10)
     except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError) as exc:
+        smtp_stage = str(getattr(exc, "smtp_stage", smtp_stage))
         smtp_code = getattr(exc, "smtp_code", None)
         if not isinstance(smtp_code, int):
             smtp_code = None
@@ -3952,10 +3984,11 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=letter.filename,
     )
-    smtp_stage = "api" if _brevo_api_key() else "connect"
+    smtp_stage = "api" if smtp_config.get("transport") == "brevo_api" else "connect"
     try:
         _send_email_message(message, smtp_config, timeout=15)
     except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError) as exc:
+        smtp_stage = str(getattr(exc, "smtp_stage", smtp_stage))
         smtp_code = getattr(exc, "smtp_code", None)
         if not isinstance(smtp_code, int):
             smtp_code = None

@@ -26,6 +26,23 @@ class _Client:
         return _Response()
 
 
+class _SMTP:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def starttls(self):
+        return None
+
+    def login(self, username, password):
+        return None
+
+    def send_message(self, message):
+        return None
+
+
 class BrevoTransportTests(unittest.TestCase):
     def test_brevo_https_payload_preserves_text_reply_to_and_attachments(self):
         message = EmailMessage()
@@ -50,6 +67,31 @@ class BrevoTransportTests(unittest.TestCase):
         self.assertEqual(payload["replyTo"]["email"], "contato@candidaturacerta.com.br")
         self.assertIn("Seu documento está pronto.", payload["textContent"])
         self.assertEqual(payload["attachment"][0]["name"], "curriculo.pdf")
+
+    def test_complete_smtp_configuration_wins_over_a_leftover_brevo_key(self):
+        message = EmailMessage()
+        message["From"] = "contato@candidaturacerta.com.br"
+        message["To"] = "pessoa@example.com"
+        message["Subject"] = "Documento pronto"
+        message.set_content("Seu documento está pronto.")
+        smtp_config = {
+            "SMTP_HOST": "smtp.example.com",
+            "SMTP_PORT": "587",
+            "SMTP_FROM_EMAIL": "contato@candidaturacerta.com.br",
+            "SMTP_USERNAME": "smtp-user",
+            "SMTP_PASSWORD": "smtp-password",
+            "SMTP_USE_TLS": "true",
+            "BREVO_API_KEY": "leftover-test-key",
+        }
+        with patch.dict(os.environ, smtp_config, clear=False), patch.object(
+            main_module.smtplib, "SMTP", return_value=_SMTP()
+        ) as smtp, patch.object(main_module, "_send_via_brevo_api") as brevo:
+            config = main_module._email_transport_config()
+            transport = main_module._send_email_message(message, config, timeout=5)
+
+        self.assertEqual(transport, "smtp")
+        smtp.assert_called_once()
+        brevo.assert_not_called()
 
 
 if __name__ == "__main__":
