@@ -27,6 +27,7 @@ DIRECT_OWNER_TABLES = (
     "consultation_credits",
     "generated_documents",
     "document_deliveries",
+    "email_application_submissions",
     "followup_email_outbox",
     "queue_items",
 )

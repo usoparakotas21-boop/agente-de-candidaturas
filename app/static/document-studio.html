@@ -14,6 +14,9 @@
     .result{grid-column:1/-1;display:none}.result.visible{display:block}.result-head{display:flex;justify-content:space-between;gap:18px;align-items:start}.result-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.score{padding:9px 12px;border-radius:10px;background:#eaf8f1;color:var(--green);font-size:12px;font-weight:850;white-space:nowrap}.preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.preview{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fbfdff}.preview h3{margin:0 0 10px;font-size:14px}.preview-body{color:#334764;font-size:13px;white-space:pre-wrap;max-height:245px;overflow:auto}.skills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.skill{padding:5px 8px;border-radius:999px;background:var(--soft);color:#4050bd;font-size:11px;font-weight:750}.notice{margin-top:16px;padding:12px 14px;border-radius:10px;background:#fff7e6;color:#815300;font-size:12px}.file-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.file-actions[hidden]{display:none}.file-actions button{min-height:40px}
     @media(max-width:780px){.wrap{padding:25px 14px 50px}.layout{grid-template-columns:1fr}.result{grid-column:auto}.preview-grid{grid-template-columns:1fr}.result-head{display:block}.score{display:inline-block;margin-top:12px}.side{order:-1}}@media(prefers-reduced-motion:reduce){.primary.busy::before{animation:none}.lookup-line{animation:none;background:#edf2f7}}
   </style>
+  <style>
+    .copy-panel,.email-panel{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:13px;background:#fbfdff}.copy-panel[hidden],.email-panel[hidden]{display:none}.copy-panel h3,.email-panel h3{margin:0 0 5px;font-size:15px}.copy-panel p,.email-panel p{margin:0 0 12px;color:var(--muted);font-size:12px}.copy-actions{display:flex;flex-wrap:wrap;gap:8px}.copy-actions button{min-height:36px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;background:#fff;color:var(--deep);font-size:12px;font-weight:750}.copy-status,.email-status{display:block;min-height:18px;margin-top:8px;color:var(--muted);font-size:12px}.email-panel .field{margin-top:12px}.email-panel .field textarea{min-height:130px}.email-consent{display:flex;gap:8px;align-items:flex-start;margin:12px 0;color:#405473;font-size:12px;line-height:1.45}.email-consent input{margin:3px 0 0;flex:none}.email-attachments{display:block;color:var(--muted);font-size:11px;line-height:1.5}.email-panel button:disabled{opacity:.5;cursor:not-allowed}
+  </style>
 </head>
 <body>
   <main class="wrap">
@@ -53,8 +56,10 @@
           <article class="preview"><h3>Currículo direcionado</h3><div class="preview-body" id="resumeSummary"></div><div class="skills" id="skills"></div></article>
           <article class="preview"><h3>Carta de apresentação</h3><div class="preview-body" id="letter"></div></article>
         </div>
+        <section class="copy-panel" id="quickCopyPanel" hidden aria-labelledby="quickCopyHeading"><h3 id="quickCopyHeading">Cópia rápida para formulários</h3><p>Copie um bloco por vez e cole no campo correspondente do portal. Revise cada resposta antes de enviar.</p><div class="copy-actions" id="quickCopyActions"></div><span class="copy-status" id="quickCopyStatus" role="status" aria-live="polite"></span></section>
         <div class="notice" id="notice"></div>
-        <div class="file-actions" id="exportActions" hidden><a class="secondary" id="openJobAfterPrepare" href="#" target="_blank" rel="noopener" hidden>Abrir portal para enviar candidatura</a><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button></div>
+        <div class="file-actions" id="exportActions" hidden><a class="secondary" id="openJobAfterPrepare" href="#" target="_blank" rel="noopener" hidden>Abrir portal para enviar candidatura</a><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button><button class="secondary" id="downloadResumePdf" type="button" hidden>Baixar currículo em PDF</button><button class="secondary" id="downloadLetterPdf" type="button" hidden>Baixar carta em PDF</button></div>
+        <section class="email-panel" id="emailApplicationPanel" hidden aria-labelledby="emailApplicationHeading"><h3 id="emailApplicationHeading">Enviar candidatura por e-mail</h3><p>Use este envio somente se o anúncio solicitar candidatura por e-mail. Confira o destinatário, o texto e os dois PDFs antes de autorizar. A plataforma não envia sem seu clique final.</p><div class="field"><label for="emailRecipient">E-mail de destino encontrado no anúncio</label><select id="emailRecipient"><option value="">Prepare a prévia para buscar endereços</option></select></div><div class="field"><label for="emailBody">Mensagem que será enviada</label><textarea id="emailBody" maxlength="12000"></textarea></div><span class="email-attachments" id="emailAttachments"></span><label class="email-consent"><input id="emailConsent" type="checkbox"><span>Revisei o endereço, o texto e os arquivos listados. Autorizo enviar esta candidatura e anexar meu currículo e minha carta a este destinatário.</span></label><div class="actions"><button class="secondary" id="refreshEmailPreview" type="button">Atualizar prévia</button><button class="primary" id="sendEmailApplication" type="button" disabled>Enviar candidatura revisada</button></div><span class="email-status" id="emailAssistStatus" role="status" aria-live="polite"></span></section>
         <div class="status" id="checkoutStatus" role="status" aria-live="polite"></div>
       </section>
     </div>
@@ -64,6 +69,7 @@
     let current=null;
     let linkedApplicationId=null;
     let paymentReturnHandled=false;
+    let emailPreview=null;
 
     function msg(text,ok=false){
       $('status').textContent=text;
@@ -72,6 +78,109 @@
     function checkoutMsg(text,ok=false){
       $('checkoutStatus').textContent=text;
       $('checkoutStatus').className='status'+(ok?' ok':'');
+    }
+    function renderQuickCopy(blocks){
+      const panel=$('quickCopyPanel'),actions=$('quickCopyActions'),status=$('quickCopyStatus');
+      actions.replaceChildren();
+      status.textContent='';
+      const labels={headline:'título profissional',summary:'resumo',skills:'competências',experience:'experiência',education:'formação'};
+      const available=Object.entries(labels).filter(([key])=>String(blocks?.[key]||'').trim());
+      panel.hidden=!available.length;
+      for(const [key,label] of available){
+        const button=document.createElement('button');
+        button.type='button';button.textContent='Copiar '+label;
+        button.addEventListener('click',async()=>{
+          try{
+            const value=String(blocks[key]||'').trim();
+            if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+            else{const temporary=document.createElement('textarea');temporary.value=value;temporary.setAttribute('readonly','');temporary.style.position='fixed';temporary.style.opacity='0';document.body.append(temporary);temporary.select();const copied=document.execCommand('copy');temporary.remove();if(!copied)throw new Error('clipboard_unavailable')}
+            status.textContent='Bloco de '+label+' copiado. Revise antes de colar no portal.';
+          }catch{status.textContent='Não foi possível copiar automaticamente. Selecione e copie o texto da prévia.'}
+        });
+        actions.append(button);
+      }
+    }
+    function selectedEmailSubmission(){
+      const recipient=$('emailRecipient').value;
+      return emailPreview?.submission_statuses?.find(item=>item.recipient===recipient)||null;
+    }
+    function updateEmailSubmissionControls(){
+      const recipient=$('emailRecipient').value;
+      const record=selectedEmailSubmission();
+      const blocked=['SENT','SENDING','UNKNOWN'].includes(record?.status);
+      const ready=Boolean(emailPreview&&recipient&&emailPreview.smtp_configured&&emailPreview.account_email_verified&&$('emailConsent').checked&&$('emailBody').value.trim().length>=20&&!blocked);
+      $('sendEmailApplication').disabled=!ready;
+      if(record?.status==='SENT')$('emailAssistStatus').textContent='Este endereço já recebeu a candidatura. O envio não será repetido.';
+      else if(record?.status==='UNKNOWN')$('emailAssistStatus').textContent='O servidor não confirmou o resultado. Confira sua caixa de enviados e não repita o envio.';
+      else if(record?.status==='SENDING')$('emailAssistStatus').textContent='Há um envio em andamento para este endereço. Aguarde a confirmação.';
+      else if(record?.status==='FAILED')$('emailAssistStatus').textContent=record.last_error||'A conexão falhou antes do envio. Você pode revisar e tentar novamente.';
+      else if(emailPreview&&!emailPreview.smtp_configured)$('emailAssistStatus').textContent='O envio por e-mail ainda não está configurado. Nenhuma mensagem foi enviada; você pode baixar os PDFs.';
+      else if(emailPreview&&!emailPreview.account_email_verified)$('emailAssistStatus').textContent='Confirme o e-mail da sua conta antes de enviar uma candidatura.';
+      else if(emailPreview&&!emailPreview.recipients?.length)$('emailAssistStatus').textContent='Não encontramos um endereço de e-mail no anúncio. Use o portal da empresa ou preencha os dados manualmente.';
+      else if(emailPreview&&recipient&&!$('emailConsent').checked)$('emailAssistStatus').textContent='Marque a autorização depois de revisar o endereço, a mensagem e os anexos.';
+      else if(emailPreview&&recipient&&!blocked)$('emailAssistStatus').textContent='A mensagem será enviada pelo endereço da Candidatura Certa; respostas irão para o e-mail confirmado da sua conta.';
+    }
+    async function loadEmailSubmissionPreview(){
+      const panel=$('emailApplicationPanel');
+      if(!current?.application_id){panel.hidden=true;return}
+      panel.hidden=false;
+      emailPreview=null;
+      $('emailConsent').checked=false;
+      $('emailRecipient').replaceChildren(new Option('Carregando endereços…',''));
+      $('emailBody').value='';
+      $('emailAttachments').textContent='';
+      $('emailAssistStatus').textContent='Preparando a prévia e conferindo os documentos…';
+      $('sendEmailApplication').disabled=true;
+      try{
+        const response=await fetch(`/applications/${encodeURIComponent(current.application_id)}/email-submission/preview`,{cache:'no-store'});
+        const data=await response.json();
+        if(!response.ok)throw new Error(data.detail||'Não foi possível preparar o envio por e-mail.');
+        emailPreview=data;
+        const addresses=Array.isArray(data.recipients)?data.recipients:[];
+        $('emailRecipient').replaceChildren(new Option(addresses.length?'Selecione o destinatário':'Nenhum endereço encontrado',''));
+        for(const address of addresses)$('emailRecipient').append(new Option(address,address));
+        $('emailBody').value=data.body||'';
+        const attachmentNames=(data.attachments||[]).map(item=>item.name).join(' · ');
+        $('emailAttachments').textContent='Assunto: '+(data.subject||'Candidatura')+' · Anexos PDF: '+(attachmentNames||'indisponíveis');
+        $('emailAssistStatus').textContent='';
+        updateEmailSubmissionControls();
+      }catch(error){
+        emailPreview=null;
+        $('emailAssistStatus').textContent=error.message||'Não foi possível preparar a prévia. Seus documentos continuam disponíveis para download.';
+        $('sendEmailApplication').disabled=true;
+      }
+    }
+    async function sendReviewedEmailApplication(){
+      if(!current?.application_id||!emailPreview||$('sendEmailApplication').disabled)return;
+      const button=$('sendEmailApplication');
+      button.disabled=true;button.textContent='Enviando candidatura…';
+      $('emailAssistStatus').textContent='Enviando somente para o endereço que você revisou…';
+      try{
+        const response=await fetch(`/applications/${encodeURIComponent(current.application_id)}/email-submission/send`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({recipient:$('emailRecipient').value,body:$('emailBody').value,resume_version:emailPreview.resume_version,cover_letter_version:emailPreview.cover_letter_version,consent:true})
+        });
+        const data=await response.json();
+        if(!response.ok)throw new Error(data.detail||'Não foi possível concluir o envio.');
+        $('emailConsent').checked=false;
+        $('emailAssistStatus').textContent=data.message||'Resultado do envio atualizado.';
+        await loadEmailSubmissionPreview();
+      }catch(error){
+        $('emailAssistStatus').textContent=error.message||'O envio não foi confirmado. Atualize a prévia antes de tentar novamente.';
+        try{await loadEmailSubmissionPreview()}catch{}
+      }finally{button.textContent='Enviar candidatura revisada';updateEmailSubmissionControls()}
+    }
+    async function loadDocumentPdfLinks(applicationId){
+      try{
+        const response=await fetch('/api/documents',{cache:'no-store'});
+        if(!response.ok)return;
+        const data=await response.json();
+        const item=(data.items||[]).find(entry=>Number(entry.application_id)===Number(applicationId)&&entry.resume?.download_pdf_url&&entry.cover_letter?.download_pdf_url);
+        if(!item)return;
+        $('downloadResumePdf').dataset.url=item.resume.download_pdf_url;
+        $('downloadLetterPdf').dataset.url=item.cover_letter.download_pdf_url;
+        $('downloadResumePdf').hidden=false;$('downloadLetterPdf').hidden=false;
+      }catch{}
     }
     function updateApplyLink(value){
       const link=$('openJobAfterPrepare');
@@ -118,6 +227,7 @@
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     function showGeneratedDocuments(data,offer){
       current=Object.assign({},current||{},{application_id:data.application_id});
+      renderQuickCopy(current.quick_copy);
       showExport(Object.assign({},offer||{}, {allowed:true}));
       $('downloadResume').dataset.url=data.resume_url||('/applications/'+data.application_id+'/document');
       $('downloadLetter').dataset.url=data.letter_url||('/applications/'+data.application_id+'/cover-letter/document');
@@ -126,6 +236,8 @@
       $('retryGeneration').hidden=true;
       checkoutMsg(data.message||'Pagamento confirmado. Currículo e carta estão prontos para baixar.',true);
       msg('Documentos liberados após a confirmação do pagamento.',true);
+      loadDocumentPdfLinks(data.application_id);
+      loadEmailSubmissionPreview();
     }
     async function waitForServerGeneration(applicationId,offer,{timeout=90000}={}){
       const deadline=Date.now()+timeout;
@@ -352,6 +464,7 @@
         const data=await r.json();
         if(!r.ok)throw new Error(data.detail||'Não foi possível gerar a prévia.');
         current=data;
+        renderQuickCopy(data.quick_copy);
         $('resultSubtitle').textContent=data.company+' · '+data.job_title;
         $('score').textContent=(data.analysis&&data.analysis.score!=null?data.analysis.score:'—')+'% de aderência';
         $('resumeSummary').textContent=(data.resume_preview&&data.resume_preview.name||'Candidato')+'\n'
@@ -450,6 +563,13 @@
       const url=$('downloadLetter').dataset.url||(current&&current.application_id?'/applications/'+current.application_id+'/cover-letter/document':'');
       if(url)window.location.href=url;
     });
+    $('downloadResumePdf').addEventListener('click',()=>{const url=$('downloadResumePdf').dataset.url;if(url)window.location.href=url});
+    $('downloadLetterPdf').addEventListener('click',()=>{const url=$('downloadLetterPdf').dataset.url;if(url)window.location.href=url});
+    $('emailRecipient').addEventListener('change',()=>{$('emailConsent').checked=false;updateEmailSubmissionControls()});
+    $('emailBody').addEventListener('input',updateEmailSubmissionControls);
+    $('emailConsent').addEventListener('change',updateEmailSubmissionControls);
+    $('refreshEmailPreview').addEventListener('click',loadEmailSubmissionPreview);
+    $('sendEmailApplication').addEventListener('click',sendReviewedEmailApplication);
     loadApplications();
   </script>
 </body>

@@ -491,6 +491,38 @@ class DocumentDelivery(Base):
     last_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
 
 
+class EmailApplicationSubmission(Base):
+    """Idempotent record of a candidate-approved application sent by e-mail."""
+
+    __tablename__ = "email_application_submissions"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id",
+            "recipient_hash",
+            name="uq_email_application_recipient",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    recipient_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    resume_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    cover_letter_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="SENDING")
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class FollowupEmailOutbox(Base):
     """Durable owner-scoped digest of overdue applications without a reply."""
 

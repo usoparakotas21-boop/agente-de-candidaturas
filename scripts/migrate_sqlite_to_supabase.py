@@ -39,6 +39,7 @@ DIRECT_OWNER_TABLES = {
     "jobs",
     "email_integrations",
     "processed_email_messages",
+    "email_application_submissions",
     "queue_items",
 }
 

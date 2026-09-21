@@ -40,11 +40,12 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
+from .document_pdf import docx_to_pdf
 from .data_retention import cleanup_expired_raw_data
 from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle, smtp_settings
 from .interview_notifications import cleanup_interview_email_outbox, enqueue_interview_notification, run_interview_notification_cycle
@@ -439,7 +440,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js?v=2"></script>'
     if path.name == "candidaturas.html": extra = '<script src="/static/applications-enhance.js"></script><script src="/static/applications-transparency.js"></script>'
     if path.name == "onboarding.html": extra = '<script src="/static/onboarding-v2.js"></script>'
-    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=3"></script>'
+    if path.name == "profile.html": extra = '<script src="/static/profile-enhance.js"></script><script src="/static/profile-autofill-export.js?v=4"></script>'
     if path.name == "configuracoes.html": extra = '<script src="/static/preferences-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/alerts-enhance.js"></script>'
     if path.name == "configuracoes.html": extra += '<script src="/static/settings-enhance.js?v=1"></script>'
@@ -838,6 +839,12 @@ class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0
 class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro", "consultoria"]
 class ConsultationBookingRequest(BaseModel): availability: str = Field(min_length=5, max_length=800)
 class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
+class EmailApplicationSubmissionRequest(BaseModel):
+    recipient: str = Field(min_length=5, max_length=320)
+    body: str = Field(min_length=20, max_length=12000)
+    resume_version: str = Field(min_length=3, max_length=32)
+    cover_letter_version: str = Field(min_length=3, max_length=32)
+    consent: bool = False
 class DocumentStudioRequest(BaseModel):
     application_id: int | None = Field(default=None, gt=0)
     title: str = Field(min_length=2, max_length=200)
@@ -1147,7 +1154,7 @@ def startup():
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
-            for table in ("generated_documents", "document_deliveries", "followup_email_outbox"):
+            for table in ("generated_documents", "document_deliveries", "followup_email_outbox", "email_application_submissions"):
                 policy = f"{table}_owner"
                 db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
                 db.execute(text(f"""
@@ -2322,6 +2329,7 @@ def _delete_local_owner_data(db, owner_id: str) -> list[Path]:
         (InterviewEmailOutbox, InterviewEmailOutbox.owner_id),
         (FollowupEmailOutbox, FollowupEmailOutbox.owner_id),
         (DocumentDelivery, DocumentDelivery.owner_id),
+        (EmailApplicationSubmission, EmailApplicationSubmission.owner_id),
         (GeneratedDocument, GeneratedDocument.owner_id),
         (DocumentExportPurchase, DocumentExportPurchase.owner_id),
         (ConsultationCredit, ConsultationCredit.owner_id),
@@ -2366,6 +2374,7 @@ def _serialize_generated_document(document: GeneratedDocument) -> dict[str, Any]
         "created_at": document.created_at.isoformat(),
         "expires_at": document.expires_at.isoformat(),
         "download_url": f"/api/documents/{document.id}/download",
+        "download_pdf_url": f"/api/documents/{document.id}/download.pdf",
     }
 
 
@@ -3778,6 +3787,341 @@ def get_current_subscription(user=Depends(authenticated_user)):
         db.close()
 
 
+@app.get("/api/documents/{document_id}/download.pdf")
+def download_generated_document_pdf(document_id: int, user=Depends(authenticated_user)):
+    """Download the same private generated document as a print-ready PDF."""
+    owner_id = _require_owner_id(user)
+    db = SessionLocal()
+    try:
+        document = db.scalar(select(GeneratedDocument).where(
+            GeneratedDocument.id == document_id,
+            GeneratedDocument.owner_id == owner_id,
+        ))
+        if document is None:
+            raise HTTPException(404, "Documento não encontrado.")
+        if _document_expired(document):
+            raise HTTPException(410, "Este documento expirou. Gere novamente para renovar o acesso.")
+        if not document.content.startswith(b"PK"):
+            raise HTTPException(404, "Documento não encontrado.")
+        application = _application_for_user(db, document.application_id, user)
+        if application is None:
+            raise HTTPException(404, "Documento não encontrado.")
+        _require_document_export(user, application.id)
+        filename = re.sub(r"[^A-Za-z0-9._-]", "-", Path(document.filename).stem)[:150] + ".pdf"
+        try:
+            content = docx_to_pdf(document.content, title=document.title or filename)
+        except Exception as exc:
+            logger.exception("Falha ao converter documento para PDF document_id=%s", document.id)
+            raise HTTPException(500, "Não foi possível preparar o PDF agora. Baixe a versão DOCX.") from exc
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+    finally:
+        db.close()
+
+
+_APPLICATION_EMAIL_PATTERN = re.compile(
+    r"(?<![A-Z0-9._%+-])[A-Z0-9._%+-]{1,64}@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+(?![A-Z0-9_%+-])",
+    re.IGNORECASE,
+)
+
+
+def _application_recipient_emails(application: Application, user: dict, candidate_email: str = "") -> list[str]:
+    """Extract only public addresses explicitly present in this job's text."""
+    description = str(application.job.description or "")[:50000]
+    own_addresses = {
+        str(value or "").strip().casefold()
+        for value in (user.get("email"), candidate_email)
+        if str(value or "").strip()
+    }
+    found: list[str] = []
+    for match in _APPLICATION_EMAIL_PATTERN.finditer(description):
+        address = match.group(0).strip(".,;:!?)]}>\"'").casefold()
+        if address not in own_addresses and address not in found:
+            found.append(address)
+        if len(found) >= 8:
+            break
+    return found
+
+
+def _current_application_documents(db, application: Application, user: dict):
+    owner_id = str(_owner_id(user) or application.job.owner_id or "").strip()
+    if not owner_id:
+        raise HTTPException(401, "Entre na sua conta para preparar o envio.")
+    delivery = _archive_application_documents(db, application, user)
+    if delivery is None:
+        raise HTTPException(409, "Gere e libere o currículo e a carta desta vaga antes de enviar por e-mail.")
+    documents = db.scalars(select(GeneratedDocument).where(
+        GeneratedDocument.owner_id == owner_id,
+        GeneratedDocument.application_id == application.id,
+        GeneratedDocument.kind.in_(("resume", "cover_letter")),
+        GeneratedDocument.version.in_((application.resume_version, application.cover_letter_version)),
+    )).all()
+    current = {document.kind: document for document in documents}
+    resume = current.get("resume")
+    letter = current.get("cover_letter")
+    if (
+        resume is None or letter is None
+        or resume.version != application.resume_version
+        or letter.version != application.cover_letter_version
+        or _document_expired(resume) or _document_expired(letter)
+    ):
+        raise HTTPException(409, "Os documentos atuais ainda não estão prontos. Gere-os novamente e tente outra vez.")
+    return resume, letter
+
+
+def _application_email_body(application: Application, candidate: Candidate | None) -> str:
+    letter = str(application.cover_letter_text or "").strip()
+    if not letter:
+        raise HTTPException(409, "A carta desta candidatura ainda não foi gerada.")
+    name = str(candidate.name if candidate else "").strip()
+    signature = f"\n\nAtenciosamente,\n{name}" if name else ""
+    return letter + signature
+
+
+def _application_email_payload(db, application: Application, user: dict, owner_id: str) -> dict[str, Any]:
+    _require_document_export(user, application.id)
+    candidate = _candidate_for_user(db, user)
+    resume, letter = _current_application_documents(db, application, user)
+    resume_pdf = docx_to_pdf(resume.content, title=resume.title or "Currículo")
+    letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentação")
+    if len(resume_pdf) + len(letter_pdf) > 7 * 1024 * 1024:
+        raise HTTPException(413, "Os PDFs desta candidatura excedem o limite de anexos do e-mail.")
+    recipients = _application_recipient_emails(
+        application, user, candidate.email if candidate else ""
+    )
+    subject = f"Candidatura: {application.job.title or 'Oportunidade'}"
+    subject = re.sub(r"[\r\n\x00-\x1f\x7f]+", " ", subject).strip()[:180]
+    return {
+        "application_id": application.id,
+        "company": application.job.company,
+        "job_title": application.job.title,
+        "recipients": recipients,
+        "subject": subject,
+        "body": _application_email_body(application, candidate),
+        "resume_version": application.resume_version,
+        "cover_letter_version": application.cover_letter_version,
+        "attachments": [
+            {"name": re.sub(r"[^A-Za-z0-9._-]", "-", Path(resume.filename).stem)[:140] + ".pdf", "size": len(resume_pdf)},
+            {"name": re.sub(r"[^A-Za-z0-9._-]", "-", Path(letter.filename).stem)[:140] + ".pdf", "size": len(letter_pdf)},
+        ],
+        "_resume_pdf": resume_pdf,
+        "_letter_pdf": letter_pdf,
+        "smtp_configured": smtp_settings() is not None,
+        "account_email_verified": bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+        "submission_status": None,
+    }
+
+
+@app.get("/applications/{app_id}/email-submission/preview")
+def preview_application_email_submission(
+    app_id: int,
+    user=Depends(authenticated_user),
+    request: Request = None,
+):
+    """Show the destination, content and attachments before the candidate approves sending."""
+    owner_id = _require_owner_id(user)
+    if request is not None:
+        _enforce_rate_limit(request, "application-email-preview", owner_id)
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, app_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura não encontrada.")
+        payload = _application_email_payload(db, application, user, owner_id)
+        payload["submission_statuses"] = []
+        for recipient in payload["recipients"]:
+            recipient_hash = hashlib.sha256(recipient.casefold().encode("utf-8")).hexdigest()
+            record = db.scalar(select(EmailApplicationSubmission).where(
+                EmailApplicationSubmission.owner_id == owner_id,
+                EmailApplicationSubmission.application_id == application.id,
+                EmailApplicationSubmission.recipient_hash == recipient_hash,
+            ))
+            payload["submission_statuses"].append({
+                "recipient": recipient,
+                "status": record.status if record else None,
+                "sent_at": record.sent_at.isoformat() if record and record.sent_at else None,
+            "last_error": record.last_error if record else None,
+            })
+        payload.pop("_resume_pdf", None)
+        payload.pop("_letter_pdf", None)
+        return payload
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Falha ao preparar prévia de candidatura por e-mail app_id=%s", app_id)
+        if isinstance(exc, ValueError):
+            raise HTTPException(409, "Não foi possível converter os documentos desta candidatura para PDF.") from exc
+        raise
+    finally:
+        db.close()
+
+
+@app.post("/applications/{app_id}/email-submission/send")
+def send_application_by_email(
+    app_id: int,
+    req: EmailApplicationSubmissionRequest,
+    user=Depends(authenticated_user),
+    request: Request = None,
+):
+    """Send one reviewed application email; repeated submits are deduplicated."""
+    owner_id = _require_owner_id(user)
+    if request is not None:
+        _enforce_rate_limit(request, "application-email-send", owner_id)
+    if not req.consent:
+        raise HTTPException(400, "Confirme que revisou e autoriza o envio dos documentos ao recrutador.")
+    if not (user.get("email_confirmed_at") or user.get("confirmed_at")):
+        raise HTTPException(403, "Confirme o e-mail da sua conta antes de enviar candidaturas.")
+    recipient = req.recipient.strip().casefold()
+    if "\r" in recipient or "\n" in recipient or not _APPLICATION_EMAIL_PATTERN.fullmatch(recipient):
+        raise HTTPException(422, "O endereço de e-mail do recrutador é inválido.")
+    smtp_config = smtp_settings()
+    if smtp_config is None:
+        raise HTTPException(503, "O envio por e-mail está indisponível no momento. Baixe os PDFs pela biblioteca.")
+    body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", req.body).strip()
+    if len(body) < 20 or len(body.encode("utf-8")) > 24000:
+        raise HTTPException(422, "Revise o texto do e-mail antes de enviar.")
+
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, app_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura não encontrada.")
+        candidate = _candidate_for_user(db, user)
+        if recipient not in _application_recipient_emails(
+            application, user, candidate.email if candidate else ""
+        ):
+            raise HTTPException(422, "Escolha um endereço que apareça no anúncio da vaga.")
+        _refresh_application_risk(application)
+        _enforce_application_risk_gate(application, "CANDIDATURA_ENVIADA")
+        preview = _application_email_payload(db, application, user, owner_id)
+        if (
+            req.resume_version != application.resume_version
+            or req.cover_letter_version != application.cover_letter_version
+        ):
+            raise HTTPException(409, "Os documentos mudaram desde a prévia. Atualize e revise o envio novamente.")
+        resume, letter = _current_application_documents(db, application, user)
+        resume_pdf = preview.pop("_resume_pdf")
+        letter_pdf = preview.pop("_letter_pdf")
+        if len(resume_pdf) + len(letter_pdf) > 7 * 1024 * 1024:
+            raise HTTPException(413, "Os PDFs desta candidatura excedem o limite de anexos do e-mail.")
+
+        safe_company = re.sub(r"[\r\n\x00-\x1f\x7f]+", " ", application.job.company or "Empresa")[:160]
+        safe_title = re.sub(r"[\r\n\x00-\x1f\x7f]+", " ", application.job.title or "Oportunidade")[:160]
+        message = EmailMessage()
+        message["Subject"] = f"Candidatura: {safe_title} - {safe_company}"[:190]
+        message["From"] = str(smtp_config["sender"])
+        message["To"] = recipient
+        reply_to = str(user.get("email") or "").strip()
+        if _APPLICATION_EMAIL_PATTERN.fullmatch(reply_to):
+            message["Reply-To"] = reply_to
+        message.set_content(body)
+        resume_name = re.sub(r"[^A-Za-z0-9._-]", "-", Path(resume.filename).stem)[:140] + ".pdf"
+        letter_name = re.sub(r"[^A-Za-z0-9._-]", "-", Path(letter.filename).stem)[:140] + ".pdf"
+        message.add_attachment(resume_pdf, maintype="application", subtype="pdf", filename=resume_name)
+        message.add_attachment(letter_pdf, maintype="application", subtype="pdf", filename=letter_name)
+
+        recipient_hash = hashlib.sha256(recipient.encode("utf-8")).hexdigest()
+        submission = db.scalar(select(EmailApplicationSubmission).where(
+            EmailApplicationSubmission.owner_id == owner_id,
+            EmailApplicationSubmission.application_id == application.id,
+            EmailApplicationSubmission.recipient_hash == recipient_hash,
+        ).with_for_update())
+        if submission is not None and submission.status in {"SENT", "SENDING", "UNKNOWN"}:
+            raise HTTPException(409, "Este envio já foi iniciado. Confira o histórico antes de tentar novamente.")
+        if submission is not None and submission.attempt_count >= 3:
+            raise HTTPException(429, "O limite de tentativas para este destino foi atingido.")
+        now = utc_now()
+        if submission is None:
+            submission = EmailApplicationSubmission(
+                owner_id=owner_id,
+                application_id=application.id,
+                recipient_hash=recipient_hash,
+                resume_version=application.resume_version,
+                cover_letter_version=application.cover_letter_version,
+                status="SENDING",
+                attempt_count=1,
+                consented_at=now,
+                started_at=now,
+            )
+            db.add(submission)
+            try:
+                db.flush()
+            except IntegrityError as exc:
+                db.rollback()
+                raise HTTPException(409, "Outro envio para este destino já foi iniciado.") from exc
+        else:
+            submission.status = "SENDING"
+            submission.attempt_count += 1
+            submission.consented_at = now
+            submission.started_at = now
+            submission.resume_version = application.resume_version
+            submission.cover_letter_version = application.cover_letter_version
+            submission.last_error = None
+        submission_id = submission.id
+        db.commit()
+
+        send_invoked = False
+        try:
+            with smtplib.SMTP(str(smtp_config["host"]), int(smtp_config["port"]), timeout=15) as smtp:
+                if bool(smtp_config["use_tls"]):
+                    smtp.starttls()
+                smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
+                send_invoked = True
+                refused = smtp.send_message(message)
+                if recipient in refused:
+                    raise smtplib.SMTPRecipientsRefused(refused)
+        except (OSError, smtplib.SMTPException, TimeoutError):
+            current = db.get(EmailApplicationSubmission, submission_id)
+            if current is not None:
+                current.status = "UNKNOWN" if send_invoked else "FAILED"
+                current.last_error = (
+                    "O servidor não confirmou se recebeu a mensagem; confira o e-mail enviado antes de agir."
+                    if send_invoked else "O servidor recusou a conexão antes do envio; você pode tentar novamente."
+                )
+                db.commit()
+            return {
+                "status": "UNKNOWN" if send_invoked else "FAILED",
+                "message": (
+                    "O servidor não confirmou o resultado. Confira a pasta de enviados antes de fazer qualquer novo envio."
+                    if send_invoked else "O serviço de e-mail recusou a conexão; nenhum envio foi confirmado. Você pode tentar novamente."
+                ),
+            }
+
+        current = db.get(EmailApplicationSubmission, submission_id)
+        if current is None:
+            raise HTTPException(500, "O e-mail foi enviado, mas o registro de confirmação não pôde ser recuperado.")
+        current.status = "SENT"
+        current.sent_at = utc_now()
+        current.last_error = None
+        _add_event(
+            db,
+            application,
+            "CANDIDATURA_ENVIADA",
+            "Candidatura enviada por e-mail após revisão e autorização do candidato.",
+            channel="email",
+        )
+        db.commit()
+        return {"status": "SENT", "message": "Candidatura enviada. O envio foi registrado no histórico."}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao enviar candidatura por e-mail app_id=%s", app_id)
+        raise HTTPException(500, "Não foi possível concluir o envio por e-mail.")
+    finally:
+        db.close()
+
+
 def _cleanup_expiration_email_outbox() -> int:
     db = SessionLocal()
     try:
@@ -3955,8 +4299,26 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
 @app.get("/billing/ebook/hackeando-disc", include_in_schema=False)
 def download_pro_ebook(user=Depends(authenticated_user)):
     offer = _document_export_metadata(user)
-    if offer.get("plan") != "pro":
-        raise HTTPException(403, "O e-book Hackeando DISC está incluído no plano Pro.")
+    allowed = offer.get("plan") == "pro" and offer.get("allowed") is True
+    owner_id = _owner_id(user)
+    if owner_id:
+        db = SessionLocal()
+        try:
+            subscription = db.scalar(
+                select(BillingSubscription)
+                .where(BillingSubscription.owner_id == owner_id)
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
+            allowed = allowed or (
+                subscription is not None
+                and subscription.plan_code in {"pro", "consultoria"}
+                and _subscription_is_entitled(subscription)
+            )
+        finally:
+            db.close()
+    if not allowed:
+        raise HTTPException(403, "O e-book Hackeando o DISC está incluído nos planos Pro e Consultoria ativos.")
     if not PRO_BOOK_PATH.is_file():
         logger.error("Arquivo do e-book Pro não está disponível no deploy.")
         raise HTTPException(503, "O e-book ainda não está disponível para download. Tente novamente mais tarde.")
@@ -3964,6 +4326,7 @@ def download_pro_ebook(user=Depends(authenticated_user)):
         PRO_BOOK_PATH,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename="Hackeando-DISC.docx",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -4563,6 +4926,25 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
             "analysis": arts["analysis"],
             "resume_preview": _resume_preview(arts),
             "cover_letter_preview": _cover_letter_preview(app_record.cover_letter_text),
+            "quick_copy": {
+                "headline": str(arts["profile"].get("headline") or title).strip(),
+                "summary": str(arts["profile"].get("summary") or "").strip(),
+                "skills": ", ".join(str(value).strip() for value in arts["profile"].get("skills", []) if str(value).strip()),
+                "experience": "\n\n".join(
+                    " · ".join(str(value).strip() for value in (
+                        item.get("role"), item.get("company"), item.get("period"), item.get("description")
+                    ) if str(value or "").strip())
+                    for item in arts["profile"].get("experiences", [])
+                    if isinstance(item, dict)
+                ),
+                "education": "\n".join(
+                    " · ".join(str(value).strip() for value in (
+                        item.get("course") or item.get("title"), item.get("institution"), item.get("period")
+                    ) if str(value or "").strip())
+                    for item in arts["profile"].get("education", [])
+                    if isinstance(item, dict)
+                ),
+            },
             "export": export,
             "notice": "Prévia adaptada ao cargo. Os arquivos completos estão incluídos no Start e no Pro, ou podem ser comprados à parte.",
         }

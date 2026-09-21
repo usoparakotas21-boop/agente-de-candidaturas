@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createFillPlan } = require("../chrome-extension/field-filler.js");
 const { isRestrictedAutomationHost } = require("../chrome-extension/automation-policy.js");
+const { classifyFileField, attachPdfsInPage } = require("../chrome-extension/pdf-attachment.js");
 
 const profile = {
   name: "Ana Beatriz Souza",
@@ -89,6 +90,16 @@ test("bloqueia portais que restringem automação e deixa o portal do empregador
   assert.equal(isRestrictedAutomationHost("careers.example.org"), false);
 });
 
+test("só reconhece uploads explicitamente identificados como currículo ou carta", () => {
+  assert.equal(classifyFileField({ labels: "Currículo em PDF" }), "resume");
+  assert.equal(classifyFileField({ ariaLabel: "Upload resume" }), "resume");
+  assert.equal(classifyFileField({ labels: "Carta de apresentação" }), "letter");
+  assert.equal(classifyFileField({ name: "cover_letter_upload" }), "letter");
+  assert.equal(classifyFileField({ labels: "Documento" }), null);
+  assert.equal(classifyFileField({ labels: "Foto do perfil" }), null);
+  assert.equal(classifyFileField({ labels: "Passaporte" }), null);
+});
+
 test("complemento não pede acesso permanente a sites nem dispara envio ou rede", () => {
   const root = path.resolve(__dirname, "../chrome-extension");
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
@@ -96,16 +107,23 @@ test("complemento não pede acesso permanente a sites nem dispara envio ou rede"
   const popup = fs.readFileSync(path.join(root, "popup.js"), "utf8");
   const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
   const policy = fs.readFileSync(path.join(root, "automation-policy.js"), "utf8");
+  const attachment = fs.readFileSync(path.join(root, "pdf-attachment.js"), "utf8");
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "scripting", "storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined);
   assert.doesNotMatch(filler, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(popup, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit/);
   assert.match(popupHtml, /Confirmei que este portal permite preenchimento assistido/);
+  assert.match(popupHtml, /transferir os PDFs selecionados para esta página/);
   assert.ok(popup.includes("https:"));
   assert.ok(!popup.includes("https?:"));
   assert.match(popupHtml, /vou revisar tudo antes de enviar/i);
   assert.match(popupHtml, /automation-policy\.js/);
   assert.match(policy, /linkedin\.com/);
   assert.match(popup, /isActivePageRestricted/);
+  assert.equal((popup.match(/isActivePageRestricted\(tab\.url\)/g) || []).length, 2);
+  assert.match(popupHtml, /id="attachmentConsent"/);
+  assert.match(popup, /CandidaturaCertaPdfAttachment\.attachPdfsInPage/);
+  assert.doesNotMatch(attachPdfsInPage.toString(), /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
+  assert.doesNotMatch(attachment, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
 });

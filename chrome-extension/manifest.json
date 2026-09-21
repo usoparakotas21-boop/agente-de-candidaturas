@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Candidatura Certa — candidaturas assistidas",
   "short_name": "Candidatura Certa",
-  "version": "0.2.1",
-  "description": "Prepara formulários permitidos; bloqueia LinkedIn, Jobbol e Glassdoor.",
+  "version": "0.3.0",
+  "description": "Preenche campos permitidos e anexa PDFs selecionados; bloqueia LinkedIn, Jobbol e Glassdoor.",
   "action": {
     "default_title": "Candidatura Certa — preparar candidatura",
     "default_popup": "popup.html"
