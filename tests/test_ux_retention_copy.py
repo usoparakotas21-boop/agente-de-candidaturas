@@ -19,7 +19,7 @@ class RetentionExperienceCopyTests(unittest.TestCase):
         self.assertIn('id="notifyExpiring" type="checkbox" disabled', html)
         self.assertIn('id="expiringHint"', html)
         self.assertIn("data de encerramento explícita do anúncio", html)
-        self.assertIn("O envio por e-mail ainda não está configurado no servidor.", html)
+        self.assertIn("configuração do envio por e-mail", html)
 
     def test_document_email_tooltip_is_accessible_and_touch_friendly(self):
         html = (STATIC / "curriculos.html").read_text(encoding="utf-8")
