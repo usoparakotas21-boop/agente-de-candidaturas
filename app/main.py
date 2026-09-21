@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import contextmanager
 import json
 import base64
 import hashlib
@@ -3126,6 +3127,21 @@ def _mark_purchase_paid(
     return "idempotent" if purchase.status == "PAID" and purchase.transaction_nsu == transaction_nsu else "conflict"
 
 
+@contextmanager
+def _smtp_client(config: dict[str, object], *, timeout: float):
+    """Open the configured relay using STARTTLS or implicit TLS on port 465."""
+    host = str(config["host"])
+    port = int(config["port"])
+    if bool(config.get("use_ssl")):
+        with smtplib.SMTP_SSL(host, port, timeout=timeout) as smtp:
+            yield smtp
+        return
+    with smtplib.SMTP(host, port, timeout=timeout) as smtp:
+        if bool(config["use_tls"]):
+            smtp.starttls()
+        yield smtp
+
+
 def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     """Send one plain-text receipt when SMTP is configured; retries stay idempotent."""
     locked = db.scalar(
@@ -3174,10 +3190,8 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     db.commit()
     smtp_stage = "connect"
     try:
-        with smtplib.SMTP(host, port, timeout=10) as smtp:
+        with _smtp_client(smtp_config, timeout=10) as smtp:
             smtp_stage = "tls"
-            if bool(smtp_config["use_tls"]):
-                smtp.starttls()
             smtp_stage = "auth"
             smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
             smtp_stage = "send"
@@ -3871,10 +3885,8 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
     )
     smtp_stage = "connect"
     try:
-        with smtplib.SMTP(host, int(smtp_config["port"]), timeout=15) as smtp:
+        with _smtp_client(smtp_config, timeout=15) as smtp:
             smtp_stage = "tls"
-            if bool(smtp_config["use_tls"]):
-                smtp.starttls()
             smtp_stage = "auth"
             smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
             smtp_stage = "send"
@@ -4498,9 +4510,7 @@ def send_application_by_email(
 
         send_invoked = False
         try:
-            with smtplib.SMTP(str(smtp_config["host"]), int(smtp_config["port"]), timeout=15) as smtp:
-                if bool(smtp_config["use_tls"]):
-                    smtp.starttls()
+            with _smtp_client(smtp_config, timeout=15) as smtp:
                 smtp.login(str(smtp_config["username"]), str(smtp_config["password"]))
                 send_invoked = True
                 refused = smtp.send_message(message)

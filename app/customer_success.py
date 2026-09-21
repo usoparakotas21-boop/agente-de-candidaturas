@@ -59,6 +59,7 @@ def smtp_settings() -> dict[str, object] | None:
         "username": username,
         "password": password,
         "use_tls": os.getenv("SMTP_USE_TLS", "true").strip().casefold() != "false",
+        "use_ssl": os.getenv("SMTP_USE_SSL", "").strip().casefold() == "true" or port == 465,
     }
 
 
