@@ -81,6 +81,7 @@
     "Como gero meu currículo e minha carta?",
     "Como cadastro uma vaga?",
     "O que o Copiloto preenche?",
+    "Como instalo o Copiloto?",
     "Aceita Pix para pagar?",
     "Onde baixo meus documentos?",
     "Como cancelo minha assinatura?",

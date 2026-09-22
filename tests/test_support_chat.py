@@ -96,6 +96,8 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support_chat.fallback_support_topic("Quais formatos de currículo posso importar?"), "file_formats")
         self.assertEqual(support_chat.fallback_support_topic("Meu currículo é compatível com ATS?"), "ats_compatibility")
         self.assertEqual(support_chat.fallback_support_topic("O que o Copiloto preenche?"), "copilot")
+        self.assertEqual(support_chat.fallback_support_topic("Como instalo o Copiloto no computador?"), "copilot_installation")
+        self.assertEqual(support_chat.fallback_support_topic("A extensão funciona no celular?"), "copilot_installation")
         self.assertEqual(support_chat.fallback_support_topic("Como cadastro uma vaga?"), "job_capture")
         self.assertEqual(support_chat.fallback_support_topic("Receberei alerta de vaga expirando?"), "expiring_alerts")
         self.assertEqual(support_chat.fallback_support_topic("Pergunta sem relação"), "unknown")
@@ -167,7 +169,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=6", landing)
+        self.assertIn("/static/support-chat.js?v=7", landing)
         self.assertIn('class="cc-support-safe-footer"', landing)
         self.assertNotIn("CANDIDATURA_CERTA_DEMO_VIDEO", landing)
         self.assertNotIn('id="demonstracao"', landing)
@@ -187,7 +189,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
     def test_authenticated_shell_has_widget(self):
         dashboard = main._page(main.DASHBOARD_PATH).body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=6", dashboard)
+        self.assertIn("/static/support-chat.js?v=7", dashboard)
 
     def test_widget_shows_accessible_common_question_shortcuts_without_html_injection(self):
         widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
@@ -196,6 +198,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Aceita Pix para pagar?", widget)
         self.assertIn("Como cadastro uma vaga?", widget)
         self.assertIn("O que o Copiloto preenche?", widget)
+        self.assertIn("Como instalo o Copiloto?", widget)
         self.assertIn("Onde baixo meus documentos?", widget)
         self.assertIn("Como cancelo minha assinatura?", widget)
         self.assertIn('aria-label", "Perguntas comuns"', widget)
