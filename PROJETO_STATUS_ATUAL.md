@@ -42,6 +42,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **P1.10 — retorno à aba do checkout (`5be2431`, Render Live):** além do retorno do Mercado Pago e da reabertura do Estúdio, a aba original agora reconsulta o pagamento quando volta ao foco ou fica visível novamente. A consulta é limitada a uma tentativa a cada cinco segundos, mantém o escopo da candidatura do usuário e remove o marcador local quando a geração termina. A suíte focada permaneceu em `50/50`, o JavaScript inline passou em `node --check` e `git diff --check` ficou limpo.
 
+- **Regressão após a retomada do checkout (`22/09/2026`):** a suíte oficial foi executada com as dependências de teste empacotadas e terminou em `437/437` testes aprovados. Os avisos são cenários simulados de indisponibilidade/rede e depreciações do runtime; não houve falha funcional.
+
 ### Atualização operacional — 21/09/2026
 
 - **Deploy do status (`2891cf4`):** o Render confirmou o registro “Brevo key and Render configuration status” como **Live**. O repositório está limpo após o push e nenhum segredo foi incluído no commit.
