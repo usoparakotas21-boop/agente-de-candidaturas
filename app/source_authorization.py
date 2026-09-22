@@ -16,9 +16,10 @@ from typing import Any, Mapping
 from .source_governance import (
     JobSource,
     SourceApprovalError,
+    SourceRegistry,
     SourceStatus,
     SourceUse,
-    _ensure_source_approved,
+    require_approved_source,
 )
 
 
@@ -144,8 +145,9 @@ def check_source(source: JobSource, *, as_of: date | None = None) -> SourceAutho
     gaps = source.approval_gaps()
     approval_error: str | None = None
     try:
-        _ensure_source_approved(
-            source,
+        require_approved_source(
+            source.source_id,
+            registry=SourceRegistry([source]),
             required_uses=frozenset(
                 {SourceUse.AUTOMATED_FETCH, SourceUse.COMMERCIAL_DISPLAY}
             ),
