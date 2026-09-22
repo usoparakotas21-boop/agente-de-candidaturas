@@ -133,6 +133,8 @@ class ShellLayoutTest(unittest.TestCase):
         html = (Path(main_module.STATIC_DIR) / "candidaturas.html").read_text(encoding="utf-8")
         self.assertIn('role="status" aria-live="polite"', html)
         self.assertIn('id="retryApplications"', html)
+        self.assertIn('id="exportCsv"', html)
+        self.assertIn("/applications/export.csv", html)
         self.assertIn("Não foi possível carregar as candidaturas agora.", html)
         self.assertIn("Tentar novamente", html)
 

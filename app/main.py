@@ -1,9 +1,11 @@
 import asyncio
+import csv
 from contextlib import contextmanager
 import json
 import base64
 import hashlib
 import hmac
+from io import StringIO
 import logging
 import math
 import os
@@ -2547,6 +2549,57 @@ def list_apps(status: str = None, decision: str = None, user=Depends(authenticat
         allowed = _document_export_metadata(user)["allowed"]
         return {"total": len(apps), "applications": [_serialize_app(a, allowed, allowed) for a in apps]}
     finally: db.close()
+
+
+@app.get("/applications/export.csv")
+def export_applications_csv(status: str = None, decision: str = None, user=Depends(authenticated_user)):
+    """Download an owner-scoped, privacy-conscious CSV of candidature tracking data."""
+    if status and status not in APPLICATION_STATUSES:
+        raise HTTPException(422, "Status invalido.")
+    if decision and decision not in ("AUTOMATICA", "CAPTURAR", "REVISAR", "DESCARTAR"):
+        raise HTTPException(422, "Decisao invalida.")
+    db = SessionLocal()
+    try:
+        query = select(Application).join(Application.job).order_by(Application.updated_at.desc())
+        oid = _owner_id(user)
+        if oid:
+            query = query.where(Job.owner_id == oid)
+        if status:
+            query = query.where(Application.status == status)
+        if decision:
+            query = query.where(Application.queue_decision == decision)
+        applications = db.scalars(query).unique().all()
+
+        output = StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\r\n")
+        writer.writerow((
+            "cargo", "empresa", "origem", "localidade", "modalidade",
+            "tipo_contrato", "status", "decisao", "score_match",
+            "data_captura", "data_atualizacao", "url_vaga",
+        ))
+        for application in applications:
+            job = application.job
+            writer.writerow((
+                job.title or "",
+                job.company or "",
+                job.source or "",
+                job.location or "",
+                job.modality or "",
+                job.contract_type or "",
+                application.status or "",
+                application.queue_decision or "REVISAR",
+                _score_percent(application.analysis_score),
+                application.created_at.isoformat() if application.created_at else "",
+                application.updated_at.isoformat() if application.updated_at else "",
+                job.url or "",
+            ))
+        content = "\ufeff" + output.getvalue()
+        response = Response(content=content, media_type="text/csv; charset=utf-8")
+        response.headers["Content-Disposition"] = 'attachment; filename="candidaturas.csv"'
+        response.headers["Cache-Control"] = "private, no-store, max-age=0"
+        return response
+    finally:
+        db.close()
 
 @app.get("/applications/metrics")
 def application_metrics(user=Depends(authenticated_user)):

@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import asyncio
 import unittest
@@ -140,6 +142,27 @@ class PrivacyExportTest(unittest.TestCase):
         self.assertEqual(payload["followup_email_notifications"][0]["application_count"], 1)
         self.assertNotIn("access_token", payload)
         self.assertIn("attachment;", response.headers["content-disposition"])
+
+    def test_applications_csv_is_owner_scoped_and_supports_filters(self):
+        with patch.object(main_module, "SessionLocal", self.session_factory):
+            response = main_module.export_applications_csv(user={"id": "owner-a"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/csv", response.media_type)
+        self.assertIn("candidaturas.csv", response.headers["content-disposition"])
+        rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8-sig"))))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["empresa"], "Empresa A")
+        self.assertNotIn("Empresa B", response.body.decode("utf-8"))
+        self.assertIn("Cache-Control", response.headers)
+
+        with patch.object(main_module, "SessionLocal", self.session_factory):
+            filtered = main_module.export_applications_csv(status="ENTREVISTA", user={"id": "owner-a"})
+        self.assertEqual(list(csv.DictReader(io.StringIO(filtered.body.decode("utf-8-sig")))), [])
+
+        with self.assertRaises(main_module.HTTPException) as raised:
+            main_module.export_applications_csv(status="NAO_EXISTE", user={"id": "owner-a"})
+        self.assertEqual(raised.exception.status_code, 422)
 
     def test_delete_account_requires_exact_confirmation(self):
         request = Request({"type": "http", "method": "POST", "path": "/api/privacy/delete-account", "headers": [], "query_string": b"", "client": ("testclient", 50000), "server": ("testserver", 80), "scheme": "https"})
