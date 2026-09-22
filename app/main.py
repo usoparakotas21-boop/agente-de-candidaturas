@@ -122,6 +122,43 @@ DOCUMENT_GENERATION_POLL_SECONDS = 15
 DOCUMENT_GENERATION_MAX_ATTEMPTS = 5
 DOCUMENT_GENERATION_STALE_AFTER = timedelta(minutes=15)
 DOCUMENT_GENERATION_BACKOFF_SECONDS = (30, 120, 600, 1800)
+_POSTGRES_SCHEMA_LOCK_NAME = "candidatura_certa_schema_bootstrap_v1"
+
+
+def _postgres_table_columns(db, table_name: str) -> set[str]:
+    """Return columns without taking an ``ALTER TABLE`` lock.
+
+    Render may briefly run the old and new web instances together.  The
+    startup path must not issue ``ADD COLUMN IF NOT EXISTS`` for columns that
+    already exist: PostgreSQL still takes an ``AccessExclusiveLock`` for that
+    statement, which can deadlock with a request using another table.  Reading
+    the catalog first keeps the normal boot path read-only at the schema level.
+    """
+
+    rows = db.execute(
+        text(
+            "SELECT column_name "
+            "FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = :table_name"
+        ),
+        {"table_name": table_name},
+    ).scalars()
+    return {str(column) for column in rows}
+
+
+def _postgres_rls_enabled(db, table_name: str) -> bool:
+    """Check RLS state before issuing ``ALTER TABLE ... ENABLE ROW LEVEL SECURITY``."""
+
+    return bool(
+        db.execute(
+            text(
+                "SELECT relrowsecurity "
+                "FROM pg_class "
+                "WHERE oid = to_regclass(:table_name)"
+            ),
+            {"table_name": table_name},
+        ).scalar()
+    )
 
 
 def _generated_document_retention_days() -> int:
@@ -1187,16 +1224,25 @@ def _save_analysis(app, analysis, cand):
 @app.on_event("startup")
 def startup():
     global _retention_task
-    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         # PostgreSQL system-catalog reflection can exceed Supabase's statement
         # timeout as the schema grows. Its native idempotent DDL is cheaper and
         # avoids blocking a Render deployment on SQLAlchemy inspection.
         if engine.dialect.name == "postgresql":
+            # Serialize bootstrap work across rolling deploys.  The lock is
+            # transaction-scoped and remains held until the schema transaction
+            # below commits, so a second instance cannot run the same DDL while
+            # the first one is changing the catalog.
+            db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
+                {"lock_name": _POSTGRES_SCHEMA_LOCK_NAME},
+            )
+            Base.metadata.create_all(bind=db.connection())
             for table in ("generated_documents", "document_deliveries", "followup_email_outbox", "email_application_submissions", "copilot_preparations"):
                 policy = f"{table}_owner"
-                db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
                 db.execute(text(f"""
                     DO $$
                     BEGIN
@@ -1215,17 +1261,20 @@ def startup():
                     END $$;
                 """))
             # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
-            db.execute(text("ALTER TABLE interview_email_outbox ENABLE ROW LEVEL SECURITY"))
-            db.execute(text("ALTER TABLE expiring_job_email_outbox ENABLE ROW LEVEL SECURITY"))
-            db.execute(text("ALTER TABLE job_ingestion_tasks ENABLE ROW LEVEL SECURITY"))
+            for table in ("interview_email_outbox", "expiring_job_email_outbox", "job_ingestion_tasks"):
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
             db.execute(text("REVOKE ALL ON TABLE job_ingestion_tasks FROM anon, authenticated"))
-            db.execute(text("ALTER TABLE job_ingestion_runs ENABLE ROW LEVEL SECURITY"))
+            if not _postgres_rls_enabled(db, "job_ingestion_runs"):
+                db.execute(text("ALTER TABLE job_ingestion_runs ENABLE ROW LEVEL SECURITY"))
             db.execute(text("REVOKE ALL ON TABLE job_ingestion_runs FROM anon, authenticated"))
-            db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
-            db.execute(text("ALTER TABLE consultation_credits ENABLE ROW LEVEL SECURITY"))
+            for table in ("billing_subscriptions", "consultation_credits"):
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
             # Shared ingestion records are client-readable only while active;
             # writes stay on the server/service-role path and have no client policy.
-            db.execute(text("ALTER TABLE job_listings ENABLE ROW LEVEL SECURITY"))
+            if not _postgres_rls_enabled(db, "job_listings"):
+                db.execute(text("ALTER TABLE job_listings ENABLE ROW LEVEL SECURITY"))
             db.execute(text("""
                 DO $$
                 BEGIN
@@ -1281,8 +1330,11 @@ def startup():
                 },
             }
             for table, columns in migrations.items():
+                existing_columns = _postgres_table_columns(db, table)
                 for column, ddl in columns.items():
-                    db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}"))
+                    if column not in existing_columns:
+                        db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+                        existing_columns.add(column)
             for statement in (
                 "CREATE INDEX IF NOT EXISTS idx_applications_status ON applications (status)",
                 "CREATE INDEX IF NOT EXISTS idx_applications_updated_at ON applications (updated_at)",
@@ -1308,6 +1360,7 @@ def startup():
             start_monitor()
             start_outlook_monitor()
             return
+        Base.metadata.create_all(bind=engine)
         for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
