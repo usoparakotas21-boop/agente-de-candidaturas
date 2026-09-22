@@ -51,6 +51,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **P1.22 — artefato público do Copiloto (`22/09/2026`):** uma requisição GET sem salvar o arquivo confirmou HTTP 200 para `/static/candidatura-certa-autopreenchimento.zip?v=11`, com `Content-Type: application/zip` e 47.346 bytes. O pacote continua disponível para instalação manual; a publicação na Chrome Web Store segue pendente.
 
+- **Fechamento operacional do ciclo (`22/09/2026`):** o commit `cd87135` (registro do bootstrap seguro do schema) foi confirmado como **Live** no Render após a correção do deadlock observado no deploy anterior `562493d`. A verificação pública final respondeu HTTP 200 em `/health` com `{"status":"ok","db":"connected"}`, HTTP 200 no `/api/support-chat` e HTTP 200 no ZIP do Copiloto (`application/zip`, 47.346 bytes). A regressão completa permanece em **467/467**; não há alterações rastreadas pendentes no repositório. O deadlock não alterou a versão em produção: a versão anterior permaneceu Live até a publicação corrigida.
+
 - **P1.22 — material visual da loja (`22/09/2026`):** foram geradas e conferidas visualmente as capturas `chrome-extension/store-screenshot-popup.png` e `chrome-extension/store-screenshot-sidepanel.png`, mostrando as telas reais do popup e do painel lateral sem dados pessoais. A ficha da loja agora aponta para os dois arquivos; o titular ainda precisa enviá-los no painel da Chrome Web Store.
 
 - **P1 — integridade do e-book (`22/09/2026`):** `app/private_products/hackeando_disc.docx` está rastreado, mede 152.632 bytes, contém 20 entradas DOCX e passou a verificação estrutural sem entrada corrompida. O download real em uma conta Pro continua como validação externa.
