@@ -21,6 +21,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from . import distributed_rate_limit
+from .job_feed_adapters import adapt_feed_records
 from .models import JobListing, utc_now
 from .source_governance import (
     SOURCE_REGISTRY,
@@ -260,7 +261,7 @@ def fetch_authorized_json_feed(
         raise JobIngestionError("JSON feed must be a list or contain a jobs/data list.")
     if len(records) > MAX_LISTINGS_PER_FEED:
         raise JobIngestionError("Source feed exceeds the listing-count limit.")
-    return records
+    return adapt_feed_records(source.source_id, records)
 
 
 def upsert_job_listings(
