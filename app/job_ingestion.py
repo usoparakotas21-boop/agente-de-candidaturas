@@ -256,7 +256,11 @@ def fetch_authorized_json_feed(
 
     records: Any = payload
     if isinstance(payload, dict):
-        records = payload.get("jobs", payload.get("data"))
+        records = payload.get("jobs")
+        if records is None:
+            records = payload.get("results")
+        if records is None:
+            records = payload.get("data")
     if not isinstance(records, list):
         raise JobIngestionError("JSON feed must be a list or contain a jobs/data list.")
     if len(records) > MAX_LISTINGS_PER_FEED:

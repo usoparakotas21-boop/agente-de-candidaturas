@@ -158,6 +158,36 @@ class JobIngestionTests(unittest.TestCase):
         self.assertEqual(client.request, ("GET", self.source.endpoint_url))
         limiter.assert_called_once_with(["job-ingestion:pilot-board"], 12, 60)
 
+    def test_adzuna_results_envelope_is_adapted_before_normalization(self):
+        source = make_source(source_id="adzuna-api")
+        registry = SourceRegistry([source])
+        body = json.dumps(
+            {
+                "results": [
+                    {
+                        "id": "adzuna-1",
+                        "title": "Analista",
+                        "company": {"display_name": "Empresa"},
+                        "location": {"display_name": "Remoto"},
+                        "description": "Trabalho remoto.",
+                        "redirect_url": "https://careers.example.com/adzuna-1",
+                    }
+                ]
+            }
+        ).encode()
+        client = FakeClient(FakeResponse(body))
+        records = fetch_authorized_json_feed(
+            source.source_id,
+            registry=registry,
+            client_factory=lambda **_kwargs: client,
+            limiter_is_configured=lambda: True,
+            limiter_check=lambda *_args: (False, 0),
+            lease_acquire=lambda _key, _ttl: "lease-token",
+            lease_release=lambda _key, _token: True,
+        )
+        self.assertEqual(records[0]["external_id"], "adzuna-1")
+        self.assertEqual(records[0]["company"], "Empresa")
+
     def test_redirect_is_rejected_without_following_it(self):
         client = FakeClient(FakeResponse(b"", status_code=302))
         with self.assertRaisesRegex(JobIngestionError, "redirects"):
