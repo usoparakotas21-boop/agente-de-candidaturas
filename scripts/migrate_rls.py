@@ -33,9 +33,9 @@ DIRECT_OWNER_TABLES = (
     "queue_items",
 )
 
-# Internal lifecycle dispatch records are server-only. RLS is enabled, with
-# deliberately no authenticated policy exposing attempts, timing, or payload IDs.
-INTERNAL_RLS_TABLES = ("interview_email_outbox", "expiring_job_email_outbox")
+# Non-owner-scoped tables receive only their explicit least-privilege policies.
+# Dispatch outboxes stay server-only; the catalog exposes active listings read-only.
+INTERNAL_RLS_TABLES = ("interview_email_outbox", "expiring_job_email_outbox", "job_listings", "job_ingestion_tasks")
 
 CHILD_POLICIES = {
     "experiences": """
@@ -102,6 +102,12 @@ def setup_rls() -> None:
             _create_policy(connection, table, "owner_id = auth.uid()::text")
         for table in INTERNAL_RLS_TABLES:
             connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+        connection.execute(text("GRANT SELECT ON TABLE job_listings TO anon, authenticated"))
+        connection.execute(text("DROP POLICY IF EXISTS job_listings_active_read ON job_listings"))
+        connection.execute(text(
+            "CREATE POLICY job_listings_active_read ON job_listings "
+            "FOR SELECT TO anon, authenticated USING (status = 'active')"
+        ))
         for table, expression in CHILD_POLICIES.items():
             _create_policy(connection, table, " ".join(expression.split()))
 

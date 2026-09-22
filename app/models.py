@@ -1,9 +1,11 @@
 ﻿from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
@@ -155,6 +157,93 @@ class JobAnalysis(Base):
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class JobListing(Base):
+    """Shared listings admitted only through the approved-source ingestion gate."""
+
+    __tablename__ = "job_listings"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_name",
+            "external_id",
+            name="uq_job_listings_source_external_id",
+        ),
+        CheckConstraint(
+            "work_mode IS NULL OR work_mode IN ('remote', 'hybrid', 'on_site')",
+            name="ck_job_listings_work_mode",
+        ),
+        CheckConstraint(
+            "contract_type IS NULL OR contract_type IN ('CLT', 'PJ')",
+            name="ck_job_listings_contract_type",
+        ),
+        CheckConstraint("status IN ('active', 'expired')", name="ck_job_listings_status"),
+        Index("ix_job_listings_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(300), nullable=False)
+    title: Mapped[str] = mapped_column(String(250), nullable=False)
+    company_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    location: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    work_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    contract_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    application_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    salary_range: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
+class JobIngestionTask(Base):
+    """Durable, server-only queue for approved source ingestion runs."""
+
+    __tablename__ = "job_ingestion_tasks"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_job_ingestion_tasks_idempotency"),
+        CheckConstraint(
+            "status IN ('pending', 'running', 'retry', 'succeeded', 'failed')",
+            name="ck_job_ingestion_tasks_status",
+        ),
+        CheckConstraint("attempts >= 0", name="ck_job_ingestion_tasks_attempts"),
+        Index(
+            "ix_job_ingestion_tasks_claim",
+            "status",
+            "available_at",
+            "locked_until",
+            "id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(180), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class EmailIntegration(Base):

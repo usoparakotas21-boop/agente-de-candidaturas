@@ -7,7 +7,14 @@
 
 O `app/job_source_fetcher.py` só busca, sob ação do usuário, a página pública de uma vaga específica para extrair JSON-LD. Isso não é um crawler de descoberta nem concede autorização para coleta periódica. `app/ats_registry.py` identifica domínios conhecidos para classificar a origem; estar nessa lista não autoriza scraping.
 
-Não criar adaptador, scheduler ou worker de descoberta até uma fonte e o uso pretendido terem uma aprovação registrada aqui e no registro de políticas do código. Vaga publicada/publicamente acessível não significa, por si só, licença para republicar a descrição integral, armazená-la por prazo indefinido ou processá-la com IA.
+Não ativar o scheduler/worker nem adicionar uma fonte ao registro operacional até a fonte e cada uso pretendido terem aprovação registrada aqui e no registro de políticas do código. Vaga publicada/publicamente acessível não significa, por si só, licença para republicar a descrição integral, armazená-la por prazo indefinido ou processá-la com IA.
+
+
+## Fila de ingestão preparada (sem coleta ativa)
+
+A implementação local usa PostgreSQL como fila durável compartilhada entre instâncias do Render; não exige Celery, Redis Queue ou um serviço de fila adicional. `job_ingestion_tasks` tem chave idempotente, lease recuperável, cinco tentativas com espera progressiva e RLS sem política para clientes. O worker (`python scripts/run_job_ingestion_worker.py`) só executa registros que voltam a passar pelo gate de autorização. O agendador (`python scripts/schedule_job_ingestion.py`) gera no máximo uma tarefa por fonte aprovada por hora. Ambos ficam inertes enquanto `SOURCE_REGISTRY` continuar vazio.
+
+A arquitetura está preparada no código local, mas ainda não deve ser publicada/ativada como coleta. Para ativar um piloto, primeiro registrar aqui a autorização e a evidência da fonte; depois configurar exatamente o feed HTTPS permitido e campos autorizados, testar o agendador e o worker num ambiente de validação e criar os serviços agendado/worker no Render. Até então não há tráfego de coleta nem vaga importada por esse pipeline.
 
 ## Avaliação inicial de fontes oficiais
 

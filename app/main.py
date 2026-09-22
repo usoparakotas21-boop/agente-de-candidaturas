@@ -42,7 +42,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -1211,8 +1211,29 @@ def startup():
             # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
             db.execute(text("ALTER TABLE interview_email_outbox ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE expiring_job_email_outbox ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("ALTER TABLE job_ingestion_tasks ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("REVOKE ALL ON TABLE job_ingestion_tasks FROM anon, authenticated"))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE consultation_credits ENABLE ROW LEVEL SECURITY"))
+            # Shared ingestion records are client-readable only while active;
+            # writes stay on the server/service-role path and have no client policy.
+            db.execute(text("ALTER TABLE job_listings ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = current_schema()
+                          AND tablename = 'job_listings'
+                          AND policyname = 'job_listings_active_read'
+                    ) THEN
+                        CREATE POLICY job_listings_active_read
+                            ON job_listings
+                            FOR SELECT TO anon, authenticated
+                            USING (status = 'active');
+                    END IF;
+                END $$;
+            """))
             db.execute(text("""
                 DO $$
                 BEGIN

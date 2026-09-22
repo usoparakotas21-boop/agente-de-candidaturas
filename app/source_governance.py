@@ -269,6 +269,10 @@ class SourceRegistry:
             if hostname in source.approved_domains
         )
 
+    def sources(self) -> tuple[JobSource, ...]:
+        """Return a stable snapshot for server-side authorized schedulers."""
+        return tuple(self._sources[key] for key in sorted(self._sources))
+
     def __len__(self) -> int:
         return len(self._sources)
 
