@@ -1217,6 +1217,8 @@ def startup():
             db.execute(text("ALTER TABLE expiring_job_email_outbox ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE job_ingestion_tasks ENABLE ROW LEVEL SECURITY"))
             db.execute(text("REVOKE ALL ON TABLE job_ingestion_tasks FROM anon, authenticated"))
+            db.execute(text("ALTER TABLE job_ingestion_runs ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("REVOKE ALL ON TABLE job_ingestion_runs FROM anon, authenticated"))
             db.execute(text("ALTER TABLE billing_subscriptions ENABLE ROW LEVEL SECURITY"))
             db.execute(text("ALTER TABLE consultation_credits ENABLE ROW LEVEL SECURITY"))
             # Shared ingestion records are client-readable only while active;

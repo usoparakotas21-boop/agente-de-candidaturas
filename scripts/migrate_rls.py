@@ -35,7 +35,13 @@ DIRECT_OWNER_TABLES = (
 
 # Non-owner-scoped tables receive only their explicit least-privilege policies.
 # Dispatch outboxes stay server-only; the catalog exposes active listings read-only.
-INTERNAL_RLS_TABLES = ("interview_email_outbox", "expiring_job_email_outbox", "job_listings", "job_ingestion_tasks")
+INTERNAL_RLS_TABLES = (
+    "interview_email_outbox",
+    "expiring_job_email_outbox",
+    "job_listings",
+    "job_ingestion_tasks",
+    "job_ingestion_runs",
+)
 
 CHILD_POLICIES = {
     "experiences": """
@@ -102,6 +108,8 @@ def setup_rls() -> None:
             _create_policy(connection, table, "owner_id = auth.uid()::text")
         for table in INTERNAL_RLS_TABLES:
             connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+            if table in {"job_ingestion_tasks", "job_ingestion_runs"}:
+                connection.execute(text(f'REVOKE ALL ON TABLE "{table}" FROM anon, authenticated'))
         connection.execute(text("GRANT SELECT ON TABLE job_listings TO anon, authenticated"))
         connection.execute(text("DROP POLICY IF EXISTS job_listings_active_read ON job_listings"))
         connection.execute(text(

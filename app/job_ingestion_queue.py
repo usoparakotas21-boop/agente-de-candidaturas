@@ -20,7 +20,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .job_ingestion import IngestionResult, ingest_authorized_json_feed
-from .models import JobIngestionTask, utc_now
+from .models import JobIngestionRun, JobIngestionTask, utc_now
 from .source_governance import (
     SOURCE_REGISTRY,
     SourceApprovalError,
@@ -219,8 +219,19 @@ def process_one_task(
     claim = claim_next_task(db, worker_id, max_attempts=max_attempts)
     if claim is None:
         return None
+    started_at = utc_now()
+    run = JobIngestionRun(
+        task_id=claim.task_id,
+        source_id=claim.source_id,
+        status="running",
+        started_at=started_at,
+    )
+    db.add(run)
+    db.commit()
+    run_id = run.id
     try:
         result = ingester(db, claim.source_id, registry=registry)
+        finished_at = utc_now()
         update_result = db.execute(
             update(JobIngestionTask)
             .where(
@@ -240,7 +251,22 @@ def process_one_task(
         )
         if update_result.rowcount != 1:
             db.rollback()
+            run = db.get(JobIngestionRun, run_id)
+            if run is not None:
+                run.status = "retry"
+                run.error_code = "lease_lost"
+                run.finished_at = finished_at
+                run.latency_ms = max(0, round((finished_at - started_at).total_seconds() * 1000))
+                db.commit()
             return None
+        run = db.get(JobIngestionRun, run_id)
+        if run is not None:
+            run.status = "succeeded"
+            run.finished_at = finished_at
+            run.latency_ms = max(0, round((finished_at - started_at).total_seconds() * 1000))
+            run.fetched_count = max(0, int(result.fetched))
+            run.upserted_count = max(0, int(result.upserted))
+            run.skipped_count = max(0, int(result.skipped))
         db.commit()
         return result
     except Exception as exc:
@@ -256,4 +282,17 @@ def process_one_task(
                 status or "unknown",
                 type(exc).__name__,
             )
+        run = db.get(JobIngestionRun, run_id)
+        if run is not None:
+            finished_at = utc_now()
+            task_status = db.scalar(
+                select(JobIngestionTask.status).where(JobIngestionTask.id == claim.task_id)
+            )
+            run.status = "blocked" if isinstance(exc, SourceApprovalError) else (
+                task_status if task_status in {"retry", "failed"} else "failed"
+            )
+            run.error_code = type(exc).__name__[:100]
+            run.finished_at = finished_at
+            run.latency_ms = max(0, round((finished_at - started_at).total_seconds() * 1000))
+            db.commit()
         return None

@@ -246,6 +246,48 @@ class JobIngestionTask(Base):
     )
 
 
+class JobIngestionRun(Base):
+    """Append-only health record for one server-side source ingestion attempt."""
+
+    __tablename__ = "job_ingestion_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'retry', 'failed', 'blocked')",
+            name="ck_job_ingestion_runs_status",
+        ),
+        CheckConstraint("fetched_count >= 0", name="ck_job_ingestion_runs_fetched"),
+        CheckConstraint("upserted_count >= 0", name="ck_job_ingestion_runs_upserted"),
+        CheckConstraint("skipped_count >= 0", name="ck_job_ingestion_runs_skipped"),
+        CheckConstraint(
+            "latency_ms IS NULL OR latency_ms >= 0",
+            name="ck_job_ingestion_runs_latency",
+        ),
+        Index("ix_job_ingestion_runs_source_finished", "source_id", "finished_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("job_ingestion_tasks.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    source_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fetched_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    upserted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
 class EmailIntegration(Base):
     __tablename__ = "email_integrations"
     __table_args__ = (

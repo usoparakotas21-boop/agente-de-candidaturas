@@ -5,12 +5,13 @@ from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session
 
 from app.job_ingestion import IngestionResult
+from app.job_ingestion_health import summarize_source_health
 from app.job_ingestion_queue import (
     claim_next_task,
     enqueue_ingestion_task,
     process_one_task,
 )
-from app.models import JobIngestionTask, utc_now
+from app.models import JobIngestionRun, JobIngestionTask, utc_now
 from app.source_governance import (
     JobSource,
     SourceApprovalError,
@@ -51,6 +52,7 @@ class JobIngestionQueueTests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://")
         JobIngestionTask.__table__.create(self.engine)
+        JobIngestionRun.__table__.create(self.engine)
         self.db = Session(self.engine)
         self.source = make_source()
         self.registry = SourceRegistry([self.source])
@@ -121,6 +123,11 @@ class JobIngestionQueueTests(unittest.TestCase):
         self.assertEqual(task.status, "succeeded")
         self.assertIsNotNone(task.finished_at)
         self.assertIsNone(task.lease_token)
+        run = self.db.scalar(select(JobIngestionRun))
+        self.assertEqual(run.status, "succeeded")
+        self.assertEqual((run.fetched_count, run.upserted_count, run.skipped_count), (3, 2, 1))
+        self.assertIsNotNone(run.finished_at)
+        self.assertIsNotNone(run.latency_ms)
 
     def test_transient_failure_enters_backoff_retry_state(self):
         enqueue_ingestion_task(self.db, self.source.source_id, "pilot:retry", registry=self.registry)
@@ -139,6 +146,10 @@ class JobIngestionQueueTests(unittest.TestCase):
         self.assertGreater(task.available_at, before.replace(tzinfo=None))
         self.assertEqual(task.last_error_code, "TimeoutError")
         self.assertIsNone(task.lease_token)
+        run = self.db.scalar(select(JobIngestionRun))
+        self.assertEqual(run.status, "retry")
+        self.assertEqual(run.error_code, "TimeoutError")
+        self.assertIsNotNone(run.finished_at)
 
     def test_failure_retries_then_stops_without_persisting_exception_text(self):
         enqueue_ingestion_task(self.db, self.source.source_id, "pilot:failure", registry=self.registry)
@@ -156,6 +167,33 @@ class JobIngestionQueueTests(unittest.TestCase):
         self.assertEqual(task.last_error_code, "RuntimeError")
         self.assertNotIn("secret", task.last_error_code)
         self.assertIsNone(task.lease_token)
+        run = self.db.scalar(select(JobIngestionRun))
+        self.assertEqual(run.status, "failed")
+        self.assertEqual(run.error_code, "RuntimeError")
+
+    def test_source_health_summary_pauses_only_after_minimum_sample(self):
+        now = utc_now()
+        for index, status in enumerate(("succeeded", "succeeded", "failed", "blocked", "failed")):
+            self.db.add(
+                JobIngestionRun(
+                    source_id=self.source.source_id,
+                    status=status,
+                    started_at=now,
+                    finished_at=now,
+                    latency_ms=100 + index,
+                    skipped_count=index,
+                )
+            )
+        self.db.commit()
+        summary = summarize_source_health(self.db, self.source.source_id)
+        self.assertEqual(summary.sample_size, 5)
+        self.assertEqual(summary.succeeded, 2)
+        self.assertEqual(summary.failed, 2)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(summary.skipped_records, 10)
+        self.assertEqual(summary.average_latency_ms, 102)
+        self.assertEqual(summary.success_rate, 0.4)
+        self.assertTrue(summary.paused)
 
 
 if __name__ == "__main__":
