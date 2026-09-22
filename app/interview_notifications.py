@@ -15,6 +15,8 @@ from email.message import EmailMessage
 from typing import Callable
 
 import httpx
+
+from .email_transport import select_email_transport, send_email_message
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -356,10 +358,11 @@ def run_interview_notification_cycle(
     http_client_factory: Callable = httpx.Client,
     max_messages: int = INTERVIEW_BATCH_SIZE,
 ) -> dict[str, int | bool]:
-    """Deliver eligible interview summaries; missing SMTP prevents network I/O."""
+    """Deliver eligible interview summaries through Brevo HTTPS or SMTP."""
     smtp = smtp_settings()
-    if smtp is None:
-        return {"smtp_configured": False, "sent": 0, "retried": 0, "skipped": 0}
+    mail_config = select_email_transport(smtp)
+    if mail_config is None:
+        return {"smtp_configured": False, "email_transport_configured": False, "sent": 0, "retried": 0, "skipped": 0}
     current = now or utc_now()
     sent = retried = skipped = processed = 0
     while processed < max(0, max_messages):
@@ -404,13 +407,8 @@ def run_interview_notification_cycle(
             if not fresh_events:
                 continue
             event_ids_to_retry = [event["outbox_id"] for event in fresh_events]
-            message = _message(str(smtp["sender"]), recipient, owner_id, fresh_events)
-            with smtp_factory(str(smtp["host"]), int(smtp["port"]), timeout=10) as client:
-                if bool(smtp["use_tls"]):
-                    client.starttls()
-                if smtp["username"]:
-                    client.login(str(smtp["username"]), str(smtp["password"]))
-                client.send_message(message)
+            message = _message(str(mail_config["sender"]), recipient, owner_id, fresh_events)
+            send_email_message(message, mail_config, timeout=10, smtp_factory=smtp_factory)
             _record_sent_many(session_factory, [event["outbox_id"] for event in fresh_events], current)
             sent += 1
         except Exception as exc:
@@ -423,7 +421,7 @@ def run_interview_notification_cycle(
             )
             logger.warning("Falha no resumo de entrevistas owner_id=%s count=%s tipo=%s", owner_id, len(eligible_events), type(exc).__name__)
             retried += 1
-    return {"smtp_configured": True, "sent": sent, "retried": retried, "skipped": skipped}
+    return {"smtp_configured": smtp is not None, "email_transport_configured": True, "sent": sent, "retried": retried, "skipped": skipped}
 
 
 def cleanup_interview_email_outbox(

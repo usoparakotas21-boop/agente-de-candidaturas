@@ -44,6 +44,38 @@ class _SMTP:
 
 
 class BrevoTransportTests(unittest.TestCase):
+    def test_brevo_transport_can_run_without_smtp_and_uses_default_sender(self):
+        from app.email_transport import select_email_transport
+
+        with patch.dict(os.environ, {"BREVO_API_KEY": "test-key"}, clear=True):
+            config = select_email_transport(None)
+
+        self.assertEqual(config, {"transport": "brevo_api", "sender": "contato@candidaturacerta.com.br"})
+
+    def test_smtp_port_465_uses_implicit_tls(self):
+        from unittest.mock import Mock
+        from app.email_transport import send_email_message
+
+        message = EmailMessage()
+        message["From"] = "contato@example.com"
+        message["To"] = "pessoa@example.com"
+        message["Subject"] = "Aviso"
+        message.set_content("Mensagem")
+        ssl_client = _SMTP()
+        ssl_factory = Mock(return_value=ssl_client)
+        plain_factory = Mock()
+        transport = send_email_message(
+            message,
+            {"host": "smtp.example.com", "port": 465, "sender": "contato@example.com", "username": "user", "password": "pass", "use_tls": False, "use_ssl": True},
+            timeout=5,
+            smtp_factory=plain_factory,
+            smtp_ssl_factory=ssl_factory,
+        )
+
+        self.assertEqual(transport, "smtp")
+        ssl_factory.assert_called_once_with("smtp.example.com", 465, timeout=5)
+        plain_factory.assert_not_called()
+
     def test_brevo_https_payload_preserves_text_reply_to_and_attachments(self):
         message = EmailMessage()
         message["From"] = "Candidatura Certa <contato@candidaturacerta.com.br>"

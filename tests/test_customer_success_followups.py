@@ -6,6 +6,7 @@ from unittest.mock import patch
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+from app import customer_success as customer_success_module
 from app import main as main_module
 from app.customer_success import (
     cleanup_followup_email_outbox,
@@ -174,6 +175,22 @@ class CustomerSuccessFollowupTest(unittest.TestCase):
         finally:
             db.close()
 
+    def test_brevo_can_deliver_followup_without_smtp_credentials(self):
+        env = {key: value for key, value in self.smtp_env().items() if not key.startswith("SMTP_")}
+        env["BREVO_API_KEY"] = "test-api-key"
+        with patch.dict("os.environ", env, clear=True), patch.object(
+            customer_success_module, "send_email_message"
+        ) as send:
+            result = run_followup_digest_cycle(
+                self.factory, now=self.now, http_client_factory=FakeHttpClient,
+            )
+
+        self.assertTrue(result["email_transport_configured"])
+        self.assertFalse(result["smtp_configured"])
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(send.call_args.args[1]["transport"], "brevo_api")
+        self.assertEqual(send.call_args.args[0]["To"], "account@example.com")
+
     def test_unconfirmed_account_is_never_sent_and_rechecked_without_hot_loop(self):
         FakeHttpClient.responses = [
             FakeResponse({"id": "owner-a", "email": "account@example.com", "email_confirmed_at": None}),
@@ -246,6 +263,16 @@ class CustomerSuccessFollowupTest(unittest.TestCase):
             saved = json.loads(candidate.preferences_data)
             self.assertTrue(response["preferences"]["notify_followups"])
             self.assertTrue(saved["notify_followups_consent_at"])
+        finally:
+            db.close()
+
+    def test_lifecycle_email_status_accepts_brevo_without_smtp(self):
+        db = self.factory()
+        try:
+            candidate = db.scalar(select(Candidate).where(Candidate.owner_id == "owner-a"))
+            with patch.dict("os.environ", {"BREVO_API_KEY": "test-api-key"}, clear=True):
+                preferences = main_module._cand_prefs(candidate)
+            self.assertTrue(preferences["lifecycle_email_configured"])
         finally:
             db.close()
 

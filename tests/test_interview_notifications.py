@@ -347,6 +347,25 @@ class InterviewNotificationsTest(unittest.TestCase):
         self.assertEqual(row.status, "FAILED")
         self.assertIsNone(row.started_at)
 
+    def test_brevo_can_deliver_interview_alert_without_smtp_credentials(self):
+        row = self.enqueue()
+        self.db.commit()
+        env = {**self.supabase_env(), "BREVO_API_KEY": "test-api-key"}
+        with patch.dict(os.environ, env, clear=True), patch.object(
+            notifications, "smtp_settings", return_value=None
+        ), patch.object(notifications, "send_email_message") as send:
+            result = notifications.run_interview_notification_cycle(
+                self.factory, now=self.now, http_client_factory=FakeHttpClient,
+            )
+
+        self.assertTrue(result["email_transport_configured"])
+        self.assertFalse(result["smtp_configured"])
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(send.call_args.args[1]["transport"], "brevo_api")
+        self.assertEqual(send.call_args.args[0]["To"], "confirmed-account@example.com")
+        self.db.refresh(row)
+        self.assertEqual(row.status, "SENT")
+
     def test_smtp_failure_retries_with_same_message_id_then_sends(self):
         self.enqueue()
         self.db.commit()

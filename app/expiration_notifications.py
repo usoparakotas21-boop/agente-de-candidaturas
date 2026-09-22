@@ -18,6 +18,8 @@ from typing import Callable
 from zoneinfo import ZoneInfo
 
 import httpx
+
+from .email_transport import select_email_transport, send_email_message
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -420,10 +422,11 @@ def run_expiration_notification_cycle(
     http_client_factory: Callable = httpx.Client,
     max_messages: int = EXPIRATION_EMAIL_BATCH_SIZE,
 ) -> dict[str, int | bool]:
-    """Schedule and send explicit-date alerts; absent SMTP means no network I/O."""
+    """Schedule and send explicit-date alerts through the configured email transport."""
     smtp = smtp_settings()
-    if smtp is None:
-        return {"smtp_configured": False, "scheduled": 0, "sent": 0, "retried": 0, "skipped": 0}
+    mail_config = select_email_transport(smtp)
+    if mail_config is None:
+        return {"smtp_configured": False, "email_transport_configured": False, "scheduled": 0, "sent": 0, "retried": 0, "skipped": 0}
     current = _as_utc(now or utc_now())
     db = session_factory()
     try:
@@ -462,13 +465,8 @@ def run_expiration_notification_cycle(
                 skipped += len(revoked_ids)
             if not current_eligible:
                 continue
-            message = _message(str(smtp["sender"]), recipient, owner_id, current_eligible, current)
-            with smtp_factory(str(smtp["host"]), int(smtp["port"]), timeout=10) as client:
-                if bool(smtp["use_tls"]):
-                    client.starttls()
-                if smtp["username"]:
-                    client.login(str(smtp["username"]), str(smtp["password"]))
-                client.send_message(message)
+            message = _message(str(mail_config["sender"]), recipient, owner_id, current_eligible, current)
+            send_email_message(message, mail_config, timeout=10, smtp_factory=smtp_factory)
             _record_sent(session_factory, [item["outbox_id"] for item in current_eligible], current)
             sent += 1
         except Exception as exc:
@@ -480,4 +478,4 @@ def run_expiration_notification_cycle(
                 type(exc).__name__,
             )
             retried += len(eligible_ids)
-    return {"smtp_configured": True, "scheduled": scheduled, "sent": sent, "retried": retried, "skipped": skipped}
+    return {"smtp_configured": smtp is not None, "email_transport_configured": True, "scheduled": scheduled, "sent": sent, "retried": retried, "skipped": skipped}

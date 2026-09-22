@@ -18,6 +18,8 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import httpx
+
+from .email_transport import select_email_transport, send_email_message
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -522,10 +524,11 @@ def run_followup_digest_cycle(
     http_client_factory: Callable = httpx.Client,
     max_digests: int = 20,
 ) -> dict[str, int | bool]:
-    """Schedule and deliver due digests; SMTP absence blocks all network I/O."""
+    """Schedule and deliver due digests through Brevo HTTPS or authenticated SMTP."""
     smtp = smtp_settings()
-    if smtp is None:
-        return {"smtp_configured": False, "scheduled": 0, "sent": 0, "retried": 0, "skipped": 0}
+    mail_config = select_email_transport(smtp)
+    if mail_config is None:
+        return {"smtp_configured": False, "email_transport_configured": False, "scheduled": 0, "sent": 0, "retried": 0, "skipped": 0}
     current = now or utc_now()
     db = session_factory()
     try:
@@ -571,13 +574,8 @@ def run_followup_digest_cycle(
                 _set_waiting_verification(session_factory, outbox_id, current)
                 skipped += 1
                 continue
-            message = _render_digest_message(str(smtp["sender"]), recipient, owner_id, period_key, app_payload)
-            with smtp_factory(str(smtp["host"]), int(smtp["port"]), timeout=10) as client:
-                if bool(smtp["use_tls"]):
-                    client.starttls()
-                if smtp["username"]:
-                    client.login(str(smtp["username"]), str(smtp["password"]))
-                client.send_message(message)
+            message = _render_digest_message(str(mail_config["sender"]), recipient, owner_id, period_key, app_payload)
+            send_email_message(message, mail_config, timeout=10, smtp_factory=smtp_factory)
             _record_sent(session_factory, outbox_id, current)
             sent += 1
         except Exception as exc:
@@ -587,4 +585,4 @@ def run_followup_digest_cycle(
             _record_retry(session_factory, outbox_id, current, code)
             logger.warning("Falha no digest de follow-up outbox_id=%s tipo=%s", outbox_id, type(exc).__name__)
             retried += 1
-    return {"smtp_configured": True, "scheduled": scheduled, "sent": sent, "retried": retried, "skipped": skipped}
+    return {"smtp_configured": smtp is not None, "email_transport_configured": True, "scheduled": scheduled, "sent": sent, "retried": retried, "skipped": skipped}

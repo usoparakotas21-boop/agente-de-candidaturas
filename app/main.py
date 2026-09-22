@@ -13,7 +13,6 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
-from email.utils import getaddresses
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, quote, urlparse
@@ -49,6 +48,11 @@ from .text_sanitization import sanitize_untrusted_text
 from .document_storage import cleanup_expired_documents, resolve_document_path
 from .document_pdf import docx_to_pdf
 from .data_retention import cleanup_expired_raw_data
+from .email_transport import (
+    brevo_api_key as _shared_brevo_api_key,
+    select_email_transport,
+    send_via_brevo_api as _shared_send_via_brevo_api,
+)
 from .customer_success import FOLLOWUP_POLL_SECONDS, cleanup_followup_email_outbox as cleanup_followup_email_outbox_records, run_followup_digest_cycle, smtp_settings
 from .interview_notifications import cleanup_interview_email_outbox, enqueue_interview_notification, run_interview_notification_cycle
 from .expiration_notifications import cleanup_expiration_email_outbox, run_expiration_notification_cycle, _parse_preferences as _parse_expiration_preferences
@@ -1099,7 +1103,7 @@ def _cand_prefs(cand):
     expiry_preferences, _ = _parse_expiration_preferences(cand, utc_now())
     preferences["notify_expiring"] = expiry_preferences["notify_expiring"]
     preferences["notify_expiring_consent_at"] = expiry_preferences["notify_expiring_consent_at"]
-    preferences["lifecycle_email_configured"] = smtp_settings() is not None
+    preferences["lifecycle_email_configured"] = select_email_transport(smtp_settings()) is not None
     return preferences
 def _apply_decision(app, cand, analysis):
     r = decide_opportunity({"title": app.job.title, "company": app.job.company, "location": app.job.location, "modality": app.job.modality, "description": app.job.description, "salary": app.job.salary, "salary_min": app.job.salary_min, "salary_max": app.job.salary_max, "contract_type": app.job.contract_type}, analysis, _cand_prefs(cand), capture_confidence=app.capture_confidence)
@@ -3165,68 +3169,18 @@ def _smtp_client(config: dict[str, object], *, timeout: float):
 
 
 def _brevo_api_key() -> str:
-    """Return the optional Brevo HTTP API key without ever logging its value."""
-    return os.getenv("BREVO_API_KEY", "").strip()
+    """Return the optional Brevo HTTP API key without exposing its value."""
+    return _shared_brevo_api_key()
 
 
 def _email_transport_config() -> dict[str, object] | None:
-    """Use Brevo HTTPS when its API key is configured; otherwise use SMTP."""
-    if _brevo_api_key():
-        sender = os.getenv("SMTP_FROM_EMAIL", "").strip() or "contato@candidaturacerta.com.br"
-        return {"transport": "brevo_api", "sender": sender}
-    return smtp_settings()
+    """Prefer Brevo HTTPS when configured; otherwise use the SMTP relay."""
+    return select_email_transport(smtp_settings())
 
 
 def _send_via_brevo_api(message: EmailMessage, *, timeout: float) -> None:
-    """Send an EmailMessage through Brevo's HTTPS API.
-
-    This is an opt-in transport used when ``BREVO_API_KEY`` is configured. It
-    keeps the existing SMTP path as a fallback and converts attachments to
-    the base64 format expected by Brevo without writing them to disk.
-    """
-    api_key = _brevo_api_key()
-    if not api_key:
-        raise RuntimeError("BREVO_API_KEY is not configured")
-    sender = str(message.get("From") or "").strip()
-    recipients = [
-        {"email": address, **({"name": name} if name else {})}
-        for name, address in getaddresses(message.get_all("To", []))
-        if address
-    ]
-    if not sender or not recipients:
-        raise ValueError("Brevo message has no sender or recipient")
-    sender_name, sender_address = getaddresses([sender])[0]
-    payload: dict[str, object] = {
-        "sender": {"email": sender_address, **({"name": sender_name} if sender_name else {})},
-        "to": recipients,
-        "subject": str(message.get("Subject") or ""),
-    }
-    reply_to = str(message.get("Reply-To") or "").strip()
-    if reply_to:
-        reply_name, reply_address = getaddresses([reply_to])[0]
-        if reply_address:
-            payload["replyTo"] = {"email": reply_address, **({"name": reply_name} if reply_name else {})}
-    body_part = message.get_body(preferencelist=("plain",))
-    payload["textContent"] = body_part.get_content() if body_part is not None else ""
-    attachments: list[dict[str, str]] = []
-    for part in message.iter_attachments():
-        content = part.get_payload(decode=True)
-        if content is None:
-            continue
-        attachments.append({
-            "name": part.get_filename() or "attachment",
-            "content": base64.b64encode(content).decode("ascii"),
-        })
-    if attachments:
-        payload["attachment"] = attachments
-    with httpx.Client(timeout=timeout) as client:
-        response = client.post(
-            "https://api.brevo.com/v3/smtp/email",
-            headers={"accept": "application/json", "api-key": api_key, "content-type": "application/json"},
-            json=payload,
-        )
-    response.raise_for_status()
-
+    """Compatibility wrapper around the shared Brevo API transport."""
+    _shared_send_via_brevo_api(message, timeout=timeout, http_client_factory=httpx.Client)
 
 def _set_email_transport_stage(exc: BaseException, stage: str) -> None:
     """Annotate a transport error without exposing credentials in its text."""

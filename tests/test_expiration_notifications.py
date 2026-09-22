@@ -206,6 +206,22 @@ class ExpirationNotificationsTest(unittest.TestCase):
         self.assertIn("/vagas", message.get_content())
         self.assertEqual([row.status for row in self.outbox()], ["SENT", "SENT"])
 
+    def test_brevo_can_deliver_expiration_alert_without_smtp_credentials(self):
+        env = {key: value for key, value in self.smtp_env().items() if not key.startswith("SMTP_")}
+        env["BREVO_API_KEY"] = "test-api-key"
+        with patch.dict("os.environ", env, clear=True), patch.object(
+            notifications, "send_email_message"
+        ) as send:
+            result = notifications.run_expiration_notification_cycle(
+                self.factory, now=self.now, http_client_factory=FakeHttpClient
+            )
+
+        self.assertTrue(result["email_transport_configured"])
+        self.assertFalse(result["smtp_configured"])
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(send.call_args.args[1]["transport"], "brevo_api")
+        self.assertEqual(send.call_args.args[0]["To"], "confirmed-account@example.com")
+
     def test_opt_out_or_changed_deadline_before_send_skips_pending_alert(self):
         db = self.factory()
         try:
