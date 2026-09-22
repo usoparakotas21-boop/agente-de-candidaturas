@@ -46,6 +46,29 @@ class EbookPlanEntitlementTests(unittest.TestCase):
         self.assertEqual(response.path, main_module.PRO_BOOK_PATH)
         self.assertEqual(response.media_type, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
+    def test_active_pro_subscription_can_download_the_book(self):
+        db = self.session_factory()
+        try:
+            db.add(BillingSubscription(
+                owner_id="pro-owner", plan_code="pro",
+                external_reference="book-test-pro", payer_email="person@example.com",
+                monthly_amount=9900, currency="BRL", status="authorized",
+                access_until=utc_now() + timedelta(days=10),
+            ))
+            db.commit()
+        finally:
+            db.close()
+
+        with (
+            patch.object(main_module, "SessionLocal", self.session_factory),
+            patch.object(main_module, "_document_export_metadata", return_value={"allowed": False, "plan": "essential"}),
+        ):
+            response = main_module.download_pro_ebook({"id": "pro-owner", "email": "person@example.com"})
+
+        self.assertEqual(response.path, main_module.PRO_BOOK_PATH)
+        self.assertTrue(main_module.PRO_BOOK_PATH.is_file())
+        self.assertEqual(response.media_type, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
     def test_start_plan_or_no_active_entitlement_cannot_download_book(self):
         user = {"id": "start-owner", "email": "person@example.com"}
         with (
