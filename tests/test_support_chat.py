@@ -89,6 +89,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support_chat.fallback_support_topic("Como funciona o site?"), "how_it_works")
         self.assertEqual(support_chat.fallback_support_topic("Quais são os planos e limites?"), "plans")
         self.assertEqual(support_chat.fallback_support_topic("Aceita Pix para pagar?"), "payment_methods")
+        self.assertEqual(support_chat.fallback_support_topic("Paguei e o documento não apareceu"), "payment_issue")
         self.assertEqual(support_chat.fallback_support_topic("Como conecto meu Gmail?"), "email_alerts")
         self.assertEqual(support_chat.fallback_support_topic("Quero excluir minha conta"), "account_deletion")
         self.assertEqual(support_chat.fallback_support_topic("Meu currículo não chegou por e-mail"), "email_delivery")

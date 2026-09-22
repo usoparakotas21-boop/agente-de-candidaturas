@@ -44,6 +44,7 @@ ALLOWED_TOPICS = (
     "expiring_alerts",
     "subscription",
     "payment_methods",
+    "payment_issue",
     "consultation",
     "interview_practice",
     "privacy",
@@ -59,7 +60,7 @@ Sua única saída permitida é um objeto JSON com a chave topic e um destes valo
 greeting, how_it_works, getting_started, plans, opportunity_limits, automatic_applications,
 email_alerts, match_score, documents, resume_library, email_delivery, file_formats,
 ats_compatibility, copilot, job_capture, expiring_alerts,
-subscription, payment_methods, consultation, interview_practice, privacy, account_deletion,
+subscription, payment_methods, payment_issue, consultation, interview_practice, privacy, account_deletion,
 account_access, troubleshooting, contact, unknown.
 
 Escolha o assunto mais próximo entre estes fatos oficiais:
@@ -80,6 +81,7 @@ Escolha o assunto mais próximo entre estes fatos oficiais:
 - O Essencial inclui prévias e downloads avulsos por R$ 9,90. O Start e o Pro incluem os downloads personalizados; os documentos concluídos podem ser baixados na página Currículos.
 - Para importar currículo, são aceitos PDF textual, DOC e DOCX dentro do limite exibido na tela. A análise de anúncios também aceita PNG, JPG, JPEG, WebP ou PDF.
 - As formas de pagamento disponíveis são exibidas no checkout do Mercado Pago; o Pix só está disponível quando aparecer entre as opções do checkout.
+- Depois de um pagamento aprovado, a geração dos documentos continua em uma fila segura e pode ser retomada quando a pessoa volta ao Estúdio de Documentos; a biblioteca permite consultar o andamento e tentar novamente sem iniciar uma nova cobrança.
 - Os avisos automáticos de vagas expirando estão em breve, enquanto as fontes de validade das oportunidades são verificadas.
 - Um atendimento de Consultoria é solicitado em Configurações > Plano e cobrança após a confirmação do ciclo pago; não acumula.
 - O treino de entrevistas está em Entrevistas, pode usar uma candidatura como contexto e a avaliação por IA faz parte do Pro.
@@ -117,6 +119,7 @@ TOPIC_ANSWERS = {
     "expiring_alerts": "O aviso automático de vagas expirando ainda está em breve, enquanto as fontes de validade das oportunidades são verificadas. Você pode abrir a vaga original para confirmar se a inscrição continua disponível.",
     "subscription": "Start (R$ 34,90/mês), Pro (R$ 99,00/mês) e Consultoria (R$ 197,00/mês) são cobranças recorrentes pelo Mercado Pago até o cancelamento. Você pode cancelar em Configurações > Plano e cobrança; o acesso pago permanece até o fim do período já quitado. Os meios de pagamento aparecem no checkout.",
     "payment_methods": "As formas aceitas aparecem no checkout do Mercado Pago antes de confirmar a compra e podem variar. Se o Pix estiver listado, você pode escolhê-lo; não conclua uma cobrança fora do checkout oficial.",
+    "payment_issue": "Se o Mercado Pago confirmou o pagamento e o documento ainda não apareceu, abra novamente o Estúdio de Documentos ou Currículos e atualize o status. A geração é retomada pela fila segura e o botão de retry pode ser usado sem uma nova cobrança. Se continuar pendente, envie ao suporte o horário aproximado e a mensagem exibida, sem compartilhar senha, token ou dados do pagamento.",
     "consultation": "A Consultoria custa R$ 197,00 por mês e inclui um atendimento individual online de até 60 minutos em cada ciclo pago. Solicite em Configurações > Plano e cobrança após a confirmação do pagamento. O atendimento não acumula para o mês seguinte. WhatsApp da Consultoria: (71) 99349-4443.",
     "interview_practice": "Abra Entrevistas e escolha uma candidatura para preparar uma simulação contextual, ou use o treino geral. A avaliação por IA está incluída no Pro. Revise as sugestões e adapte as respostas à sua experiência real.",
     "privacy": "Mensagens brutas de e-mail processadas e trechos originais dos alertas são removidos após 60 dias. Consulte os Termos em /termos e a Política de Privacidade em /privacidade. Não envie senhas, tokens ou dados sensíveis pelo chat.",
@@ -143,6 +146,7 @@ def fallback_support_topic(message: str) -> str:
         ("resume_library", r"\b(meus documentos|meus currículos|meus curriculos|biblioteca de documentos|onde (baixo|encontro|fica).{0,20}(currículo|curriculo|carta|documento)|baixar.{0,25}(currículo|curriculo|carta|documento))\b"),
         ("interview_practice", r"\b(entrevista|simulação|simulacao|treino de entrevista|perguntas de entrevista)\b"),
         ("payment_methods", r"\b(pix|boleto|cartão|cartao|formas? de pagamento|como posso pagar|aceita pagar)\b"),
+        ("payment_issue", r"\b(paguei|pagamento|compra|mercado pago)\b.{0,70}\b(não apareceu|nao apareceu|não gerou|nao gerou|pendente|documento|currículo|curriculo|carta|recibo|comprovante)\b|\b(documento|currículo|curriculo|carta)\b.{0,50}\b(pagamento|paguei|compra)\b"),
         ("consultation", r"\b(consultoria|atendimento individual|sessão|sessao|197)\b"),
         ("subscription", r"\b(cobrança|cobranca|assinatura|cancelar|pagamento|pix|mercado pago)\b"),
         ("privacy", r"\b(privacidade|lgpd|dados pessoais|excluir meus dados|termos)\b"),
