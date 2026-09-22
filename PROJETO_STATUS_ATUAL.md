@@ -47,6 +47,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **Verificação pública pós-deploy (`1b1c143`):** em produção, `https://candidaturacerta.com.br/` abriu com a marca, planos, contatos e chat público; o endpoint `/health` respondeu HTTP 200 com `{"status":"ok","db":"connected"}`. A conferência não expôs segredos e confirma o domínio atual e a conexão do banco.
 
+- **P1.18 — sondagem do chat público (`22/09/2026`):** uma pergunta sem dados pessoais sobre os limites do Copiloto respondeu HTTP 200 em `/api/support-chat`. A resposta explicou que o preenchimento é consentido, para antes do envio final e não resolve CAPTCHA nem envia candidaturas; nenhum segredo foi retornado.
+
 - **P1 — integridade do e-book (`22/09/2026`):** `app/private_products/hackeando_disc.docx` está rastreado, mede 152.632 bytes, contém 20 entradas DOCX e passou a verificação estrutural sem entrada corrompida. O download real em uma conta Pro continua como validação externa.
 
 - **P1.22 — Copiloto Chrome 1.0.1:** o pacote bloqueia leitura e análise da página no LinkedIn, Glassdoor e Jobbol e oferece a alternativa de copiar manualmente o perfil, sem injetar scripts nesses domínios. A tela de instalação do Perfil aponta para o novo ZIP. Os 16 testes Node da extensão passaram. A publicação pública pela Chrome Web Store ainda depende do titular.
