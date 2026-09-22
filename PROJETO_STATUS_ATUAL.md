@@ -51,6 +51,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **P1.22 — artefato público do Copiloto (`22/09/2026`):** uma requisição GET sem salvar o arquivo confirmou HTTP 200 para `/static/candidatura-certa-autopreenchimento.zip?v=11`, com `Content-Type: application/zip` e 47.346 bytes. O pacote continua disponível para instalação manual; a publicação na Chrome Web Store segue pendente.
 
+- **P1.22 — material visual da loja (`22/09/2026`):** foram geradas e conferidas visualmente as capturas `chrome-extension/store-screenshot-popup.png` e `chrome-extension/store-screenshot-sidepanel.png`, mostrando as telas reais do popup e do painel lateral sem dados pessoais. A ficha da loja agora aponta para os dois arquivos; o titular ainda precisa enviá-los no painel da Chrome Web Store.
+
 - **P1 — integridade do e-book (`22/09/2026`):** `app/private_products/hackeando_disc.docx` está rastreado, mede 152.632 bytes, contém 20 entradas DOCX e passou a verificação estrutural sem entrada corrompida. O download real em uma conta Pro continua como validação externa.
 
 - **P1.22 — Copiloto Chrome 1.0.1:** o pacote bloqueia leitura e análise da página no LinkedIn, Glassdoor e Jobbol e oferece a alternativa de copiar manualmente o perfil, sem injetar scripts nesses domínios. A tela de instalação do Perfil aponta para o novo ZIP. Os 16 testes Node da extensão passaram. A publicação pública pela Chrome Web Store ainda depende do titular.

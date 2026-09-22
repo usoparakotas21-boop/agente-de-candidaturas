@@ -12,6 +12,7 @@ Use estes dados no painel do Chrome Web Store. A submissão só deve ocorrer dep
 - Política de privacidade: https://candidaturacerta.com.br/privacidade
 - Suporte: https://wa.me/5571991824951
 - Ícone: `icons/icon128.png`
+- Capturas preparadas: `store-screenshot-popup.png` e `store-screenshot-sidepanel.png` (interfaces reais do popup e do painel lateral; revisar o enquadramento no painel da loja antes do envio).
 
 ## Descrição completa
 
