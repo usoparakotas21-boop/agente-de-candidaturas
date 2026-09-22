@@ -1082,7 +1082,17 @@
           (payload.limit_reached ? " Limite mensal atingido; os alertas restantes poderão ser processados quando houver novas vagas disponíveis no plano." : "")
         );
       } catch (error) {
-        toast(error.message);
+        const message = String(error.message || "Nao foi possivel consultar o Gmail.");
+        if (/(google recusou|token gmail|autorizacao do gmail|renovacao do acesso)/i.test(message)) {
+          const connectButton = $("gmailButton");
+          connectButton.hidden = false;
+          connectButton.disabled = false;
+          connectButton.textContent = "Reconectar Gmail";
+          connectButton.title = "A autorização expirou; clique para conectar novamente esta conta";
+          toast(`${message} Clique em Reconectar Gmail para autorizar novamente.`);
+        } else {
+          toast(message);
+        }
       } finally {
         button.disabled = false;
         button.textContent = "Buscar e-mails";
