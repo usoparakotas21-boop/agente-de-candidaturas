@@ -79,6 +79,9 @@
     "Como conecto Gmail ou Outlook?",
     "Quais são os planos e limites?",
     "Como gero meu currículo e minha carta?",
+    "Aceita Pix para pagar?",
+    "Onde baixo meus documentos?",
+    "Como cancelo minha assinatura?",
   ].forEach((question) => {
     const suggestion = make("button", "cc-support-suggestion", question);
     suggestion.type = "button";

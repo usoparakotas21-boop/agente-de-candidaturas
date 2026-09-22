@@ -164,7 +164,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
     def test_landing_has_widget_and_video_embed_is_validated_and_optional(self):
         with patch.dict(os.environ, {}, clear=True):
             landing = main.root().body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=5", landing)
+        self.assertIn("/static/support-chat.js?v=6", landing)
         self.assertIn('class="cc-support-safe-footer"', landing)
         self.assertNotIn("CANDIDATURA_CERTA_DEMO_VIDEO", landing)
         self.assertNotIn('id="demonstracao"', landing)
@@ -184,12 +184,15 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
     def test_authenticated_shell_has_widget(self):
         dashboard = main._page(main.DASHBOARD_PATH).body.decode("utf-8")
-        self.assertIn("/static/support-chat.js?v=5", dashboard)
+        self.assertIn("/static/support-chat.js?v=6", dashboard)
 
     def test_widget_shows_accessible_common_question_shortcuts_without_html_injection(self):
         widget = (Path(__file__).resolve().parents[1] / "app" / "static" / "support-chat.js").read_text(encoding="utf-8")
         self.assertIn("Como funciona o site?", widget)
         self.assertIn("Como conecto Gmail ou Outlook?", widget)
+        self.assertIn("Aceita Pix para pagar?", widget)
+        self.assertIn("Onde baixo meus documentos?", widget)
+        self.assertIn("Como cancelo minha assinatura?", widget)
         self.assertIn('aria-label", "Perguntas comuns"', widget)
         self.assertIn('faq.href = "/ajuda"', widget)
         self.assertIn("form.requestSubmit()", widget)
