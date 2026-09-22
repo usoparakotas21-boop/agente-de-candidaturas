@@ -94,8 +94,11 @@ async def unhandled_error(request: Request, exc: Exception):
     )
 
 
-app.add_middleware(SecurityHeadersMiddleware)
+# Keep the security envelope outermost so authentication short-circuit
+# responses (401/403/503) receive the same browser protections as normal
+# route responses.
 app.add_middleware(AuthMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
 app.include_router(outlook_router)

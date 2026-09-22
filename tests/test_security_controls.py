@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -74,6 +74,31 @@ class SecurityControlsTest(unittest.TestCase):
             response = client.get("/static/app.js")
 
         self.assertNotIn("cache-control", response.headers)
+
+    def test_security_headers_wrap_authentication_short_circuit(self):
+        app = FastAPI()
+        # Security must be registered last so Starlette places it outside the
+        # authentication middleware and can decorate early 401 responses.
+        app.add_middleware(auth.AuthMiddleware)
+        app.add_middleware(SecurityHeadersMiddleware)
+
+        @app.get("/private")
+        async def private_route():
+            return {"ok": True}
+
+        with (
+            patch.object(auth, "AUTH_REQUIRED", True),
+            patch.object(auth, "_configuration_ready", return_value=True),
+            patch.object(auth, "_resolve_session", new=AsyncMock(return_value=(None, None))),
+            TestClient(app, base_url="https://testserver") as client,
+        ):
+            response = client.get("/private")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+        self.assertIn("max-age=31536000", response.headers["strict-transport-security"])
+        self.assertEqual(response.headers["cache-control"], "private, no-store, max-age=0")
 
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
