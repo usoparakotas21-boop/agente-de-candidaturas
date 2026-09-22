@@ -91,6 +91,78 @@ def _jooble(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _workable(record: dict[str, Any]) -> dict[str, Any]:
+    """Flatten the public Workable jobs shape without retaining provider-only fields."""
+    location = record.get("location") if isinstance(record.get("location"), dict) else {}
+    company = record.get("company") if isinstance(record.get("company"), dict) else {}
+    salary = record.get("salary") if isinstance(record.get("salary"), dict) else {}
+    location_text = " / ".join(
+        value
+        for value in (
+            _text(location.get("city")),
+            _text(location.get("region")),
+            _text(location.get("country")),
+        )
+        if value
+    ) or " / ".join(
+        value
+        for value in (_text(record.get("city")), _text(record.get("state")), _text(record.get("country")))
+        if value
+    )
+    salary_values = (
+        _text(salary.get("salary_from")),
+        _text(salary.get("salary_to")),
+        _text(record.get("salary_from")),
+        _text(record.get("salary_to")),
+    )
+    return {
+        "external_id": _text(record.get("shortcode")) or _text(record.get("id")) or _text(record.get("code")),
+        "title": _text(record.get("title")) or _text(record.get("full_title")),
+        "company": _text(company.get("name")) or _text(record.get("company")),
+        "location": location_text,
+        "description": _text(record.get("full_description")) or _text(record.get("description")),
+        "apply_url": _text(record.get("application_url")) or _text(record.get("url")) or _text(record.get("shortlink")),
+        "salary_range": " - ".join(value for value in salary_values if value)[:200],
+        "work_mode": _text(record.get("workplace_type")) or _text(location.get("workplace_type")),
+        "contract_type": _text(record.get("employment_type")),
+    }
+
+
+def _smartrecruiters(record: dict[str, Any]) -> dict[str, Any]:
+    """Flatten SmartRecruiters postings/feed records without following their URLs."""
+    company = record.get("company") if isinstance(record.get("company"), dict) else {}
+    location = record.get("location") if isinstance(record.get("location"), dict) else {}
+    employment = record.get("typeOfEmployment") if isinstance(record.get("typeOfEmployment"), dict) else {}
+    job_ad = record.get("jobAd") if isinstance(record.get("jobAd"), dict) else {}
+    sections = job_ad.get("sections") if isinstance(job_ad.get("sections"), dict) else {}
+    description_parts = []
+    for section_name in ("jobDescription", "qualifications", "additionalInformation"):
+        section = sections.get(section_name)
+        if isinstance(section, dict):
+            value = _text(section.get("text"))
+        else:
+            value = _text(job_ad.get(section_name))
+        if value:
+            description_parts.append(value)
+    location_text = " / ".join(
+        value
+        for value in (_text(location.get("city")), _text(location.get("region")), _text(location.get("country")))
+        if value
+    )
+    compensation = record.get("compensation") if isinstance(record.get("compensation"), dict) else {}
+    return {
+        "external_id": _text(record.get("id")) or _text(record.get("uuid")),
+        "title": _text(record.get("name")) or _text(record.get("title")),
+        "company": _text(company.get("name")),
+        "location": location_text,
+        "description": "\n\n".join(description_parts),
+        "apply_url": _text(record.get("applyUrl")) or _text(record.get("postingUrl")) or _text(record.get("jobAdUrl")),
+        "salary_range": _text(compensation.get("salary")) or _text(compensation.get("label")),
+        "work_mode": "remote" if location.get("remote") is True else _text(location.get("workplaceType")),
+        "contract_type": _text(employment.get("label")) or _text(employment.get("name")),
+    }
+
+
 def adapt_feed_records(source_id: str, records: Iterable[Any]) -> list[Any]:
     """Flatten known authorized feed shapes without changing unknown sources."""
 
@@ -103,6 +175,10 @@ def adapt_feed_records(source_id: str, records: Iterable[Any]) -> list[Any]:
         "adzuna-api": _adzuna,
         "jooble": _jooble,
         "jooble-api": _jooble,
+        "workable": _workable,
+        "workable-api": _workable,
+        "smartrecruiters": _smartrecruiters,
+        "smartrecruiters-feed": _smartrecruiters,
     }.get(str(source_id).strip().casefold())
     if adapter is None:
         return list(records)
