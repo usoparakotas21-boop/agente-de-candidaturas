@@ -154,6 +154,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **P1.10 — reenvio de comprovante preparado (`fea48a6`, Render Live):** o Estúdio de Documentos agora mostra um botão owner-scoped para reenviar o recibo de um pagamento já aprovado. O endpoint exige sessão, e-mail confirmado, correspondência com o endereço usado no pagamento e limite de tentativas; não cria nova cobrança nem expõe dados do provedor. A regressão completa passou **465/465**, além da checagem de sintaxe JavaScript do Estúdio. A entrega real continua dependendo da validação externa na caixa de entrada.
 
+- **Probes públicos após o deploy `765ac65` (22/09/2026):** `/health`, `/termos` e `/privacidade` responderam HTTP 200; o chat público respondeu HTTP 200 a uma pergunta genérica; e o ZIP do Copiloto respondeu HTTP 200 com `Content-Type: application/zip` e 47.346 bytes. Nenhum probe usou sessão, pagamento ou dado pessoal.
+
 ## O que existe de fato
 
 ### Atualização operacional — 20/09/2026
