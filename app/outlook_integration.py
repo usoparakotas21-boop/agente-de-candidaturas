@@ -16,6 +16,7 @@ from sqlalchemy import select
 from .auth import APP_BASE_URL, authenticated_user
 from .database import SessionLocal
 from .models import EmailIntegration
+from .oauth_urls import public_callback_url
 
 router = APIRouter(prefix="/auth/outlook", tags=["outlook"])
 AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
@@ -47,7 +48,11 @@ def _validate_state(value, owner_id):
 
 
 def _redirect():
-    return os.getenv("OUTLOOK_REDIRECT_URI", "").strip() or f"{APP_BASE_URL}/auth/outlook/callback"
+    return public_callback_url(
+        os.getenv("OUTLOOK_REDIRECT_URI", ""),
+        APP_BASE_URL,
+        "/auth/outlook/callback",
+    )
 
 
 def _owner(user):

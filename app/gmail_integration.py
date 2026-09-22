@@ -18,6 +18,7 @@ from sqlalchemy import select
 from .auth import APP_BASE_URL, authenticated_user
 from .database import SessionLocal
 from .models import EmailIntegration
+from .oauth_urls import public_callback_url
 
 
 router = APIRouter(prefix="/auth/gmail", tags=["gmail"])
@@ -39,15 +40,13 @@ def _client_secret() -> str:
 
 def _redirect_uri() -> str:
     configured = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
-    if configured:
-        return configured
     base_url = APP_BASE_URL
     if not base_url.startswith("https://"):
         raise HTTPException(
             status_code=503,
             detail="Defina APP_BASE_URL com a URL HTTPS publica do site.",
         )
-    return f"{base_url}/auth/gmail/callback"
+    return public_callback_url(configured, base_url, "/auth/gmail/callback")
 
 
 def _configuration_ready() -> bool:

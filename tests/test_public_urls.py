@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from app import auth, customer_success, gmail_integration, outlook_integration
 from app import main as main_module
+from app.oauth_urls import public_callback_url
 
 
 class PublicUrlTests(unittest.TestCase):
@@ -40,6 +41,27 @@ class PublicUrlTests(unittest.TestCase):
                 outlook_integration._redirect(),
                 "https://candidaturacerta.com.br/auth/outlook/callback",
             )
+
+    def test_stale_render_callback_is_repaired_for_public_domain(self):
+        self.assertEqual(
+            public_callback_url(
+                "https://agente-de-candidaturas.onrender.com/auth/outlook/callback",
+                "https://candidaturacerta.com.br",
+                "/auth/outlook/callback",
+            ),
+            "https://candidaturacerta.com.br/auth/outlook/callback",
+        )
+
+    def test_custom_callback_override_remains_available(self):
+        configured = "https://app.example.com/auth/outlook/callback"
+        self.assertEqual(
+            public_callback_url(
+                configured,
+                "https://candidaturacerta.com.br",
+                "/auth/outlook/callback",
+            ),
+            configured,
+        )
 
 
 if __name__ == "__main__":
