@@ -12,12 +12,20 @@ from datetime import datetime, timezone
 
 from app.database import SessionLocal
 from app.job_ingestion_queue import enqueue_ingestion_task
+from app.source_authorization import load_authorized_sources_from_environment
 from app.source_governance import SOURCE_REGISTRY, SourceApprovalError
 
 
 def main() -> int:
     logging.basicConfig(level="INFO")
     logger = logging.getLogger("job_ingestion_scheduler")
+    try:
+        loaded = load_authorized_sources_from_environment(registry=SOURCE_REGISTRY)
+    except ValueError as exc:
+        logger.error("Source authorization configuration rejected: %s", type(exc).__name__)
+        return 2
+    if loaded:
+        logger.info("Loaded %d approved job source record(s) from environment.", len(loaded))
     if not SOURCE_REGISTRY.sources():
         logger.info("No approved job sources are configured; nothing was enqueued.")
         return 0

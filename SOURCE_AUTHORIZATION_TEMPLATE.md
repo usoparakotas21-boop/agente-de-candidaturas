@@ -103,3 +103,10 @@ python scripts/validate_source_authorization.py caminho/da-fonte.json
 O comando apenas valida o formato e informa as lacunas. Mesmo que o resultado
 seja "pronto", ele não cadastra nem ativa a fonte; a evidência ainda precisa
 ser revisada e registrada no servidor por uma pessoa autorizada.
+
+Depois da revisão jurídica e técnica, os registros aprovados podem ser
+colocados juntos no segredo `SOURCE_AUTHORIZATION_RECORDS_JSON` do Render como
+um objeto JSON ou uma lista de objetos. O scheduler e o worker validam todos os
+registros antes de ativar qualquer um; se um registro estiver pendente, nenhum
+é carregado. Essa variável não deve conter tokens ou senhas. As credenciais do
+endpoint, quando existirem, ficam em variáveis separadas do Render.

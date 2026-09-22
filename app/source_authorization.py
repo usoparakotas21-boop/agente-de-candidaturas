@@ -8,6 +8,7 @@ step. It never mutates ``SOURCE_REGISTRY`` and never fetches a URL.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -45,6 +46,8 @@ REQUIRED_RECORD_FIELDS = frozenset(
         "reviewed_at",
     }
 )
+
+SOURCE_AUTHORIZATION_RECORDS_ENV = "SOURCE_AUTHORIZATION_RECORDS_JSON"
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,3 +194,73 @@ def source_to_record(source: JobSource) -> dict[str, Any]:
     record["status"] = source.status.value
     record["reviewed_at"] = source.reviewed_at.isoformat()
     return record
+
+
+def load_authorized_sources_from_json(
+    raw: str,
+    *,
+    registry: SourceRegistry,
+    as_of: date | None = None,
+) -> tuple[JobSource, ...]:
+    """Validate and register a complete set of approved source records atomically.
+
+    The payload is intentionally an environment-friendly JSON object or array.
+    Every record must be fully approved before any source is registered. This
+    keeps a malformed or pending record from partially activating a scheduler.
+    The records contain no credentials; provider secrets remain separate Render
+    environment variables.
+    """
+
+    if not isinstance(raw, str):
+        raise ValueError("source authorization JSON must be text")
+    if not raw.strip():
+        return ()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"source authorization JSON is not valid: {exc.msg}") from exc
+    if isinstance(payload, Mapping):
+        payload = [payload]
+    if not isinstance(payload, list) or not payload:
+        raise ValueError("source authorization JSON must be an object or non-empty array")
+
+    review_date = date.today() if as_of is None else as_of
+    sources: list[JobSource] = []
+    source_ids: set[str] = set()
+    for item in payload:
+        source = source_from_record(item)
+        if source.source_id in source_ids:
+            raise ValueError(f"duplicate source_id in authorization JSON: {source.source_id}")
+        source_ids.add(source.source_id)
+        check = check_source(source, as_of=review_date)
+        if not check.ready_for_registration:
+            reason = check.approval_error or ", ".join(check.approval_gaps) or "incomplete approval"
+            raise ValueError(f"source {source.source_id} is not ready: {reason}")
+        existing = registry.get(source.source_id)
+        if existing is not None and existing != source:
+            raise ValueError(f"source_id already registered with different evidence: {source.source_id}")
+        sources.append(source)
+
+    for source in sources:
+        if registry.get(source.source_id) is None:
+            registry.register(source)
+    return tuple(sources)
+
+
+def load_authorized_sources_from_environment(
+    *,
+    registry: SourceRegistry,
+    as_of: date | None = None,
+) -> tuple[JobSource, ...]:
+    """Load approved records from ``SOURCE_AUTHORIZATION_RECORDS_JSON``.
+
+    An absent variable is a valid empty registry state. Invalid input raises a
+    sanitized ``ValueError`` so scheduler/worker processes fail closed without
+    making a network request or activating a partial source set.
+    """
+
+    return load_authorized_sources_from_json(
+        os.getenv(SOURCE_AUTHORIZATION_RECORDS_ENV, ""),
+        registry=registry,
+        as_of=as_of,
+    )

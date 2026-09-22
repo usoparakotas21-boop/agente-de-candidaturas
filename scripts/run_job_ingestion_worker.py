@@ -16,6 +16,8 @@ from uuid import uuid4
 
 from app.database import SessionLocal
 from app.job_ingestion_queue import process_one_task
+from app.source_authorization import load_authorized_sources_from_environment
+from app.source_governance import SOURCE_REGISTRY
 
 
 def main() -> int:
@@ -27,6 +29,13 @@ def main() -> int:
     worker_id = f"{socket.gethostname()}-{uuid4().hex[:12]}"
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
     logger = logging.getLogger("job_ingestion_worker")
+    try:
+        loaded = load_authorized_sources_from_environment(registry=SOURCE_REGISTRY)
+    except ValueError as exc:
+        logger.error("Source authorization configuration rejected: %s", type(exc).__name__)
+        return 2
+    if loaded:
+        logger.info("Loaded %d approved job source record(s) from environment.", len(loaded))
     logger.info("Ingestion worker started; source registry must contain approved entries.")
 
     try:

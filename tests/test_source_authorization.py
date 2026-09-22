@@ -3,12 +3,16 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest import mock
 
 from app.source_authorization import (
     check_source_record,
+    load_authorized_sources_from_environment,
+    load_authorized_sources_from_json,
     load_source_record,
     source_to_record,
 )
+from app.source_governance import SourceRegistry
 
 
 def complete_record(**overrides):
@@ -78,6 +82,35 @@ class SourceAuthorizationTests(unittest.TestCase):
             {"automated_fetch", "commercial_display"},
         )
         self.assertNotIn("automated_submission", serialized["permitted_uses"])
+
+    def test_environment_payload_registers_approved_sources_atomically(self):
+        registry = SourceRegistry()
+        loaded = load_authorized_sources_from_json(
+            json.dumps([complete_record()]),
+            registry=registry,
+            as_of=date(2026, 9, 22),
+        )
+        self.assertEqual([source.source_id for source in loaded], ["pilot-board"])
+        self.assertEqual([source.source_id for source in registry.sources()], ["pilot-board"])
+
+    def test_pending_record_does_not_partially_activate_environment_payload(self):
+        registry = SourceRegistry()
+        payload = json.dumps([
+            complete_record(source_id="approved-board"),
+            complete_record(source_id="pending-board", status="pending"),
+        ])
+        with self.assertRaisesRegex(ValueError, "pending-board is not ready"):
+            load_authorized_sources_from_json(
+                payload,
+                registry=registry,
+                as_of=date(2026, 9, 22),
+            )
+        self.assertEqual(registry.sources(), ())
+
+    def test_empty_environment_keeps_registry_empty(self):
+        registry = SourceRegistry()
+        with mock.patch.dict("os.environ", {"SOURCE_AUTHORIZATION_RECORDS_JSON": ""}):
+            self.assertEqual(load_authorized_sources_from_environment(registry=registry), ())
 
 
 if __name__ == "__main__":
