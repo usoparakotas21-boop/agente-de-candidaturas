@@ -152,7 +152,7 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **P1.10/P1.19 — teste de entrega preparado (22/09/2026):** Configurações agora oferece "Enviar e-mail de teste", que usa somente o endereço confirmado da própria conta, aplica limite de tentativas, bloqueia contas não confirmadas e mantém mensagens de erro sem detalhes do provedor. O endpoint funciona com Brevo HTTPS ou SMTP e foi coberto por 4 testes dedicados; a regressão completa passou **462/462**. A única validação externa restante é clicar no botão numa conta confirmada e verificar a caixa de entrada/spam.
 
-- **P1.10 — reenvio de comprovante preparado:** o Estúdio de Documentos agora mostra um botão owner-scoped para reenviar o recibo de um pagamento já aprovado. O endpoint exige sessão, e-mail confirmado, correspondência com o endereço usado no pagamento e limite de tentativas; não cria nova cobrança nem expõe dados do provedor. A regressão completa passou **465/465**, além da checagem de sintaxe JavaScript do Estúdio. A entrega real continua dependendo da validação externa na caixa de entrada.
+- **P1.10 — reenvio de comprovante preparado (`fea48a6`, Render Live):** o Estúdio de Documentos agora mostra um botão owner-scoped para reenviar o recibo de um pagamento já aprovado. O endpoint exige sessão, e-mail confirmado, correspondência com o endereço usado no pagamento e limite de tentativas; não cria nova cobrança nem expõe dados do provedor. A regressão completa passou **465/465**, além da checagem de sintaxe JavaScript do Estúdio. A entrega real continua dependendo da validação externa na caixa de entrada.
 
 ## O que existe de fato
 
