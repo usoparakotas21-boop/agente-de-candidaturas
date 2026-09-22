@@ -262,7 +262,7 @@ def fetch_authorized_json_feed(
         if records is None:
             records = payload.get("data")
     if not isinstance(records, list):
-        raise JobIngestionError("JSON feed must be a list or contain a jobs/data list.")
+        raise JobIngestionError("JSON feed must be a list or contain a jobs/results/data list.")
     if len(records) > MAX_LISTINGS_PER_FEED:
         raise JobIngestionError("Source feed exceeds the listing-count limit.")
     return adapt_feed_records(source.source_id, records)
