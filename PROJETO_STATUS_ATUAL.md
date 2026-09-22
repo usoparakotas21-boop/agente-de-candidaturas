@@ -43,6 +43,21 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 4. **Copiloto:** instalar o ZIP em `Perfil`, conceder a permissão somente ao domínio da vaga e validar um portal permitido. A extensão deve preencher e parar antes do envio final; a publicação na Chrome Web Store continua opcional e depende do titular.
 5. **Fontes de vagas:** fornecer autorização/licença, endpoint/feed exato, escopo de coleta e direitos de exibição para pelo menos uma fonte piloto. Sem isso, o registro permanece vazio e a ingestão segue bloqueada por desenho.
 
+### Ações que dependem exclusivamente do titular
+
+Esta é a lista final de validações externas. Nenhuma senha, token, chave de API ou dado de cartão deve ser enviado pelo chat; quando necessário, o valor deve ser colado diretamente no painel do provedor ou como segredo no Render.
+
+| Ordem | Ação do titular | Evidência para encerrar |
+| --- | --- | --- |
+| 1 | Reconectar o Gmail pelo botão **Reconectar Gmail** no Dashboard e executar uma sincronização. | O painel mostra a conta conectada e a sincronização termina sem erro de renovação OAuth. |
+| 2 | Em **Currículos**, reenviar um documento próprio por e-mail; em **Configurações**, usar o teste de entrega. | O documento e o teste chegam na caixa confirmada ou no spam. |
+| 3 | Fazer uma compra controlada de Start, Pro e Consultoria, conferir o retorno, o webhook, o recibo, o histórico e cancelar as três renovações. | Cada plano aparece ativo, o documento/benefício correspondente é liberado e o cancelamento fica confirmado no Mercado Pago. |
+| 4 | Com uma conta Pro, executar uma simulação em **Entrevistas**. | A resposta Gemini chega com score e feedback, sem mensagem de fallback. |
+| 5 | Instalar o ZIP do Copiloto em `chrome://extensions` e testar uma vaga em portal permitido. | O perfil é preenchido após consentimento e a extensão para antes do botão final. |
+| 6 | Se a distribuição pública for desejada, enviar o ZIP e as duas capturas ao Chrome Web Store. | A loja aceita a ficha e publica a versão 1.0.1. |
+| 7 | Autorizar pelo menos uma fonte de vagas, informando licença, endpoint, limite de requisições e direito de exibição; inserir o segredo diretamente no Render. | A fonte aparece como autorizada e uma coleta piloto controlada gera um `job_ingestion_run` bem-sucedido. |
+| 8 | Conferir os callbacks externos: Google `https://candidaturacerta.com.br/auth/gmail/callback`, Microsoft `https://candidaturacerta.com.br/auth/outlook/callback`, Supabase `https://candidaturacerta.com.br/dashboard` e Mercado Pago `https://candidaturacerta.com.br/webhooks/mercadopago`. | Cada provedor aceita o endereço e o login/retorno ocorre sem erro de redirect. |
+
 ### Atualização operacional — 22/09/2026
 
 - **Verificação pública pós-deploy (`1b1c143`):** em produção, `https://candidaturacerta.com.br/` abriu com a marca, planos, contatos e chat público; o endpoint `/health` respondeu HTTP 200 com `{"status":"ok","db":"connected"}`. A conferência não expôs segredos e confirma o domínio atual e a conexão do banco.
