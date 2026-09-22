@@ -6,11 +6,11 @@ Após a autorização, o complemento envia à API da Candidatura Certa o título
 
 O plano Essencial inclui até 30 preparações assistidas por mês, Start até 150 e Pro e Consultoria até 500. Cada preparação é contabilizada quando você autoriza a consulta do perfil, mesmo se a página não tiver campos compatíveis. O contador renova no primeiro dia do mês pelo horário de Brasília.
 
-O complemento bloqueia LinkedIn, Jobbol e Glassdoor. Ele não faz login nos portais, não envia formulários, não clica nos botões de candidatura, não responde perguntas abertas ou sensíveis, não resolve CAPTCHA e não contorna limites ou verificações. Campos já preenchidos, consentimentos, elegibilidade e pretensão salarial ficam com você; uploads só ocorrem após sua confirmação e em campos identificados como currículo ou carta.
+O complemento bloqueia a leitura/análise automática e o preenchimento em LinkedIn, Jobbol e Glassdoor. Nesses sites, você ainda pode carregar seus próprios dados no painel lateral e copiá-los manualmente para o formulário, se as regras do portal permitirem. Ele não faz login nos portais, não envia formulários, não clica nos botões de candidatura, não responde perguntas abertas ou sensíveis, não resolve CAPTCHA e não contorna limites ou verificações. Campos já preenchidos, consentimentos, elegibilidade e pretensão salarial ficam com você; uploads só ocorrem após sua confirmação e em campos identificados como currículo ou carta.
 
 ## Versão estável e instalação provisória
 
-Este é o pacote estável 1.0.0. A publicação pública pela Chrome Web Store ou Edge Add-ons ainda depende da aprovação da loja; até isso acontecer, o pacote é distribuído diretamente e requer instalação manual. Para a pessoa candidata, a instalação é feita uma única vez no computador.
+Este é o pacote estável 1.0.1. A publicação pública pela Chrome Web Store ou Edge Add-ons ainda depende da aprovação da loja; até isso acontecer, o pacote é distribuído diretamente e requer instalação manual. Para a pessoa candidata, a instalação é feita uma única vez no computador.
 
 1. Na página **Perfil**, baixe o ZIP do complemento e extraia-o numa pasta local.
 2. Use Chrome 116 ou posterior (ou Edge baseado em Chromium equivalente) e abra `chrome://extensions`; no Edge, abra `edge://extensions`.
@@ -20,7 +20,7 @@ Este é o pacote estável 1.0.0. A publicação pública pela Chrome Web Store o
 6. Na vaga, confirme que o portal permite preenchimento assistido. Escolha **Mostrar copiloto nesta página** para usar uma vez, ou **Ativar botão automaticamente neste domínio** para as próximas páginas de vagas reconhecidas naquele domínio. O Chrome pede a permissão do site somente quando você ativa essa opção.
 7. Clique no botão flutuante, confirme o uso do perfil e revise os campos.
 
-Como a loja ainda não aprovou a publicação pública, a instalação direta exige o modo de desenvolvedor. Isso é uma limitação da distribuição temporária do pacote; não altera as funções de produção nem transforma a versão 1.0.0 em uma build de teste. Quando a aprovação sair, a instalação será feita pela loja oficial.
+Como a loja ainda não aprovou a publicação pública, a instalação direta exige o modo de desenvolvedor. Isso é uma limitação da distribuição temporária do pacote; não altera as funções de produção nem transforma a versão 1.0.1 em uma build de teste. Quando a aprovação sair, a instalação será feita pela loja oficial.
 
 ## Dados e privacidade
 

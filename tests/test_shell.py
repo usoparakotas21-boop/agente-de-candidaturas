@@ -162,12 +162,12 @@ class ShellLayoutTest(unittest.TestCase):
         profile = main_module._page(main_module.PROFILE_PAGE_PATH).body.decode("utf-8")
         self.assertIn('profile-autofill-export.js?v=7', profile)
         self.assertIn("Baixar o copiloto", script)
-        self.assertIn("Copiloto — versão estável 1.0.0", script)
+        self.assertIn("Copiloto — versão estável 1.0.1", script)
         self.assertIn("Abra o arquivo que baixou", script)
         self.assertIn("Copiar endereço", script)
         self.assertIn("Preciso de ajuda para instalar", script)
         self.assertIn("A instalação pública pela loja oficial ainda aguarda publicação", script)
-        self.assertIn("versão estável 1.0.0", script)
+        self.assertIn("versão estável 1.0.1", script)
 
     def test_resume_page_groups_extracted_data_for_review(self):
         html = (Path(main_module.STATIC_DIR) / "curriculos.html").read_text(encoding="utf-8")

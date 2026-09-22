@@ -55,6 +55,15 @@
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error("Volte à vaga e abra novamente a cópia rápida.");
+      let activeHost = "";
+      try { activeHost = new URL(tab.url || "").hostname; } catch { /* sem página web ativa */ }
+      const policy = globalThis.CandidaturaCertaAutomationPolicy;
+      if (!policy?.isSupportedAutomationHost(activeHost)) {
+        const restrictedMessage = policy?.restrictedMessageFor(activeHost);
+        throw new Error(restrictedMessage
+          ? `${restrictedMessage} Você ainda pode copiar os dados do seu perfil no painel abaixo e colá-los manualmente, depois revise tudo no portal.`
+          : "A análise da página não está habilitada para este portal. Você ainda pode copiar os dados do seu perfil no painel abaixo e colá-los manualmente, depois revise tudo no portal.");
+      }
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["job-context.js"] });
       const [extracted] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },

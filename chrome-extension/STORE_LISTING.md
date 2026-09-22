@@ -1,4 +1,4 @@
-# Chrome Web Store — ficha pronta da versão 1.0.0
+# Chrome Web Store — ficha pronta da versão 1.0.1
 
 Use estes dados no painel do Chrome Web Store. A submissão só deve ocorrer depois que a página, a política de privacidade e as telas de divulgação estiverem disponíveis publicamente e conferidas.
 
@@ -58,4 +58,4 @@ O complemento processa dados profissionais escolhidos pela pessoa, dados visíve
 
 ## Antes de enviar para revisão
 
-O pacote 1.0.0, os ícones, a descrição, as justificativas e a política pública estão preparados. No painel da loja, o titular ainda precisa concluir cadastro e declarações legais, enviar o ZIP `app/static/candidatura-certa-autopreenchimento.zip`, incluir ao menos uma captura de tela verdadeira do complemento em uso, preencher as práticas de privacidade com os dados descritos acima e enviar a versão para análise. A extensão só será pública depois da aprovação da loja.
+O pacote 1.0.1, os ícones, a descrição, as justificativas e a política pública estão preparados. No painel da loja, o titular ainda precisa concluir cadastro e declarações legais, enviar o ZIP `app/static/candidatura-certa-autopreenchimento.zip`, incluir ao menos uma captura de tela verdadeira do complemento em uso, preencher as práticas de privacidade com os dados descritos acima e enviar a versão para análise. A extensão só será pública depois da aprovação da loja.
