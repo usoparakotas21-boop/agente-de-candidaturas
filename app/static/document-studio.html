@@ -346,7 +346,25 @@
         if(!current||Number(current.application_id)!==Number(linkedApplicationId))await generatePreview({scroll:false});
         await exportPaidDocuments(offer);
       }
+      if(state.mode==='ready'||state.mode==='plan'&&!$('downloadResume').hidden){
+        clearPendingExport(linkedApplicationId);
+      }
       return true;
+    }
+    let pendingRestoreInFlight=false;
+    let lastPendingRestoreAt=0;
+    async function restorePendingCheckoutOnFocus(){
+      const pendingId=readPendingExport();
+      if(!pendingId||pendingRestoreInFlight||paymentReturnHandled||Number(linkedApplicationId)!==Number(pendingId))return;
+      const now=Date.now();
+      if(now-lastPendingRestoreAt<5000)return;
+      lastPendingRestoreAt=now;
+      pendingRestoreInFlight=true;
+      try{
+        const restored=await restorePaidApplication();
+        if(restored)msg('Verificamos novamente o pagamento e a geração dos documentos.',true);
+      }catch(error){checkoutMsg(error.message||'Não foi possível atualizar o pagamento agora.');}
+      finally{pendingRestoreInFlight=false;}
     }
     async function handlePaymentReturn(){
       if(paymentReturnHandled)return;
@@ -607,6 +625,10 @@
     $('emailConsent').addEventListener('change',updateEmailSubmissionControls);
     $('refreshEmailPreview').addEventListener('click',loadEmailSubmissionPreview);
     $('sendEmailApplication').addEventListener('click',sendReviewedEmailApplication);
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')restorePendingCheckoutOnFocus();
+    });
+    window.addEventListener('focus',restorePendingCheckoutOnFocus);
     loadApplications();
   </script>
 </body>
