@@ -3283,6 +3283,51 @@ def _send_email_message(message: EmailMessage, config: dict[str, object], *, tim
     return "smtp"
 
 
+@app.post("/api/email/test")
+def send_test_email(
+    user=Depends(authenticated_user),
+    request: Request = None,
+):
+    """Send a safe delivery probe to the account's confirmed address only."""
+    owner_id = _require_owner_id(user)
+    if request is not None:
+        _enforce_rate_limit(request, "email-test", owner_id)
+
+    recipient = str(user.get("email") or "").strip()
+    if not recipient or not (user.get("email_confirmed_at") or user.get("confirmed_at")):
+        raise HTTPException(403, "Confirme o e-mail da sua conta antes de testar a entrega.")
+
+    smtp_config = _email_transport_config()
+    if smtp_config is None:
+        raise HTTPException(503, "O envio por e-mail está indisponível no momento.")
+
+    message = EmailMessage()
+    message["Subject"] = "Teste de entrega — Candidatura Certa"
+    message["From"] = str(smtp_config["sender"])
+    message["To"] = recipient
+    message.set_content(
+        "Este é um teste de entrega da Candidatura Certa.\n\n"
+        "Seu e-mail confirmado foi aceito pelo sistema e esta mensagem não contém dados sensíveis.\n\n"
+        "Se você recebeu este e-mail, os avisos e comprovantes da plataforma poderão chegar nesta caixa.\n"
+        "Candidatura Certa | contato@candidaturacerta.com.br"
+    )
+    try:
+        transport = _send_email_message(message, smtp_config, timeout=15)
+    except (OSError, smtplib.SMTPException, TimeoutError, httpx.HTTPError, ValueError, RuntimeError) as exc:
+        logger.warning(
+            "Nao foi possivel enviar teste de e-mail owner_id=%s smtp_stage=%s error_type=%s",
+            owner_id,
+            str(getattr(exc, "smtp_stage", "unknown")),
+            type(exc).__name__,
+        )
+        raise HTTPException(502, "Não foi possível enviar o teste agora. Tente novamente mais tarde.") from exc
+    return {
+        "status": "sent",
+        "transport": transport,
+        "message": "E-mail de teste enviado para o e-mail confirmado da sua conta.",
+    }
+
+
 def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
     """Send one plain-text receipt when SMTP is configured; retries stay idempotent."""
     locked = db.scalar(
