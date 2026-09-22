@@ -1,0 +1,49 @@
+name: Approved job-source ingestion
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: approved-job-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      SOURCE_AUTHORIZATION_RECORDS_JSON: ${{ secrets.SOURCE_AUTHORIZATION_RECORDS_JSON }}
+    steps:
+      - name: Explain inactive state when secrets are absent
+        if: ${{ env.DATABASE_URL == '' || env.SOURCE_AUTHORIZATION_RECORDS_JSON == '' }}
+        run: |
+          echo "::notice::Ingestão não executada: configure SUPABASE_DATABASE_URL e SOURCE_AUTHORIZATION_RECORDS_JSON após aprovar uma fonte."
+
+      - name: Check out the application
+        if: ${{ env.DATABASE_URL != '' && env.SOURCE_AUTHORIZATION_RECORDS_JSON != '' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: ${{ env.DATABASE_URL != '' && env.SOURCE_AUTHORIZATION_RECORDS_JSON != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ingestion dependencies
+        if: ${{ env.DATABASE_URL != '' && env.SOURCE_AUTHORIZATION_RECORDS_JSON != '' }}
+        run: python -m pip install -r requirements.txt
+
+      - name: Enqueue approved sources
+        if: ${{ env.DATABASE_URL != '' && env.SOURCE_AUTHORIZATION_RECORDS_JSON != '' }}
+        run: python scripts/schedule_job_ingestion.py
+
+      - name: Process one leased task
+        if: ${{ env.DATABASE_URL != '' && env.SOURCE_AUTHORIZATION_RECORDS_JSON != '' }}
+        run: python scripts/run_job_ingestion_worker.py --once
