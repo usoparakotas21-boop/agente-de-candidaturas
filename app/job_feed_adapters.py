@@ -94,9 +94,11 @@ def _jooble(record: dict[str, Any]) -> dict[str, Any]:
 def _workable(record: dict[str, Any]) -> dict[str, Any]:
     """Flatten the public Workable jobs shape without retaining provider-only fields."""
     location = record.get("location") if isinstance(record.get("location"), dict) else {}
+    if not location and isinstance(record.get("locations"), list):
+        location = next((item for item in record["locations"] if isinstance(item, dict)), {})
     company = record.get("company") if isinstance(record.get("company"), dict) else {}
     salary = record.get("salary") if isinstance(record.get("salary"), dict) else {}
-    location_text = " / ".join(
+    location_text = _text(location.get("location_str")) or " / ".join(
         value
         for value in (
             _text(location.get("city")),
@@ -115,15 +117,27 @@ def _workable(record: dict[str, Any]) -> dict[str, Any]:
         _text(record.get("salary_from")),
         _text(record.get("salary_to")),
     )
+    description = _text(record.get("full_description")) or _text(record.get("description"))
+    if not description:
+        description = "\n\n".join(
+            value
+            for value in (_text(record.get("requirements")), _text(record.get("benefits")))
+            if value
+        )
+    work_mode = (
+        _text(record.get("workplace_type"))
+        or _text(location.get("workplace_type"))
+        or ("remote" if record.get("telecommuting") is True or location.get("telecommuting") is True else "")
+    )
     return {
         "external_id": _text(record.get("shortcode")) or _text(record.get("id")) or _text(record.get("code")),
         "title": _text(record.get("title")) or _text(record.get("full_title")),
-        "company": _text(company.get("name")) or _text(record.get("company")),
+        "company": _text(company.get("name")) or _text(record.get("company")) or _text(record.get("account_name")),
         "location": location_text,
-        "description": _text(record.get("full_description")) or _text(record.get("description")),
+        "description": description,
         "apply_url": _text(record.get("application_url")) or _text(record.get("url")) or _text(record.get("shortlink")),
         "salary_range": " - ".join(value for value in salary_values if value)[:200],
-        "work_mode": _text(record.get("workplace_type")) or _text(location.get("workplace_type")),
+        "work_mode": work_mode,
         "contract_type": _text(record.get("employment_type")),
     }
 

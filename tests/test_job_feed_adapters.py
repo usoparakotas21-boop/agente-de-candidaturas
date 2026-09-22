@@ -118,6 +118,26 @@ class JobFeedAdapterTests(unittest.TestCase):
         self.assertEqual(records[0]["location"], "Salvador / BA")
         self.assertEqual(records[0]["work_mode"], "hybrid")
 
+    def test_workable_public_account_shape_uses_location_string_and_telecommuting(self):
+        records = adapt_feed_records(
+            "workable",
+            [
+                {
+                    "shortcode": "w-public",
+                    "title": "Analista remoto",
+                    "account_name": "Empresa pública",
+                    "location": {"location_str": "Salvador, BA", "telecommuting": True},
+                    "requirements": "Experiência com dados.",
+                    "benefits": "Horário flexível.",
+                    "application_url": "https://jobs.example.com/w-public",
+                }
+            ],
+        )
+        self.assertEqual(records[0]["company"], "Empresa pública")
+        self.assertEqual(records[0]["location"], "Salvador, BA")
+        self.assertEqual(records[0]["work_mode"], "remote")
+        self.assertIn("Horário flexível.", records[0]["description"])
+
     def test_smartrecruiters_maps_nested_job_ad_without_network(self):
         records = adapt_feed_records(
             "smartrecruiters-feed",
