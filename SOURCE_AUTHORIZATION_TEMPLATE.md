@@ -25,6 +25,7 @@ cadastro da evidência.
 - Limite por minuto/hora/dia:
 - Concorrência máxima:
 - Intervalo mínimo entre requisições:
+- Resultado da revisão de `robots.txt` e restrições do endpoint:
 - Campos que podem ser buscados:
   - [ ] título
   - [ ] empresa
