@@ -100,6 +100,18 @@ JSON usando os mesmos nomes abaixo e execute:
 python scripts/validate_source_authorization.py caminho/da-fonte.json
 ```
 
+No Windows PowerShell, a partir da pasta do projeto, use:
+
+```powershell
+& ".\.venv\Scripts\python.exe" scripts\validate_source_authorization.py .\caminho\da-fonte.json --json
+```
+
+No WSL, use:
+
+```bash
+python3 scripts/validate_source_authorization.py caminho/da-fonte.json --json
+```
+
 O comando apenas valida o formato e informa as lacunas. Mesmo que o resultado
 seja "pronto", ele não cadastra nem ativa a fonte; a evidência ainda precisa
 ser revisada e registrada no servidor por uma pessoa autorizada.
