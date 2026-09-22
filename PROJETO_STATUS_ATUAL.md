@@ -45,18 +45,17 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 ### Ações que dependem exclusivamente do titular
 
-Esta é a lista final de validações externas. Nenhuma senha, token, chave de API ou dado de cartão deve ser enviado pelo chat; quando necessário, o valor deve ser colado diretamente no painel do provedor ou como segredo no Render.
+Esta é a lista final de validações externas que ainda dependem do titular. O recebimento e o reenvio de e-mail já foram confirmados em Gmail e Outlook e não se repetem aqui. Nenhuma senha, token, chave de API ou dado de cartão deve ser enviado pelo chat; quando necessário, o valor deve ser colado diretamente no painel do provedor ou como segredo no Render.
 
 | Ordem | Ação do titular | Evidência para encerrar |
 | --- | --- | --- |
-| 1 | Reconectar o Gmail pelo botão **Reconectar Gmail** no Dashboard e executar uma sincronização. | O painel mostra a conta conectada e a sincronização termina sem erro de renovação OAuth. |
-| 2 | Em **Currículos**, reenviar um documento próprio por e-mail; em **Configurações**, usar o teste de entrega. | O documento e o teste chegam na caixa confirmada ou no spam. |
-| 3 | Fazer uma compra controlada de Start, Pro e Consultoria, conferir o retorno, o webhook, o recibo, o histórico e cancelar as três renovações. | Cada plano aparece ativo, o documento/benefício correspondente é liberado e o cancelamento fica confirmado no Mercado Pago. |
-| 4 | Com uma conta Pro, executar uma simulação em **Entrevistas**. | A resposta Gemini chega com score e feedback, sem mensagem de fallback. |
-| 5 | Instalar o ZIP do Copiloto em `chrome://extensions` e testar uma vaga em portal permitido. | O perfil é preenchido após consentimento e a extensão para antes do botão final. |
-| 6 | Se a distribuição pública for desejada, enviar o ZIP e as duas capturas ao Chrome Web Store. | A loja aceita a ficha e publica a versão 1.0.1. |
-| 7 | Autorizar pelo menos uma fonte de vagas, informando licença, endpoint, limite de requisições e direito de exibição; inserir o segredo diretamente no Render. | A fonte aparece como autorizada e uma coleta piloto controlada gera um `job_ingestion_run` bem-sucedido. |
-| 8 | Conferir os callbacks externos: Google `https://candidaturacerta.com.br/auth/gmail/callback`, Microsoft `https://candidaturacerta.com.br/auth/outlook/callback`, Supabase `https://candidaturacerta.com.br/dashboard` e Mercado Pago `https://candidaturacerta.com.br/webhooks/mercadopago`. | Cada provedor aceita o endereço e o login/retorno ocorre sem erro de redirect. |
+| 1 | Em **Currículos**, reenviar um documento próprio por e-mail; em **Configurações**, usar o teste de entrega. | O documento e o teste chegam na caixa confirmada ou no spam; confirmar também o recibo do pagamento. |
+| 2 | Fazer uma compra controlada de Start, Pro e Consultoria, conferir o retorno, o webhook, o recibo, o histórico e cancelar as três renovações. | Cada plano aparece ativo, o documento/benefício correspondente é liberado e o cancelamento fica confirmado no Mercado Pago. |
+| 3 | Com uma conta Pro, executar uma simulação em **Entrevistas**. | A resposta Gemini chega com score e feedback, sem mensagem de fallback. |
+| 4 | Instalar o ZIP do Copiloto em `chrome://extensions` e testar uma vaga em portal permitido. | O perfil é preenchido após consentimento e a extensão para antes do botão final. |
+| 5 | Se a distribuição pública for desejada, enviar o ZIP e as duas capturas ao Chrome Web Store. | A loja aceita a ficha e publica a versão 1.0.1. |
+| 6 | Autorizar pelo menos uma fonte de vagas, informando licença, endpoint, limite de requisições e direito de exibição; inserir o segredo diretamente no Render. | A fonte aparece como autorizada e uma coleta piloto controlada gera um `job_ingestion_run` bem-sucedido. |
+| 7 | Conferir os callbacks externos: Google `https://candidaturacerta.com.br/auth/gmail/callback`, Microsoft `https://candidaturacerta.com.br/auth/outlook/callback`, Supabase `https://candidaturacerta.com.br/dashboard` e Mercado Pago `https://candidaturacerta.com.br/webhooks/mercadopago`. | Cada provedor aceita o endereço e o login/retorno ocorre sem erro de redirect. |
 
 ### Atualização operacional — 22/09/2026
 
