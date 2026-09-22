@@ -92,3 +92,14 @@ Não registrar tokens, chaves privadas, senhas, cookies, URLs de banco ou
 credenciais de produção. Esses valores ficam apenas no gerenciador de segredos
 do Render ou no ambiente protegido de execução. O worker continua bloqueado
 enquanto não houver uma entrada aprovada no `SOURCE_REGISTRY`.
+
+Para revisar um registro antes de enviá-lo para cadastro, salve os campos em
+JSON usando os mesmos nomes abaixo e execute:
+
+```text
+python scripts/validate_source_authorization.py caminho/da-fonte.json
+```
+
+O comando apenas valida o formato e informa as lacunas. Mesmo que o resultado
+seja "pronto", ele não cadastra nem ativa a fonte; a evidência ainda precisa
+ser revisada e registrada no servidor por uma pessoa autorizada.
