@@ -44,6 +44,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **Regressão após a retomada do checkout (`22/09/2026`):** a suíte oficial foi executada com as dependências de teste empacotadas e terminou em `437/437` testes aprovados. Os avisos são cenários simulados de indisponibilidade/rede e depreciações do runtime; não houve falha funcional.
 
+- **P1.10 — configuração declarativa do Brevo (`22/09/2026`):** `render.yaml` agora declara `BREVO_API_KEY` como entrada secreta `sync: false`, preservando a chave já cadastrada no Render sem colocá-la no repositório. A checagem de segurança do manifesto e a regressão focada passaram `60/60`.
+
 ### Atualização operacional — 21/09/2026
 
 - **Deploy do status (`2891cf4`):** o Render confirmou o registro “Brevo key and Render configuration status” como **Live**. O repositório está limpo após o push e nenhum segredo foi incluído no commit.

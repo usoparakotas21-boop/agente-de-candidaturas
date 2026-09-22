@@ -28,6 +28,11 @@ class DatabaseSecurityTest(unittest.TestCase):
         render_config = Path("render.yaml").read_text(encoding="utf-8")
         self.assertNotIn("SERVICE_ROLE_KEY", render_config)
 
+    def test_brevo_api_key_is_declared_as_a_secret_input(self):
+        render_config = Path("render.yaml").read_text(encoding="utf-8")
+        self.assertRegex(render_config, r'(?ms)- key: BREVO_API_KEY\s+sync: false')
+        self.assertNotRegex(render_config, r'(?m)^\s+value:.*BREVO')
+
 
 if __name__ == "__main__":
     unittest.main()
