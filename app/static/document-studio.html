@@ -69,6 +69,33 @@
     let current=null;
     let linkedApplicationId=null;
     let paymentReturnHandled=false;
+    const pendingExportStorageKey='candidatura-certa.pending-export';
+    function savePendingExport(applicationId){
+      try{
+        const id=Number(applicationId);
+        if(!Number.isSafeInteger(id)||id<1)return;
+        localStorage.setItem(pendingExportStorageKey,JSON.stringify({application_id:id,created_at:Date.now()}));
+      }catch{ /* armazenamento local indisponível não impede o checkout */ }
+    }
+    function readPendingExport(){
+      try{
+        const raw=localStorage.getItem(pendingExportStorageKey);
+        if(!raw)return null;
+        const value=JSON.parse(raw);
+        const id=Number(value?.application_id),created=Number(value?.created_at);
+        if(!Number.isSafeInteger(id)||id<1||!Number.isFinite(created)||Date.now()-created>7*24*60*60*1000){
+          localStorage.removeItem(pendingExportStorageKey);
+          return null;
+        }
+        return id;
+      }catch{return null}
+    }
+    function clearPendingExport(applicationId){
+      try{
+        const id=Number(applicationId),value=readPendingExport();
+        if(!applicationId||value===id)localStorage.removeItem(pendingExportStorageKey);
+      }catch{ /* armazenamento local indisponível */ }
+    }
     let emailPreview=null;
 
     function msg(text,ok=false){
@@ -329,6 +356,7 @@
       if(!requested||!paymentStatus)return;
       paymentReturnHandled=true;
       if(paymentStatus==='failure'){
+        clearPendingExport(requested);
         checkoutMsg('O pagamento não foi concluído. Você pode tentar novamente.');
         return;
       }
@@ -346,9 +374,11 @@
           return;
         }
         if(paidAccess.purchase){
-          await waitForServerGeneration(requested,offer);
+          const generation=await waitForServerGeneration(requested,offer);
+          if(generation.mode==='ready')clearPendingExport(requested);
         }else{
           await exportPaidDocuments(offer);
+          clearPendingExport(requested);
         }
         window.history.replaceState({},'', '/criar-documentos?application_id='+encodeURIComponent(requested));
       }catch(error){
@@ -389,11 +419,17 @@
           select.appendChild(option);
         });
         setApplicationListState({message:applications.length?'':'Ainda não há candidaturas captadas. Você pode preencher os dados manualmente.'});
-        const requested=new URLSearchParams(window.location.search).get('application_id');
+        const requestedFromUrl=new URLSearchParams(window.location.search).get('application_id');
+        const requested=requestedFromUrl||readPendingExport();
         if(requested){
           select.value=requested;
           if(await selectApplication(requested)){
-            await handlePaymentReturn();
+            if(requestedFromUrl){
+              await handlePaymentReturn();
+            }else{
+              const restored=await restorePaidApplication();
+              if(restored)msg('Retomamos a candidatura que aguardava confirmação do pagamento.',true);
+            }
             if(paramsAutoPrepare()&&!new URLSearchParams(window.location.search).has('payment_status')){
               try{
                 await generatePreview();
@@ -528,6 +564,7 @@
         const d=await r.json();
         if(!r.ok)throw new Error(d.detail||'Não foi possível abrir o pagamento.');
         if(paymentWindow){
+          savePendingExport(current.application_id);
           paymentWindow.location.href=d.checkout_url;
           paymentWindow.focus&&paymentWindow.focus();
           checkoutMsg('Checkout Mercado Pago aberto em outra aba. O Pix aparece entre os métodos disponíveis da sua conta.',true);
