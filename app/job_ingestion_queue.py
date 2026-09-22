@@ -20,6 +20,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from .job_ingestion import IngestionResult, ingest_authorized_json_feed
+from .job_ingestion_health import summarize_source_health
 from .models import JobIngestionRun, JobIngestionTask, utc_now
 from .source_governance import (
     SOURCE_REGISTRY,
@@ -230,6 +231,49 @@ def process_one_task(
     db.commit()
     run_id = run.id
     try:
+        health = summarize_source_health(db, claim.source_id)
+        if health.paused:
+            finished_at = utc_now()
+            update_result = db.execute(
+                update(JobIngestionTask)
+                .where(
+                    JobIngestionTask.id == claim.task_id,
+                    JobIngestionTask.status == "running",
+                    JobIngestionTask.lease_token == claim.lease_token,
+                )
+                .values(
+                    status="failed",
+                    locked_by=None,
+                    locked_until=None,
+                    lease_token=None,
+                    last_error_code="source_health_paused",
+                    finished_at=finished_at,
+                    updated_at=finished_at,
+                )
+            )
+            if update_result.rowcount != 1:
+                db.rollback()
+                run = db.get(JobIngestionRun, run_id)
+                if run is not None:
+                    run.status = "retry"
+                    run.error_code = "lease_lost"
+                    run.finished_at = finished_at
+                    run.latency_ms = max(0, round((finished_at - started_at).total_seconds() * 1000))
+                    db.commit()
+                return None
+            run = db.get(JobIngestionRun, run_id)
+            if run is not None:
+                run.status = "blocked"
+                run.error_code = "source_health_paused"
+                run.finished_at = finished_at
+                run.latency_ms = max(0, round((finished_at - started_at).total_seconds() * 1000))
+            db.commit()
+            logging.getLogger(__name__).warning(
+                "Ingestion task %s blocked by source health for %s.",
+                claim.task_id,
+                claim.source_id,
+            )
+            return None
         result = ingester(db, claim.source_id, registry=registry)
         finished_at = utc_now()
         update_result = db.execute(

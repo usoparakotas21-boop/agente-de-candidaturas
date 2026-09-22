@@ -195,6 +195,44 @@ class JobIngestionQueueTests(unittest.TestCase):
         self.assertEqual(summary.success_rate, 0.4)
         self.assertTrue(summary.paused)
 
+    def test_paused_source_is_blocked_before_ingester_runs(self):
+        now = utc_now()
+        for status in ("succeeded", "failed", "blocked", "failed", "failed"):
+            self.db.add(
+                JobIngestionRun(
+                    source_id=self.source.source_id,
+                    status=status,
+                    started_at=now,
+                    finished_at=now,
+                )
+            )
+        self.db.commit()
+        enqueue_ingestion_task(
+            self.db, self.source.source_id, "pilot:paused", registry=self.registry
+        )
+        self.db.commit()
+        called = False
+
+        def ingester(*_args, **_kwargs):
+            nonlocal called
+            called = True
+            return IngestionResult(fetched=1, upserted=1, skipped=0)
+
+        result = process_one_task(
+            self.db,
+            "worker-test",
+            registry=self.registry,
+            ingester=ingester,
+        )
+        task = self.db.scalar(select(JobIngestionTask))
+        runs = self.db.scalars(select(JobIngestionRun).order_by(JobIngestionRun.id)).all()
+        self.assertIsNone(result)
+        self.assertFalse(called)
+        self.assertEqual(task.status, "failed")
+        self.assertEqual(task.last_error_code, "source_health_paused")
+        self.assertEqual(runs[-1].status, "blocked")
+        self.assertEqual(runs[-1].error_code, "source_health_paused")
+
 
 if __name__ == "__main__":
     unittest.main()
