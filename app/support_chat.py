@@ -42,6 +42,7 @@ ALLOWED_TOPICS = (
     "copilot",
     "copilot_installation",
     "job_capture",
+    "job_sources",
     "expiring_alerts",
     "subscription",
     "payment_methods",
@@ -60,7 +61,7 @@ SYSTEM_INSTRUCTION = """Você classifica dúvidas de clientes da Candidatura Cer
 Sua única saída permitida é um objeto JSON com a chave topic e um destes valores exatos:
 greeting, how_it_works, getting_started, plans, opportunity_limits, automatic_applications,
 email_alerts, match_score, documents, resume_library, email_delivery, file_formats,
-ats_compatibility, copilot, copilot_installation, job_capture, expiring_alerts,
+ats_compatibility, copilot, copilot_installation, job_capture, job_sources, expiring_alerts,
 subscription, payment_methods, payment_issue, consultation, interview_practice, privacy, account_deletion,
 account_access, troubleshooting, contact, unknown.
 
@@ -79,6 +80,7 @@ Escolha o assunto mais próximo entre estes fatos oficiais:
 - O Copiloto opcional para Chrome prepara campos reconhecidos somente depois da sua autorização, funciona nos portais suportados indicados no complemento e nunca clica no envio final, resolve CAPTCHA ou responde perguntas abertas.
 - Para instalar o Copiloto, abra Perfil, baixe o ZIP, extraia a pasta e carregue-a em chrome://extensions ou edge://extensions com o modo do desenvolvedor; a extensão funciona no computador, e a publicação na loja ainda está pendente.
 - Uma vaga pode ser cadastrada manualmente colando o texto ou usando imagem/PDF para análise; alertas autorizados do Gmail e Outlook também podem alimentar a fila. A plataforma remove duplicadas e pede revisão quando faltam dados confiáveis.
+- As fontes automáticas externas só entram após autorização/licença específica para coleta, processamento e exibição. Nenhuma das fontes externas está ativa por padrão; enquanto a autorização não existe, use alertas autorizados ou o cadastro manual.
 - O Start inclui downloads personalizados de currículo e carta. O Pro inclui o treino de entrevista com IA. O e-book digital Hackeando o DISC está incluído nos planos Pro e Consultoria enquanto o respectivo plano estiver ativo; não está incluído no Essencial nem no Start.
 - O Essencial inclui prévias e downloads avulsos por R$ 9,90. O Start e o Pro incluem os downloads personalizados; os documentos concluídos podem ser baixados na página Currículos.
 - Para importar currículo, são aceitos PDF textual, DOC e DOCX dentro do limite exibido na tela. A análise de anúncios também aceita PNG, JPG, JPEG, WebP ou PDF.
@@ -119,6 +121,7 @@ TOPIC_ANSWERS = {
     "copilot": "O Copiloto opcional para Chrome pode preparar campos reconhecidos em páginas suportadas depois que você autoriza a ação. Ele usa os dados do seu perfil, mostra o que será preenchido e para antes do envio final: você revisa e clica em Enviar no portal. Ele não faz login, não resolve CAPTCHA, não responde perguntas abertas e não envia candidaturas por conta própria.",
     "copilot_installation": "Abra Perfil na Candidatura Certa e baixe o ZIP do Copiloto. No computador, extraia a pasta, abra chrome://extensions (ou edge://extensions), ative o Modo do desenvolvedor, escolha Carregar sem compactação e selecione a pasta que contém manifest.json. Depois abra uma vaga compatível, conecte sua conta no complemento e autorize o preenchimento. A extensão ainda não funciona no celular e a publicação na loja oficial está pendente.",
     "job_capture": "Você pode cadastrar uma oportunidade manualmente colando o texto do anúncio ou enviando uma imagem/PDF para análise. Gmail e Outlook também podem sincronizar alertas depois da sua autorização. A plataforma extrai cargo, empresa, local e requisitos, remove duplicadas e envia para a fila de revisão.",
+    "job_sources": "As fontes automáticas externas só são ativadas depois de uma autorização ou licença específica para coletar, processar e exibir as vagas. Nenhuma fonte externa está ativa agora. Enquanto isso, você pode conectar alertas do Gmail ou Outlook, após autorizar, ou cadastrar a vaga manualmente para análise.",
     "expiring_alerts": "O aviso automático de vagas expirando ainda está em breve, enquanto as fontes de validade das oportunidades são verificadas. Você pode abrir a vaga original para confirmar se a inscrição continua disponível.",
     "subscription": "Start (R$ 34,90/mês), Pro (R$ 99,00/mês) e Consultoria (R$ 197,00/mês) são cobranças recorrentes pelo Mercado Pago até o cancelamento. Você pode cancelar em Configurações > Plano e cobrança; o acesso pago permanece até o fim do período já quitado. Os meios de pagamento aparecem no checkout.",
     "payment_methods": "As formas aceitas aparecem no checkout do Mercado Pago antes de confirmar a compra e podem variar. Se o Pix estiver listado, você pode escolhê-lo; não conclua uma cobrança fora do checkout oficial.",
@@ -146,6 +149,7 @@ def fallback_support_topic(message: str) -> str:
         ("copilot_installation", r"\b(instal(ar|ação|acao)|baixar|carregar sem compactação|chrome://extensions|edge://extensions)\b.{0,45}\b(copiloto|extensão|extensao)\b|\b(copiloto|extensão|extensao)\b.{0,45}\b(celular|computador|instal(ar|ação|acao)|baixar)\b"),
         ("copilot", r"\b(copiloto|extensão|extensao|autopreenchimento|preencher formulário|preencher formulario)\b|\b(preenche|preenchimento)\b.{0,30}\b(vaga|candidatura|portal)\b"),
         ("job_capture", r"\b(captar|cadastrar|cadastro)\b.{0,35}\b(vaga|oportunidade|anúncio|anuncio)\b|\bcomo (adiciono|adicionar|importo|capturo)\b.{0,25}\b(vaga|oportunidade|anúncio|anuncio)\b"),
+        ("job_sources", r"\b(fontes?|portais?|sites?)\b.{0,45}\b(vagas?|empregos?|autorizad|captur|rasp|colet|ativo|ativad)\b|\b(linkedin|infojobs|vagas\.com|gupy|catho|glassdoor|adzuna|jooble)\b"),
         ("expiring_alerts", r"\b(vaga|vagas|alerta|alertas)\b.{0,30}\b(expira|expiram|expirando|vencida|vencendo|validade)\b"),
         ("resume_library", r"\b(meus documentos|meus currículos|meus curriculos|biblioteca de documentos|onde (baixo|encontro|fica).{0,20}(currículo|curriculo|carta|documento)|baixar.{0,25}(currículo|curriculo|carta|documento))\b"),
         ("interview_practice", r"\b(entrevista|simulação|simulacao|treino de entrevista|perguntas de entrevista)\b"),

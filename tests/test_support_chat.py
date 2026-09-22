@@ -99,8 +99,13 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support_chat.fallback_support_topic("Como instalo o Copiloto no computador?"), "copilot_installation")
         self.assertEqual(support_chat.fallback_support_topic("A extensão funciona no celular?"), "copilot_installation")
         self.assertEqual(support_chat.fallback_support_topic("Como cadastro uma vaga?"), "job_capture")
+        self.assertEqual(support_chat.fallback_support_topic("Quais fontes de vagas estão autorizadas?"), "job_sources")
         self.assertEqual(support_chat.fallback_support_topic("Receberei alerta de vaga expirando?"), "expiring_alerts")
         self.assertEqual(support_chat.fallback_support_topic("Pergunta sem relação"), "unknown")
+
+    def test_source_question_returns_curated_authorization_status(self):
+        self.assertIn("Nenhuma fonte externa está ativa", support_chat.TOPIC_ANSWERS["job_sources"])
+        self.assertIn("autorização", support_chat.SYSTEM_INSTRUCTION)
 
     def test_route_recovers_common_question_when_gemini_returns_unknown(self):
         app = FastAPI()
