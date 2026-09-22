@@ -8,13 +8,14 @@
     :root{--ink:#09284d;--muted:#60758d;--blue:#0b5a99;--line:#dbe6f0;--bg:#f6f9fc}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif}.top{height:64px;background:#092f56;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 5vw}.brand,.top a{color:#fff;text-decoration:none;font-weight:800}.top a:last-child{font-size:13px;color:#d8e9f7}.wrap{width:min(1060px,calc(100% - 36px));margin:0 auto;padding:40px 0 70px}.intro{margin-bottom:25px}.intro h1{margin:0 0 6px;font-size:38px;letter-spacing:-.03em}.intro p{margin:0;color:var(--muted)}.toolbar{display:flex;gap:10px;margin-bottom:18px}.toolbar input,.toolbar select{flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit}.toolbar button{padding:11px 14px;border:1px solid #b9cde0;border-radius:10px;background:#fff;color:var(--blue);font:inherit;font-weight:800;cursor:pointer;white-space:nowrap}.toolbar button:hover{background:#f2f7fb}.toolbar button:focus-visible{outline:3px solid #75a8d7;outline-offset:2px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.stat{padding:14px 16px;border:1px solid var(--line);border-radius:13px;background:#fff}.stat strong{display:block;font-size:23px}.stat span{color:var(--muted);font-size:12px}.list{display:grid;gap:11px}.item{display:grid;grid-template-columns:1fr auto;gap:15px;padding:18px 20px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:0 5px 18px #163b5908;cursor:pointer}.item:hover{border-color:#9db5d5;box-shadow:0 8px 24px #163b5915}.item[aria-busy="true"]{opacity:.72;cursor:wait}.item h2{margin:0 0 4px;font-size:17px}.meta{color:var(--muted);font-size:13px}.meta span+span:before{content:' · ';color:#9aabbc}.badges{display:flex;align-items:start;gap:8px;flex-wrap:wrap;justify-content:end}.badge{display:inline-flex;padding:5px 9px;border-radius:99px;background:#e8f2fa;color:var(--blue);font-size:11px;font-weight:800;white-space:nowrap}.score{color:#16805a;background:#e4f7ee}.empty{padding:48px;text-align:center;border:1px dashed #b9cada;border-radius:15px;color:var(--muted);background:#fff}.empty strong{display:block;color:var(--ink);margin-bottom:5px}.mini-timeline{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:11px}.mini-timeline span{display:inline-flex;align-items:center;gap:4px}.mini-timeline i{width:6px;height:6px;border-radius:50%;background:#73a8d7}
     .conversion{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;padding:16px 18px;border:1px solid #cfe0ef;border-radius:15px;background:#eef6ff}.conversion-copy strong{display:block;font-size:14px}.conversion-copy span{display:block;margin-top:3px;color:var(--muted);font-size:12px}.conversion-metrics{display:flex;gap:20px;flex-wrap:wrap}.conversion-metric strong{display:block;font-size:20px}.conversion-metric span{display:block;color:var(--muted);font-size:11px}.conversion-status,.followup-status{display:block;margin-top:6px;color:var(--muted);font-size:11px}.conversion-status:empty,.followup-status:empty{display:none}.retry-aux{margin-top:6px;padding:0;border:0;background:none;color:var(--blue);font:inherit;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer}.retry-aux:hover{color:#073d6b}.followups{display:none;margin-bottom:18px;padding:16px 18px;border:1px solid #f1dfad;border-radius:15px;background:#fff9e8}.followups.visible{display:block}.followups h2{margin:0 0 5px;font-size:15px}.followups p{margin:0 0 10px;color:var(--muted);font-size:12px}.followup-list{display:grid;gap:7px;margin:0;padding:0;list-style:none}.followup-list li{padding:8px 10px;border-radius:9px;background:#fff;font-size:12px}.followup-list strong{font-size:13px}.skeleton{display:block;border-radius:7px;background:linear-gradient(90deg,#edf2f7 25%,#f8fafc 37%,#edf2f7 63%);background-size:400% 100%;animation:skeleton-shimmer 1.4s ease infinite}.skeleton-title{width:48%;height:18px;margin:0 0 9px}.skeleton-meta{width:34%;height:12px}.skeleton-badge{width:62px;height:23px;border-radius:99px}.skeleton-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:15px;padding:18px 20px;border:1px solid var(--line);border-radius:15px;background:#fff}.skeleton-badges{display:flex;gap:8px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.empty button{margin-top:12px;padding:9px 14px;border:1px solid #b9cde0;border-radius:9px;background:#fff;color:var(--blue);font:inherit;font-weight:700;cursor:pointer}.empty button:hover{background:#f2f7fb}.empty button:focus-visible,.retry-aux:focus-visible{outline:3px solid #75a8d7;outline-offset:2px}@keyframes skeleton-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}@media(prefers-reduced-motion:reduce){.skeleton{animation:none}}
-    @media(max-width:650px){.toolbar{display:grid;grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.item{display:block}.badges{justify-content:start;margin-top:12px}.conversion{display:block}.conversion-metrics{margin-top:14px;justify-content:space-between}.skeleton-row{grid-template-columns:1fr}.skeleton-badges{flex-wrap:wrap}}
+    .kanban{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;padding-bottom:4px}.kanban-column{min-height:170px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#eef5fb}.kanban-column.is-over{border-color:#6f9ec7;background:#e4f1fc}.kanban-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:12px;font-weight:800}.kanban-heading span{padding:2px 7px;border-radius:99px;background:#fff;color:var(--muted);font-size:11px}.kanban-cards{display:grid;gap:8px}.kanban-card{padding:11px;border:1px solid #d5e2ee;border-radius:10px;background:#fff;box-shadow:0 3px 10px #163b590b;cursor:grab}.kanban-card:active{cursor:grabbing}.kanban-card:focus-visible{outline:3px solid #75a8d7;outline-offset:2px}.kanban-card strong{display:block;font-size:13px}.kanban-card small{display:block;margin-top:3px;color:var(--muted);font-size:11px}.kanban-card .kanban-score{color:#16805a;font-weight:700}.kanban-empty{padding:18px 8px;text-align:center;color:var(--muted);font-size:11px}.kanban-status{margin:8px 0 0;color:var(--muted);font-size:11px}@media(max-width:900px){.kanban{grid-template-columns:repeat(4,minmax(210px,1fr))}}@media(max-width:650px){.toolbar{display:grid;grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.item{display:block}.badges{justify-content:start;margin-top:12px}.conversion{display:block}.conversion-metrics{margin-top:14px;justify-content:space-between}.skeleton-row{grid-template-columns:1fr}.skeleton-badges{flex-wrap:wrap}.kanban{grid-template-columns:repeat(4,minmax(190px,1fr))}}
   .is-hidden{display:none!important}</style>
 </head>
 <body>
   <main class="wrap">
     <div class="intro"><h1>Minhas candidaturas</h1><p>Acompanhe cada oportunidade desde a análise até a entrevista.</p></div>
-    <div class="toolbar"><input id="search" type="search" placeholder="Buscar por cargo ou empresa"><select id="status"><option value="">Todos os status</option><option>IDENTIFICADA</option><option>ANALISADA</option><option>PERSONALIZADA</option><option>CURRICULO_GERADO</option><option>CANDIDATURA_ENVIADA</option><option>ENTREVISTA</option><option>APROVADO</option><option>RECUSADO</option><option>ARQUIVADA</option></select><select id="decision"><option value="">Todas as decisões</option><option>CAPTURAR</option><option>AUTOMATICA</option><option>REVISAR</option><option>DESCARTAR</option></select><button id="exportCsv" type="button" title="Baixar a lista visível em CSV">Baixar CSV</button></div>
+    <div class="toolbar"><input id="search" type="search" placeholder="Buscar por cargo ou empresa"><select id="status"><option value="">Todos os status</option><option>IDENTIFICADA</option><option>ANALISADA</option><option>PERSONALIZADA</option><option>CURRICULO_GERADO</option><option>CANDIDATURA_ENVIADA</option><option>ENTREVISTA</option><option>APROVADO</option><option>RECUSADO</option><option>ARQUIVADA</option></select><select id="decision"><option value="">Todas as decisões</option><option>CAPTURAR</option><option>AUTOMATICA</option><option>REVISAR</option><option>DESCARTAR</option></select><button id="toggleKanban" type="button" aria-pressed="false">Visão em quadro</button><button id="exportCsv" type="button" title="Baixar a lista visível em CSV">Baixar CSV</button></div>
+    <section id="kanban" class="kanban" aria-label="Quadro de candidaturas" hidden></section>
     <div class="stats"><div class="stat"><strong id="total">—</strong><span>total</span></div><div class="stat"><strong id="review">—</strong><span>em revisão</span></div><div class="stat"><strong id="interviews">—</strong><span>entrevistas</span></div><div class="stat"><strong id="approved">—</strong><span>aprovadas</span></div></div>
     <section class="conversion" aria-label="Funil de resultado"><div class="conversion-copy"><strong>Funil de resultado</strong><span>Entrevistas qualificadas por 100 candidaturas enviadas. Canal e versão aparecem quando a amostra tiver cinco envios.</span><span class="conversion-status" id="conversionStatus" role="status" aria-live="polite"></span></div><div class="conversion-metrics"><div class="conversion-metric"><strong id="metricSubmitted">—</strong><span>enviadas</span></div><div class="conversion-metric"><strong id="metricQualifiedInterviews">—</strong><span>entrevistas qualificadas</span></div><div class="conversion-metric"><strong id="metricInterviewRate">—</strong><span>entrevistas / 100</span></div><div class="conversion-metric"><strong id="metricBestChannel">—</strong><span>canal com retorno</span></div><div class="conversion-metric"><strong id="metricBestVersion">—</strong><span>versão com retorno</span></div></div></section>
     <section class="followups" id="followups" aria-label="Acompanhamentos pendentes"><h2>Zona morta</h2><p>Estas candidaturas estão há pelo menos 7 dias sem retorno. O texto fica pronto para você revisar e enviar pelo canal da vaga.</p><ul class="followup-list" id="followupList"></ul></section><p class="followup-status" id="followupStatus" role="status" aria-live="polite"></p>
@@ -25,22 +26,68 @@
     const $=id=>document.getElementById(id);
     const labels={IDENTIFICADA:'Identificada',ANALISADA:'Analisada',PERSONALIZADA:'Personalizada',CURRICULO_GERADO:'Currículo gerado',CANDIDATURA_ENVIADA:'Enviada',ENTREVISTA:'Entrevista',APROVADO:'Aprovada',RECUSADO:'Recusada',ARQUIVADA:'Arquivada'};
     const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const kanbanColumns=[['IDENTIFICADA','Captadas'],['ANALISADA','Analisadas'],['PERSONALIZADA','Personalizadas'],['CURRICULO_GERADO','Documentos prontos'],['CANDIDATURA_ENVIADA','Enviadas'],['ENTREVISTA','Entrevistas'],['APROVADO','Aprovadas'],['RECUSADO','Recusadas'],['ARQUIVADA','Arquivadas']];
+
+    function filteredApps(){
+      const query=$('search').value.toLowerCase().trim(),status=$('status').value,decision=$('decision').value;
+      return apps.filter(app=>(!query||`${app.job_title} ${app.company}`.toLowerCase().includes(query))&&(!status||app.status===status)&&(!decision||app.queue_decision===decision));
+    }
+
+    function renderKanban(){
+      const board=$('kanban');
+      if(board.hidden)return;
+      const rows=filteredApps();
+      board.innerHTML=kanbanColumns.map(([status,label])=>{
+        const cards=rows.filter(app=>app.status===status);
+        return `<section class="kanban-column" data-status="${status}"><div class="kanban-heading"><span>${label}</span><span>${cards.length}</span></div><div class="kanban-cards">${cards.length?cards.map(app=>`<article class="kanban-card" draggable="true" tabindex="0" data-id="${esc(app.id)}" aria-label="${esc(app.job_title||'Candidatura')} em ${label}"><strong>${esc(app.job_title||'Cargo não informado')}</strong><small>${esc(app.company||'Empresa não informada')}</small><small class="kanban-score">${app.analysis_score==null?'Score pendente':`${Math.round(app.analysis_score)}% match`}</small></article>`).join(''):'<div class="kanban-empty">Nenhuma candidatura</div>'}</div></section>`;
+      }).join('');
+      board.querySelectorAll('.kanban-card').forEach(card=>{
+        const open=()=>window.location.assign(`/dashboard?application_id=${encodeURIComponent(card.dataset.id)}`);
+        card.addEventListener('click',open);
+        card.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}});
+        card.addEventListener('dragstart',event=>{event.dataTransfer.setData('text/plain',card.dataset.id);event.dataTransfer.effectAllowed='move';});
+      });
+      board.querySelectorAll('.kanban-column').forEach(column=>{
+        column.addEventListener('dragover',event=>{event.preventDefault();column.classList.add('is-over');});
+        column.addEventListener('dragleave',()=>column.classList.remove('is-over'));
+        column.addEventListener('drop',event=>{event.preventDefault();column.classList.remove('is-over');moveKanbanCard(event.dataTransfer.getData('text/plain'),column.dataset.status);});
+      });
+    }
+
+    async function moveKanbanCard(id,status){
+      const item=apps.find(app=>String(app.id)===String(id));
+      if(!item||item.status===status)return;
+      const previous=item.status;
+      item.status=status;
+      renderKanban();
+      try{
+        const response=await fetch(`/applications/${encodeURIComponent(id)}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,note:'Movido no quadro de candidaturas.'})});
+        const payload=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(payload.detail||'Não foi possível atualizar o status.');
+        Object.assign(item,payload);
+        render();
+      }catch(error){
+        item.status=previous;
+        render();
+        const statusMessage=document.createElement('p');statusMessage.className='kanban-status';statusMessage.setAttribute('role','status');statusMessage.textContent=error.message; $('kanban').prepend(statusMessage);setTimeout(()=>statusMessage.remove(),5000);
+      }
+    }
 
     function render(){
       if($('list').getAttribute('aria-busy')==='true')return;
-      const query=$('search').value.toLowerCase().trim(),status=$('status').value,decision=$('decision').value;
-      const rows=apps.filter(app=>(!query||`${app.job_title} ${app.company}`.toLowerCase().includes(query))&&(!status||app.status===status)&&(!decision||app.queue_decision===decision));
+      const rows=filteredApps();
       $('total').textContent=apps.length;
       $('review').textContent=apps.filter(app=>['REVISAR','CAPTURAR'].includes(app.queue_decision)).length;
       $('interviews').textContent=apps.filter(app=>app.status==='ENTREVISTA').length;
       $('approved').textContent=apps.filter(app=>app.status==='APROVADO').length;
-      if(!rows.length){$('list').innerHTML='<div class="empty"><strong>Nenhuma candidatura encontrada</strong>As oportunidades aprovadas aparecerão aqui.</div>';return}
+      if(!rows.length){$('list').innerHTML='<div class="empty"><strong>Nenhuma candidatura encontrada</strong>As oportunidades aprovadas aparecerão aqui.</div>';renderKanban();return}
       $('list').innerHTML=rows.map(app=>`<article class="item" data-id="${esc(app.id)}" tabindex="0"><div><h2>${esc(app.job_title||'Cargo não informado')}</h2><div class="meta"><span>${esc(app.company||'Empresa não informada')}</span><span>${esc(app.status?labels[app.status]||app.status:'Sem status')}</span></div></div><div class="badges"><span class="badge score">${app.analysis_score==null?'Score pendente':Math.round(app.analysis_score)+'% match'}</span><span class="badge">${esc(labels[app.status]||app.status||'Revisar')}</span><span class="badge action-label">Abrir ações →</span></div></article>`).join('');
       document.querySelectorAll('.item').forEach(item=>{
         const open=()=>{if(item.dataset.opening==='true')return;item.dataset.opening='true';item.setAttribute('aria-busy','true');const actionLabel=item.querySelector('.action-label');if(actionLabel)actionLabel.textContent='Abrindo…';window.location.assign(`/dashboard?application_id=${encodeURIComponent(item.dataset.id)}`)};
         item.addEventListener('click',open);
         item.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}});
       });
+      renderKanban();
     }
 
     function bestSample(items){return (items||[]).filter(item=>item.sample_sufficient).sort((left,right)=>right.interview_rate_per_100-left.interview_rate_per_100||right.submitted-left.submitted)[0]}
@@ -121,6 +168,13 @@
     $('search').addEventListener('input',render);
     $('status').addEventListener('change',render);
     $('decision').addEventListener('change',render);
+    $('toggleKanban').addEventListener('click',()=>{
+      const board=$('kanban'),visible=board.hidden;
+      board.hidden=!visible;
+      $('toggleKanban').setAttribute('aria-pressed',String(visible));
+      $('toggleKanban').textContent=visible?'Visão em lista':'Visão em quadro';
+      if(visible)renderKanban();
+    });
     $('exportCsv').addEventListener('click',()=>{
       const params=new URLSearchParams();
       if($('status').value)params.set('status',$('status').value);
