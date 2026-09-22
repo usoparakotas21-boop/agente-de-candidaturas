@@ -40,7 +40,9 @@ class SecurityControlsTest(unittest.TestCase):
 
         @app.get("/")
         async def home():
-            return {"ok": True}
+            from fastapi.responses import HTMLResponse
+
+            return HTMLResponse("<h1>ok</h1>")
 
         with TestClient(app, base_url="https://testserver") as client:
             response = client.get("/")
@@ -55,6 +57,23 @@ class SecurityControlsTest(unittest.TestCase):
         self.assertIn("style-src 'self' 'nonce-", response.headers["content-security-policy"])
         self.assertIn("style-src-elem 'self' 'nonce-", response.headers["content-security-policy"])
         self.assertNotIn("style-src-attr 'unsafe-inline'", response.headers["content-security-policy"])
+        self.assertEqual(response.headers["cache-control"], "private, no-store, max-age=0")
+        self.assertEqual(response.headers["pragma"], "no-cache")
+
+    def test_static_content_is_not_forced_to_no_store(self):
+        app = FastAPI()
+        app.add_middleware(SecurityHeadersMiddleware)
+
+        @app.get("/static/app.js")
+        async def asset():
+            from fastapi.responses import Response
+
+            return Response("console.log('ok')", media_type="application/javascript")
+
+        with TestClient(app, base_url="https://testserver") as client:
+            response = client.get("/static/app.js")
+
+        self.assertNotIn("cache-control", response.headers)
 
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()

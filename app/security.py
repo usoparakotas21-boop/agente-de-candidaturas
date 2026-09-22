@@ -39,6 +39,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        # HTML pages carry account state, checkout context, or security UI.
+        # Prevent browsers and intermediary proxies from replaying a stale
+        # authenticated document. Static assets keep their normal cache policy.
+        content_type = response.headers.get("content-type", "").lower()
+        if content_type.startswith("text/html"):
+            response.headers.setdefault("Cache-Control", "private, no-store, max-age=0")
+            response.headers.setdefault("Pragma", "no-cache")
         forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
         if request.url.scheme == "https" or forwarded_proto == "https":
             response.headers.setdefault(
