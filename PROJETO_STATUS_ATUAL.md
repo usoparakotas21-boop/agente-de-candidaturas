@@ -46,7 +46,7 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 ### Ações que dependem exclusivamente do titular
 
-Esta é a lista final de validações externas que ainda dependem do titular. O recebimento e o reenvio de e-mail já foram confirmados em Gmail e Outlook e não se repetem aqui. Nenhuma senha, token, chave de API ou dado de cartão deve ser enviado pelo chat; quando necessário, o valor deve ser colado diretamente no painel do provedor ou como segredo no Render.
+Esta é a lista final de validações externas que ainda dependem do titular. A confirmação e o reenvio da conta foram validados em Gmail e Outlook; a entrega transacional de documentos, recibos e alertas ainda precisa ser confirmada na caixa de entrada ou no spam. Nenhuma senha, token, chave de API ou dado de cartão deve ser enviado pelo chat; quando necessário, o valor deve ser colado diretamente no painel do provedor ou como segredo no Render.
 
 | Ordem | Ação do titular | Evidência para encerrar |
 | --- | --- | --- |
