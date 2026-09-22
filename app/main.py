@@ -3170,12 +3170,11 @@ def _brevo_api_key() -> str:
 
 
 def _email_transport_config() -> dict[str, object] | None:
-    """Return SMTP settings, or the minimal sender config for Brevo HTTP."""
-    config = smtp_settings()
-    if config is not None or not _brevo_api_key():
-        return config
-    sender = os.getenv("SMTP_FROM_EMAIL", "contato@candidaturacerta.com.br").strip()
-    return {"transport": "brevo_api", "sender": sender} if sender else None
+    """Use Brevo HTTPS when its API key is configured; otherwise use SMTP."""
+    if _brevo_api_key():
+        sender = os.getenv("SMTP_FROM_EMAIL", "").strip() or "contato@candidaturacerta.com.br"
+        return {"transport": "brevo_api", "sender": sender}
+    return smtp_settings()
 
 
 def _send_via_brevo_api(message: EmailMessage, *, timeout: float) -> None:
@@ -3241,9 +3240,7 @@ def _set_email_transport_stage(exc: BaseException, stage: str) -> None:
 
 def _send_email_message(message: EmailMessage, config: dict[str, object], *, timeout: float) -> str:
     """Send via Brevo HTTPS when configured, otherwise use the relay SMTP."""
-    # A complete SMTP configuration always wins.  This matters when a local
-    # process still has BREVO_API_KEY in its environment while production is
-    # intentionally configured for SMTP (and keeps retries deterministic).
+    # Setting BREVO_API_KEY is the explicit opt-in for Brevo HTTPS delivery.
     if config.get("transport") == "brevo_api":
         try:
             _send_via_brevo_api(message, timeout=timeout)
@@ -4470,7 +4467,7 @@ def _application_email_payload(db, application: Application, user: dict, owner_i
         ],
         "_resume_pdf": resume_pdf,
         "_letter_pdf": letter_pdf,
-        "smtp_configured": smtp_settings() is not None,
+        "smtp_configured": _email_transport_config() is not None,
         "account_email_verified": bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
         "submission_status": None,
     }
