@@ -116,6 +116,8 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
     def test_sensitive_route_rate_limit_budgets(self):
         self.assertEqual(auth._RATE_LIMITS["application-email-preview"], (30, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["application-email-send"], (5, 15 * 60))
+        self.assertEqual(auth._RATE_LIMITS["email-test"], (3, 15 * 60))
+        self.assertEqual(auth._RATE_LIMITS["receipt-email-retry"], (3, 15 * 60))
         self.assertEqual(auth._RATE_LIMITS["ai-interview-evaluation"], (15, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["document-generation"], (20, 60 * 60))
         self.assertEqual(auth._RATE_LIMITS["document-email-retry"], (3, 15 * 60))
@@ -129,7 +131,9 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
             for scope in (
                 "application-email-preview",
                 "application-email-send",
+                "email-test",
                 "document-email-retry",
+                "receipt-email-retry",
             ):
                 with self.subTest(scope=scope):
                     auth._enforce_rate_limit(self.request, scope, f"test-{scope}")

@@ -66,6 +66,8 @@ _RATE_LIMITS = {
     "document-email-retry": (3, 15 * 60),
     "application-email-preview": (30, 60 * 60),
     "application-email-send": (5, 15 * 60),
+    "email-test": (3, 15 * 60),
+    "receipt-email-retry": (3, 15 * 60),
     "ai-interview-evaluation": (15, 60 * 60),
     "document-generation": (20, 60 * 60),
     "support-chat": (8, 60),
