@@ -46,6 +46,8 @@ Os percentuais são por item, não devem ser somados como percentual geral do pr
 
 - **Regressão completa mais recente (`22/09/2026`):** a suíte `unittest` foi executada novamente no ambiente virtual do projeto e terminou em `438/438` testes aprovados em `16,310s`. Os avisos registrados correspondem a cenários simulados de falha, indisponibilidade e depreciações; não houve falha funcional.
 
+- **P1.20 — regressão parametrizada de governança (`22/09/2026`):** `tests/test_ats_registry_domains.py` foi executado com o pytest empacotado e terminou em `31/31` testes aprovados. A matriz de domínios e o bloqueio por falta de autorização permanecem íntegros; nenhuma fonte foi ativada.
+
 - **P1.10 — configuração declarativa do Brevo (`22/09/2026`):** `render.yaml` agora declara `BREVO_API_KEY` como entrada secreta `sync: false`, preservando a chave já cadastrada no Render sem colocá-la no repositório. A checagem de segurança do manifesto e a regressão focada passaram `60/60`.
 
 ### Atualização operacional — 21/09/2026
