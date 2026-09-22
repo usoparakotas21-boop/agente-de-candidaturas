@@ -100,6 +100,16 @@ class SecurityControlsTest(unittest.TestCase):
         self.assertIn("max-age=31536000", response.headers["strict-transport-security"])
         self.assertEqual(response.headers["cache-control"], "private, no-store, max-age=0")
 
+    def test_robots_is_public_and_excludes_account_surfaces(self):
+        self.assertIn("/robots.txt", auth.AuthMiddleware.PUBLIC_PATHS)
+        response = main_module.robots_txt()
+        body = response.body.decode("utf-8")
+        self.assertIn("User-agent: *", body)
+        self.assertIn("Allow: /", body)
+        self.assertIn("Disallow: /api/", body)
+        self.assertIn("Disallow: /auth/", body)
+        self.assertIn("Disallow: /seguranca", body)
+
     def test_auth_limiter_blocks_ip_and_account_after_threshold(self):
         request = request_for()
         auth._rate_attempts.clear()

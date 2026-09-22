@@ -23,7 +23,7 @@ from weakref import WeakValueDictionary
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -1515,6 +1515,23 @@ def root_head():
     # Alguns monitores fazem HEAD na URL raiz; aproveite o ping para manter o banco ativo.
     health()
     return Response(status_code=200)
+
+@app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+def robots_txt():
+    """Keep public crawlers on the marketing surface, never account routes."""
+    return PlainTextResponse(
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /dashboard\n"
+        "Disallow: /perfil\n"
+        "Disallow: /configuracoes\n"
+        "Disallow: /curriculos\n"
+        "Disallow: /candidaturas\n"
+        "Disallow: /entrevistas\n"
+        "Disallow: /seguranca\n"
+        "Disallow: /api/\n"
+        "Disallow: /auth/\n"
+    )
 
 @app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
 def terms_page():
