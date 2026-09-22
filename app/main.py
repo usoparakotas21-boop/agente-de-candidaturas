@@ -3687,6 +3687,8 @@ def _purchase_generation_payload(purchase: DocumentExportPurchase) -> dict[str, 
         "attempts": int(purchase.document_generation_attempts or 0),
         "message": messages.get(status, "Aguardando a confirmação do pagamento."),
         "application_id": purchase.application_id,
+        "receipt_email_status": str(purchase.receipt_email_status or "PENDING").upper(),
+        "receipt_email_sent_at": purchase.receipt_email_sent_at.isoformat() if purchase.receipt_email_sent_at else None,
     }
 
 
@@ -5261,6 +5263,55 @@ def document_export_status(application_id: int, user=Depends(authenticated_user)
             payload["resume_url"] = f"/applications/{application_id}/document"
             payload["letter_url"] = f"/applications/{application_id}/cover-letter/document"
         return payload
+    finally:
+        db.close()
+
+
+@app.post("/billing/document-export/receipt/retry")
+def retry_document_export_receipt(
+    application_id: int,
+    user=Depends(authenticated_user),
+    request: Request = None,
+):
+    """Retry the paid export receipt for the confirmed account address."""
+    owner_id = _require_owner_id(user)
+    if request is not None:
+        _enforce_rate_limit(request, "receipt-email-retry", owner_id)
+    if not (user.get("email_confirmed_at") or user.get("confirmed_at")):
+        raise HTTPException(403, "Confirme o e-mail da sua conta antes de reenviar o comprovante.")
+    account_email = str(user.get("email") or "").strip().casefold()
+    if not account_email:
+        raise HTTPException(403, "Confirme o e-mail da sua conta antes de reenviar o comprovante.")
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(
+            select(DocumentExportPurchase)
+            .where(
+                DocumentExportPurchase.owner_id == owner_id,
+                DocumentExportPurchase.application_id == application_id,
+                DocumentExportPurchase.status == "PAID",
+            )
+            .order_by(DocumentExportPurchase.id.desc())
+            .limit(1)
+        )
+        if purchase is None:
+            raise HTTPException(404, "Nenhum pagamento confirmado foi encontrado para esta candidatura.")
+        if not purchase.payer_email_confirmed or str(purchase.payer_email or "").strip().casefold() != account_email:
+            raise HTTPException(403, "O comprovante só pode ser enviado para o e-mail confirmado da conta.")
+        result = _send_purchase_receipt(db, purchase)
+        db.refresh(purchase)
+        if purchase.receipt_email_status == "SENT":
+            message = "Comprovante enviado para o e-mail confirmado da conta."
+        elif purchase.receipt_email_status in {"SKIPPED", "FAILED"}:
+            message = "O comprovante continua disponível no histórico; o envio por e-mail ainda não foi concluído."
+        else:
+            message = "O comprovante ficou na fila de envio. Tente novamente em instantes."
+        return {
+            "status": result,
+            "receipt_email_status": purchase.receipt_email_status,
+            "receipt_email_sent_at": purchase.receipt_email_sent_at.isoformat() if purchase.receipt_email_sent_at else None,
+            "message": message,
+        }
     finally:
         db.close()
 

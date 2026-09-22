@@ -58,7 +58,7 @@
         </div>
         <section class="copy-panel" id="quickCopyPanel" hidden aria-labelledby="quickCopyHeading"><h3 id="quickCopyHeading">Cópia rápida para formulários</h3><p>Copie um bloco por vez e cole no campo correspondente do portal. Revise cada resposta antes de enviar.</p><div class="copy-actions" id="quickCopyActions"></div><span class="copy-status" id="quickCopyStatus" role="status" aria-live="polite"></span></section>
         <div class="notice" id="notice"></div>
-        <div class="file-actions" id="exportActions" hidden><a class="secondary" id="openJobAfterPrepare" href="#" target="_blank" rel="noopener" hidden>Abrir portal para enviar candidatura</a><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button><button class="secondary" id="downloadResumePdf" type="button" hidden>Baixar currículo em PDF</button><button class="secondary" id="downloadLetterPdf" type="button" hidden>Baixar carta em PDF</button></div>
+        <div class="file-actions" id="exportActions" hidden><a class="secondary" id="openJobAfterPrepare" href="#" target="_blank" rel="noopener" hidden>Abrir portal para enviar candidatura</a><button class="primary" id="checkout" type="button">Liberar currículo + carta</button><button class="secondary" id="refreshAccess" type="button">Já paguei · atualizar acesso</button><button class="secondary" id="retryGeneration" type="button" hidden>Tentar gerar novamente</button><button class="secondary" id="retryReceipt" type="button" hidden>Reenviar comprovante por e-mail</button><button class="secondary" id="downloadResume" type="button" hidden>Baixar currículo</button><button class="secondary" id="downloadLetter" type="button" hidden>Baixar carta</button><button class="secondary" id="downloadResumePdf" type="button" hidden>Baixar currículo em PDF</button><button class="secondary" id="downloadLetterPdf" type="button" hidden>Baixar carta em PDF</button></div>
         <section class="email-panel" id="emailApplicationPanel" hidden aria-labelledby="emailApplicationHeading"><h3 id="emailApplicationHeading">Enviar candidatura por e-mail</h3><p>Use este envio somente se o anúncio solicitar candidatura por e-mail. Confira o destinatário, o texto e os dois PDFs antes de autorizar. A plataforma não envia sem seu clique final.</p><div class="field"><label for="emailRecipient">E-mail de destino encontrado no anúncio</label><select id="emailRecipient"><option value="">Prepare a prévia para buscar endereços</option></select></div><div class="field"><label for="emailBody">Mensagem que será enviada</label><textarea id="emailBody" maxlength="12000"></textarea></div><span class="email-attachments" id="emailAttachments"></span><label class="email-consent"><input id="emailConsent" type="checkbox"><span>Revisei o endereço, o texto e os arquivos listados. Autorizo enviar esta candidatura e anexar meu currículo e minha carta a este destinatário.</span></label><div class="actions"><button class="secondary" id="refreshEmailPreview" type="button">Atualizar prévia</button><button class="primary" id="sendEmailApplication" type="button" disabled>Enviar candidatura revisada</button></div><span class="email-status" id="emailAssistStatus" role="status" aria-live="polite"></span></section>
         <div class="status" id="checkoutStatus" role="status" aria-live="polite"></div>
       </section>
@@ -105,6 +105,15 @@
     function checkoutMsg(text,ok=false){
       $('checkoutStatus').textContent=text;
       $('checkoutStatus').className='status'+(ok?' ok':'');
+    }
+    function updateReceiptAction(state){
+      const button=$('retryReceipt');
+      if(!button)return;
+      const status=String(state?.receipt_email_status||'').toUpperCase();
+      const hasPaidPurchase=String(state?.purchase_status||'').toUpperCase()==='PAID';
+      button.hidden=!hasPaidPurchase||status==='SENT'||!['PENDING','SKIPPED','FAILED','SENDING'].includes(status);
+      button.disabled=status==='SENDING';
+      button.textContent=status==='SENDING'?'Enviando comprovante…':'Reenviar comprovante por e-mail';
     }
     function renderQuickCopy(blocks){
       const panel=$('quickCopyPanel'),actions=$('quickCopyActions'),status=$('quickCopyStatus');
@@ -254,6 +263,7 @@
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     function showGeneratedDocuments(data,offer){
       current=Object.assign({},current||{},{application_id:data.application_id});
+      updateReceiptAction(data);
       renderQuickCopy(current.quick_copy);
       showExport(Object.assign({},offer||{}, {allowed:true}));
       $('downloadResume').dataset.url=data.resume_url||('/applications/'+data.application_id+'/document');
@@ -269,12 +279,14 @@
     async function waitForServerGeneration(applicationId,offer,{timeout=90000}={}){
       const deadline=Date.now()+timeout;
       let state=await getPurchaseGeneration(applicationId);
+      updateReceiptAction(state);
       if(state.purchase_status==='NONE'||state.entitlement_source==='plan')return {mode:'plan',state};
       if(state.purchase_status!=='PAID')return {mode:'waiting_payment',state};
       while(['WAITING','PROCESSING','RETRY'].includes(state.generation_status)&&Date.now()<deadline){
         checkoutMsg(state.message||'Pagamento confirmado. Preparando seus documentos…');
         await wait(1800);
         state=await getPurchaseGeneration(applicationId);
+        updateReceiptAction(state);
       }
       if(state.generation_status==='READY'){
         showGeneratedDocuments(state,offer);
@@ -559,6 +571,7 @@
       $('studioForm').reset();
       $('result').classList.remove('visible');
       $('exportActions').hidden=true;
+      updateReceiptAction({});
       current=null;
       linkedApplicationId=null;
       applicationLookupRequest++;
@@ -609,6 +622,25 @@
         await exportPaidDocuments(offer);
       }catch(error){checkoutMsg(error.message||'Não foi possível solicitar nova tentativa.');}
       finally{$('retryGeneration').disabled=false;}
+    });
+    $('retryReceipt').addEventListener('click',async()=>{
+      const button=$('retryReceipt');
+      const applicationId=Number(linkedApplicationId||current?.application_id);
+      if(!Number.isSafeInteger(applicationId)||applicationId<1)return;
+      button.disabled=true;
+      button.textContent='Enviando comprovante…';
+      checkoutMsg('Enviando o comprovante para o e-mail confirmado…');
+      try{
+        const response=await fetch('/billing/document-export/receipt/retry?application_id='+encodeURIComponent(applicationId),{method:'POST'});
+        const data=await response.json();
+        if(!response.ok)throw new Error(data.detail||'Não foi possível reenviar o comprovante agora.');
+        updateReceiptAction({purchase_status:'PAID',receipt_email_status:data.receipt_email_status});
+        checkoutMsg(data.message||'Comprovante processado.',data.receipt_email_status==='SENT');
+      }catch(error){
+        checkoutMsg(error.message||'Não foi possível reenviar o comprovante agora.');
+        button.disabled=false;
+        button.textContent='Reenviar comprovante por e-mail';
+      }
     });
     $('downloadResume').addEventListener('click',()=>{
       const url=$('downloadResume').dataset.url||(current&&current.application_id?'/applications/'+current.application_id+'/document':'');
