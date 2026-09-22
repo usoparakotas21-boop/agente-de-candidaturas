@@ -55,6 +55,48 @@ class JobFeedAdapterTests(unittest.TestCase):
         self.assertEqual(adapted, original)
         self.assertIsNot(adapted, original)
 
+    def test_adzuna_flattens_nested_company_location_and_salary(self):
+        records = adapt_feed_records(
+            "adzuna-api",
+            [
+                {
+                    "id": "a-123",
+                    "title": "Analista de dados",
+                    "company": {"display_name": "Empresa A"},
+                    "location": {"display_name": "Salvador, BA"},
+                    "description": "Analise indicadores.",
+                    "redirect_url": "https://jobs.example.com/a-123",
+                    "salary_min": 5000,
+                    "salary_max": 7000,
+                }
+            ],
+        )
+        self.assertEqual(records[0]["external_id"], "a-123")
+        self.assertEqual(records[0]["company"], "Empresa A")
+        self.assertEqual(records[0]["location"], "Salvador, BA")
+        self.assertEqual(records[0]["salary_range"], "5000 - 7000")
+
+    def test_jooble_maps_snippet_and_link_without_network(self):
+        records = adapt_feed_records(
+            "jooble",
+            [
+                {
+                    "job_id": "j-123",
+                    "title": "Pessoa recrutadora",
+                    "company": "Empresa B",
+                    "location": "Remoto",
+                    "snippet": "Conduza entrevistas.",
+                    "link": "https://jobs.example.com/j-123",
+                    "salary": "R$ 4.000",
+                    "type": "CLT",
+                }
+            ],
+        )
+        self.assertEqual(records[0]["external_id"], "j-123")
+        self.assertEqual(records[0]["description"], "Conduza entrevistas.")
+        self.assertEqual(records[0]["apply_url"], "https://jobs.example.com/j-123")
+        self.assertEqual(records[0]["contract_type"], "CLT")
+
 
 if __name__ == "__main__":
     unittest.main()
