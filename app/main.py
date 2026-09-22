@@ -2570,6 +2570,12 @@ def export_applications_csv(status: str = None, decision: str = None, user=Depen
             query = query.where(Application.queue_decision == decision)
         applications = db.scalars(query).unique().all()
 
+        def csv_cell(value: Any) -> str:
+            text_value = "" if value is None else str(value)
+            # Prevent spreadsheet applications from evaluating user-controlled
+            # titles, companies or URLs as formulas when the CSV is opened.
+            return "'" + text_value if text_value.startswith(("=", "+", "-", "@")) else text_value
+
         output = StringIO(newline="")
         writer = csv.writer(output, lineterminator="\r\n")
         writer.writerow((
@@ -2580,18 +2586,18 @@ def export_applications_csv(status: str = None, decision: str = None, user=Depen
         for application in applications:
             job = application.job
             writer.writerow((
-                job.title or "",
-                job.company or "",
-                job.source or "",
-                job.location or "",
-                job.modality or "",
-                job.contract_type or "",
-                application.status or "",
-                application.queue_decision or "REVISAR",
+                csv_cell(job.title),
+                csv_cell(job.company),
+                csv_cell(job.source),
+                csv_cell(job.location),
+                csv_cell(job.modality),
+                csv_cell(job.contract_type),
+                csv_cell(application.status),
+                csv_cell(application.queue_decision or "REVISAR"),
                 _score_percent(application.analysis_score),
-                application.created_at.isoformat() if application.created_at else "",
-                application.updated_at.isoformat() if application.updated_at else "",
-                job.url or "",
+                csv_cell(application.created_at.isoformat() if application.created_at else ""),
+                csv_cell(application.updated_at.isoformat() if application.updated_at else ""),
+                csv_cell(job.url),
             ))
         content = "\ufeff" + output.getvalue()
         response = Response(content=content, media_type="text/csv; charset=utf-8")

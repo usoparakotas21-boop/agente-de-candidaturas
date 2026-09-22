@@ -164,6 +164,19 @@ class PrivacyExportTest(unittest.TestCase):
             main_module.export_applications_csv(status="NAO_EXISTE", user={"id": "owner-a"})
         self.assertEqual(raised.exception.status_code, 422)
 
+    def test_applications_csv_escapes_spreadsheet_formula_cells(self):
+        db = self.session_factory()
+        job = db.query(Job).filter(Job.owner_id == "owner-a").one()
+        job.title = "=HYPERLINK(\"https://example.test\")"
+        db.commit()
+        db.close()
+
+        with patch.object(main_module, "SessionLocal", self.session_factory):
+            response = main_module.export_applications_csv(user={"id": "owner-a"})
+
+        rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8-sig"))))
+        self.assertEqual(rows[0]["cargo"], "'=HYPERLINK(\"https://example.test\")")
+
     def test_delete_account_requires_exact_confirmation(self):
         request = Request({"type": "http", "method": "POST", "path": "/api/privacy/delete-account", "headers": [], "query_string": b"", "client": ("testclient", 50000), "server": ("testserver", 80), "scheme": "https"})
         with patch.object(main_module, "_delete_supabase_auth_user", new=AsyncMock()) as provider_delete:
