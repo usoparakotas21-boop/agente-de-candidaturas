@@ -94,6 +94,8 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support_chat.fallback_support_topic("Meu currículo não chegou por e-mail"), "email_delivery")
         self.assertEqual(support_chat.fallback_support_topic("Quais formatos de currículo posso importar?"), "file_formats")
         self.assertEqual(support_chat.fallback_support_topic("Meu currículo é compatível com ATS?"), "ats_compatibility")
+        self.assertEqual(support_chat.fallback_support_topic("O que o Copiloto preenche?"), "copilot")
+        self.assertEqual(support_chat.fallback_support_topic("Como cadastro uma vaga?"), "job_capture")
         self.assertEqual(support_chat.fallback_support_topic("Receberei alerta de vaga expirando?"), "expiring_alerts")
         self.assertEqual(support_chat.fallback_support_topic("Pergunta sem relação"), "unknown")
 
@@ -191,6 +193,8 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Como funciona o site?", widget)
         self.assertIn("Como conecto Gmail ou Outlook?", widget)
         self.assertIn("Aceita Pix para pagar?", widget)
+        self.assertIn("Como cadastro uma vaga?", widget)
+        self.assertIn("O que o Copiloto preenche?", widget)
         self.assertIn("Onde baixo meus documentos?", widget)
         self.assertIn("Como cancelo minha assinatura?", widget)
         self.assertIn('aria-label", "Perguntas comuns"', widget)

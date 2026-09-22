@@ -39,6 +39,8 @@ ALLOWED_TOPICS = (
     "email_delivery",
     "file_formats",
     "ats_compatibility",
+    "copilot",
+    "job_capture",
     "expiring_alerts",
     "subscription",
     "payment_methods",
@@ -56,7 +58,7 @@ SYSTEM_INSTRUCTION = """Você classifica dúvidas de clientes da Candidatura Cer
 Sua única saída permitida é um objeto JSON com a chave topic e um destes valores exatos:
 greeting, how_it_works, getting_started, plans, opportunity_limits, automatic_applications,
 email_alerts, match_score, documents, resume_library, email_delivery, file_formats,
-ats_compatibility, expiring_alerts,
+ats_compatibility, copilot, job_capture, expiring_alerts,
 subscription, payment_methods, consultation, interview_practice, privacy, account_deletion,
 account_access, troubleshooting, contact, unknown.
 
@@ -72,6 +74,8 @@ Escolha o assunto mais próximo entre estes fatos oficiais:
 - Para começar, crie uma conta, preencha o perfil e as preferências e importe o currículo; depois conecte alertas de vagas ou cadastre oportunidades manualmente.
 - O percentual de compatibilidade ajuda a priorizar vagas com base no perfil, nas competências e nos requisitos disponíveis; não garante entrevista ou contratação.
 - Os documentos são organizados para leitura humana e considerando sistemas ATS, mas cada plataforma pode interpretar campos de forma diferente; revise tudo antes de enviar.
+- O Copiloto opcional para Chrome prepara campos reconhecidos somente depois da sua autorização, funciona nos portais suportados indicados no complemento e nunca clica no envio final, resolve CAPTCHA ou responde perguntas abertas.
+- Uma vaga pode ser cadastrada manualmente colando o texto ou usando imagem/PDF para análise; alertas autorizados do Gmail e Outlook também podem alimentar a fila. A plataforma remove duplicadas e pede revisão quando faltam dados confiáveis.
 - O Start inclui downloads personalizados de currículo e carta. O Pro inclui o treino de entrevista com IA. O e-book digital Hackeando o DISC está incluído nos planos Pro e Consultoria enquanto o respectivo plano estiver ativo; não está incluído no Essencial nem no Start.
 - O Essencial inclui prévias e downloads avulsos por R$ 9,90. O Start e o Pro incluem os downloads personalizados; os documentos concluídos podem ser baixados na página Currículos.
 - Para importar currículo, são aceitos PDF textual, DOC e DOCX dentro do limite exibido na tela. A análise de anúncios também aceita PNG, JPG, JPEG, WebP ou PDF.
@@ -108,6 +112,8 @@ TOPIC_ANSWERS = {
     "email_delivery": "Confira Currículos: os arquivos concluídos ficam disponíveis na biblioteca para baixar, mesmo quando o envio por e-mail não termina. Veja o status de entrega e use a opção de tentar enviar novamente quando ela estiver disponível. Se continuar falhando, fale com o suporte.",
     "file_formats": "Para importar seu currículo, use PDF textual, DOC ou DOCX, respeitando o limite de tamanho mostrado na tela. Para analisar um anúncio, também são aceitos PNG, JPG, JPEG, WebP ou PDF. Se o arquivo for recusado, confira o formato e tente salvar novamente como PDF ou DOCX.",
     "ats_compatibility": "Os documentos são preparados para leitura humana e considerando sistemas ATS, mas cada plataforma pode interpretar campos de forma diferente. Revise os campos preenchidos no formulário da empresa antes de concluir a candidatura.",
+    "copilot": "O Copiloto opcional para Chrome pode preparar campos reconhecidos em páginas suportadas depois que você autoriza a ação. Ele usa os dados do seu perfil, mostra o que será preenchido e para antes do envio final: você revisa e clica em Enviar no portal. Ele não faz login, não resolve CAPTCHA, não responde perguntas abertas e não envia candidaturas por conta própria.",
+    "job_capture": "Você pode cadastrar uma oportunidade manualmente colando o texto do anúncio ou enviando uma imagem/PDF para análise. Gmail e Outlook também podem sincronizar alertas depois da sua autorização. A plataforma extrai cargo, empresa, local e requisitos, remove duplicadas e envia para a fila de revisão.",
     "expiring_alerts": "O aviso automático de vagas expirando ainda está em breve, enquanto as fontes de validade das oportunidades são verificadas. Você pode abrir a vaga original para confirmar se a inscrição continua disponível.",
     "subscription": "Start (R$ 34,90/mês), Pro (R$ 99,00/mês) e Consultoria (R$ 197,00/mês) são cobranças recorrentes pelo Mercado Pago até o cancelamento. Você pode cancelar em Configurações > Plano e cobrança; o acesso pago permanece até o fim do período já quitado. Os meios de pagamento aparecem no checkout.",
     "payment_methods": "As formas aceitas aparecem no checkout do Mercado Pago antes de confirmar a compra e podem variar. Se o Pix estiver listado, você pode escolhê-lo; não conclua uma cobrança fora do checkout oficial.",
@@ -131,6 +137,8 @@ def fallback_support_topic(message: str) -> str:
         ("email_delivery", r"\b(currículo|curriculo|carta|documento|recibo|comprovante)\b.{0,55}\b(não chegou|nao chegou|não recebi|nao recebi|e-mail|email|reenviar|enviar)\b|\b(e-mail|email)\b.{0,35}\b(recibo|documento|currículo|curriculo|comprovante)\b"),
         ("file_formats", r"\b(formatos?|extensões?|extensoes?|tipo de arquivo|pdf|docx?|png|jpg|webp)\b.{0,30}\b(currículo|curriculo|arquivo|anúncio|anuncio|aceita|importar)\b|\b(arquivo|currículo|curriculo)\b.{0,25}\b(formatos?|pdf|docx?|png|jpg|webp|recusado)\b"),
         ("ats_compatibility", r"\b(ats|gupy|workday|robô de triagem|robo de triagem|sistema de recrutamento)\b|\b(currículo|curriculo)\b.{0,25}\b(compatível|compativel|ats)\b"),
+        ("copilot", r"\b(copiloto|extensão|extensao|autopreenchimento|preencher formulário|preencher formulario)\b|\b(preenche|preenchimento)\b.{0,30}\b(vaga|candidatura|portal)\b"),
+        ("job_capture", r"\b(captar|cadastrar|cadastro)\b.{0,35}\b(vaga|oportunidade|anúncio|anuncio)\b|\bcomo (adiciono|adicionar|importo|capturo)\b.{0,25}\b(vaga|oportunidade|anúncio|anuncio)\b"),
         ("expiring_alerts", r"\b(vaga|vagas|alerta|alertas)\b.{0,30}\b(expira|expiram|expirando|vencida|vencendo|validade)\b"),
         ("resume_library", r"\b(meus documentos|meus currículos|meus curriculos|biblioteca de documentos|onde (baixo|encontro|fica).{0,20}(currículo|curriculo|carta|documento)|baixar.{0,25}(currículo|curriculo|carta|documento))\b"),
         ("interview_practice", r"\b(entrevista|simulação|simulacao|treino de entrevista|perguntas de entrevista)\b"),

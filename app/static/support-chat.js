@@ -79,6 +79,8 @@
     "Como conecto Gmail ou Outlook?",
     "Quais são os planos e limites?",
     "Como gero meu currículo e minha carta?",
+    "Como cadastro uma vaga?",
+    "O que o Copiloto preenche?",
     "Aceita Pix para pagar?",
     "Onde baixo meus documentos?",
     "Como cancelo minha assinatura?",
