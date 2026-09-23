@@ -9,6 +9,8 @@ services:
     domains:
       - candidaturacerta.com.br
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       - key: AUTH_REQUIRED
         value: "true"
       - key: COOKIE_SECURE
