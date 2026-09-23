@@ -5592,7 +5592,7 @@ async def mercadopago_webhook(request: Request):
                 return {"received": True, "verified": True, "status": payment.get("status")}
             return {"received": True, "verified": bool(combo_purchase), "status": payment.get("status")}
 
-                if order_nsu.startswith("linkedin-"):
+        elif order_nsu.startswith("linkedin-"):
             linkedin_purchase = db.scalar(select(LinkedinRebrandingPurchase).where(LinkedinRebrandingPurchase.order_nsu == order_nsu))
             if linkedin_purchase and str(payment.get("status") or "").casefold() == "approved":
                 paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
@@ -5605,7 +5605,7 @@ async def mercadopago_webhook(request: Request):
                 return {"received": True, "verified": True, "status": payment.get("status")}
             return {"received": True, "verified": bool(linkedin_purchase), "status": payment.get("status")}
 
-if order_nsu.startswith("ebook-"):
+        elif order_nsu.startswith("ebook-"):
             ebook_purchase = db.scalar(select(EbookPurchase).where(EbookPurchase.order_nsu == order_nsu))
             if ebook_purchase and str(payment.get("status") or "").casefold() == "approved":
                 paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
