@@ -238,6 +238,24 @@ def _ordered_experiences(resume: dict[str, Any]) -> list[dict[str, Any]]:
                 "bullets": bullets,
             }
         )
+
+    # Force reverse-chronological order based on MASTER_PROFILE
+    master_companies = [exp["company"].lower() for exp in MASTER_PROFILE["experiences"]]
+    
+    def get_order_index(exp: dict[str, Any]) -> float:
+        name_lower = exp["company"].lower()
+        for i, master_company in enumerate(master_companies):
+            if master_company in name_lower or name_lower in master_company:
+                return float(i)
+        
+        # Fallback to year extraction if company doesn't match
+        import re
+        years = [int(y) for y in re.findall(r'\b(19\d{2}|20\d{2})\b', exp["period"])]
+        if years:
+            return -float(max(years))
+        return 999.0
+
+    normalized.sort(key=get_order_index)
     return normalized
 
 

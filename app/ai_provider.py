@@ -165,3 +165,63 @@ Perfil profissional (sem nome, email, telefone ou links): {_untrusted_prompt_blo
         "questions_to_prepare": _bounded_text_list(result.get("questions_to_prepare"), item_limit=500, max_items=4),
         "provider": GEMINI_MODEL,
     }
+
+
+async def extract_job_from_image(image_bytes: bytes, mime_type: str) -> dict:
+    import base64
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise AIProviderError("GEMINI_API_KEY nao configurada")
+
+    prompt = """Você é um especialista em recrutamento. Extraia as informações da vaga de emprego a partir da imagem fornecida.
+Retorne SOMENTE um JSON válido com as seguintes chaves (se a informação não estiver presente, retorne uma string vazia):
+- title (string): Cargo da vaga.
+- company (string): Nome da empresa.
+- location (string): Local da vaga (cidade, estado ou país).
+- modality (string): Modalidade (Presencial, Remoto ou Híbrido).
+- salary (string): Faixa salarial ou valor.
+- contract_type (string): Tipo de contrato (CLT, PJ, Estágio, etc.).
+- description (string): Todo o texto da descrição da vaga transcrito integralmente.
+"""
+
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    encoded_image = base64.b64encode(image_bytes).decode('utf-8')
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": encoded_image
+                    }
+                }
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json",
+        },
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=35) as client:
+            response = await client.post(url, params={"key": api_key}, json=payload)
+        if response.status_code >= 400:
+            raise AIProviderError(f"Gemini respondeu HTTP {response.status_code}")
+        
+        raw = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        result = json.loads(raw)
+    except Exception as exc:
+        raise AIProviderError("Nao foi possivel extrair dados da imagem com a IA.") from exc
+        
+    return {
+        "title": _bounded_text(result.get("title"), limit=200),
+        "company": _bounded_text(result.get("company"), limit=200),
+        "location": _bounded_text(result.get("location"), limit=200),
+        "modality": _bounded_text(result.get("modality"), limit=200),
+        "salary": _bounded_text(result.get("salary"), limit=200),
+        "contract_type": _bounded_text(result.get("contract_type"), limit=200),
+        "description": _bounded_text(result.get("description"), limit=25000),
+    }

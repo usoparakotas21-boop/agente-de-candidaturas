@@ -69,7 +69,7 @@ from .plan_limits import (
     month_window,
     monthly_opportunity_usage,
 )
-from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions
+from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions, extract_job_from_image
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
@@ -2497,6 +2497,32 @@ async def intake_file(file: UploadFile = File(...), source: str = "print", auto_
     )
     result["extraction"] = {"method": ext["method"], "filename": ext["filename"], "characters": ext["characters"]}
     return result
+
+@app.post("/api/vagas/extract-image")
+async def extract_image_endpoint(file: UploadFile = File(...), user=Depends(authenticated_user)):
+    content = await file.read(MAX_JOB_FILE_BYTES + 1)
+    if len(content) > MAX_JOB_FILE_BYTES: raise HTTPException(413, "Arquivo excede 10 MB.")
+    
+    mime_type = file.content_type or "image/jpeg"
+    if not mime_type.startswith("image/") and mime_type != "application/pdf":
+        raise HTTPException(422, "O arquivo enviado não é suportado. Envie uma imagem.")
+        
+    if mime_type == "application/pdf":
+        mime_type = "application/pdf"
+    
+    try:
+        parsed_data = await extract_job_from_image(content, mime_type)
+    except AIProviderError as e:
+        raise HTTPException(503, str(e))
+        
+    fingerprint = "|".join((str(parsed_data.get("title", "")).lower(), str(parsed_data.get("company", "")).lower(), str(parsed_data.get("location", "")).lower()))
+    external_id = f"intake-img-{hashlib.sha256(fingerprint.encode()).hexdigest()[:24]}"
+    
+    parsed_data["source"] = "print_mobile"
+    parsed_data["external_id"] = external_id
+    
+    return parsed_data
+
 
 @app.post("/intake/file/preview")
 async def preview_file(file: UploadFile = File(...), source: str = "print", user=Depends(authenticated_user)):
