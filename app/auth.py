@@ -1217,22 +1217,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
     }
 
     async def dispatch(self, request: Request, call_next):
-        # Static assets are required by public and authenticated HTML pages.
-        # They must remain readable without a session so the browser can load
-        # the page's JavaScript/CSS enhancements after authentication is
-        # enforced for the application routes.
+        req_path = request.url.path
+        if req_path in {"/manifest.json", "/sw.js"} or req_path.rstrip("/") in {"/manifest.json", "/sw.js"} or req_path.startswith("/static/"):
+            return await call_next(request)
+
         extension_document_path = (
-            request.url.path == "/api/copilot/documents"
-            or request.url.path.startswith("/api/copilot/documents/")
+            req_path == "/api/copilot/documents"
+            or req_path.startswith("/api/copilot/documents/")
         )
-        path = request.url.path.rstrip("/") or "/"
+        path = req_path.rstrip("/") or "/"
         is_public = (
             not AUTH_REQUIRED
             or path in self.PUBLIC_PATHS
-            or request.url.path in self.PUBLIC_PATHS
-            or request.url.path.startswith("/static/")
-            or path.endswith("/manifest.json")
-            or path.endswith("/sw.js")
+            or req_path in self.PUBLIC_PATHS
             or extension_document_path
         )
         if is_public:
