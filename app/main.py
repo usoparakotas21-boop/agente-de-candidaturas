@@ -537,37 +537,6 @@ body{min-height:100vh;display:flex;flex-direction:column}
 @keyframes global-online-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(88,214,141,.42)}50%{opacity:.62;transform:scale(.78);box-shadow:0 0 0 5px rgba(88,214,141,0)}}
 @media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
 @media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}
-/* ── ALTO CONTRASTE GLOBAL (WCAG AA) ── */
-body{font-family:'Inter',system-ui,sans-serif;color:#0f172a;background:#f8fafc}
-th{color:#0f172a!important;background:#f1f5f9!important;font-weight:700!important;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;border-bottom:2px solid #cbd5e1!important;text-align:left}
-td{color:#0f172a!important;background:#ffffff!important;border-top:1px solid #e2e8f0!important;padding:16px 18px;vertical-align:middle}
-tbody tr{background:#ffffff!important}
-tbody tr:hover{background:#eff6ff!important}
-tbody tr:hover td{background:transparent!important;color:#0f172a!important}
-.metric-label{color:#334155!important;font-weight:600}
-.metric-value{color:#0f172a!important;font-weight:800}
-.metric-note{color:#475569!important}
-.queue-summary-item span{color:#334155!important}
-.queue-summary-item strong{color:#0f172a!important}
-.job-title{color:#0f172a!important;font-weight:700}
-.company{color:#475569!important}
-.queue-meta{color:#475569!important}
-.sidebar-link{color:#334155!important}
-.sidebar-link:hover{color:#0f172a!important;background:#eff6ff!important}
-.sidebar-label{color:#475569!important}
-input,select,textarea{color:#0f172a!important;background:#fff!important;border:1.5px solid #cbd5e1!important}
-/* Mobile: tabelas viram cards */
-@media(max-width:700px){
-  table,thead,tbody,th,td,tr{display:block!important;width:100%!important}
-  thead{display:none!important}
-  tbody{display:flex!important;flex-direction:column!important;gap:12px!important}
-  tbody tr{padding:16px!important;border:1.5px solid #cbd5e1!important;border-radius:14px!important;background:#fff!important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;white-space:normal!important;overflow:visible!important}
-  tbody td{padding:8px 0!important;border-top:1px solid #e2e8f0!important;background:transparent!important;color:#0f172a!important;font-size:13px!important;display:flex!important;justify-content:space-between!important}
-  tbody td:first-child{border-top:none!important;font-weight:700!important;font-size:15px!important}
-  button,.btn,.queue-action,.action-button{min-height:44px!important;min-width:44px!important}
-  .metrics{grid-template-columns:1fr 1fr!important}
-  .queue-summary{grid-template-columns:1fr 1fr!important}
-}
 </style>
 <nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/billing/ebook/preview" target="_blank" style="color:#86efac;font-weight:800;">📘 E-Book DISC Grátis</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
