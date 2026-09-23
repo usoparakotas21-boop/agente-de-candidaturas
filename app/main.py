@@ -102,6 +102,14 @@ from .security import SecurityHeadersMiddleware, current_csp_nonce
 app = FastAPI(title="Candidatura Certa", version="0.24.0")
 logger = logging.getLogger(__name__)
 
+@app.middleware("http")
+async def enforce_canonical_host(request: Request, call_next):
+    host = request.url.hostname or ""
+    if host.endswith(".onrender.com"):
+        url = request.url.replace(scheme="https", netloc="candidaturacerta.com.br")
+        return RedirectResponse(url=str(url), status_code=301)
+    return await call_next(request)
+
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_error(request: Request, exc: RequestValidationError):
