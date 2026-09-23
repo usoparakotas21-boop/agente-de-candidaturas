@@ -70,6 +70,7 @@ from .plan_limits import (
     monthly_opportunity_usage,
 )
 from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions, extract_job_from_image, generate_interview_questions_with_gemini
+from .voice_interview import interview_start, interview_chat
 from email.message import EmailMessage
 from .email_transport import send_via_brevo_api, brevo_api_key
 
@@ -1702,6 +1703,62 @@ def interviews_page():
 def simulator_page():
     if not SIMULATOR_SMART_PATH.is_file(): raise HTTPException(500, "Simulador nao encontrado.")
     return _page(SIMULATOR_SMART_PATH)
+
+@app.get("/simulador-voz", response_class=HTMLResponse, include_in_schema=False)
+def voice_simulator_page():
+    """Novo simulador de entrevista por voz com Web Speech API + Gemini."""
+    if not SIMULATOR_PAGE_PATH.is_file(): raise HTTPException(500, "Simulador de voz nao encontrado.")
+    return _page(SIMULATOR_PAGE_PATH)
+
+
+@app.post("/api/interview/voice/start", include_in_schema=False)
+async def voice_interview_start(request: Request, user=Depends(authenticated_user)):
+    """Inicia uma sessao de entrevista por voz e retorna a primeira pergunta da IA."""
+    plan = getattr(user, "plan_code", "gratis") or "gratis"
+    if plan not in ("pro", "consultoria"):
+        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    job_context = str(body.get("job_context") or "")[:2000]
+    try:
+        result = interview_start(job_context=job_context)
+        return result
+    except Exception as exc:
+        logger.warning("voice_interview_start error: %s", exc)
+        raise HTTPException(503, "Serviço de IA temporariamente indisponível.")
+
+
+@app.post("/api/interview/voice/chat", include_in_schema=False)
+async def voice_interview_chat(request: Request, user=Depends(authenticated_user)):
+    """Processa um turno da entrevista por voz e retorna a resposta da IA."""
+    plan = getattr(user, "plan_code", "gratis") or "gratis"
+    if plan not in ("pro", "consultoria"):
+        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Payload inválido.")
+    user_message = str(body.get("message") or "").strip()
+    if not user_message:
+        raise HTTPException(400, "Mensagem vazia.")
+    history = body.get("history") or []
+    if not isinstance(history, list):
+        history = []
+    # Sanitize history
+    clean_history = [
+        {"role": str(turn.get("role", "")), "content": str(turn.get("content", ""))[:3000]}
+        for turn in history[:30]
+        if isinstance(turn, dict) and turn.get("role") in ("user", "assistant")
+    ]
+    job_context = str(body.get("job_context") or "")[:2000]
+    try:
+        result = interview_chat(clean_history, user_message, job_context=job_context)
+        return result
+    except Exception as exc:
+        logger.warning("voice_interview_chat error: %s", exc)
+        raise HTTPException(503, "Serviço de IA temporariamente indisponível.")
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):

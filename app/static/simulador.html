@@ -1,3 +1,486 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Simulador de entrevista | Candidatura Certa</title><style>
-:root{--ink:#09284d;--muted:#60758d;--blue:#0b5a99;--line:#dbe6f0;--bg:#f6f9fc;--green:#16805a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif}.top{height:64px;background:#092f56;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 5vw}.brand,.top a{color:#fff;text-decoration:none;font-weight:800}.brand{display:inline-flex;align-items:center;gap:8px}.brand-icon{display:block;flex:none;border-radius:50%}.top a:last-child{font-size:13px;color:#d8e9f7}.wrap{width:min(780px,calc(100% - 36px));margin:0 auto;padding:40px 0 70px}.eyebrow{color:var(--blue);font-size:12px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}.head h1{margin:8px 0 6px;font-size:36px;letter-spacing:-.035em}.head p{margin:0;color:var(--muted)}.progress{height:7px;margin:25px 0 28px;border-radius:99px;background:#e4edf4;overflow:hidden}.progress span{display:block;width:20%;height:100%;background:var(--blue);transition:.25s}.card{padding:26px;border:1px solid var(--line);border-radius:17px;background:#fff;box-shadow:0 8px 24px #163b5910}.question{display:none}.question.active{display:block}.question h2{margin:0 0 8px;font-size:22px}.question p{color:var(--muted);margin:0 0 18px}.answer{width:100%;min-height:170px;padding:14px;border:1px solid #a9bfd2;border-radius:11px;resize:vertical;font:inherit;color:var(--ink)}.answer:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px #0b5a991c}.actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}.button{padding:11px 17px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:800;cursor:pointer}.secondary{background:#fff;color:var(--blue);border:1px solid var(--line)}.result{display:none}.result.show{display:block}.result h2{margin-top:0}.feedback{padding:15px;margin:13px 0;border-radius:12px;background:#eef8f3}.feedback strong{color:var(--green)}.checklist{margin:12px 0 0;padding-left:20px;color:var(--muted)}.note{margin-top:18px;padding:13px;border-radius:11px;background:#fff7df;color:#735300;font-size:12px}@media(max-width:600px){.head h1{font-size:30px}.card{padding:20px}}
-.progress-fill{width:20%}.progress-step-1{width:20%}.progress-step-2{width:40%}.progress-step-3{width:60%}.progress-step-4{width:80%}.progress-step-5{width:100%}.is-hidden{display:none!important}</style></head><body><header class="top"><a class="brand" href="/dashboard"><img class="brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true" width="34" height="34"> Candidatura Certa</a><a href="/entrevistas">Entrevistas →</a></header><main class="wrap"><div class="head"><span class="eyebrow">Preparação profissional</span><h1>Simulador de entrevista</h1><p>Responda com suas próprias palavras e receba um roteiro de melhoria para a conversa real.</p></div><div class="progress"><span id="bar" class="progress-fill progress-step-1"></span></div><section class="card" id="session"><div class="question active"><h2>Conte um pouco sobre sua trajetória.</h2><p>Faça uma apresentação de até dois minutos, conectando sua experiência ao próximo passo.</p><textarea class="answer" placeholder="Escreva sua resposta aqui..."></textarea></div><div class="question"><h2>Fale sobre um resultado de que você se orgulha.</h2><p>Use contexto, ação e resultado. Sempre que possível, inclua números.</p><textarea class="answer" placeholder="Escreva sua resposta aqui..."></textarea></div><div class="question"><h2>Conte uma situação difícil que você resolveu.</h2><p>Explique como analisou o problema, tomou decisões e acompanhou o resultado.</p><textarea class="answer" placeholder="Escreva sua resposta aqui..."></textarea></div><div class="question"><h2>Por que esta oportunidade faz sentido?</h2><p>Mostre conexão entre a vaga, seu momento e o que você pode entregar.</p><textarea class="answer" placeholder="Escreva sua resposta aqui..."></textarea></div><div class="question"><h2>Você tem alguma pergunta para a empresa?</h2><p>Prepare perguntas que demonstrem curiosidade sobre contexto, desafios e sucesso na função.</p><textarea class="answer" placeholder="Escreva suas perguntas aqui..."></textarea></div><div class="actions"><button class="button secondary" id="back" type="button" hidden>Voltar</button><button class="button" id="next" type="button">Próxima pergunta →</button></div></section><section class="card result" id="result"><h2>Seu roteiro está pronto</h2><p>Use estas orientações para revisar suas respostas antes da entrevista.</p><div class="feedback"><strong>Clareza</strong><br>Comece pelo contexto e vá direto para a sua contribuição.</div><div class="feedback"><strong>Evidências</strong><br>Inclua métricas, prazos, escopo ou impacto sempre que puder.</div><div class="feedback"><strong>Conexão</strong><br>Relacione sua experiência às responsabilidades da vaga.</div><ul class="checklist"><li>Evite respostas genéricas.</li><li>Prefira exemplos reais.</li><li>Termine mostrando o que aprendeu.</li></ul><div class="note">Esta é uma avaliação guiada inicial. A análise personalizada por IA será conectada quando o provedor de modelos estiver habilitado.</div><div class="actions"><a class="button secondary" href="/entrevistas">Voltar para entrevistas</a><button class="button" id="restart" type="button">Refazer simulação</button></div></section></main><script>const qs=[...document.querySelectorAll('.question')],bar=document.querySelector('#bar'),back=document.querySelector('#back'),next=document.querySelector('#next'),session=document.querySelector('#session'),result=document.querySelector('#result');let i=0;function render(){qs.forEach((q,n)=>q.classList.toggle('active',n===i));bar.className='progress-fill progress-step-'+(i+1);back.hidden=i===0;next.textContent=i===qs.length-1?'Ver meu roteiro':'Próxima pergunta →'}next.addEventListener('click',()=>{if(!qs[i].querySelector('textarea').value.trim()){qs[i].querySelector('textarea').focus();return}if(i===qs.length-1){session.classList.add('is-hidden');result.classList.add('show');return}i++;render()});back.addEventListener('click',()=>{if(i){i--;render()}});document.querySelector('#restart').addEventListener('click',()=>{i=0;qs.forEach(q=>q.querySelector('textarea').value='');result.classList.remove('show');session.classList.remove('is-hidden');render()});render();</script></body></html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Entrevista por Voz | Candidatura Certa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080C12;
+      --bg-card: #121A25;
+      --bg-card2: #0E1520;
+      --hl: #7CFF6B;
+      --hl2: #4FD1C5;
+      --text: #E6E9ED;
+      --muted: #7A8599;
+      --border: rgba(124,255,107,0.18);
+      --red: #FF6B6B;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* NAV */
+    .nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem;
+           background: rgba(8,12,18,0.85); backdrop-filter: blur(12px);
+           border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .nav-brand { color: var(--hl); font-weight: 800; font-size: 1.3rem; text-decoration: none; }
+    .nav-links a { color: var(--text); text-decoration: none; margin-left: 1.5rem; font-weight: 500; font-size: 0.9rem; }
+    .nav-links a:hover { color: var(--hl); }
+
+    /* LAYOUT */
+    .page { flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 2.5rem 1.5rem 4rem; max-width: 820px; margin: 0 auto; width: 100%; }
+
+    /* HEADER */
+    .page-header { text-align: center; margin-bottom: 2.5rem; }
+    .page-header h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800;
+                      background: linear-gradient(135deg, #fff 40%, var(--hl)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .page-header p { color: var(--muted); margin-top: 0.7rem; font-size: 1rem; line-height: 1.6; }
+
+    /* PAYWALL */
+    #paywall-screen { width: 100%; max-width: 560px; background: var(--bg-card); border: 1px solid var(--border);
+                       border-radius: 20px; padding: 3rem 2.5rem; text-align: center; }
+    #paywall-screen .lock-icon { font-size: 3.5rem; margin-bottom: 1.2rem; }
+    #paywall-screen h2 { font-size: 1.5rem; color: #fff; margin-bottom: 0.5rem; }
+    #paywall-screen p { color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.8rem; }
+    .plan-badge { display: inline-block; background: rgba(124,255,107,0.1); border: 1px solid var(--hl);
+                   color: var(--hl); padding: 0.3rem 0.8rem; border-radius: 99px; font-size: 0.8rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .btn-primary { background: var(--hl); color: var(--bg); border: none; padding: 0.9rem 2rem; font-size: 1rem; font-weight: 800;
+                    border-radius: 10px; cursor: pointer; transition: 0.2s; display: inline-block; text-decoration: none; }
+    .btn-primary:hover { background: #66e655; transform: translateY(-2px); }
+
+    /* SETUP SCREEN */
+    #setup-screen { width: 100%; max-width: 620px; }
+    .setup-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-bottom: 1rem; }
+    .setup-card label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--hl); margin-bottom: 0.6rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .setup-card textarea { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+                            border-radius: 10px; color: var(--text); padding: 0.9rem; font-size: 0.95rem; resize: vertical; min-height: 90px; }
+    .setup-card textarea:focus { outline: none; border-color: var(--hl); }
+    .browser-warning { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 10px;
+                        padding: 0.8rem 1rem; font-size: 0.85rem; color: #ffc1c1; margin-bottom: 1rem; display: none; }
+    .btn-start { width: 100%; padding: 1.1rem; font-size: 1.1rem; font-weight: 800; border-radius: 12px;
+                  background: linear-gradient(135deg, var(--hl), var(--hl2)); color: var(--bg); border: none; cursor: pointer; transition: 0.2s; }
+    .btn-start:hover { opacity: 0.9; transform: translateY(-2px); }
+
+    /* INTERVIEW SCREEN */
+    #interview-screen { width: 100%; max-width: 720px; display: none; flex-direction: column; gap: 1.2rem; }
+
+    /* AI avatar + pulse */
+    .ai-avatar-wrap { display: flex; flex-direction: column; align-items: center; padding: 2rem 0 1rem; }
+    .ai-avatar { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #0e3157, #1a4f80);
+                  display: flex; align-items: center; justify-content: center; position: relative; }
+    .ai-avatar-inner { font-size: 2.8rem; }
+    .pulse-ring { position: absolute; inset: -8px; border-radius: 50%; border: 2px solid var(--hl);
+                   animation: none; opacity: 0; transition: opacity 0.3s; }
+    .ai-avatar.speaking .pulse-ring { animation: pulse 1.2s infinite; opacity: 1; }
+    @keyframes pulse { 0%,100%{ transform:scale(1); opacity:0.8; } 50%{ transform:scale(1.15); opacity:0.2; } }
+    .ai-status { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; }
+
+    /* Chat bubble */
+    .ai-bubble { background: var(--bg-card); border: 1px solid var(--border); border-radius: 0 16px 16px 16px;
+                  padding: 1.2rem 1.5rem; font-size: 1rem; line-height: 1.7; color: var(--text); min-height: 80px; }
+
+    /* Progress */
+    .progress-bar-wrap { display: flex; gap: 6px; }
+    .progress-bar-wrap .step { flex: 1; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.1); transition: 0.3s; }
+    .progress-bar-wrap .step.active { background: var(--hl); }
+    .progress-label { font-size: 0.8rem; color: var(--muted); text-align: right; }
+
+    /* Voice controls */
+    .controls { display: flex; gap: 1rem; align-items: center; justify-content: center; }
+    .mic-btn { width: 72px; height: 72px; border-radius: 50%; border: none; cursor: pointer; position: relative;
+                background: var(--bg-card2); border: 2px solid rgba(255,255,255,0.1); transition: 0.2s; }
+    .mic-btn .mic-icon { font-size: 1.8rem; }
+    .mic-btn.listening { border-color: var(--hl); background: rgba(124,255,107,0.1); animation: mic-pulse 1s infinite; }
+    .mic-btn.listening .mic-icon::after { content: ''; display: block; width: 8px; height: 8px; background: var(--hl);
+                                           border-radius: 50%; position: absolute; bottom: 10px; right: 10px; }
+    @keyframes mic-pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(124,255,107,0.4); } 70%{ box-shadow: 0 0 0 12px rgba(124,255,107,0); } }
+    .send-btn { background: var(--hl); color: var(--bg); border: none; padding: 0.8rem 1.5rem; border-radius: 10px; font-weight: 800; cursor: pointer; display: none; }
+    .send-btn:hover { background: #66e655; }
+
+    /* Transcript box */
+    .transcript-box { background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
+                       border-radius: 12px; padding: 0.9rem 1rem; font-size: 0.9rem; color: var(--muted);
+                       min-height: 60px; position: relative; display: none; }
+    .transcript-box.active { display: block; border-color: rgba(124,255,107,0.3); }
+    .transcript-placeholder { font-style: italic; }
+
+    /* Helper text */
+    .helper { text-align: center; font-size: 0.82rem; color: var(--muted); }
+
+    /* Result screen */
+    #result-screen { width: 100%; max-width: 620px; display: none; }
+    .result-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; }
+    .result-card h2 { font-size: 1.6rem; color: var(--hl); margin-bottom: 1rem; }
+    .score-display { font-size: 4rem; font-weight: 900; color: var(--hl); }
+    .score-label { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .summary-text { color: var(--text); line-height: 1.7; font-size: 0.95rem; background: rgba(255,255,255,0.04);
+                     border-radius: 12px; padding: 1.2rem; margin-bottom: 2rem; }
+    .result-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text);
+                    padding: 0.8rem 1.4rem; border-radius: 10px; cursor: pointer; font-weight: 600; transition: 0.2s; text-decoration: none; }
+    .btn-outline:hover { border-color: var(--hl); color: var(--hl); }
+
+    @media (max-width: 600px) { .nav { padding: 0.8rem 1rem; } .page { padding: 1.5rem 1rem 3rem; } }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/dashboard" class="nav-brand">Candidatura Certa</a>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/entrevistas">Entrevistas</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>🎤 Simulador de Entrevista por Voz</h1>
+    <p>Converse com a IA como se fosse uma entrevista real. Fale suas respostas — a IA escuta, avalia e pergunta o próximo.</p>
+  </div>
+
+  <!-- PAYWALL -->
+  <div id="paywall-screen" style="display:none;">
+    <div class="lock-icon">🔒</div>
+    <span class="plan-badge">PRO & CONSULTORIA</span>
+    <h2>Recurso Exclusivo</h2>
+    <p>O Simulador de Entrevista por Voz com IA está disponível para assinantes dos planos <strong>Pro</strong> e <strong>Consultoria</strong>.</p>
+    <a href="/billing/subscriptions/checkout?plan=pro" class="btn-primary">Ver Plano Pro</a>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setup-screen">
+    <div class="setup-card">
+      <label>Contexto da Vaga (opcional)</label>
+      <textarea id="job-context" placeholder="Cole aqui o título e descrição da vaga para que a IA personalize as perguntas..."></textarea>
+    </div>
+    <div id="browser-warning" class="browser-warning">
+      ⚠️ Seu navegador não suporta reconhecimento de voz. Use o Chrome ou Edge para a experiência completa. Você ainda pode digitar suas respostas.
+    </div>
+    <button class="btn-start" id="btn-start">Iniciar Entrevista →</button>
+  </div>
+
+  <!-- INTERVIEW -->
+  <div id="interview-screen">
+    <!-- Progress -->
+    <div class="progress-bar-wrap" id="progress-bar">
+      <div class="step active" id="s0"></div>
+      <div class="step" id="s1"></div>
+      <div class="step" id="s2"></div>
+      <div class="step" id="s3"></div>
+      <div class="step" id="s4"></div>
+    </div>
+    <div class="progress-label" id="progress-label">Pergunta 1 de 5</div>
+
+    <!-- AI Avatar -->
+    <div class="ai-avatar-wrap">
+      <div class="ai-avatar" id="ai-avatar">
+        <span class="ai-avatar-inner">🤖</span>
+        <div class="pulse-ring"></div>
+      </div>
+      <div class="ai-status" id="ai-status">Pronto para começar</div>
+    </div>
+
+    <!-- IA fala -->
+    <div class="ai-bubble" id="ai-bubble">Aguardando início...</div>
+
+    <!-- Transcrição do usuário -->
+    <div class="transcript-box" id="transcript-box">
+      <span class="transcript-placeholder" id="transcript-text">Fale agora...</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="mic-btn" id="mic-btn" title="Falar">
+        <span class="mic-icon">🎙️</span>
+      </button>
+      <button class="send-btn" id="send-btn">Enviar →</button>
+    </div>
+    <p class="helper" id="helper-text">Pressione o microfone para falar, ou clique após falar para enviar.</p>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-screen">
+    <div class="result-card">
+      <h2>✅ Entrevista Concluída</h2>
+      <div class="score-display" id="final-score">—</div>
+      <div class="score-label">pontos de 100 — performance geral</div>
+      <div class="summary-text" id="final-summary">Processando...</div>
+      <div class="result-actions">
+        <button class="btn-primary" id="btn-restart">Refazer Entrevista</button>
+        <a href="/entrevistas" class="btn-outline">Ver Entrevistas</a>
+        <a href="/dashboard" class="btn-outline">Dashboard</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const token = () => localStorage.getItem('access_token') || '';
+  const api = (url, body) => fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  // State
+  let history = [];
+  let questionIndex = 0;
+  let jobContext = '';
+  let isListening = false;
+  let recognition = null;
+  let currentTranscript = '';
+  const MAX_QUESTIONS = 5;
+
+  // Elements
+  const paywallScreen = document.getElementById('paywall-screen');
+  const setupScreen   = document.getElementById('setup-screen');
+  const interviewScreen = document.getElementById('interview-screen');
+  const resultScreen  = document.getElementById('result-screen');
+  const aiBubble      = document.getElementById('ai-bubble');
+  const aiAvatar      = document.getElementById('ai-avatar');
+  const aiStatus      = document.getElementById('ai-status');
+  const micBtn        = document.getElementById('mic-btn');
+  const sendBtn       = document.getElementById('send-btn');
+  const transcriptBox = document.getElementById('transcript-box');
+  const transcriptText= document.getElementById('transcript-text');
+  const progressLabel = document.getElementById('progress-label');
+  const helperText    = document.getElementById('helper-text');
+
+  // ───── INIT ─────
+  async function init() {
+    try {
+      const res = await fetch('/api/interview/voice/start', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_context: '' })
+      });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (res.status === 402) {
+        setupScreen.style.display = 'none';
+        paywallScreen.style.display = 'block';
+        return;
+      }
+    } catch(_) {}
+  }
+
+  // Browser speech support
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById('browser-warning').style.display = 'block';
+  }
+
+  // ───── START ─────
+  document.getElementById('btn-start').addEventListener('click', startInterview);
+
+  async function startInterview() {
+    jobContext = document.getElementById('job-context').value.trim();
+    const btn = document.getElementById('btn-start');
+    btn.textContent = 'Conectando à IA...';
+    btn.disabled = true;
+
+    try {
+      const res = await api('/api/interview/voice/start', { job_context: jobContext });
+      if (res.status === 402) { paywallScreen.style.display = 'block'; setupScreen.style.display = 'none'; return; }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      setupScreen.style.display = 'none';
+      interviewScreen.style.display = 'flex';
+
+      history = [{ role: 'assistant', content: data.reply }];
+      displayAIMessage(data.reply, false);
+      speak(data.reply);
+    } catch(e) {
+      btn.textContent = 'Iniciar Entrevista →';
+      btn.disabled = false;
+      alert('Não foi possível iniciar. Verifique sua conexão.');
+    }
+  }
+
+  // ───── DISPLAY ─────
+  function displayAIMessage(text, isFinal) {
+    aiBubble.textContent = text;
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const q = Math.min(questionIndex, MAX_QUESTIONS - 1);
+    document.querySelectorAll('.step').forEach((s, i) => s.classList.toggle('active', i <= q));
+    progressLabel.textContent = `Pergunta ${q + 1} de ${MAX_QUESTIONS}`;
+  }
+
+  // ───── TEXT TO SPEECH ─────
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'pt-BR';
+    utt.rate = 1.05;
+    utt.onstart = () => { aiAvatar.classList.add('speaking'); aiStatus.textContent = 'Entrevistadora falando...'; };
+    utt.onend = () => { aiAvatar.classList.remove('speaking'); aiStatus.textContent = 'Sua vez de responder'; enableMic(); };
+    utt.onerror = () => { aiAvatar.classList.remove('speaking'); enableMic(); };
+    speechSynthesis.speak(utt);
+  }
+
+  // ───── SPEECH RECOGNITION ─────
+  function enableMic() {
+    micBtn.disabled = false;
+    helperText.textContent = SpeechRecognition
+      ? 'Pressione 🎙️ para falar sua resposta.'
+      : 'Digite sua resposta abaixo e clique Enviar.';
+    if (!SpeechRecognition) {
+      // Fallback: text input
+      transcriptBox.classList.add('active');
+      transcriptText.contentEditable = 'true';
+      transcriptText.style.color = 'var(--text)';
+      transcriptText.textContent = '';
+      sendBtn.style.display = 'block';
+    }
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!SpeechRecognition) return;
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  });
+
+  function startListening() {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('listening');
+      transcriptBox.classList.add('active');
+      transcriptText.textContent = '';
+      aiStatus.textContent = 'Ouvindo você...';
+      sendBtn.style.display = 'block';
+      helperText.textContent = 'Fale agora. Clique em Enviar quando terminar.';
+    };
+
+    recognition.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      currentTranscript = final || interim;
+      transcriptText.textContent = currentTranscript || '(aguardando fala...)';
+    };
+
+    recognition.onerror = (e) => { if (e.error !== 'no-speech') stopListening(); };
+    recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); };
+    recognition.start();
+  }
+
+  function stopListening() {
+    if (recognition) { recognition.stop(); recognition = null; }
+    isListening = false;
+    micBtn.classList.remove('listening');
+    aiStatus.textContent = 'Processando...';
+  }
+
+  sendBtn.addEventListener('click', () => {
+    let msg = '';
+    if (SpeechRecognition) {
+      stopListening();
+      msg = currentTranscript.trim();
+    } else {
+      msg = transcriptText.textContent.trim();
+    }
+    if (!msg) { alert('Fale ou escreva algo antes de enviar.'); return; }
+    sendUserMessage(msg);
+  });
+
+  // ───── SEND TO API ─────
+  async function sendUserMessage(userText) {
+    micBtn.disabled = true;
+    sendBtn.style.display = 'none';
+    transcriptBox.classList.remove('active');
+    aiStatus.textContent = 'A IA está processando...';
+    aiAvatar.classList.add('speaking');
+
+    history.push({ role: 'user', content: userText });
+    currentTranscript = '';
+
+    try {
+      const res = await api('/api/interview/voice/chat', {
+        message: userText,
+        history: history.slice(0, -1), // send history before this message
+        job_context: jobContext
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail?.message || 'Erro na API');
+      }
+
+      const data = await res.json();
+      history.push({ role: 'assistant', content: data.reply });
+
+      if (data.done) {
+        finishInterview(data.score, data.summary || data.reply);
+      } else {
+        questionIndex = data.question_index + 1;
+        displayAIMessage(data.reply, false);
+        speak(data.reply);
+      }
+    } catch(e) {
+      aiAvatar.classList.remove('speaking');
+      aiStatus.textContent = 'Erro — tente novamente';
+      micBtn.disabled = false;
+      alert(e.message || 'Falha ao enviar. Verifique sua conexão.');
+    }
+  }
+
+  // ───── FINISH ─────
+  function finishInterview(score, summary) {
+    window.speechSynthesis.cancel();
+    interviewScreen.style.display = 'none';
+    resultScreen.style.display = 'block';
+    document.getElementById('final-score').textContent = score ?? '—';
+    document.getElementById('final-summary').textContent = summary || 'Entrevista concluída com sucesso!';
+    // Read summary aloud
+    speak(summary || 'Parabéns! Entrevista concluída.');
+  }
+
+  // ───── RESTART ─────
+  document.getElementById('btn-restart').addEventListener('click', () => {
+    history = [];
+    questionIndex = 0;
+    currentTranscript = '';
+    window.speechSynthesis.cancel();
+    resultScreen.style.display = 'none';
+    setupScreen.style.display = 'block';
+    document.getElementById('btn-start').textContent = 'Iniciar Entrevista →';
+    document.getElementById('btn-start').disabled = false;
+  });
+
+  // ───── CHECK ACCESS ON LOAD ─────
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const res = await fetch('/api/interview/voice/start', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_context: 'check_access_only' })
+      });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (res.status === 402) {
+        setupScreen.style.display = 'none';
+        paywallScreen.style.display = 'block';
+      }
+      // else: user has access, show setup screen (already visible)
+    } catch(_) { /* network error - let user try */ }
+  });
+</script>
+</body>
+</html>
