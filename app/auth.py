@@ -1225,7 +1225,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.url.path == "/api/copilot/documents"
             or request.url.path.startswith("/api/copilot/documents/")
         )
-        if not AUTH_REQUIRED or request.url.path in self.PUBLIC_PATHS or extension_document_path or request.url.path.startswith("/static/"):
+        path = request.url.path.rstrip("/") or "/"
+        is_public = (
+            not AUTH_REQUIRED
+            or path in self.PUBLIC_PATHS
+            or request.url.path in self.PUBLIC_PATHS
+            or request.url.path.startswith("/static/")
+            or path.endswith("/manifest.json")
+            or path.endswith("/sw.js")
+            or extension_document_path
+        )
+        if is_public:
             return await call_next(request)
 
         if not _configuration_ready():
