@@ -272,3 +272,71 @@ body.is-mobile-device {
   }
 }
 
+/* Responsive Mobile Table Card Transformation & Touch Targets (< 700px) */
+@media (max-width: 700px) {
+  table.responsive-cards, 
+  .table-wrap table, 
+  .workspace table, 
+  .queue-panel table {
+    display: block;
+    width: 100%;
+  }
+
+  table.responsive-cards thead, 
+  .table-wrap table thead, 
+  .workspace table thead, 
+  .queue-panel table thead {
+    display: none;
+  }
+
+  table.responsive-cards tbody, 
+  .table-wrap table tbody, 
+  .workspace table tbody, 
+  .queue-panel table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  table.responsive-cards tr, 
+  .table-wrap table tbody tr, 
+  .workspace table tbody tr, 
+  .queue-panel table tbody tr {
+    display: block;
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 14px;
+    background: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  table.responsive-cards td, 
+  .table-wrap table tbody td, 
+  .workspace table tbody td, 
+  .queue-panel table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 !important;
+    border-top: 1px solid #f1f5f9 !important;
+    font-size: 13px;
+    color: #0f172a !important;
+  }
+
+  table.responsive-cards td:first-child, 
+  .table-wrap table tbody td:first-child, 
+  .workspace table tbody td:first-child, 
+  .queue-panel table tbody td:first-child {
+    border-top: none !important;
+    font-weight: 700;
+  }
+
+  /* Force minimum touch targets 44x44px for action buttons, inputs and bottom bar items */
+  button, .btn, .refresh, .new-job, .queue-action, .sidebar-link, .mobile-bottom-nav a, .mobile-bottom-nav button, input, select {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+
