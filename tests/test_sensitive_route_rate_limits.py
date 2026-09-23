@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from starlette.requests import Request
 
 from app import auth, main as main_module
@@ -13,25 +13,25 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
         self.request = Mock(spec=Request)
 
     async def test_interview_evaluation_is_limited_before_ai_provider_call(self):
-        request = self.request
-        payload = main_module.InterviewAnswerRequest(
-            question="Como você resolve conflitos?",
-            answer="Eu escuto as pessoas e busco uma solução baseada em fatos.",
+        req = main_module.InterviewAnswerRequest(
+            question="Conte sobre uma situação de liderança.",
+            answer="Liderou a reorganização dos processos de departamento pessoal.",
         )
-        with (
-            patch.object(main_module, "_document_export_metadata", return_value={"plan": "pro"}),
-            patch.object(
-                main_module,
-                "_enforce_rate_limit",
-                side_effect=HTTPException(429, "Muitas tentativas."),
-            ) as limit,
-            patch.object(main_module, "evaluate_interview_answer", new_callable=AsyncMock) as evaluate,
-        ):
+
+        with patch.object(
+            main_module,
+            "_enforce_rate_limit",
+            side_effect=HTTPException(429, "Muitas tentativas."),
+        ) as limit, patch.object(
+            main_module, "_document_export_metadata", return_value={"plan": "pro"}
+        ), patch.object(
+            main_module, "evaluate_interview_answer", new_callable=AsyncMock
+        ) as evaluate:
             with self.assertRaises(HTTPException) as raised:
-                await main_module.evaluate_interview(payload, request=request, user=self.user)
+                await main_module.evaluate_interview(req, user=self.user, request=self.request)
 
         self.assertEqual(raised.exception.status_code, 429)
-        limit.assert_called_once_with(request, "ai-interview-evaluation", "account-123")
+        limit.assert_called_once_with(self.request, "ai-interview-evaluation", "account-123")
         evaluate.assert_not_awaited()
 
     def test_document_generation_and_export_are_limited_before_work(self):
@@ -46,7 +46,7 @@ class SensitiveRouteRateLimitTest(unittest.IsolatedAsyncioTestCase):
             lambda: main_module.create_cover_letter(12, request=request, user=self.user),
             lambda: main_module.create_cover_letter_doc(12, request=request, user=self.user),
             lambda: main_module.generate_document_studio(
-                studio_payload, request=request, user=self.user
+                studio_payload, background_tasks=BackgroundTasks(), request=request, user=self.user
             ),
             lambda: main_module.export_document_studio(
                 export_payload, request=request, user=self.user

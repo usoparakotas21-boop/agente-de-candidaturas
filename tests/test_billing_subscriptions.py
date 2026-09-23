@@ -272,23 +272,35 @@ class BillingSubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(denied.exception.status_code, 409)
 
     def test_pro_ebook_download_is_plan_gated_and_handles_missing_asset(self):
+        db = self.session_factory()
+        try:
+            db.add(BillingSubscription(
+                owner_id="ebook-pro", plan_code="pro",
+                external_reference="book-test-pro-sub", payer_email="pro@example.com",
+                monthly_amount=9900, currency="BRL", status="authorized",
+                access_until=utc_now() + timedelta(days=10),
+            ))
+            db.commit()
+        finally:
+            db.close()
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            book_path = Path(temp_dir) / "hackeando_disc.docx"
+            book_path = Path(temp_dir) / "DISC-Hackeado.pdf"
             book_path.write_bytes(b"ebook test asset")
-            pro_user = {"id": "ebook-pro", "app_metadata": {"plan": "pro"}}
-            start_user = {"id": "ebook-start", "app_metadata": {"plan": "start"}}
+            pro_user = {"id": "ebook-pro", "email": "pro@example.com"}
+            start_user = {"id": "ebook-start", "email": "start@example.com"}
             with (
                 patch.object(main_module, "SessionLocal", self.session_factory),
-                patch.object(main_module, "PRO_BOOK_PATH", book_path),
+                patch.object(main_module, "NORMAL_BOOK_PATH", book_path),
             ):
                 response = main_module.download_pro_ebook(pro_user)
                 self.assertEqual(Path(response.path), book_path)
-                self.assertEqual(response.filename, "Hackeando-DISC.docx")
+                self.assertEqual(response.filename, "DISC-Hackeado.pdf")
                 with self.assertRaises(HTTPException) as denied:
                     main_module.download_pro_ebook(start_user)
                 self.assertEqual(denied.exception.status_code, 403)
 
-                with patch.object(main_module, "PRO_BOOK_PATH", Path(temp_dir) / "missing.docx"):
+                with patch.object(main_module, "NORMAL_BOOK_PATH", Path(temp_dir) / "missing.pdf"):
                     with self.assertRaises(HTTPException) as unavailable:
                         main_module.download_pro_ebook(pro_user)
                 self.assertEqual(unavailable.exception.status_code, 503)

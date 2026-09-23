@@ -23,6 +23,8 @@ DIRECT_OWNER_TABLES = (
     "email_integrations",
     "processed_email_messages",
     "document_export_purchases",
+    "ebook_purchases",
+    "linkedin_rebranding_purchases",
     "billing_subscriptions",
     "consultation_credits",
     "generated_documents",

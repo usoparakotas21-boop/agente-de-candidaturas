@@ -14,6 +14,7 @@ from app import main as main_module
 from app.database import Base
 from app.models import (
     Application,
+    BillingSubscription,
     Candidate,
     DocumentDelivery,
     GeneratedDocument,
@@ -31,22 +32,18 @@ class GeneratedDocumentHistoryTests(unittest.TestCase):
             poolclass=StaticPool,
         )
         Base.metadata.create_all(self.engine)
-        self.session_factory = sessionmaker(
-            bind=self.engine,
-            autoflush=False,
-            autocommit=False,
-        )
+        self.session_factory = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
         self._original_session_local = main_module.SessionLocal
         main_module.SessionLocal = self.session_factory
         self.users = {
             "owner-a": {
                 "id": "owner-a",
-                "email": "a@example.com",
+                "email": "owner-a@example.com",
                 "email_confirmed_at": "2026-09-20T00:00:00Z",
             },
             "owner-b": {
                 "id": "owner-b",
-                "email": "b@example.com",
+                "email": "owner-b@example.com",
                 "email_confirmed_at": "2026-09-20T00:00:00Z",
             },
         }
@@ -56,6 +53,12 @@ class GeneratedDocumentHistoryTests(unittest.TestCase):
         db = self.session_factory()
         try:
             for owner_id in self.users:
+                db.add(BillingSubscription(
+                    owner_id=owner_id, plan_code="pro",
+                    external_reference=f"sub-{owner_id}", payer_email=f"{owner_id}@example.com",
+                    monthly_amount=9900, currency="BRL", status="authorized",
+                    access_until=utc_now() + timedelta(days=10),
+                ))
                 candidate = Candidate(
                     owner_id=owner_id,
                     name=f"Candidato {owner_id}",

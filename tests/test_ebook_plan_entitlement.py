@@ -44,7 +44,7 @@ class EbookPlanEntitlementTests(unittest.TestCase):
         ):
             response = main_module.download_pro_ebook({"id": "consultoria-owner", "email": "person@example.com"})
         self.assertEqual(response.path, main_module.PRO_BOOK_PATH)
-        self.assertEqual(response.media_type, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        self.assertEqual(response.media_type, "application/zip")
 
     def test_active_pro_subscription_can_download_the_book(self):
         db = self.session_factory()
@@ -65,9 +65,9 @@ class EbookPlanEntitlementTests(unittest.TestCase):
         ):
             response = main_module.download_pro_ebook({"id": "pro-owner", "email": "person@example.com"})
 
-        self.assertEqual(response.path, main_module.PRO_BOOK_PATH)
-        self.assertTrue(main_module.PRO_BOOK_PATH.is_file())
-        self.assertEqual(response.media_type, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        self.assertEqual(response.path, main_module.NORMAL_BOOK_PATH)
+        self.assertTrue(main_module.NORMAL_BOOK_PATH.is_file())
+        self.assertEqual(response.media_type, "application/pdf")
 
     def test_start_plan_or_no_active_entitlement_cannot_download_book(self):
         user = {"id": "start-owner", "email": "person@example.com"}
