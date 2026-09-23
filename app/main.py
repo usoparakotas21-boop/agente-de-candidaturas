@@ -43,7 +43,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -1566,9 +1566,48 @@ def robots_txt():
         "Disallow: /candidaturas\n"
         "Disallow: /entrevistas\n"
         "Disallow: /seguranca\n"
+        "Disallow: /simulador\n"
+        "Disallow: /onboarding\n"
+        "Disallow: /settings\n"
+        "Disallow: /vagas\n"
         "Disallow: /api/\n"
         "Disallow: /auth/\n"
+        "Disallow: /billing/\n"
+        "Disallow: /webhooks/\n"
+        "\n"
+        "Sitemap: https://www.candidaturacerta.com.br/sitemap.xml\n"
     )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    """XML sitemap for public pages."""
+    from datetime import date
+    today = date.today().isoformat()
+    base = "https://www.candidaturacerta.com.br"
+    urls = [
+        {"loc": base + "/", "priority": "1.0", "changefreq": "weekly"},
+        {"loc": base + "/termos", "priority": "0.3", "changefreq": "monthly"},
+        {"loc": base + "/privacidade", "priority": "0.3", "changefreq": "monthly"},
+        {"loc": base + "/ajuda", "priority": "0.5", "changefreq": "monthly"},
+    ]
+    entries = ""
+    for u in urls:
+        entries += (
+            f"  <url>\n"
+            f"    <loc>{u['loc']}</loc>\n"
+            f"    <lastmod>{today}</lastmod>\n"
+            f"    <changefreq>{u['changefreq']}</changefreq>\n"
+            f"    <priority>{u['priority']}</priority>\n"
+            f"  </url>\n"
+        )
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + entries +
+        '</urlset>\n'
+    )
+    return Response(content=content, media_type="application/xml")
 
 @app.get("/termos", response_class=HTMLResponse, include_in_schema=False)
 def terms_page():
@@ -5496,7 +5535,20 @@ async def mercadopago_webhook(request: Request):
                 return {"received": True, "verified": True, "status": payment.get("status")}
             return {"received": True, "verified": bool(combo_purchase), "status": payment.get("status")}
 
-        if order_nsu.startswith("ebook-"):
+                if order_nsu.startswith("linkedin-"):
+            linkedin_purchase = db.scalar(select(LinkedinRebrandingPurchase).where(LinkedinRebrandingPurchase.order_nsu == order_nsu))
+            if linkedin_purchase and str(payment.get("status") or "").casefold() == "approved":
+                paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
+                if linkedin_purchase.status != "PAID" and paid_amount == linkedin_purchase.amount:
+                    linkedin_purchase.status = "PAID"
+                    linkedin_purchase.transaction_nsu = payment_id
+                    linkedin_purchase.paid_amount = paid_amount
+                    linkedin_purchase.paid_at = utc_now()
+                    db.commit()
+                return {"received": True, "verified": True, "status": payment.get("status")}
+            return {"received": True, "verified": bool(linkedin_purchase), "status": payment.get("status")}
+
+if order_nsu.startswith("ebook-"):
             ebook_purchase = db.scalar(select(EbookPurchase).where(EbookPurchase.order_nsu == order_nsu))
             if ebook_purchase and str(payment.get("status") or "").casefold() == "approved":
                 paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
@@ -6080,3 +6132,167 @@ download_application_document = download_doc
 create_cover_letter_for_job = create_cover_letter
 create_cover_letter_document = create_cover_letter_doc
 download_application_cover_letter = download_cover_letter
+
+@app.get("/api/linkedin/access-status", include_in_schema=False)
+def check_linkedin_access(user=Depends(authenticated_user)):
+    owner_id = getattr(user, "uid", getattr(user, "id", None))
+    if not owner_id:
+        return {"has_access": False, "reason": "unauthenticated"}
+
+    plan = getattr(user, "plan_code", "gratis") or "gratis"
+    if plan in ["pro", "consultoria"]:
+        return {"has_access": True, "reason": "plan"}
+
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(
+            select(LinkedinRebrandingPurchase)
+            .where(LinkedinRebrandingPurchase.owner_id == owner_id)
+            .where(LinkedinRebrandingPurchase.status == "PAID")
+        )
+        if purchase:
+            return {"has_access": True, "reason": "purchase"}
+        return {"has_access": False, "reason": "no_purchase"}
+    finally:
+        db.close()
+
+@app.post("/billing/linkedin-rebranding/checkout", include_in_schema=False)
+async def create_linkedin_rebranding_checkout(request: Request, user=Depends(authenticated_user)):
+    owner_id = getattr(user, "uid", getattr(user, "id", None))
+    if not owner_id:
+        raise HTTPException(401, "Usuário não autenticado")
+
+    email = getattr(user, "email", "") or ""
+    order_nsu = f"linkedin-{uuid.uuid4().hex}"
+    price_cents = 1990
+
+    preference_data = {
+        "items": [{"id": "linkedin-rebranding", "title": "Rebranding de LinkedIn", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "payer": {"email": email},
+        "external_reference": order_nsu,
+        "back_urls": {
+            "success": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
+            "failure": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
+            "pending": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
+        },
+        "auto_return": "approved",
+    }
+
+    db = SessionLocal()
+    try:
+        purchase = LinkedinRebrandingPurchase(
+            owner_id=owner_id,
+            order_nsu=order_nsu,
+            amount=price_cents,
+            status="PENDING",
+            created_at=utc_now(),
+        )
+        db.add(purchase)
+        db.commit()
+
+        token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+        if not token:
+            raise HTTPException(503, "Mercado Pago não configurado")
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://api.mercadopago.com/checkout/preferences",
+                json=preference_data,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if resp.status_code >= 400:
+            logger.error(f"Erro Mercado Pago (LinkedIn Rebranding): {resp.text}")
+            raise HTTPException(500, "Falha ao gerar link de pagamento")
+
+        pref = resp.json()
+        checkout_url = pref.get("init_point")
+        return {"checkout_url": checkout_url}
+    finally:
+        db.close()
+
+@app.post("/api/linkedin/generate", include_in_schema=False)
+async def generate_linkedin_rebranding(
+    file: UploadFile = File(...),
+    user=Depends(authenticated_user)
+):
+    owner_id = getattr(user, "uid", getattr(user, "id", None))
+    if not owner_id:
+        raise HTTPException(401, "Usuário não autenticado")
+
+    # Access Verification
+    plan = getattr(user, "plan_code", "gratis") or "gratis"
+    has_access = plan in ["pro", "consultoria"]
+    
+    if not has_access:
+        db = SessionLocal()
+        try:
+            purchase = db.scalar(
+                select(LinkedinRebrandingPurchase)
+                .where(LinkedinRebrandingPurchase.owner_id == owner_id)
+                .where(LinkedinRebrandingPurchase.status == "PAID")
+            )
+            if purchase:
+                has_access = True
+        finally:
+            db.close()
+
+    if not has_access:
+        raise HTTPException(403, "O acesso ao Rebranding de LinkedIn requer o plano Pro, Consultoria ou a compra avulsa.")
+
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "O currículo deve ser em formato PDF.")
+
+    import fitz  # PyMuPDF
+    try:
+        pdf_bytes = await file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text_content = ""
+        for page in doc:
+            text_content += page.get_text() + "\n"
+        doc.close()
+    except Exception as e:
+        logger.error(f"Failed to read PDF for LinkedIn Rebranding: {e}")
+        raise HTTPException(400, "Falha ao ler o arquivo PDF.")
+    
+    if not text_content.strip():
+        raise HTTPException(400, "O arquivo PDF enviado parece estar vazio ou ser apenas uma imagem.")
+
+    system_prompt = """Você é um Consultor de Carreira de elite, focado em posicionamento profissional. 
+Seu objetivo é analisar o currículo do usuário e gerar uma proposta de perfil completo para o LinkedIn, projetada para atrair recrutadores e gerar autoridade.
+
+Use o seguinte formato em Markdown para a sua resposta (não adicione saudações ou explicações fora do markdown):
+
+# 🚀 Título Profissional (Headline)
+Crie 3 opções de títulos estratégicos (Headline). O título deve conter Palavra-chave Principal | Palavra-chave Secundária | Impacto ou Especialidade.
+- Opção 1: ...
+- Opção 2: ...
+- Opção 3: ...
+
+# 📖 Resumo (Sobre)
+Crie um texto envolvente em primeira pessoa, estruturado em 3 ou 4 parágrafos pequenos.
+- Parágrafo 1: Quem é o profissional e qual sua principal paixão/motivação.
+- Parágrafo 2: Suas principais realizações e resultados práticos (com base no currículo).
+- Parágrafo 3: Suas especialidades técnicas (Hard Skills) e como ele atua no dia a dia.
+- Parágrafo 4 (Call to Action): Um convite para conexão e contato.
+
+# 💼 Experiência Profissional (Destaques)
+Para as experiências mais relevantes do currículo, rescreva o cargo e as descrições de atividades focando não apenas nas tarefas, mas no impacto e nos resultados alcançados (se possível, quantifique).
+- **Cargo - Empresa**
+  - O que fez: ...
+  - Resultado alcançado / Impacto: ...
+
+# 🎯 Competências a destacar (Skills)
+Liste as 5 principais habilidades técnicas e as 3 principais habilidades comportamentais (Soft Skills) que o usuário deve fixar em seu perfil.
+"""
+
+    user_prompt = f"Aqui está o texto extraído do meu currículo:\n\n{text_content}\n\nCrie o meu Rebranding de LinkedIn com base neste perfil."
+
+    try:
+        result = _call_chat_completion([
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ], temperature=0.7)
+        return {"markdown": result}
+    except Exception as e:
+        logger.error(f"Failed to generate LinkedIn rebranding: {e}")
+        raise HTTPException(500, "Falha ao gerar o rebranding. Tente novamente mais tarde.")

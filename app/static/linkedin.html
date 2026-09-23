@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Rebranding de LinkedIn - Candidatura Certa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #080C12;
+      --bg-card: #121A25;
+      --bg-card-hover: #1A2433;
+      --highlight: #7CFF6B;
+      --highlight-hover: #66e655;
+      --text-main: #E6E9ED;
+      --text-muted: #9BA4B5;
+      --border: rgba(124, 255, 107, 0.2);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Navbar similar to dashboard */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: rgba(8, 12, 18, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .navbar-brand {
+      color: var(--highlight);
+      font-weight: 800;
+      font-size: 1.5rem;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-links a {
+      color: var(--text-main);
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--highlight);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+      flex: 1;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #fff, var(--highlight));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .upload-card {
+      background: var(--bg-card);
+      border: 1px dashed var(--highlight);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .upload-card:hover {
+      background: var(--bg-card-hover);
+      box-shadow: 0 0 20px rgba(124, 255, 107, 0.1);
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      color: var(--highlight);
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      background-color: var(--highlight);
+      color: var(--bg-dark);
+      border: none;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      display: inline-block;
+      text-decoration: none;
+      margin-top: 1rem;
+    }
+
+    .btn:hover {
+      background-color: var(--highlight-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      background-color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .instructions {
+      background: rgba(124, 255, 107, 0.05);
+      border-left: 4px solid var(--highlight);
+      padding: 1.5rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+
+    .instructions h3 {
+      color: var(--highlight);
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .instructions ol {
+      margin-left: 1.2rem;
+      color: var(--text-muted);
+    }
+    
+    .instructions li {
+      margin-bottom: 0.3rem;
+    }
+
+    /* Loading state */
+    .loading-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 0;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(124, 255, 107, 0.2);
+      border-top-color: var(--highlight);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: var(--highlight);
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    /* Result */
+    .result-section {
+      display: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+
+    .result-section h2 {
+      color: var(--highlight);
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .markdown-body {
+      color: var(--text-main);
+    }
+
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+      color: white;
+      margin-top: 1.5rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .markdown-body p {
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+    }
+
+    .markdown-body ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+    }
+
+    .markdown-body strong {
+      color: white;
+    }
+
+    /* Paywall overlay */
+    .paywall-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(8, 12, 18, 0.95);
+      border-radius: 16px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      z-index: 10;
+    }
+
+    .paywall-overlay h3 {
+      color: white;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+
+    .paywall-overlay p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .price-tag {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--highlight);
+      margin-bottom: 1.5rem;
+    }
+
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <a href="/dashboard" class="navbar-brand">Candidatura Certa</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/settings"><i class="fa-solid fa-user"></i> Minha Conta</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="header">
+      <h1>Rebranding de LinkedIn</h1>
+      <p>Transforme seu perfil num ímã de recrutadores com palavras-chave estratégicas e copywriting persuasivo.</p>
+    </div>
+
+    <div class="instructions">
+      <h3>Como usar:</h3>
+      <ol>
+        <li>Acesse seu perfil do LinkedIn.</li>
+        <li>Clique no botão <strong>"Mais"</strong> (abaixo da sua foto de capa).</li>
+        <li>Selecione <strong>"Salvar como PDF"</strong>.</li>
+        <li>Faça o upload do arquivo PDF gerado abaixo.</li>
+      </ol>
+    </div>
+
+    <div class="upload-card" id="dropzone" onclick="document.getElementById('file-upload').click()">
+      <div id="upload-content">
+        <i class="fa-solid fa-file-pdf upload-icon"></i>
+        <h3 style="color: white; margin-bottom: 0.5rem;">Clique para enviar seu PDF</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Ou arraste e solte o arquivo aqui</p>
+        <button class="btn">Selecionar Arquivo</button>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-overlay" id="loading-state">
+        <div class="spinner"></div>
+        <div class="loading-text">Analisando seu perfil com IA...</div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Isso pode levar até 30 segundos.</p>
+      </div>
+
+      <!-- Paywall State -->
+      <div class="paywall-overlay" id="paywall-state">
+        <i class="fa-solid fa-lock" style="color: var(--highlight); font-size: 3rem; margin-bottom: 1rem;"></i>
+        <h3>Recurso Premium</h3>
+        <p>O Rebranding de LinkedIn é exclusivo para assinantes PRO/Consultoria ou mediante compra avulsa.</p>
+        <div class="price-tag">R$ 19,90</div>
+        <button class="btn" onclick="buyRebranding(event)">Desbloquear Agora</button>
+      </div>
+    </div>
+    
+    <input type="file" id="file-upload" accept="application/pdf" onchange="handleFileSelect(event)">
+
+    <div class="result-section" id="result-section">
+      <h2>Seu Novo Perfil</h2>
+      <div class="markdown-body" id="result-content"></div>
+      <button class="btn" style="margin-top: 2rem;" onclick="copyResult()"><i class="fa-regular fa-copy"></i> Copiar Texto</button>
+    </div>
+  </div>
+
+  <script>
+    let hasAccess = false;
+
+    // Check access on load
+    async function checkAccess() {
+      try {
+        const res = await fetch('/api/linkedin/access-status', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        });
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        const data = await res.json();
+        hasAccess = data.has_access;
+
+        if (!hasAccess) {
+          document.getElementById('paywall-state').style.display = 'flex';
+          document.getElementById('upload-content').style.opacity = '0.2';
+          document.getElementById('dropzone').onclick = null; // Disable click if paywalled
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", checkAccess);
+
+    async function handleFileSelect(event) {
+      if (!hasAccess) return;
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.type !== 'application/pdf') {
+        alert('Por favor, envie um arquivo PDF.');
+        return;
+      }
+
+      await uploadAndProcess(file);
+    }
+
+    async function uploadAndProcess(file) {
+      document.getElementById('upload-content').style.display = 'none';
+      document.getElementById('loading-state').style.display = 'flex';
+      document.getElementById('result-section').style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/api/linkedin/generate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (res.status === 403) {
+          hasAccess = false;
+          document.getElementById('loading-state').style.display = 'none';
+          document.getElementById('paywall-state').style.display = 'flex';
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error('Falha ao gerar rebranding');
+        }
+
+        const data = await res.json();
+        
+        document.getElementById('result-content').innerHTML = marked.parse(data.markdown);
+        document.getElementById('result-section').style.display = 'block';
+
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        document.getElementById('upload-content').style.display = 'block';
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('file-upload').value = '';
+      }
+    }
+
+    async function buyRebranding(event) {
+      event.stopPropagation();
+      const btn = event.target;
+      const originalText = btn.innerText;
+      btn.innerText = 'Redirecionando...';
+      btn.disabled = true;
+
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/billing/linkedin-rebranding/checkout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!res.ok) throw new Error('Erro ao gerar checkout');
+        const data = await res.json();
+        window.location.href = data.checkout_url;
+      } catch (err) {
+        alert(err.message);
+        btn.innerText = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    function copyResult() {
+      const text = document.getElementById('result-content').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Texto copiado para a área de transferência!');
+      });
+    }
+
+    // Drag and drop support
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if(hasAccess) dropzone.style.borderColor = 'white';
+    });
+    dropzone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--highlight)';
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--highlight)';
+      if (!hasAccess) return;
+      if (e.dataTransfer.files.length) {
+        const file = e.dataTransfer.files[0];
+        if (file.type === 'application/pdf') {
+          uploadAndProcess(file);
+        } else {
+          alert('Por favor, envie um arquivo PDF.');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
