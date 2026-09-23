@@ -153,7 +153,7 @@ importScripts("automation-policy.js");
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const operation = message?.type;
-    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_ANALYZE_JOB", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS", "CC_GET_AUTO_WIDGET_STATUS", "CC_ENABLE_AUTO_WIDGET", "CC_DISABLE_AUTO_WIDGET"].includes(operation)) return false;
+    if (!["CC_GET_STATUS", "CC_GET_PROFILE", "CC_PREPARE_PROFILE", "CC_ANALYZE_JOB", "CC_COMPLETE_PREPARATION", "CC_LIST_DOCUMENTS", "CC_GET_APPLICATION_PDFS", "CC_GET_AUTO_WIDGET_STATUS", "CC_ENABLE_AUTO_WIDGET", "CC_DISABLE_AUTO_WIDGET", "CC_AUTO_APPLY"].includes(operation)) return false;
 
     (async () => {
       if (operation === "CC_GET_STATUS") return { ok: true, value: await apiRequest("/api/copilot/status") };
@@ -219,6 +219,24 @@ importScripts("automation-policy.js");
           },
         });
         return { ok: true, value };
+      }
+      if (operation === "CC_AUTO_APPLY") {
+        requirePopupSender(sender);
+        const { tab, host } = await requireActivePopupTab(message);
+        
+        // Execute field-filler and send the command
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            if (globalThis.CandidaturaCertaFieldFiller && typeof globalThis.CandidaturaCertaFieldFiller.startAutoApply === "function") {
+              globalThis.CandidaturaCertaFieldFiller.startAutoApply();
+            } else {
+              throw new Error("O script da página não está pronto. Clique em 'Mostrar copiloto nesta página' primeiro.");
+            }
+          }
+        });
+        
+        return { ok: true, message: "Iniciado com sucesso." };
       }
       if (!sender?.tab?.id) throw new Error("A preparação precisa continuar na aba da vaga.");
       const value = await apiRequest("/api/copilot/complete", {

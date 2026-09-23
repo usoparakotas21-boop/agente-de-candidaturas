@@ -12,6 +12,8 @@
   const showWidgetButton = $("showWidgetButton");
   const autoWidgetButton = $("autoWidgetButton");
   const closeWidgetButton = $("closeWidgetButton");
+  const autoApplyButton = $("autoApplyButton");
+  const autoSubmitConsent = $("autoSubmitConsent");
   const attachButton = $("attachPdfsButton");
   const attachmentConsent = $("attachmentConsent");
   const loadLibraryButton = $("loadLibraryDocuments");
@@ -47,6 +49,7 @@
     showWidgetButton.disabled = !connected || !supported || !checked || !activeTab?.id;
     autoWidgetButton.disabled = !supported || !activeTab?.id || (!connected && autoWidgetButton.dataset.enabled !== "true");
     closeWidgetButton.disabled = !supported || !activeTab?.id;
+    autoApplyButton.disabled = !connected || !supported || !autoSubmitConsent.checked || !activeTab?.id;
     updateLibraryControls();
     if (!supported) {
       let host = "página indisponível";
@@ -145,6 +148,25 @@
   });
 
   portalConsent.addEventListener("change", updatePageControls);
+  autoSubmitConsent.addEventListener("change", updatePageControls);
+  
+  autoApplyButton.addEventListener("click", async () => {
+    try {
+      autoApplyButton.disabled = true;
+      setMessage($("pageState"), "Iniciando Auto-Apply... Por favor, aguarde.");
+      const result = await chrome.runtime.sendMessage({ type: "CC_AUTO_APPLY", tabId: activeTab.id });
+      if (result && result.ok) {
+        setMessage($("pageState"), "Auto-Apply concluído! Verifique a página.", "success");
+      } else {
+        setMessage($("pageState"), result?.message || "Houve um problema ao processar o Auto-Apply.", "error");
+      }
+    } catch (error) {
+      setMessage($("pageState"), error.message, "error");
+    } finally {
+      updatePageControls();
+    }
+  });
+
   showWidgetButton.addEventListener("click", async () => {
     showWidgetButton.disabled = true;
     try {

@@ -171,11 +171,69 @@
   }
 
   api.fillProfileFields = fillProfileFields;
+
+  let autoApplyActive = false;
+
+  async function startAutoApply() {
+    if (autoApplyActive) return;
+    autoApplyActive = true;
+    sessionStorage.setItem("cc_auto_apply_active", "true");
+    
+    let profile = null;
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "CC_GET_PROFILE" });
+      if (resp?.ok) profile = resp.value;
+    } catch (e) {
+      console.error("Candidatura Certa:", e);
+      stopAutoApply();
+      return;
+    }
+
+    async function tick() {
+      if (!autoApplyActive) return;
+      
+      if (profile) fillProfileFields(profile);
+
+      const portal = globalThis.CandidaturaCertaPortalSelectors?.getPortalDefinition?.(location.hostname);
+      if (portal && portal.submit_buttons) {
+        for (const selector of portal.submit_buttons) {
+          const btn = document.querySelector(selector);
+          if (btn && !btn.disabled && btn.getClientRects().length > 0 && getComputedStyle(btn).display !== "none") {
+            try { btn.click(); } catch (err) {}
+            // Pausa maior após clicar
+            setTimeout(tick, 3000);
+            return;
+          }
+        }
+      }
+      setTimeout(tick, 1500);
+    }
+    tick();
+  }
+
+  function stopAutoApply() {
+    autoApplyActive = false;
+    sessionStorage.removeItem("cc_auto_apply_active");
+  }
+
+  api.startAutoApply = startAutoApply;
+  api.stopAutoApply = stopAutoApply;
+
   const messageListener = (message, _sender, sendResponse) => {
-    if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
-    sendResponse(fillProfileFields(message.profile || {}));
-    return false;
+    if (message?.type === "CC_FILL_PROFILE_FIELDS") {
+      sendResponse(fillProfileFields(message.profile || {}));
+      return false;
+    }
+    if (message?.type === "CC_STOP_AUTO_APPLY") {
+      stopAutoApply();
+      sendResponse({ ok: true });
+      return false;
+    }
   };
   chrome.runtime.onMessage.addListener(messageListener);
   globalThis.__ccAutofillMessageListener = messageListener;
+
+  if (sessionStorage.getItem("cc_auto_apply_active") === "true") {
+    startAutoApply();
+  }
 })();

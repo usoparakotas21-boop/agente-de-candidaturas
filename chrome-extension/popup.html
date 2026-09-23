@@ -25,7 +25,9 @@
     <label class="consent"><input id="portalConsent" type="checkbox"><span>Confirmei que o portal permite preenchimento assistido. Para ativar o botão automático, autorizo o complemento neste domínio; ele só mostra dados após meu clique e nova confirmação.</span></label>
     <div class="actions"><button id="showWidgetButton" class="primary" type="button" disabled>Mostrar copiloto nesta página</button><button id="closeWidgetButton" type="button" disabled>Remover</button></div>
     <div class="actions"><button id="autoWidgetButton" type="button" disabled>Ativar botão automaticamente neste domínio</button></div>
-    <p id="pageState" class="notice" role="status" aria-live="polite">O complemento não faz login nos portais, não resolve verificações nem envia sua candidatura. Você revisa e envia.</p>
+    <label class="consent" style="background:#fff3e0;color:#e65100;border:1px solid #ffe0b2"><input id="autoSubmitConsent" type="checkbox"><span>Permitir que a extensão clique em "Avançar" e "Enviar" automaticamente. Requer que os dados do perfil estejam corretos.</span></label>
+    <div class="actions"><button id="autoApplyButton" class="primary" type="button" disabled>🚀 Auto-Apply (1 Clique)</button></div>
+    <p id="pageState" class="notice" role="status" aria-live="polite">O complemento não faz login nos portais, não resolve verificações nem envia sua candidatura sem a sua autorização.</p>
   </section>
   <section class="card" aria-labelledby="attachHeading">
     <h2 id="attachHeading">Anexar documentos PDF</h2>
