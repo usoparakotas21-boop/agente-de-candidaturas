@@ -13,6 +13,9 @@ class AIProviderError(RuntimeError):
 
 MAX_PROVIDER_RESPONSE_BYTES = 64 * 1024
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
+_PROMPT_RESPONSE_CACHE: dict[str, tuple[float, dict]] = {}
+CACHE_TTL_SECONDS = 3600  # 1 hora de cache em memória para solicitações idênticas
+
 
 
 def _bounded_text(value: object, *, limit: int, default: str = "") -> str:

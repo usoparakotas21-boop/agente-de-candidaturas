@@ -81,6 +81,32 @@
       },
       submit_buttons: ["button[type='submit']", "button:contains('Finalizar')"],
       note: "Listas suspensas personalizadas e perguntas não padronizadas ficam para revisão manual."
+    },
+    {
+      id: "linkedin",
+      domains: ["linkedin.com"],
+      fields: {
+        name: ["input[name*='name']", "input[id*='name']"],
+        email: ["input[type='email']", "input[name*='email']"],
+        phone: ["input[type='tel']", "input[name*='phoneNumber']", "input[name*='phone']"],
+        headline: ["input[name*='headline']"],
+        summary: ["textarea[name*='summary']"],
+        linkedin: ["input[name*='linkedin']"]
+      },
+      submit_buttons: ["button[type='submit']", "button[aria-label*='Submit']", "button[aria-label*='Submit application']"]
+    },
+    {
+      id: "indeed",
+      domains: ["indeed.com", "indeed.com.br"],
+      fields: {
+        name: ["input[name*='name']", "input[id*='applicant-name']"],
+        email: ["input[type='email']", "input[name*='email']"],
+        phone: ["input[type='tel']", "input[name*='phone']"],
+        headline: ["input[name*='headline']", "input[name*='title']"],
+        summary: ["textarea[name*='summary']", "textarea[name*='letter']"],
+        linkedin: ["input[name*='linkedin']"]
+      },
+      submit_buttons: ["button[type='submit']", "button:contains('Continue')", "button:contains('Submit')"]
     }
   ];
 
