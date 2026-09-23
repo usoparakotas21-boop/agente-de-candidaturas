@@ -366,6 +366,92 @@ Camila não mudou quem é. Mudou a **linguagem**. E ninguém no novo trabalho ja
 
 ---
 
+# Capítulo 2: Os 4 Perfis Isolados — Muito Além do D
+
+Você já sabe que o DISC tem 4 letras. Mas provavelmente alguém te explicou apenas o D (Dominância) porque é o mais "fácil de entender". Vamos corrigir essa lacuna agora.
+
+## 2.1 — Dominância (D): "O Executor"
+
+**Máscara:** "Sou um líder que agita a equipe."
+
+**Características nucleares:**
+- Foco obsessivo em resultados
+- Decisão rápida, às vezes impulsiva
+- Competitivo (o tipo que joga videogame com raiva)
+- Impaciente com burocracia
+- Vê problemas como desafios, não como ameaças
+
+**Gatilhos que o teste procura:**
+- Palavras: "ação", "decisão", "resultados", "controle", "vencer", "agir"
+- Frequência alta em respostas assertivas (1 ou 2 em escala Likert)
+- Consistência em "sempre" para frases de iniciativa
+
+**O que evitar:** Mencionar "harmonia", "planejamento longo", "consenso". Isso dilui o D e o teste te joga em outro perfil.
+
+**Cargo típico:** Gerente de Projetos, Vendedor de alta performance, CEO de startup em fase de crescimento.
+
+## 2.2 — Influência (I): "O Comunicador"
+
+**Máscara:** "Sou comunicativo e entusiasmado."
+
+**Características nucleares:**
+- Carismático, o tipo que todo mundo lembra do nome
+- Otimista até quando não faz sentido ser
+- Gosta de estar no centro das atenções (e não finge que não gosta)
+- Persuasivo — consegue vender geladeira pra esquimó
+- Impulsivo emocionalmente
+
+**Gatilhos que o teste procura:**
+- Palavras: "equipe", "motivar", "celebrar", "comunicar", "entusiasmo", "energia"
+- Concordância com frases sobre socializar, conversar, inspirar
+- Preferência por comunicação verbal sobre escrita
+
+**O que evitar:** Excesso de "análise", "detalhes", "sozinho". Isso te empurra para C ou S.
+
+**Cargo típico:** Marketing, Relações Públicas, Recrutador, Vendedor consultivo, Gerente de Comunidade.
+
+## 2.3 — Estabilidade (S): "O Planejador"
+
+**Máscara:** "Sou confiável e estável."
+
+**Características nucleares:**
+- Paciente — o tipo que não levanta da mesa até resolver
+- Confiável, a pessoa que TODO MUNDO chama pra desabafar
+- Evita conflitos (não por medo, por pragmatismo)
+- Prefere ritmo constante a explosões de produtividade
+- Leal a pessoas e processos
+
+**Gatilhos que o teste procura:**
+- Palavras: "paciência", "estabilidade", "harmonia", "confiança", "processos"
+- Concordância com "prefiro ambientes estáveis", "sou paciente"
+- Preferência por rotina e consistência
+
+**O que evitar:** Frases sobre "mudança", "risco", "urgência". Isso joga você pro D.
+
+**Cargo típico:** Suporte técnico, Analista de RH, Atendimento, Coordenação, Enfermagem, Gestão de rotinas.
+
+## 2.4 — Conformidade (C): "O Analista"
+
+**Máscara:** "Sou detalhista e organizado."
+
+**Características nucleares:**
+- Perfeccionista (o tipo que revisa e-mail 3 vezes antes de enviar)
+- Lógico acima de emocional
+- Precisa entender o "porquê" das coisas
+- Desconfortável com decisões impulsivas
+- Identifica erros e falhas que ninguém mais vê
+
+**Gatilhos que o teste procura:**
+- Palavras: "análise", "detalhes", "precisão", "regras", "lógica", "procedimentos"
+- Concordância com "confio em lógica", "evito riscos", "analiso antes de decidir"
+- Frequência alta em "sempre" para frases sobre qualidade e precisão
+
+**O que evitar:** Frases sobre "intuição", "ação rápida", "improvisar". Isso te empurra pra D ou I.
+
+**Cargo típico:** Auditor, Contador, Analista de Dados, Desenvolvedor, Engenheiro de Qualidade, Jurídico.
+
+---
+
 # Capítulo 3: As 12 Combinações — Porque Ninguém é Uma Letra Só
 
 Aqui está onde a maioria dos "guias" falha. Eles te ensinam como parecer D, I, S ou C isoladamente. Mas o teste real não funciona assim. Ele calcula **combinações** — dois traços acima da média que se influenciam mutuamente.

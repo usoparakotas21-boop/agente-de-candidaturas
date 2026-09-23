@@ -51,7 +51,7 @@ def make_manuscript() -> str:
         between(main, "# Capítulo 1:", "# Capítulo 2:"),
         between(main, "# Capítulo 2:", "# Capítulo 3:"),
         between(extra, "## Caso 1:", "## Caso 2:").replace("## Caso 1:", "# Caso 1:", 1),
-        between(main, "# Capítulo 3:", "# Capítulo 4:"),
+        between(main, "# Capítulo 2:", "# Capítulo 4:"),
         between(main, "# Capítulo 4:", "# Capítulo 5:"),
         between(main, "# Capítulo 5:", "# Capítulo 6:"),
         between(extra, "## Caso 2:", "## Caso 3:").replace("## Caso 2:", "# Caso 2:", 1),
@@ -579,9 +579,22 @@ def build(mode: str = "bundle") -> None:
     md = make_manuscript()
     if mode == "preview":
         try:
-            md = md.split("# Capítulo 3:")[0].strip()
+            md = md.split("# Capítulo 2:")[0].strip()
         except:
             pass
+        md += """
+
+---
+
+# Gostou do Preview?
+
+Esta é apenas uma amostra grátis do primeiro módulo.
+
+Para descobrir o perfil exato que as empresas procuram na sua área, aprender como hackear cada etapa do processo seletivo e acessar os **Cards de Bolso** com todas as colas do que responder, adquira a versão completa.
+
+[**CLIQUE AQUI PARA ADQUIRIR O COMBO: 30 dias de Plano Start + E-book Completo**](https://candidaturacerta.com.br/#planos)
+
+---"""
         OUT = ROOT.parent / "output" / "docx" / "Preview_DISC_Hackeado.docx"
     elif mode == "livro":
         md = md.split("# CARDS DE BOLSO")[0].strip()

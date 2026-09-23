@@ -5160,6 +5160,56 @@ async def create_ebook_checkout(request: Request, user=Depends(authenticated_use
     return {"checkout_url": data.get("init_point")}
 
 
+@app.post("/billing/combo/checkout", include_in_schema=False)
+async def create_combo_checkout(request: Request, user=Depends(authenticated_user)):
+    owner_id = _owner_id(user)
+    if not owner_id:
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
+    _enforce_rate_limit(request, "billing-checkout", str(owner_id))
+    mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    if not mercadopago_token:
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
+    price_cents = 5000
+    order_nsu = f"combo-{uuid.uuid4().hex}"
+    base_url = _public_base_url()
+    return_url = f"{base_url}/billing/mercadopago/success?order_nsu={quote(order_nsu, safe='')}"
+    payload = {
+        "items": [{"id": "combo-start-ebook", "title": "Combo: Start 30 Dias + E-book Hackeando o DISC", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "external_reference": order_nsu,
+        "payer": {"email": str(user.get("email") or "")},
+        "back_urls": {
+            "success": f"{return_url}&return_status=approved",
+            "pending": f"{return_url}&return_status=pending",
+            "failure": f"{return_url}&return_status=rejected",
+        },
+        "auto_return": "approved",
+        "notification_url": f"{base_url}/webhooks/mercadopago",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post("https://api.mercadopago.com/checkout/preferences", headers={"Authorization": f"Bearer {mercadopago_token}"}, json=payload)
+            res.raise_for_status()
+            data = res.json()
+    except httpx.HTTPError:
+        logger.exception("Falha na integracao com Mercado Pago")
+        raise HTTPException(502, "Falha ao gerar link de pagamento Mercado Pago.")
+    
+    db = SessionLocal()
+    try:
+        # We store the combo purchase in EbookPurchase so the user can download the ebook
+        purchase = EbookPurchase(
+            owner_id=owner_id,
+            order_nsu=order_nsu,
+            amount=price_cents,
+            status="PENDING",
+        )
+        db.add(purchase)
+        db.commit()
+    finally:
+        db.close()
+    
+    return {"checkout_url": data.get("init_point")}
+
 @app.post("/billing/document-export/checkout")
 async def create_document_export_checkout(req: DocumentExportCheckoutRequest, request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
@@ -5395,6 +5445,57 @@ async def mercadopago_webhook(request: Request):
         return {"received": True, "verified": False}
     db = SessionLocal()
     try:
+        if order_nsu.startswith("combo-"):
+            combo_purchase = db.scalar(select(EbookPurchase).where(EbookPurchase.order_nsu == order_nsu))
+            if combo_purchase and str(payment.get("status") or "").casefold() == "approved":
+                paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
+                if combo_purchase.status != "PAID" and paid_amount == combo_purchase.amount:
+                    combo_purchase.status = "PAID"
+                    combo_purchase.transaction_nsu = payment_id
+                    combo_purchase.paid_amount = paid_amount
+                    combo_purchase.paid_at = utc_now()
+                    
+                    owner_id = combo_purchase.owner_id
+                    subscription = db.scalar(
+                        select(BillingSubscription)
+                        .where(BillingSubscription.owner_id == owner_id)
+                        .order_by(BillingSubscription.updated_at.desc())
+                        .limit(1)
+                    )
+                    
+                    new_access_until = utc_now() + timedelta(days=30)
+                    
+                    if subscription:
+                        subscription.plan_code = "start"
+                        subscription.status = "canceled"
+                        current_access = _subscription_access_until(subscription)
+                        if current_access and current_access.tzinfo is None:
+                            current_access = current_access.replace(tzinfo=timezone.utc)
+                        if current_access and current_access > utc_now():
+                            subscription.access_until = current_access + timedelta(days=30)
+                        else:
+                            subscription.access_until = new_access_until
+                        subscription.updated_at = utc_now()
+                    else:
+                        subscription = BillingSubscription(
+                            owner_id=owner_id,
+                            plan_code="start",
+                            external_reference=order_nsu,
+                            mercadopago_preapproval_id=order_nsu,
+                            payer_email=str(payment.get("payer", {}).get("email") or ""),
+                            monthly_amount=paid_amount,
+                            currency="BRL",
+                            status="canceled",
+                            access_until=new_access_until,
+                            created_at=utc_now(),
+                            updated_at=utc_now()
+                        )
+                        db.add(subscription)
+                    
+                    db.commit()
+                return {"received": True, "verified": True, "status": payment.get("status")}
+            return {"received": True, "verified": bool(combo_purchase), "status": payment.get("status")}
+
         if order_nsu.startswith("ebook-"):
             ebook_purchase = db.scalar(select(EbookPurchase).where(EbookPurchase.order_nsu == order_nsu))
             if ebook_purchase and str(payment.get("status") or "").casefold() == "approved":
