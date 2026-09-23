@@ -1,0 +1,76 @@
+/* theme.css - Mobile First, Dark Mode Native, Glassmorphism */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Dark Mode Base Palette */
+  --ink: #f0f4f8;          /* Light text */
+  --muted: #94a3b8;        /* Muted text */
+  --line: rgba(255, 255, 255, 0.1); /* Subtle borders */
+  --soft: #0b1120;         /* Very dark background */
+  --paper: rgba(30, 41, 59, 0.5); /* Glass card background */
+  --navy: #e2e8f0;         /* High contrast text */
+  --blue: #3b82f6;         /* Primary brand color */
+  --blue-soft: rgba(59, 130, 246, 0.15); /* Primary soft */
+  --green: #10b981;        /* Success */
+  --green-soft: rgba(16, 185, 129, 0.15); /* Success soft */
+  --amber: #f59e0b;        /* Warning */
+  --amber-soft: rgba(245, 158, 11, 0.15); /* Warning soft */
+  --red: #ef4444;          /* Danger */
+  --red-soft: rgba(239, 68, 68, 0.15); /* Danger soft */
+  
+  /* Glassmorphism Shadows & Blurs */
+  --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(12px);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body { 
+  margin: 0; 
+  color: var(--ink); 
+  background: var(--soft); 
+  /* Deep, vibrant dark gradient background */
+  background: radial-gradient(circle at 15% 50%, #0f172a, #020617 80%);
+  background-attachment: fixed;
+  overflow-x: hidden; 
+  line-height: 1.6; 
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; transition: all 0.2s ease; }
+[hidden] { display: none !important; }
+
+/* Core Glassmorphism Card Utility */
+.glass-card {
+  background: var(--paper);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--shadow);
+  border-radius: 20px;
+}
+
+/* Base Topbar */
+.topbar {
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between;
+  min-height: 72px; 
+  padding: 0 24px; 
+  color: white;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: var(--glass-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+@media (min-width: 768px) {
+  .topbar { padding: 0 5vw; }
+}

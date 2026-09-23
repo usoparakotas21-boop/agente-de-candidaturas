@@ -1,0 +1,111 @@
+(() => {
+  const api = (() => {
+    const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const unsafe = /captcha|recaptcha|hcaptcha|password|senha|confirm|verification|verificacao|security|seguranca|token|consent|terms|privacy|accept|agreement|termos|politica|motivation|motivacao|cover letter|carta de apresentacao|why (do|are)|porque (quer|deseja)|salary|pretensao|remuneracao|company|empresa|resume upload|curriculo|curriculum|portfolio|file|anexo/;
+    const allowedTypes = new Set(["text", "email", "tel", "url", "textarea"]);
+
+    function classify(descriptor) {
+      if (!descriptor || descriptor.disabled || descriptor.readOnly || descriptor.visible === false) return null;
+      const tag = String(descriptor.tagName || "").toLowerCase();
+      const type = tag === "textarea" ? "textarea" : String(descriptor.type || "text").toLowerCase();
+      if (!allowedTypes.has(type) || !["input", "textarea"].includes(tag)) return null;
+      const autocomplete = normalize(descriptor.autocomplete);
+      const signals = normalize([descriptor.label, descriptor.ariaLabel, descriptor.placeholder, descriptor.name, descriptor.id].filter(Boolean).join(" "));
+      if ((!signals && !autocomplete) || unsafe.test(signals)) return null;
+
+      if (autocomplete === "given name" || /\b(first name|given name|prenom)\b/.test(signals)) return "first_name";
+      if (autocomplete === "family name" || /\b(last name|family name|surname|sobrenome)\b/.test(signals)) return "last_name";
+      if (autocomplete === "email" || /\b(e mail|email address|email|correo)\b/.test(signals)) return "email";
+      if (autocomplete === "tel" || /\b(phone|telephone|mobile|cellphone|celular|telefone|whatsapp)\b/.test(signals)) return "phone";
+      if (/\b(linkedin)\b/.test(signals)) return "linkedin";
+      if (/\b(personal website|website|portfolio site|site pessoal|website pessoal)\b/.test(signals)) return "website";
+      if (autocomplete === "address level2" || /\b(city|cidade|municipio|location|localizacao)\b/.test(signals)) return "location";
+      if (/\b(full name|nome completo|candidate name|applicant name)\b/.test(signals)) return "name";
+      if (/\b(professional headline|professional title|current position|cargo atual|titulo profissional)\b/.test(signals)) return "headline";
+      if (/\b(professional summary|about me|about you|short bio|biography|resumo profissional|sobre voce|apresentacao profissional)\b/.test(signals)) return "summary";
+      if (/\b(work experience|professional experience|experiencia profissional|historico profissional)\b/.test(signals)) return "experiences";
+      if (/\b(skills|competencies|competencias|habilidades)\b/.test(signals)) return "skills";
+      if (/\b(education|academic background|formacao academica|escolaridade)\b/.test(signals)) return "education";
+      if (/\b(languages|idiomas|linguas)\b/.test(signals)) return "languages";
+      if (autocomplete === "name" || /^name$/.test(normalize(descriptor.name)) || /^nome$/.test(normalize(descriptor.label))) return "name";
+      return null;
+    }
+
+    function valueFor(key, profile) {
+      const nameParts = String(profile.name || "").trim().split(/\s+/).filter(Boolean);
+      const values = {
+        name: profile.name,
+        first_name: nameParts[0] || "",
+        last_name: nameParts.length > 1 ? nameParts.slice(1).join(" ") : "",
+        email: profile.email,
+        phone: profile.phone,
+        linkedin: profile.linkedin,
+        website: profile.website,
+        location: profile.location,
+        headline: profile.headline,
+        summary: profile.summary,
+        experiences: (profile.experiences || []).map(item => [item.role, item.company, item.period, item.description].filter(Boolean).join(" — ")).join("\n"),
+        education: (profile.education || []).map(item => [item.course, item.institution, item.period].filter(Boolean).join(" — ")).join("\n"),
+        skills: (profile.skills || []).join(", "),
+        languages: (profile.languages || []).join(", ")
+      };
+      return typeof values[key] === "string" ? values[key].trim() : "";
+    }
+
+    function createFillPlan(descriptors, profile) {
+      const plan = [];
+      for (let index = 0; index < descriptors.length; index += 1) {
+        const descriptor = descriptors[index];
+        const key = classify(descriptor);
+        const value = key ? valueFor(key, profile || {}) : "";
+        if (!key || !value || descriptor.hasValue || (descriptor.maxLength > 0 && value.length > descriptor.maxLength)) continue;
+        plan.push({ index, key, value });
+      }
+      return plan;
+    }
+    return { createFillPlan };
+  })();
+
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  if (typeof chrome === "undefined" || !chrome.runtime?.onMessage || globalThis.__ccAutofillListenerInstalled) return;
+  globalThis.__ccAutofillListenerInstalled = true;
+
+  function describe(element) {
+    const tagName = element.tagName.toLowerCase();
+    const style = getComputedStyle(element);
+    const visible = element.getClientRects().length > 0 && style.display !== "none" && style.visibility !== "hidden" && element.getAttribute("aria-hidden") !== "true";
+    const labels = element.labels ? [...element.labels].map(label => label.innerText || label.textContent || "").join(" ") : "";
+    return {
+      tagName, type: tagName === "textarea" ? "textarea" : element.type,
+      autocomplete: element.getAttribute("autocomplete") || "", label: labels,
+      ariaLabel: element.getAttribute("aria-label") || "", placeholder: element.getAttribute("placeholder") || "",
+      name: element.getAttribute("name") || "", id: element.id || "",
+      disabled: element.disabled, readOnly: element.readOnly, visible, maxLength: element.maxLength,
+      hasValue: String(element.value || "").trim().length > 0
+    };
+  }
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== "CC_FILL_PROFILE_FIELDS") return;
+    try {
+      const elements = [...document.querySelectorAll("input, textarea")];
+      const descriptors = elements.map(describe);
+      const plan = api.createFillPlan(descriptors, message.profile || {});
+      let filled = 0;
+      for (const item of plan) {
+        const element = elements[item.index];
+        const prototype = item.key && element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+        if (!setter) continue;
+        setter.call(element, item.value);
+        element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        filled += 1;
+      }
+      sendResponse({ ok: true, filled });
+    } catch {
+      sendResponse({ ok: false, message: "Não foi possível preencher esta página. Confira se o formulário ainda está aberto." });
+    }
+    return false;
+  });
+})();

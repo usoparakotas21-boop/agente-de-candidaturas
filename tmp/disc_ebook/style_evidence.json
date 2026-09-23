@@ -1,0 +1,141 @@
+{
+  "input": "C:\\Users\\xucla\\Documents\\O C\u00f3digo por Tr\u00e1s do DISC versao semi.docx",
+  "fonts_by_char_count": {},
+  "direct_run_formatting_runs": 339,
+  "direct_paragraph_formatting_paragraphs": 0,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 1,
+      "text": "O C\u00f3digo por Tr\u00e1s do DISC",
+      "style": "Normal"
+    },
+    {
+      "para_index": 2,
+      "text": "O Manual Que Ningu\u00e9m Queria Que Voc\u00ea Lesse",
+      "style": "Normal"
+    },
+    {
+      "para_index": 4,
+      "text": "Pref\u00e1cio",
+      "style": "Normal"
+    },
+    {
+      "para_index": 22,
+      "text": "Introdu\u00e7\u00e3o",
+      "style": "Normal"
+    },
+    {
+      "para_index": 42,
+      "text": "Cap\u00edtulo 1: Entendendo o Funcionamento Real do Teste",
+      "style": "Normal"
+    },
+    {
+      "para_index": 43,
+      "text": "O que o teste n\u00e3o te conta",
+      "style": "Normal"
+    },
+    {
+      "para_index": 49,
+      "text": "O teste \u00e9 um c\u00f3digo, n\u00e3o uma senten\u00e7a",
+      "style": "Normal"
+    },
+    {
+      "para_index": 53,
+      "text": "Macete fundamental: Reescreva as perguntas com seu pr\u00f3prio filtro",
+      "style": "Normal"
+    },
+    {
+      "para_index": 61,
+      "text": "Cap\u00edtulo 2: Os 4 Perfis Isolados \u2014 Muito Al\u00e9m do D",
+      "style": "Normal"
+    },
+    {
+      "para_index": 63,
+      "text": "2.1 \u2014 Domin\u00e2ncia (D): \"O Executor\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 64,
+      "text": "M\u00e1scara:\u00a0\"Sou um l\u00edder que agita a equipe.\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 77,
+      "text": "2.2 \u2014 Influ\u00eancia (I): \"O Comunicador\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 78,
+      "text": "M\u00e1scara:\u00a0\"Sou comunicativo e entusiasmado.\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 91,
+      "text": "2.3 \u2014 Estabilidade (S): \"O Planejador\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 92,
+      "text": "M\u00e1scara:\u00a0\"Sou confi\u00e1vel e est\u00e1vel.\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 105,
+      "text": "2.4 \u2014 Conformidade (C): \"O Analista\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 106,
+      "text": "M\u00e1scara:\u00a0\"Sou detalhista e organizado.\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 136,
+      "text": "Cap\u00edtulo 3: As 12 Combina\u00e7\u00f5es \u2014 Porque Ningu\u00e9m \u00e9 Uma Letra S\u00f3",
+      "style": "Normal"
+    },
+    {
+      "para_index": 139,
+      "text": "3.1 \u2014 Combina\u00e7\u00f5es de Domin\u00e2ncia",
+      "style": "Normal"
+    },
+    {
+      "para_index": 140,
+      "text": "Di (Desenvolvedor / Impulsionador)",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "O C\u00f3digo por Tr\u00e1s do DISC",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "O Manual Que Ningu\u00e9m Queria Que Voc\u00ea Lesse",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "run_text": "Pref\u00e1cio",
+        "style": "Normal"
+      },
+      {
+        "para_index": 7,
+        "run_text": "responde",
+        "style": "Normal"
+      },
+      {
+        "para_index": 9,
+        "run_text": "delas",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

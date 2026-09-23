@@ -1,0 +1,170 @@
+{
+  "input": "C:\\agente_curriculos\\livro_disc\\DISC_Hackeado.docx",
+  "fonts_by_char_count": {
+    "Aptos": 62100
+  },
+  "direct_run_formatting_runs": 1320,
+  "direct_paragraph_formatting_paragraphs": 111,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 5,
+      "text": "Sobre o Autor \u2014 Ou: Por Que Algu\u00e9m de RH Escreveria Isso",
+      "style": "Normal"
+    },
+    {
+      "para_index": 8,
+      "text": "Pref\u00e1cio",
+      "style": "Normal"
+    },
+    {
+      "para_index": 9,
+      "text": "Introdu\u00e7\u00e3o",
+      "style": "Normal"
+    },
+    {
+      "para_index": 10,
+      "text": "CAP\u00cdTULO 0 \u2014 Descubra Seu Perfil Natural",
+      "style": "Normal"
+    },
+    {
+      "para_index": 12,
+      "text": "Cap\u00edtulo 1: Entendendo o Funcionamento Real do Teste",
+      "style": "Normal"
+    },
+    {
+      "para_index": 14,
+      "text": "Cap\u00edtulo 2: Os 4 Perfis Isolados \u2014 Muito Al\u00e9m do D",
+      "style": "Normal"
+    },
+    {
+      "para_index": 19,
+      "text": "Caso 1: Camila e a Vaga de Lideran\u00e7a",
+      "style": "Normal"
+    },
+    {
+      "para_index": 20,
+      "text": "Cap\u00edtulo 3: As 12 Combina\u00e7\u00f5es \u2014 Porque Ningu\u00e9m \u00e9 Uma Letra S\u00f3",
+      "style": "Normal"
+    },
+    {
+      "para_index": 30,
+      "text": "Cap\u00edtulo 5: A Regra dos 70% + 30%",
+      "style": "Normal"
+    },
+    {
+      "para_index": 32,
+      "text": "Caso 2: Rafael e o Erro do Excesso",
+      "style": "Normal"
+    },
+    {
+      "para_index": 33,
+      "text": "Cap\u00edtulo 6: Hacks por \u00c1rea de Atua\u00e7\u00e3o",
+      "style": "Normal"
+    },
+    {
+      "para_index": 38,
+      "text": "Cap\u00edtulo 7: Truques Espec\u00edficos para \"Hackear\" as Perguntas",
+      "style": "Normal"
+    },
+    {
+      "para_index": 44,
+      "text": "Cap\u00edtulo 8: O Que Fazer Se Voc\u00ea For Pego em \"Contradi\u00e7\u00e3o\"",
+      "style": "Normal"
+    },
+    {
+      "para_index": 45,
+      "text": "Cap\u00edtulo 9: O Que Fazer Depois do Teste",
+      "style": "Normal"
+    },
+    {
+      "para_index": 46,
+      "text": "Caso 3: Juliana e a Entrevista Que Desmascara",
+      "style": "Normal"
+    },
+    {
+      "para_index": 47,
+      "text": "CAP\u00cdTULO 10 \u2014 A Entrevista Comportamental: A Segunda Prova",
+      "style": "Normal"
+    },
+    {
+      "para_index": 52,
+      "text": "CAP\u00cdTULO 11 \u2014 Recupera\u00e7\u00e3o: E Se Voc\u00ea Reprovou",
+      "style": "Normal"
+    },
+    {
+      "para_index": 54,
+      "text": "FAQ \u2014 As Perguntas Que Reprovam Quando N\u00e3o Respondidas",
+      "style": "Normal"
+    },
+    {
+      "para_index": 56,
+      "text": "Conclus\u00e3o: O Que Ningu\u00e9m Te Contou",
+      "style": "Normal"
+    },
+    {
+      "para_index": 57,
+      "text": "CHECKLISTS \u2014 O Protocolo de Execu\u00e7\u00e3o",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "Voc\u00ea Perdeu Uma Vaga Para Algu\u00e9m Menos Competente Que Voc\u00ea.",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "text": "Sobre o Autor \u2014 Ou: Por Que Algu\u00e9m de RH Escreveria Isso",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "text": "E Por Que Escrever Isso Agora?",
+        "style": "Normal"
+      },
+      {
+        "para_index": 7,
+        "text": "A Raz\u00e3o Que Ningu\u00e9m de RH Admitiria",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 4,
+        "run_text": "Voc\u00ea Perdeu Uma Vaga Para Algu\u00e9m Menos Competente Que Voc\u00ea.",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "run_text": "Sobre o Autor \u2014 Ou: Por Que Algu\u00e9m de RH Escreveria Isso",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "run_text": "E Por Que Escrever Isso Agora?",
+        "style": "Normal"
+      },
+      {
+        "para_index": 7,
+        "run_text": "A Raz\u00e3o Que Ningu\u00e9m de RH Admitiria",
+        "style": "Normal"
+      },
+      {
+        "para_index": 8,
+        "run_text": "Pref\u00e1cio",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

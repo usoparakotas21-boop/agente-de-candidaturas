@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<profile>
+ <version>LibreOffice v1</version>
+ <device>
+  <type>opencl</type>
+  <name>gfx1031</name>
+  <driver>3652.0 (PAL,LC)</driver>
+  <time>7753</time>
+  <errors>false</errors>
+ </device>
+ <device>
+  <type>native</type>
+  <time>1852416</time>
+  <errors>false</errors>
+ </device>
+</profile>

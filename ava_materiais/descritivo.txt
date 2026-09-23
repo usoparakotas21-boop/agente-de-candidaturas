@@ -1,0 +1,1048 @@
+2026
+ESCOLA SUPERIOR DE
+EDUCAÇÃO, HUMANIDADES
+E LINGUAS
+DESCRITIVO DO ALUNO
+2
+SUMÁRIO
+1.APRESENTAÇÃO  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+2.JUSTIFICATIVA .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 5
+3.OBJETIVOS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .6
+3 .1 Objetivo geral  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .6
+3.2 Objetivos específicos  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+4.FUNDAMENTAÇÃO TEÓRICA  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .8
+4 .1 O Laboratório Didático das Licenciaturas na formação docente  . . . . . . . . . . . . . .8
+4 .2 O método CDIO (ou CPIO)  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+4 .2 .1 . Entendendo a sigla CDIO (ou CPIO)  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .11
+4 .3 O método CDIO aplicado à educação  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .12
+4 .3 .1 . Princípios do CDIO e sua contribuição na formação  . . . . . . . . . . . . . . . . . . . . . . . .13
+5.METODOLOGIA  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+5 .1 Avaliação (sem sustos!)  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .17
+5 .2 Abordagem prática  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .17
+5.3 Produção final: o que você vai entregar?  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .22
+5 .4 Mais detalhes sobre a avaliação  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .22
+6.CRONOGRAMA   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .25
+7.CARGA HORÁRIA E CERTIFICAÇÃO   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .27
+7.1 O que você vai fazer, na prática  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .27
+8.RECURSOS NECESSÁRIOS   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .30
+9.PERGUNTAS & RESPOSTAS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .32
+ANEXO 1 ........................................................ 37
+ANEXO 2 ........................................................ 38
+3
+1. APRESENTAÇÃO
+Vamos começar pelo começo, mas sem complicar demais, prometemos.
+Ser professor hoje vai muito além de conhecer bem o conteúdo: é preciso saber 
+transformar esse conhecimento em aprendizagem real. Por isso, a formação inicial 
+nas licenciaturas precisa juntar duas coisas que não podem andar separadas: 
+teoria e prática. É justamente dessa parceria que nascem as habilidades que você 
+vai usar todos os dias em sala de aula .
+Nos cursos semipresenciais como os da UNINTER, esse desafio ganha um 
+tempero extra. Afinal, estamos falando de estudantes espalhados por diferentes 
+polos, com rotinas variadas e trajetórias diversas. Isso amplia o acesso à formação 
+(o que é ótimo!), mas também exige uma organização cuidadosa para garantir 
+que todo mundo tenha experiências práticas de qualidade, com orientação 
+adequada e reconhecimento institucional.
+É nesse cenário que entra em cena o Laboratório Didático das Licenciaturas. 
+Pense nele como um espaço pensado especialmente para você colocar a mão na 
+massa — testar ideias, experimentar práticas e desenvolver habilidades essenciais 
+para a docência. Ele complementa a carga horária prática do seu curso e conecta 
+o que você estuda com o que realmente acontece na sala de aula.
+O funcionamento é simples e estratégico:
+•	 As orientações acontecem no Ambiente Virtual de Aprendizagem 
+(AVA) .
+•	 Já as atividades práticas são realizadas presencialmente nos polos.
+4
+Assim, você tem o melhor dos dois mundos: flexibilidade para aprender e 
+segurança para praticar .
+Tudo isso é organizado com base em uma abordagem chamada CDIO — ou, em 
+bom português, Conceber, Projetar, Implementar e Operar. Traduzindo para a 
+vida real: você vai aprender a pensar, planejar, colocar em prática e avaliar suas 
+ações pedagógicas. Não é só estudar sobre ensinar; é aprender fazendo.
+No fim das contas, a proposta do laboratório é clara: ajudar você a se tornar um 
+professor mais preparado, crítico, autônomo e pronto para lidar com os desafios 
+da Educação Básica .
+E pode ficar tranquilo: você não vai fazer isso sozinho. Estamos aqui justamente 
+para te guiar em cada etapa desse caminho .
+Saudações acadêmicas,
+Dinamara Pereira Machado 
+Diretora da Escola Superior de Educação, Humanidades e Línguas (ESEHL)
+Bruno Luis Simão 
+Área de Extensão Curricularizada
+Carolina Datria Schulze
+Área de Geociências
+Fernanda Gusso Rosa Meller
+Área de LCC
+Flavio Tajima Barbosa
+Área de Exatas
+Sandra Regina Bernardes de Oliveira Rosa
+Área de Educação
+Michelle Roberta Cruvinel Buzani
+Área de LS
+Karina da Costa Santos
+Área de TES
+Rodrigo Mathias Rangel
+Área de Humanidades
+5
+2. JUSTIFICATIVA
+Agora que você já entendeu o que é o Laboratório Didático das Licenciaturas, 
+vem a pergunta natural: por que ele existe? E a resposta é bem direta. Porque 
+formar professores só com teoria já não dá conta do recado .
+Hoje, pesquisas e debates na área da educação mostram com bastante clareza 
+que ser professor é uma tarefa complexa (e você provavelmente já desconfia 
+disso). Não basta dominar conteúdos: é preciso saber ensinar, lidar com situações 
+reais, tomar decisões e adaptar estratégias. E isso não se aprende só lendo ou 
+assistindo aula; isso se aprende, principalmente, fazendo, testando, errando, 
+ajustando e refletindo.
+Por isso, a formação docente precisa ir além da teoria. É fundamental ter 
+experiências práticas organizadas, que permitam a você experimentar o papel 
+de professor de verdade, ainda que em um ambiente orientado e seguro. Esse 
+processo ajuda não só a desenvolver habilidades, mas também a construir algo 
+muito importante: sua identidade como professor.
+É exatamente aí que o Laboratório Didático das Licenciaturas entra como peça-
+chave. Ele foi pensado como uma forma de aproximar, de verdade, aquilo que 
+você estuda daquilo que você vai viver na prática. Com atividades planejadas, 
+acompanhadas e reconhecidas pela instituição, o laboratório ajuda você a 
+transformar conhecimento em ação .
+Outro ponto importante é o formato híbrido. Funciona assim:  
+você estuda, recebe orientações e se prepara no ambiente virtual, e depois leva 
+isso para a prática nos encontros presenciais no polo  . Isso garante não só mais 
+oportunidades de aprendizado, mas também organização, acompanhamento e 
+validação de tudo o que você realiza. Ou seja, nada fica solto ou “informal”.
+6
+E tem mais: o laboratório segue aquela lógica que comentamos antes, do modelo 
+CDIO (Conceber, Projetar, Implementar e Operar). Na prática, isso significa que 
+você não vai apenas cumprir tarefas, mas sim pensar, planejar, executar e analisar 
+suas próprias ações pedagógicas. É um aprendizado ativo, em que você deixa de 
+ser apenas espectador e passa a ser protagonista .
+No fim das contas, o Laboratório Didático não é só mais uma atividade do curso. 
+Ele é um espaço estruturado para fortalecer sua formação, conectar teoria e 
+prática e te preparar, de forma mais completa, para os desafios reais da sala de 
+aula .
+E sim, a ideia é justamente esta: quando você chegar lá fora, muita coisa já não 
+será novidade .
+7
+3. OBJETIVOS
+Chegamos a uma parte importante: entender o que, de fato, queremos alcançar 
+com tudo isso. Em outras palavras, qual é a intenção do Laboratório Didático das 
+Licenciaturas na sua formação?
+3.1 OBJETIVO GERAL
+De forma bem direta, o Laboratório Didático das Licenciaturas foi criado para 
+aproximar teoria e prática de verdade .
+Ele é estruturado com base no modelo CDIO (lembra dele?) e tem como missão 
+ajudar você a:
+•	 Desenvolver competências essenciais para ser professor.
+•	 Vivenciar situações práticas de ensino .
+•	 Complementar a carga horária prática do seu curso .
+Resumindo: não é só aprender sobre ensinar, é aprender a ensinar, ensinando .
+3.2 OBJETIVOS ESPECÍFICOS
+Agora, traduzindo os objetivos específicos para uma linguagem mais próxima do 
+seu dia a dia, o laboratório busca:
+•	 Ajudar você a desenvolver habilidades reais de professor
+Aqui, a ideia é identificar e trabalhar aquelas competências que fazem diferença 
+na sala de aula, como planejar aulas, conduzir atividades e lidar com situações 
+pedagógicas concretas .
+•	 Usar o modelo CDIO como guia (sem mistério!)
+Você vai perceber, na prática, como organizar suas ações pensando em etapas: 
+conceber, planejar, executar e avaliar. É um jeito estruturado de aprender fazendo.
+8
+•	 Aproveitar o melhor do formato híbrido
+A parte online para orientar, organizar e refletir. A parte presencial para colocar 
+a mão na massa. Essa combinação potencializa sua aprendizagem e deixa a 
+formação mais completa .
+•	 Fortalecer sua autonomia como futuro professor
+Ao longo das atividades, você será incentivado a tomar decisões, refletir sobre 
+suas práticas e construir seu próprio jeito de ensinar, com consciência e intenção.
+No fundo, todos esses objetivos caminham para a mesma direção: te preparar, 
+com mais segurança e experiência, para os desafios reais da docência.
+E sim, a ideia é que, aos poucos, você deixe de se perguntar “Como será dar aula?” 
+e comece a pensar “Ok, já sei por onde começar”.
+4. FUNDAMENTAÇÃO TEÓRICA
+Até aqui, você já entendeu o que é o Laboratório Didático das Licenciaturas, por 
+que ele existe e o que ele pretende fazer. Agora vem uma pergunta importante: 
+em que ideias tudo isso se apoia?
+Essa parte pode parecer mais “teórica” (e é mesmo). Mas calma, a ideia aqui 
+não é complicar, e sim te mostrar que tudo foi pensado com base em estudos e 
+práticas que já vêm dando certo na formação de professores.
+Hoje, a educação passa por muitas transformações — tecnológicas, sociais e 
+pedagógicas . E isso muda também a forma como professores precisam ser 
+formados. Não basta mais um modelo em que o estudante apenas escuta e 
+anota. O foco agora está em metodologias ativas, na participação do aluno e, 
+principalmente, na conexão com situações reais.
+9
+É nesse cenário que o Laboratório Didático das Licenciaturas ganha força: ele 
+funciona como um espaço onde a prática não é improvisada, mas planejada, 
+orientada e conectada com a teoria. Além disso, ele incentiva algo essencial para 
+quem quer ser professor: refletir sobre o que faz e por que faz.
+Outro ponto importante é o uso do modelo CDIO, que organiza o aprendizado de 
+forma prática e progressiva. Ele ajuda você a sair do papel de quem só aprende 
+para o papel de quem pensa, decide, testa e analisa — exatamente o que um 
+professor faz no dia a dia.
+4.1 O LABORATÓRIO DIDÁTICO DAS 
+LICENCIATURAS NA FORMAÇÃO DOCENTE
+Aqui vai uma ideia central: durante muito tempo, teoria e prática foram tratadas 
+como coisas separadas na formação de professores . E isso não funcionou muito 
+bem .
+Pesquisadores da área mostram que aprender apenas conceitos não prepara 
+ninguém para a realidade da sala de aula. Afinal, o cotidiano escolar é cheio de 
+desafios, imprevistos e decisões rápidas. É na prática que muita coisa acontece 
+de verdade .
+Por isso, a prática pedagógica não é só um “treino”: ela é um espaço onde você 
+constrói conhecimento profissional. É ali que você começa a desenvolver seu jeito 
+de ensinar, testar estratégias e entender o que funciona (e o que não funciona).
+O Laboratório Didático das Licenciaturas entra exatamente nesse ponto: ele cria 
+oportunidades para você vivenciar situações de ensino (reais ou simuladas) com 
+orientação. E mais importante ainda: ele incentiva você a pensar sobre essas 
+experiências.
+Não é só fazer por fazer. É fazer, analisar, ajustar e evoluir.
+Outro desafio que o laboratório ajuda a enfrentar é o do ensino semipresencial. 
+Quando existe distância física, é preciso organizar muito bem as atividades 
+para garantir qualidade e acompanhamento. Por isso, o modelo híbrido (online 
+10
++ presencial) não é por acaso; ele foi pensado para equilibrar flexibilidade com 
+prática concreta .
+Além disso, toda a proposta dialoga com a ideia de aprendizagem pela 
+experiência. Ou seja: você aprende a partir do que vive, refletindo sobre suas 
+ações e transformando isso em conhecimento .
+No fundo, o laboratório não quer apenas que você saiba ensinar conteúdos. Ele 
+quer que você se torne um professor crítico, consciente e capaz de transformar a 
+realidade ao seu redor .
+4.2 O MÉTODO CDIO (OU CPIO)
+Agora vamos entender melhor esse tal de CDIO, que, apesar do nome diferente, 
+é mais simples do que parece.
+CDIO é a sigla para Conceber, Projetar, Implementar e Operar. Traduzindo para 
+algo bem direto:
+•	 Pensar uma ideia .
+•	 Planejar como ela vai acontecer .
+•	 Colocar em prática .
+•	 Depois analisar como foi .
+Simples assim — e extremamente poderoso  .
+Esse modelo surgiu na área de engenharia, mas funciona muito bem na educação 
+porque organiza o aprendizado de forma ativa. Aqui, você não fica só recebendo 
+conteúdo: você participa, cria, testa e resolve problemas.
+No CDIO, o estudante assume um papel mais ativo, enquanto o professor atua 
+como alguém que orienta, provoca reflexões e acompanha o processo. Isso muda 
+bastante a dinâmica tradicional e pode até causar um estranhamento no começo .
+11
+E aí surgem algumas perguntas importantes (e bem honestas): você está 
+preparado para ter mais autonomia no seu aprendizado? Como equilibrar 
+liberdade para criar com a responsabilidade de fazer bem feito? Essas perguntas 
+não têm respostas prontas, e tudo bem. Elas fazem parte do processo.
+Outro ponto importante: o CDIO não substitui o que você já aprende nas 
+disciplinas, mas sim complementa. Ou seja, você continua tendo base teórica, 
+mas agora com mais oportunidades de aplicar esse conhecimento de forma 
+prática e integrada .
+As atividades seguem uma lógica de progressão: começam mais simples e 
+vão ficando mais complexas ao longo do curso. Aos poucos, você ganha mais 
+segurança, mais repertório e mais autonomia.
+E tem um detalhe essencial: muitas dessas atividades acontecem em grupo. 
+Isso significa aprender a trabalhar em equipe, dividir responsabilidades, ouvir 
+opiniões e construir soluções coletivas — habilidades fundamentais para qualquer 
+professor .
+No fim, o CDIO ajuda a responder aquela pergunta clássica:  quando vou usar 
+isso que estou aprendendo?
+A resposta, aqui, é: agora mesmo.
+4.2.1. ENTENDENDO A SIGLA CDIO (OU CPIO)
+Agora sim, vamos destrinchar de vez esse tal de CDIO, sem mistério e sem 
+complicação .
+Como você já viu, CDIO (ou CPIO, em português) é uma sequência de quatro 
+etapas. Mas o mais importante aqui não é decorar os nomes, e sim entender 
+como isso funciona na prática, especialmente na sua formação como professor.
+Pense no CDIO como um ciclo que organiza a forma como você aprende fazendo:
+12
+Conceber
+É o ponto de partida. Aqui, você olha para uma situação e tenta entender o que 
+realmente está acontecendo. Em educação, isso significa perguntar: qual é o 
+problema? O que os alunos precisam aprender? O que está dificultando esse 
+processo? Antes de sair fazendo qualquer coisa, você aprende a pensar bem o 
+problema .
+Projetar
+Agora que você entendeu o desafio, é hora de planejar. Aqui entra o famoso 
+plano de aula, escolha de estratégias, atividades e recursos. Mas não é só isso. 
+Você também aprende a pensar no contexto, nos alunos, no tempo disponível 
+e até nos imprevistos. Em resumo: é transformar ideias em um plano possível .
+Implementar
+Chegou a hora de colocar a mão na massa. É quando você aplica aquilo que 
+planejou, conduz uma atividade, testa uma estratégia, vivencia a prática. E aqui 
+vem um detalhe importante: nem tudo sai como o esperado, e está tudo bem. 
+É justamente nessa etapa que você aprende a se adaptar e resolver problemas 
+reais .
+Operar
+Essa é a fase que muita gente esquece, mas é uma das mais importantes. 
+Aqui, você avalia o que aconteceu: funcionou? O que deu certo? O que precisa 
+melhorar? É o momento de refletir e pensar em ajustes. Ou seja, você entende 
+que o trabalho do professor não termina quando a aula acaba — ele continua na 
+análise e na melhoria constante .
+Percebe o ciclo? Você pensa, planeja, faz e depois analisa. E recomeça o processo, 
+sempre em evolução .
+4.3 O MÉTODO CDIO APLICADO À 
+EDUCAÇÃO
+Agora vem a parte interessante: como tudo isso entra na sua formação como 
+professor?
+13
+Quando o CDIO é aplicado à educação, ele transforma a maneira como você 
+aprende. Em vez de só estudar conteúdos, você passa a planejar aulas, criar 
+estratégias de ensino, aplicar atividades e refletir sobre os resultados. Ou seja, 
+você vive, na prática, o que significa ser professor.
+Essa abordagem está muito ligada à ideia de aprender pela experiência . Você 
+não aprende só porque alguém explicou: você aprende porque viveu a situação, 
+pensou sobre ela e tentou melhorar .
+E isso desenvolve habilidades que são essenciais hoje, como:
+•	 Tomar decisões em sala de aula .
+•	 Resolver problemas inesperados .
+•	 Trabalhar com outras pessoas .
+•	 Adaptar estratégias conforme a realidade .
+Outro ponto forte do CDIO é que ele combina muito bem com o ensino híbrido. 
+Funciona assim: você pode conceber e planejar  no ambiente virtual e depois 
+implementar e analisar nas atividades presenciais. Tudo conectado, com sentido.
+No fim, essa metodologia ajuda você a construir algo fundamental: consciência 
+sobre a sua própria prática. Você deixa de apenas “dar aula” e passa a entender 
+o que está fazendo e por quê.
+4.3.1. PRINCÍPIOS DO CDIO E SUA 
+CONTRIBUIÇÃO NA FORMAÇÃO
+Se a gente tivesse que resumir o espírito do CDIO em uma frase, seria algo como: 
+formar profissionais completos, não só teóricos.
+Esse modelo parte da ideia de que aprender envolve muito mais do que conteúdo. 
+Envolve também desenvolver:
+•	 Competências pessoais : como pensamento crítico, criatividade e 
+responsabilidade .
+•	 Competências interpessoais : como comunicação, trabalho em 
+equipe e colaboração.
+14
+•	 Competências práticas: como planejar, executar e avaliar ações reais.
+E tudo isso não acontece de forma solta. O CDIO organiza o processo para que haja 
+conexão entre as disciplinas, as atividades e o que se espera que você aprenda.
+Outro ponto importante é a progressão: você começa com atividades mais 
+simples e, aos poucos, vai enfrentando desafios mais complexos. Isso respeita seu 
+tempo de aprendizagem e fortalece sua autonomia.
+Além disso, o modelo valoriza diferentes espaços de aprendizagem que não só 
+a sala de aula tradicional, por exemplo, ambientes virtuais, Polos EaD, atividades 
+práticas e trabalhos em grupo .
+Tudo isso contribui para uma formação mais rica e dinâmica .
+E tem um detalhe essencial: o CDIO também chama atenção para a 
+responsabilidade do profissional com o mundo ao seu redor. Ou seja, não 
+basta saber fazer, é preciso pensar nos impactos do que se faz, agir com ética e 
+contribuir para a sociedade .
+15
+5. METODOLOGIA
+Chegamos na parte em que muita gente pensa “Ok, mas como isso tudo vai 
+acontecer, na prática?”.
+A resposta é: de um jeito bem organizado — e, ao mesmo tempo, bem ativo.
+A metodologia do Laboratório Didático das Licenciaturas foi pensada para que 
+você não fique só na teoria , mas também não seja jogado na prática sem 
+preparo. A ideia é equilibrar os dois, usando o modelo CDIO como guia, ou seja, 
+você vai pensar, planejar, executar e refletir em cada etapa .
+Funciona assim: primeiro, você se prepara no ambiente virtual. Lá, vai encontrar 
+orientações sobre as atividades; objetivos bem definidos (nada de “faça aí e veja 
+no que dá”); materiais de apoio e encontros ao vivo para explicar, discutir e tirar 
+dúvidas. Esses momentos são importantes porque ajudam você a entender o 
+porquê de cada atividade, e não só o “como fazer”.
+Durante esses encontros online, tem um detalhe interessante: você não 
+estará sozinho. Sempre haverá dois professores atuando juntos: um conduz 
+a aula e explica os conteúdos enquanto o outro acompanha o chat, ajudando, 
+respondendo dúvidas e garantindo que ninguém fique perdido. Ou seja, é um 
+acompanhamento bem próximo, mesmo no ambiente virtual.
+Depois dessa preparação, vem a parte que muita gente gosta: a prática presencial 
+no polo .
+Aqui, a proposta é clara: é hora de colocar a mão na massa.  
+Você vai aplicar o que estudou, testar ideias, construir atividades e observar como 
+tudo funciona na prática .
+16
+E não é só isso. Essas atividades são pensadas para serem práticas, colaborativas 
+e conectadas com situações reais da Educação Básica .
+Outro ponto muito rico da metodologia é que você não vai trabalhar apenas com 
+colegas do seu curso . As atividades reúnem estudantes de diferentes licenciaturas . 
+Isso significa mais troca, mais perspectivas e, claro, aquele desafio de aprender 
+a trabalhar com pessoas que pensam diferente — algo muito comum na vida 
+docente .
+Juntos, vocês vão desenvolver materiais e propostas como:
+•	 Jogos educativos .
+•	 Recursos didáticos .
+•	 Sequências de aula.
+•	 Experimentos pedagógicos .
+Tudo isso enquanto exercitam habilidades fundamentais, como trabalho em 
+equipe, comunicação, organização e tomada de decisão.
+E aqui vai um ponto importante: errar faz parte do processo.  
+Na verdade, faz muita parte. Porque é justamente ao testar, ajustar e tentar de 
+novo que o aprendizado acontece de forma mais significativa.
+No fim, essa metodologia não quer que você apenas “cumpra atividades”.  
+Ela quer que você viva o processo de ensinar , de forma orientada, reflexiva e, 
+principalmente, real.
+E pode ir se acostumando: cada vez mais, você vai sair do papel de aluno que 
+acompanha para o de futuro professor que constrói.
+17
+Agora que você já entendeu como o laboratório se organiza, vamos dar um zoom 
+em como o CDIO acontece, na prática, dentro das atividades .
+Funciona como um passo a passo, mas daqueles que fazem sentido:
+Concepção
+Aqui você começa pensando no essencial: para quem é essa atividade? O que 
+esses alunos precisam aprender? É o momento de identificar necessidades reais 
+e definir objetivos claros. Nada de criar atividades “soltas” — tudo parte de uma 
+intenção pedagógica .
+Projeto
+Com o objetivo definido, é hora de planejar. Você e seu grupo vão decidir: c omo 
+vamos ensinar isso? Que material usar? Qual estratégia faz mais sentido? É 
+aqui que a ideia ganha forma e vira um plano estruturado.
+18
+Implementação
+Agora sim, mão na massa de verdade. Nos encontros presenciais, vocês vão 
+construir os materiais, testar ideias e lidar com desafios reais, inclusive aquele 
+clássico “Isso parecia mais fácil no papel”. E tudo bem, faz parte.
+Operação
+Por fim, vem a apresentação e a reflexão. Você mostra o que fez, explica como 
+usaria em sala de aula e analisa: funciona? Dá para melhorar? Como adaptar? 
+Aqui acontece um dos aprendizados mais importantes: olhar criticamente para 
+a própria prática .
+5.1 AVALIAÇÃO (SEM SUSTOS!)
+A avaliação não vai ser baseada só no resultado final — e isso é uma ótima notícia. 
+ 
+Ela acontece ao longo de todo o processo, considerando:
+•	 Sua participação e envolvimento .
+•	 A coerência pedagógica do que foi construído.
+•	 O trabalho em equipe.
+•	 A forma como você apresenta e registra suas ideias.
+Os professores acompanham tudo de perto, orientam, dão feedback e validam 
+as atividades. Assim, você não fica perdido em nenhum momento.
+5.2 ABORDAGEM PRÁTICA
+Aqui está o coração do laboratório: as oficinas práticas .
+Cada encontro vai ter um tema específico, que serve como guia para o que será 
+estudado e construído  . E não é aleatório . Tudo é pensado para dialogar com o 
+que você aprende no seu curso e o que é esperado na Educação Básica (com 
+19
+base na BNCC). Ou seja, o que você cria aqui tem potencial real de uso em sala 
+de aula .
+E o que você vai construir?
+Principalmente jogos e materiais pedagógicos, e isso tem um motivo forte: o uso 
+do lúdico como estratégia de ensino é extremamente potente . Jogos ajudam a 
+desenvolver não só o conteúdo, mas também habilidades como:
+•	 Raciocínio lógico .
+•	 Atenção .
+•	 Criatividade .
+•	 Cooperação .
+•	 Resolução de problemas .
+Ao longo do laboratório, você vai trabalhar com diferentes tipos de propostas: 
+jogos inclusivos, jogos motores, jogos de tabuleiro, atividades de atenção e 
+raciocínio lógico, jogos voltados para diferentes etapas (Educação Infantil, Ensino 
+Fundamental e Médio) .
+E aqui entra um ponto muito importante: nada é feito “por fazer” . Cada material 
+precisa:
+•	 Estar alinhado com objetivos de aprendizagem.
+•	 Considerar a faixa etária dos alunos .
+•	 Dialogar com as competências da BNCC.
+•	 Fazer sentido no contexto real da escola.
+Ou seja, você não está só criando um jogo bonito, está criando um recurso 
+pedagógico com intenção, propósito e aplicação.
+No fim das contas, essa abordagem prática tem um objetivo bem claro: te ajudar 
+a desenvolver a capacidade de planejar, criar e usar recursos didáticos de 
+forma consciente e eficaz .
+E, quando isso acontece, algo muda: você deixa de apenas imaginar como seria 
+ensinar e começa, de fato, a se reconhecer como professor em construção .
+20
+PASSO A PASSO  
+DA ESTRUTURA DA OFICINA
+
+21
+Jogos de inclusão
+Aqui, o foco é garantir que todo mundo participe. Você vai pensar em ativida-
+des que funcionem em turmas com diferentes ritmos, habilidades e necessida-
+des. Isso inclui adaptar regras, criar materiais acessíveis e usar diferentes estímu-
+los (visuais, táteis, sonoros etc.). O objetivo é simples e poderoso: ninguém fica 
+de fora da aprendizagem .
+Jogos motores
+Agora, o corpo entra em cena. Esses jogos trabalham movimento e aprendiza-
+gem em conjunto — coordenação, equilíbrio, orientação no espaço, entre outros 
+aspectos. A proposta é mostrar que aprender não acontece só sentado e em si-
+lêncio. O corpo também aprende, e muito.
+Jogos de tabuleiro
+Aqui, você entra no universo das regras, estratégias e decisões. Jogos de tabu-
+leiro são ótimos para desenvolver planejamento, raciocínio, respeito às regras e 
+interação com os colegas. E o melhor: você vai criar jogos conectados aos con-
+teúdos da sua área .
+Jogos de atenção
+Sabe quando a concentração parece fugir? Esses jogos ajudam exatamente nis-
+so. Eles são pensados para desenvolver foco, observação, escuta ativa e organi-
+zação mental. Você vai criar atividades que desafiem os alunos a prestar atenção 
+de forma ativa e envolvente .
+
+22
+Jogos de resolução de problemas
+Aqui, o desafio aumenta. Esses jogos colocam o aluno diante de situações que 
+exigem pensar, testar hipóteses e tomar decisões. A ideia é estimular o famoso 
+“Como eu resolvo isso?”. E mais importante: refletir sobre o caminho escolhido.
+Jogos de raciocínio lógico e  
+flexibilidade cognitiva
+Agora é hora de fazer o cérebro “dar um nó” (no bom sentido). Esses jogos tra-
+balham identificação de padrões, relações entre informações, mudança de es-
+tratégias e adaptação a novas regras. Ou seja, ajudam o aluno a pensar de forma 
+mais flexível e criativa.
+Jogos para a Educação Infantil
+Aqui, o foco é o brincar. As atividades são pensadas para crianças pequenas, 
+priorizando exploração, imaginação, interação e experiências sensoriais. Simples, 
+mas muito significativas. Porque, nessa fase, brincar é aprender.
+Jogos para o Ensino Fundamental 
+(Anos Iniciais e Finais)
+Nessa etapa, os jogos começam a integrar mais diretamente os conteúdos es-
+colares. Você vai criar atividades que envolvem desafios progressivos, estimulam 
+a participação e conectam teoria e prática. Tudo pensado para fazer o aluno 
+aprender de forma mais ativa .
+Jogos para o Ensino Médio
+Aqui, o nível sobe. Os jogos passam a envolver análise de situações mais com-
+plexas, interpretação de dados, argumentação e tomada de decisão. Além disso, 
+podem ser interdisciplinares, conectando diferentes áreas do conhecimento.
+23
+5.3 PRODUÇÃO FINAL: O QUE VOCÊ VAI 
+ENTREGAR?
+Ao final de cada experiência, você não vai sair só com o jogo pronto. Você vai 
+construir um conjunto completo de materiais que mostram todo o seu processo 
+de aprendizagem:
+1. O jogo desenvolvido na aula
+A prática acontecendo em tempo real .
+2. Um jogo personalizado para a sua área
+Aqui, você conecta o jogo diretamente com o seu curso.
+3. Um relatório
+Você explica o que fez, por que fez e o que aprendeu.
+4. Um plano de aula
+Você mostra como aplicar esse jogo em uma situação real de ensino.
+Tudo isso é pensado para garantir que você desenvolva não só o “saber fazer”, mas 
+também o saber explicar, planejar e refletir — que é o que realmente define um 
+bom professor .
+No fim, o mais importante não é apenas o produto final. É o caminho que você 
+percorre até ele .
+E, spoiler: esse caminho é onde a maior parte do aprendizado acontece.
+5.4 MAIS DETALHES SOBRE A AVALIAÇÃO
+Respira fundo. A palavra “avaliação” costuma assustar um pouco, mas aqui a 
+lógica é diferente .
+24
+Em vez de uma prova única ou algo “decorado”, a avaliação no Laboratório 
+Didático das Licenciaturas acontece ao longo de todo o processo . Ou seja, o 
+foco está muito mais no que você constrói e aprende do que em um resultado 
+isolado .
+Vamos entender como isso funciona, passo a passo:
+1. Produção de jogos
+Você vai desenvolver dois jogos , e cada um tem um papel importante na sua 
+aprendizagem:
+•	 O primeiro jogo  será feito junto com o professor, nos encontros 
+presenciais. Aqui, você terá orientação direta, podendo tirar dúvidas e 
+ajustar suas ideias em tempo real .
+•	 O segundo jogo  será feito de forma mais autônoma. A proposta é 
+aplicar o que você aprendeu, mas agora com um olhar mais voltado 
+para a sua área de formação .
+E tem um detalhe bem legal: esses jogos não ficam “guardados na gaveta”. Eles 
+passam a fazer parte do acervo do polo, podendo ser usados em outras atividades. 
+Ou seja, seu trabalho pode continuar ensinando outras pessoas.
+2. Elaboração do relatório
+Depois de criar os jogos, você vai organizar tudo em um relatório. Mas calma, 
+não é só um documento burocrático . Pense nele como o registro da sua jornada . 
+Nele, você vai incluir:
+•	 O que foi feito.
+•	 Como foi feito .
+•	 Quais estratégias você usou.
+•	 O que funcionou (e o que poderia melhorar).
+•	 E registros do processo (como fotos das etapas) .
+Aqui, o mais importante é mostrar que você pensou sobre o que fez .
+25
+3. Plano de aula
+Agora vem a conexão direta com a sala de aula. Você vai elaborar um plano de 
+aula mostrando como o jogo pode ser utilizado de forma pedagógica. Isso inclui:
+•	 Objetivos de aprendizagem.
+•	 Conteúdos trabalhados .
+•	 Estratégias de ensino .
+•	 Formas de avaliar os alunos .
+É aqui que você prova que não só criou um recurso, mas que sabe usar esse 
+recurso para ensinar .
+4. Entrega e validação
+O relatório e o plano de aula devem ser enviados pelo AVA, no link TRABALHOS. 
+E um ponto importante (pode relaxar!): não há nota . O processo é de validação, 
+ou seja, o professor vai verificar se os critérios foram atendidos e se o trabalho está 
+coerente com a proposta .
+5. Conclusão e certificado
+Ao final dos encontros do mês, você receberá uma palavra-chave . Essa palavra 
+deve ser inserida no campo de AVALIAÇÃO para liberar automaticamente seu 
+certificado, que corresponde à carga horária das atividades realizadas.
+Fique atento: esse link só aparece no final do período — então nada de sair 
+procurando antes.
+Em resumo
+A avaliação aqui não é um “teste final”, mas um acompanhamento do seu 
+desenvolvimento. Ela considera o que você construiu, como você pensou suas 
+ações e como você conecta tudo isso com a prática docente.
+No fim, a lógica é simples: mais do que provar que você sabe, você vai mostrar 
+que sabe fazer — e sabe por que está fazendo .
+26
+6. CRONOGRAMA
+A seguir, apresentamos o cronograma dos eventos que o estudante pode 
+escolher para cumprir sua presencialidade. Mas, caso queira participar de todos 
+os encontros, fique à vontade — será um prazer ter você conosco.
+Quadro 1 – Cronograma dos encontros do Laboratório 
+Didático das Licenciaturas
+MÊS/DATA HORÁRIO TEMÁTICAS
+Maio
+08/05 19h às 21h40 Tema: jogos de inclusão
+15/05 19h às 21h40 Tema: jogos de inclusão
+22/05 19h às 21h40 Tema: jogos motores
+29/05 19h às 21h40 Tema: jogos motores
+Junho
+05/06 19h às 21h40 Tema: jogos de tabuleiro
+12/06 19h às 21h40 Tema: jogos de tabuleiro
+19/06 19h às 21h40 Tema: jogos de tabuleiro
+26/06 19h às 21h40 Tema: jogos de tabuleiro
+Julho
+03/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+10/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+17/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+27
+MÊS/DATA HORÁRIO TEMÁTICAS
+24/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+31/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+Agosto
+07/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+14/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+21/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+28/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+Setembro
+04/09 19h às 21h40 Tema: jogos para a Educação Infantil
+11/09 19h às 21h40 Tema: jogos para a Educação Infantil
+18/09 19h às 21h40 Tema: jogos para a Educação Infantil
+25/09 19h às 21h40 Tema: jogos para a Educação Infantil
+Outubro
+02/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+09/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+16/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+2310 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+30/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+Novembro
+06/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+13/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+20/11 Gravado Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+27/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+28
+7. CARGA HORÁRIA E 
+CERTIFICAÇÃO
+Vamos falar de algo bem importante e que todo mundo quer saber: as horas . 
+O Laboratório Didático das Licenciaturas prevê uma carga horária total de até 120 
+horas. Mas atenção: essas horas não vêm todas de uma vez. Elas são construídas 
+mês a mês, conforme a sua participação.
+Funciona assim: a cada mês, você participa das atividades propostas, realiza a 
+avaliação correspondente no AVA e, então, recebe um certificado mensal com a 
+carga horária daquele período.
+No final, somando todos esses certificados, você pode chegar às 120 horas, desde 
+que cumpra tudo direitinho ao longo do percurso.
+Um detalhe importante: para que essas horas sejam contabilizadas, você precisa 
+se inscrever mensalmente  nas atividades . Sem inscrição + participação + 
+avaliação = sem certificado.
+Essa organização não é só burocracia. Ela ajuda a garantir o acompanhamento 
+das atividades, a organização do processo e a validação institucional da sua 
+participação .
+7.1 O QUE VOCÊ VAI FAZER, NA PRÁTICA
+Agora, sem rodeios: qual é o seu papel nisso tudo?
+Você participa como protagonista, alguém que constrói, testa, registra e reflete.
+As atividades acontecem de forma:
+•	 Online e ao vivo para orientação — obrigatório o acompanhamento 
+presencial no polo .
+•	 Presencial no polo para prática — OBRIGATÓRIO .
+E sim, a parte prática precisa acontecer no polo , pois é lá que a experiência 
+realmente se concretiza.
+29
+Durante o laboratório, você será responsável por:
+•	 Se preparar antes dos encontros
+Conferir a lista de materiais no AVA e levar tudo o que for necessário. Aqui não 
+tem surpresa de última hora .
+•	 Participar do encontro síncrono
+Acompanhar as orientações ao vivo e tirar dúvidas .
+•	 Colocar a mão na massa no polo
+Construir o jogo ou atividade proposta durante o encontro .
+•	 Registrar o processo
+Tirar fotos das etapas — isso serve como comprovação e também como parte da 
+sua reflexão.
+•	 Elaborar um plano de aula
+Mostrar como aquele material pode ser usado de forma real na sala de aula.
+•	 Produzir um relatório
+Descrever o que foi feito, como foi feito e o que você aprendeu.
+•	 Preencher a lista de presença
+Simples, mas essencial para validar sua participação.
+•	 Postar as atividades no AVA
+Relatório e plano de aula devem ser enviados no local correto (link “TRABALHOS”).
+Um detalhe muito importante: os materiais que você produzir não vão embora 
+com você. Eles ficam no polo e passam a fazer parte do acervo do Laboratório 
+Didático das Licenciaturas . Isso significa que outros estudantes podem usar 
+esses materiais, podendo servir para estágios e apoiar novas atividades. Ou seja, 
+seu trabalho continua tendo impacto mesmo depois que a atividade termina.
+30
+Sobre a certificação
+Para garantir seu certificado, você precisa cumprir alguns pontos básicos:
+•	 Participar do encontro .
+•	 Realizar a atividade prática.
+•	 Fazer a avaliação (com a palavra-chave).
+•	 Entregar os registros (relatório e plano de aula) .
+Sem isso, não tem como validar sua participação.
+Atenção!
+Cada curso pode ter exigências específicas de carga horária prática. Por isso, 
+é importante: acompanhar seu histórico acadêmico, verificar sua matriz 
+curricular e seguir as orientações da instituição .  
+ 
+No fim das contas, tudo isso pode parecer bastante coisa — e é mesmo. 
+Mas aqui vai a chave: não se trata apenas de cumprir tarefas. Trata-se de 
+aproveitar cada etapa para se aproximar, cada vez mais, daquilo que você 
+está se preparando para ser: professor de verdade .
+31
+8. RECURSOS NECESSÁRIOS
+Parabéns por chegar até aqui! Você está prestes a vivenciar o Laboratório 
+Didático das Licenciaturas, um espaço pensado para colocar a teoria em prática 
+e transformar sua formação docente em uma experiência concreta, criativa e 
+colaborativa .
+Neste laboratório, a ideia é simples, mas poderosa: aprender fazendo. Você terá 
+a oportunidade de criar jogos pedagógicos, elaborar planos de aula, produzir 
+relatórios e experimentar estratégias de ensino, tudo alinhado aos conteúdos 
+do seu curso semipresencial e às diretrizes da Base Nacional Comum Curricular 
+(BNCC) .
+Para que essa experiência seja proveitosa e organizada, contamos com três 
+pilares fundamentais: materiais, infraestrutura e colaboração.
+•	 Materiais: todos os itens necessários para a produção dos jogos 
+pedagógicos estarão listados no AVA . É essencial preparar tudo com 
+antecedência, garantindo que você possa se concentrar na prática e 
+aproveitar ao máximo cada encontro .
+•	 Infraestrutura: o Polo EaD é o seu ponto de apoio. Ele oferece espaço 
+físico adequado, recursos tecnológicos, armazenamento seguro dos 
+jogos e materiais produzidos, além de registrar sua presença para 
+controle administrativo .
+•	 Colaboração: o sucesso do laboratório depende da interação entre 
+estudantes, professores e polo. Ao participar ativamente, seguindo 
+as orientações e entregando os registros acadêmicos exigidos, você 
+garante que sua aprendizagem seja significativa e que as atividades 
+tenham validade institucional .
+32
+Como estudante, você será protagonista da sua formação. Isso significa participar 
+dos encontros online e presenciais, produzir os jogos, elaborar relatórios e planos 
+de aula e organizar seus materiais conforme indicado no AVA. Cada passo que 
+você der dentro do laboratório será um aprendizado, preparando-o para atuar 
+com competência, criatividade e sensibilidade na Educação Básica.
+Ao final, tudo que você produzir — jogos, relatórios e planos de aula — não 
+será apenas um registro: será parte de um acervo pedagógico que poderá ser 
+consultado e utilizado por outros estudantes, fortalecendo a prática coletiva e a 
+troca de saberes .
+O Laboratório Didático das Licenciaturas é mais do que um espaço de prática: 
+é um convite para experimentar, colaborar e crescer como futuro professor , 
+unindo teoria, prática e criatividade de forma leve, divertida e engajadora.
+33
+9. PERGUNTAS & RESPOSTAS
+1. O que é, exatamente, o Laboratório Didático das 
+Licenciaturas?
+Resposta:
+O Laboratório Didático das Licenciaturas é um projeto formativo que propõe 
+a realização de práticas pedagógicas orientadas para estudantes dos cursos 
+semipresenciais de licenciatura da UNINTER . Seu objetivo central é integrar teoria 
+e prática por meio de atividades planejadas, acompanhadas por professores e 
+validadas institucionalmente, complementando a carga horária prática dos 
+cursos .
+2. Por que esse laboratório é necessário na formação 
+inicial de professores?
+Resposta:
+Porque a formação docente não pode se limitar à transmissão de conteúdos 
+teóricos. O laboratório surge como resposta à necessidade de vivências práticas 
+sistematizadas, que permitam ao licenciando experimentar, refletir e reconstruir 
+suas concepções sobre o ensino e a aprendizagem, fortalecendo a identidade 
+profissional docente.
+3. Quem pode participar do Laboratório Didático das 
+Licenciaturas?
+Resposta:
+O laboratório é destinado aos estudantes dos cursos semipresenciais de 
+licenciatura da UNINTER, especialmente aqueles em situação de transição 
+(matriculados antes do novo marco regulatório), que precisam complementar ou 
+validar sua carga horária prática presencial prevista no currículo .
+34
+4. Como o laboratório funciona na prática, considerando 
+que o curso é semipresencial?
+Resposta:
+O funcionamento é híbrido . As orientações pedagógicas e aulas ocorrem de forma 
+síncrona no Ambiente Virtual de Aprendizagem (AVA), enquanto as atividades 
+práticas são realizadas presencialmente nos Polos EaD. Essa organização permite 
+o acompanhamento docente, o registro das práticas e a validação institucional 
+das atividades .
+5. O que significa dizer que o laboratório é fundamentado 
+no modelo CDIO (ou CPIO)?
+Resposta:
+Significa que as atividades do laboratório são organizadas em quatro etapas: 
+Conceber, Projetar, Implementar e Operar. Esse modelo orienta o estudante a 
+identificar um problema pedagógico, planejar uma solução, executar a proposta 
+e refletir sobre seu uso e aprimoramento, promovendo aprendizagem ativa e 
+experiencial .
+6. O modelo CDIO, originalmente da engenharia, realmente 
+se aplica à formação de professores?
+Resposta:
+Sim. O CDIO pode ser adaptado ao contexto educacional, pois valoriza a resolução 
+de problemas reais, o protagonismo discente, a reflexão crítica e a tomada 
+de decisões fundamentadas — competências essenciais à prática docente 
+contemporânea .
+7. Quais tipos de atividades práticas os estudantes 
+desenvolvem no laboratório?
+Resposta:
+Os estudantes desenvolvem principalmente materiais didáticos concretos, com 
+destaque para jogos pedagógicos. Esses jogos são organizados por temáticas, 
+como jogos de inclusão, motores, de atenção, de raciocínio lógico, de resolução 
+de problemas e jogos específicos para a Educação Infantil, o Ensino Fundamental 
+e o Ensino Médio .
+35
+8. Esses jogos precisam estar alinhados à BNCC?
+Resposta:
+Sim. Todo o planejamento das oficinas e dos materiais didáticos deve considerar 
+as competências e habilidades previstas na Base Nacional Comum Curricular 
+(BNCC), garantindo que os jogos sejam aplicáveis ao contexto real da Educação 
+Básica .
+9. Como ocorre a avaliação das atividades realizadas no 
+laboratório?
+Resposta:
+A avaliação é processual e formativa . São considerados o envolvimento do 
+estudante, a coerência pedagógica do material produzido, o trabalho colaborativo, 
+a qualidade das apresentações e os registros escritos, como relatório e plano de 
+aula. Não há atribuição de nota, apenas validação institucional.
+10. Quais produtos o estudante precisa entregar ao final 
+das atividades?
+Resposta:
+O estudante deve elaborar quatro produtos:
+1 . Um jogo desenvolvido durante a aula .
+2 . Um jogo personalizado relacionado ao seu curso.
+3 . Um relatório reflexivo sobre a prática.
+4 . Um plano de aula que sistematize o uso pedagógico do jogo.
+11. O que acontece com os materiais produzidos pelos 
+estudantes?
+Resposta: 
+ 
+Os materiais permanecem no Laboratório Didático das Licenciaturas do Polo 
+EaD, formando um acervo pedagógico coletivo que poderá ser utilizado por 
+outros estudantes em atividades acadêmicas, projetos de extensão e estágios 
+supervisionados .
+36
+12. A participação no laboratório gera certificação? É 
+obrigatório estar presencialmente no polo no dia da 
+atividade?
+Resposta:
+Sim. Ao final de cada período mensal, o estudante recebe um certificado 
+correspondente à carga horária cumprida, desde que participe das atividades, 
+realize a avaliação no AVA e utilize corretamente a palavra-chave informada ao 
+final dos encontros. Quanto à presencialidade: sim, é obrigatório desenvolver 
+essa atividade presencialmente no polo . Haverá lista de presença para assinatura .
+13. Qual é a carga horária total que pode ser cumprida no 
+laboratório?
+Resposta:
+A carga horária total prevista é de até 120 horas, distribuídas ao longo dos meses, 
+por meio de certificações mensais, conforme a participação efetiva do estudante 
+nas atividades propostas .
+14. Qual é o papel do Polo EaD no funcionamento do 
+laboratório?
+Resposta:
+O Polo EaD é responsável por organizar o espaço físico, garantir os recursos físicos 
+(sala, projeção, acesso a aula ao vivo) necessários para as práticas presenciais, 
+registrar a frequência dos estudantes e armazenar adequadamente os materiais 
+produzidos durante o laboratório. Os materiais para a produção dos jogos são de 
+responsabilidade do estudante .
+15. De que forma o laboratório contribui para a formação 
+profissional do futuro professor?
+Resposta:
+O laboratório contribui ao possibilitar a integração entre teoria e prática, o 
+desenvolvimento da autoria pedagógica, a reflexão crítica sobre a ação docente, 
+a produção de materiais inclusivos e contextualizados e o fortalecimento da 
+identidade profissional do licenciando.
+37
+16. E se eu não puder comparecer no dia da atividade?
+Resposta:
+Não haverá reposição de atividades . Caso o estudante não compareça ao encontro 
+programado, ele não receberá a carga horária correspondente àquele dia. Por 
+isso, é fundamental que o aluno acompanhe atentamente sua carga horária já 
+cumprida e verifique quantas horas ainda precisa integralizar ao longo do projeto. 
+Ao todo, o Laboratório Didático das Licenciaturas oferece 120 horas, distribuídas 
+mensalmente no período de maio a novembro, permitindo que o estudante 
+organize sua participação de acordo com suas necessidades formativas.
+17. E os materiais para a produção?
+Resposta:
+Os materiais para a produção dos jogos são de responsabilidade do estudante, 
+sendo disponibilizada a lista na sala do AVA onde o estudante deverá realizar 
+a sua inscrição. Portanto, é importantíssimo verificar a lista de materiais com 
+antecedência para que sua produção não seja prejudicada. O polo fornecerá 
+apenas o espaço, a projeção da aula ao vivo e o armazenamento após a finalização 
+do trabalho .
+18. Preciso participar de todos os encontros até o final do 
+ano?
+Resposta:
+Não, você pode participar das atividades até completar a sua carga horária 
+de transição. Após, caso queira, poderá participar das atividades para obter 
+certificação para as Atividades Complementares.
+38
+ANEXO 1
+RELATÓRIO DE PRÁTICA
+1. IDENTIFICAÇÃO
+Polo EaD:
+Cidade-UF:
+Data do encontro: __ / __ / 2026
+2. RELATÓRIO DA PRÁTICA REALIZADA NO LABORATÓRIO 
+DIDÁTICO DAS LICENCIATURAS
+Elabore um texto descritivo com extensão de 10 a 15 linhas, detalhando como 
+ocorreu a atividade no Laboratório Didático das Licenciaturas . O relato deve incluir 
+a organização do laboratório, os procedimentos realizados, os materiais utilizados, 
+a interação entre os participantes, bem como as observações e resultados obtidos 
+durante a prática . Procure descrever de forma clara e objetiva cada etapa da 
+experiência, destacando os aprendizados, dificuldades encontradas e soluções 
+adotadas. O objetivo é que o leitor compreenda completamente o desenvolvimento 
+da atividade e visualize o processo desde o início até a conclusão, sendo ressaltada, 
+assim, a aplicação prática dos conceitos estudados em sala de aula.
+3. REGISTROS FOTOGRÁFICOS – no mínimo 3 e no máximo 5 fotos
+Inclua as fotos de diferentes momentos do Laboratório Didático das Licenciaturas .
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+39
+ANEXO 2
+PLANO DE AULA
+Tema
+O tema corresponde ao assunto central da aula, isto é, o recorte do conteúdo 
+que será trabalhado com os estudantes. Deve ser apresentado de forma clara, 
+objetiva e específica, evitando generalizações excessivas. O que você deve 
+considerar: delimitar o conteúdo a ser abordado, garantindo foco e coerência 
+com o currículo e com os objetivos de aprendizagem. Exemplo: “Interpretação 
+de textos argumentativos” ou “Ciclo da água”.
+Duração:refere-se ao 
+tempo previsto para a 
+realização da aula ou 
+conjunto de aulas (ex.: 
+50 minutos, 2 aulas de 
+45 minutos etc.).
+Série/Turma indicada: indica o público-alvo da aula (ano/
+série, etapa de ensino ou perfil da turma).
+Objetivos
+Geral: o objetivo geral expressa a finalidade ampla 
+da aula, ou seja, o que se espera que o estudante 
+compreenda ou desenvolva ao final do processo. Está 
+relacionado à aprendizagem mais abrangente. Deve 
+ser escrito com verbos no infinitivo, como: compreender, 
+analisar, desenvolver, refletir.
+Específico: os objetivos específicos detalham as 
+aprendizagens que contribuirão para o alcance do objetivo 
+geral. São mais concretos, observáveis e mensuráveis. O 
+que você deve considerar:
+Descrever ações que o estudante deverá realizar.
+Utilizar verbos como: identificar, interpretar, comparar, 
+produzir, argumentar.
+Garantir coerência com o conteúdo e com a avaliação.
+Habilidade BNCC
+Refere-se à habilidade da Base Nacional Comum Curricular 
+(BNCC) que será desenvolvida na aula. Deve ser indicada 
+com o código (ex.: EF15LP02) e sua descrição.
+O que você deve considerar:
+Selecionar uma ou mais habilidades pertinentes ao tema.
+Garantir alinhamento entre habilidade, objetivos e 
+atividades propostas.
+Priorizar habilidades que envolvam competências 
+cognitivas e socioemocionais. 
+Objetivo
+de conhecimento
+Corresponde ao conteúdo conceitual que será trabalhado 
+na aula. Trata-se de “o que ensinar”, conforme previsto na 
+BNCC .
+O que você deve considerar:
+Identificar o conteúdo específico vinculado à habilidade.
+Evitar termos genéricos.
+Relacionar o conteúdo ao contexto da aula. Exemplo: 
+“Estrutura do texto argumentativo”, “Estados físicos da 
+água”.
+40
+Estratégias
+e recursos didáticos
+Este item descreve os meios e instrumentos que 
+serão utilizados para viabilizar o processo de ensino-
+aprendizagem.
+Estratégias: dizem respeito às ações pedagógicas 
+planejadas (ex.: aula expositiva dialogada, debate, estudo 
+de caso, trabalho em grupo, leitura orientada).
+Recursos didáticos: correspondem aos materiais utilizados 
+(ex.: quadro, slides, vídeos, textos, jogos, plataformas 
+digitais) .
+O que você deve considerar:
+Escolher estratégias adequadas ao perfil da turma.
+Variar os recursos para tornar a aula mais dinâmica .
+Garantir acessibilidade e clareza na utilização dos materiais.
+Metodologia
+A metodologia descreve como a aula será conduzida, ou 
+seja, o passo a passo do desenvolvimento das atividades. 
+Deve apresentar a sequência didática de forma organizada.
+O que você deve incluir:
+Momento inicial (motivação/introdução do tema) .
+Desenvolvimento (explicação, atividades, interação).
+Fechamento (síntese, retomada dos pontos principais).
+O que o professor deve considerar:
+A participação ativa dos estudantes.
+A mediação pedagógica.
+A progressão do conteúdo (do mais simples ao mais 
+complexo). 
+Avaliação
+A avaliação descreve como será verificado se os objetivos da 
+aula foram alcançados . Deve estar alinhada aos objetivos e 
+às atividades propostas .
+O que você deve considerar:
+Se a avaliação será diagnóstica, formativa ou somativa.
+Quais instrumentos serão utilizados (ex.: participação, 
+exercícios, produção textual, apresentação oral).
+Quais critérios serão observados (ex.: compreensão, 
+argumentação, organização de ideias).
+A avaliação deve ser contínua e considerar o processo de 
+aprendizagem, não apenas o resultado final.
+Referências
+bibliográficas
+(se houver)
+Neste item devem ser indicadas as fontes utilizadas para 
+o planejamento da aula, como livros, artigos, documentos 
+oficiais ou materiais digitais.
+O que você deve considerar:
+Utilizar referências confiáveis e atualizadas.
+Seguir, preferencialmente, normas acadêmicas (como 
+ABNT) .
+Incluir também materiais utilizados pelos estudantes, se 
+pertinente .
+41
+Dados de
+produção
+Instituição
+CENTRO UNIVERSITÁRIO INTERNACIONAL UNINTER
+Projeto/Documento
+LABORATÓRIO DIDÁTICO DAS LICENCIATURAS: DESCRITIVO DO ALUNO
+Elaboração
+BRUNO LUIS SIMÃO
+CAROLINA DATRIA SCHULZE
+DINAMARA PEREIRA MACHADO
+FERNANDA GUSSO ROSA MELLER
+FLAVIO TAJIMA BARBOSA
+KARINA DA COSTA SANTOS
+MICHELLE ROBERTA CRUVINEL BUZANI
+RODRIGO MATHIAS RANGEL
+SANDRA REGINA BERNARDES DE OLIVEIRA ROSA
+Reitor
+BENHUR ETELBERTO GAIO
+Pró-Reitor de Graduação
+RODRIGO BERTÉ
+Diretora ESEHL
+DINAMARA PEREIRA MACHADO
+Diagramação e Projeto Gráfico
+SAMUEL PEDRO CARDOSO
+Revisão
+JULIANA FOGIATO RODRIGUES

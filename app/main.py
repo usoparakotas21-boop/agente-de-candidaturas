@@ -3020,6 +3020,11 @@ def download_generated_document(document_id: int, user=Depends(authenticated_use
         ))
         if document is None:
             raise HTTPException(404, "Documento não encontrado.")
+            
+        export_meta = _document_export_metadata(user, application_id=document.application_id)
+        if not export_meta.get("allowed"):
+            raise HTTPException(403, "O download do documento requer o plano Start/Pro ou uma compra avulsa.")
+            
         if _document_expired(document):
             raise HTTPException(410, "Este documento expirou. Gere novamente para renovar o acesso.")
         if not document.content.startswith(b"PK"):

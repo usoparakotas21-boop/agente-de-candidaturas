@@ -1,0 +1,1484 @@
+2026
+ESCOLA SUPERIOR DE
+EDUCAÇÃO, HUMANIDADES
+E LINGUAS
+MANUAL
+2
+SUMÁRIO
+1.APRESENTAÇÃO  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+2.JUSTIFICATIVA .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  . 5
+3.OBJETIVOS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .7
+3 .1 Objetivo geral  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .7
+3.2 Objetivos específicos  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+4.FUNDAMENTAÇÃO TEÓRICA  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .8
+4 .1 Laboratório Didático das Licenciaturas com   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+práticas pedagógicas na formação docente  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .8
+4 .2 O método CDIO ou CPIO (traduzido para o português)  . . . . . . . . . . . . . . . . . . . . . .11
+4 .2 .1 . Entendendo a sigla CDIO ou CPIO (traduzido para o português)  . . . . . . . . . . .13
+4 .3 O método CDIO aplicado à educação  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .14
+4 .3 .1 . Os princípios do método CDIO e sua contribuição   . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+para a formação profissional no Ensino Superior  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .16
+5.METODOLOGIA  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .19
+5 .1 Abordagem prática  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .22
+5 .2 Avaliação  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .30
+6.CRONOGRAMA   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .33
+6 .1 Cronograma de elaboração das propostas e materiais   . . . . . . . . . . . . . . . . . . . . . . . . . 
+do Laboratório Didático das Licenciaturas  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .36
+6 .2 Atividades a serem desenvolvidas pelo estudante  . . . . . . . . . . . . . . . . . . . . . . . . . .37
+7.RECURSOS NECESSÁRIOS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .40
+8.PERGUNTAS & RESPOSTAS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .42
+9.REFERÊNCIAS  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .47
+ANEXO 1 ........................................................ 48
+ANEXO 2 ........................................................ 49
+3
+1. APRESENTAÇÃO
+A formação inicial de professores requer, de maneira cada vez mais evidente, a 
+articulação consistente entre os conhecimentos teóricos desenvolvidos ao longo 
+dos cursos semipresenciais de licenciatura e as práticas pedagógicas inerentes ao 
+exercício da docência . Nesse contexto, a consolidação de experiências formativas 
+que promovam a integração entre teoria e prática constitui um elemento 
+fundamental para o desenvolvimento de competências didáticas, pedagógicas e 
+profissionais indispensáveis à atuação docente na Educação Básica.
+No âmbito da Educação Superior, especialmente nos cursos semipresenciais 
+para alunos de transição (matriculados antes do novo marco regulatório), 
+torna-se imprescindível o planejamento e a implementação de estratégias 
+pedagógicas que assegurem aos acadêmicos oportunidades sistematizadas 
+de vivência prática, acompanhadas de orientação pedagógica qualificada e 
+respaldadas institucionalmente . O Centro Universitário Internacional UNINTER, 
+por meio de seus cursos semipresenciais de licenciatura, atende a um público 
+distribuído em diversos Polos EaD por todo o território nacional . Tal abrangência 
+amplia significativamente o acesso à formação docente ao mesmo tempo que 
+impõe desafios relacionados à organização, ao acompanhamento e à validação 
+de atividades práticas ao longo do percurso formativo .
+Diante desse cenário, o presente projeto propõe a implementação de um 
+Laboratório Didático das Licenciaturas com práticas pedagógicas, destinado aos 
+estudantes de transição dos cursos de licenciatura no formato semipresencial 
+da UNINTER. Com isso, a finalidade é contribuir para o desenvolvimento de 
+competências essenciais à atuação em sala de aula, bem como complementar 
+a carga horária prática prevista nos currículos dos cursos semipresenciais . O 
+laboratório será ofertado por meio do Ambiente Virtual de Aprendizagem (AVA) 
+institucional, no qual serão disponibilizadas orientações pedagógicas síncronas . 
+Entretanto, a execução das atividades práticas ocorrerá presencialmente nos 
+Polos EaD, assegurando a realização efetiva das propostas formativas, o registro 
+4
+das experiências desenvolvidas e a validação institucional das atividades por 
+meio da certificação do polo responsável.
+A concepção, o planejamento e a execução do Laboratório Didático das 
+Licenciaturas com práticas pedagógicas se fundamentam no modelo CDIO 
+(Conceive, Design, Implement, Operate ), traduzido para o português como 
+“Conceber, Projetar, Implementar e Operar” (CPIO) . Trata-se de uma abordagem 
+educacional originalmente desenvolvida no campo da engenharia, mas 
+que apresenta significativo potencial de adaptação a diferentes áreas do 
+conhecimento, incluindo a formação de professores . O modelo CDIO propõe uma 
+estrutura formativa baseada em experiências ativas de aprendizagem, nas quais 
+o estudante é conduzido a conceber, planejar, implementar e operacionalizar 
+soluções para situações concretas, favorecendo processos de aprendizagem 
+significativos e o desenvolvimento de competências profissionais.
+Ao ser aplicado ao contexto da formação docente, o modelo CDIO possibilita a 
+construção de práticas pedagógicas que estimulam o planejamento educacional, 
+a reflexão crítica sobre a prática, o desenvolvimento da autonomia profissional, a 
+resolução de problemas e a tomada de decisões fundamentadas . Dessa forma, 
+o Laboratório Didático das Licenciaturas busca contribuir para uma formação 
+docente mais integrada, contextualizada e alinhada às demandas contemporâneas 
+da educação, fortalecendo o processo formativo dos acadêmicos dos cursos 
+semipresenciais de licenciatura da UNINTER e qualificando sua preparação para 
+os desafios inerentes ao exercício profissional na Educação Básica.
+Saudações acadêmicas,
+Dinamara Pereira Machado 
+Diretora da Escola Superior de Educação, Humanidades e Línguas (ESEHL) 
+Bruno Luis Simão 
+Área de Extensão Curricularizada
+Carolina Datria Schulze
+Área de Geociências
+Fernanda Gusso Rosa Meller
+Área de LCC
+Flavio Tajima Barbosa
+Área de Exatas
+Sandra Regina Bernardes de Oliveira Rosa
+Área de Educação
+Michelle Roberta Cruvinel Buzani
+Área de LS
+Karina da Costa Santos
+Área de TES
+Rodrigo Mathias Rangel
+Área de Humanidades
+5
+2. JUSTIFICATIVA
+No campo das políticas e pesquisas educacionais contemporâneas, a formação 
+inicial de professores tem sido amplamente debatida, sobretudo no que se 
+refere à necessidade de fortalecer a articulação entre conhecimentos teóricos e 
+experiências práticas ao longo do processo formativo  . Diversos estudos indicam 
+que a complexidade do trabalho docente exige modelos de formação capazes 
+de integrar saberes acadêmicos, experiências pedagógicas e contextos reais de 
+ensino, favorecendo o desenvolvimento da identidade profissional docente e das 
+competências necessárias à atuação na Educação Básica.
+Nesse sentido, a literatura especializada destaca que a formação de professores 
+não pode restringir-se à transmissão de conhecimentos teóricos, sendo 
+fundamental a presença de práticas pedagógicas sistematizadas que permitam 
+ao futuro docente experimentar, refletir e reconstruir suas concepções sobre o 
+ensino e a aprendizagem . Conforme apontam estudos sobre formação docente, 
+a articulação entre teoria e prática constitui elemento central para a qualificação 
+dos processos formativos e para o desenvolvimento de práticas pedagógicas 
+contextualizadas e reflexivas.
+Considerando esse cenário, a implementação de um Laboratório Didático das 
+Licenciaturas com práticas pedagógicas se apresenta como uma iniciativa 
+estratégica para o aprimoramento da formação dos acadêmicos da transição 
+(matriculados antes do novo marco regulatório) dos cursos semipresenciais de 
+licenciatura da UNINTER . Ao promover atividades práticas orientadas, planejadas 
+e institucionalmente validadas, o projeto contribui para o fortalecimento da 
+integração entre conhecimentos teóricos e experiências pedagógicas aplicadas, 
+favorecendo a construção progressiva da identidade profissional docente 
+e a preparação do futuro professor para lidar com as demandas concretas do 
+contexto escolar .
+6
+Adicionalmente, o caráter híbrido do laboratório — que integra atividades 
+desenvolvidas em ambiente virtual à realização de práticas presenciais nos Polos 
+EaD — responde de forma coerente às especificidades do modelo semipresencial 
+adotado pela instituição . Essa organização possibilita ampliar as oportunidades 
+de aprendizagem prática, ao mesmo tempo que assegura a padronização 
+das experiências formativas, o acompanhamento pedagógico sistemático e 
+a validação institucional das atividades realizadas, garantindo transparência, 
+legitimidade e alinhamento às diretrizes curriculares dos cursos semipresenciais 
+de licenciatura .
+A adoção do modelo CDIO como fundamento metodológico do projeto reforça, 
+ainda, sua relevância acadêmica e pedagógica . Ao estruturar o desenvolvimento 
+das atividades práticas nas etapas de concepção, planejamento, implementação 
+e operação, o projeto favorece uma abordagem ativa de aprendizagem, centrada 
+no protagonismo do acadêmico e na resolução de situações pedagógicas 
+concretas . Tal perspectiva contribui para o desenvolvimento de competências 
+essenciais à docência contemporânea, tais como o planejamento educacional, a 
+tomada de decisões fundamentadas, a reflexão crítica sobre a prática e o exercício 
+da autonomia profissional.
+Dessa forma, o Laboratório Didático das Licenciaturas com práticas pedagógicas 
+se configura como um espaço formativo estruturado e integrado ao currículo 
+dos cursos semipresenciais de licenciatura, com potencial para impactar 
+significativamente a qualidade da formação inicial de professores. Ao articular 
+inovação pedagógica, respaldo institucional e compromisso com a excelência 
+formativa, o projeto consolida-se como uma iniciativa relevante, necessária e 
+estratégica para o fortalecimento dos cursos semipresenciais de licenciatura 
+da UNINTER e para a formação de profissionais preparados para enfrentar os 
+desafios contemporâneos da Educação Básica.
+7
+3. OBJETIVOS
+3.1 OBJETIVO GERAL
+Desenvolver e implementar um Laboratório Didático das Licenciaturas, 
+fundamentado no modelo CDIO, destinado aos estudantes dos cursos 
+semipresenciais de licenciatura da UNINTER, com a finalidade de fortalecer 
+a articulação entre teoria e prática, contribuir para o desenvolvimento de 
+competências docentes e complementar a carga horária prática prevista nos 
+currículos dos cursos semipresenciais .
+3.2 OBJETIVOS ESPECÍFICOS
+•	 Identificar as competências pedagógicas e didáticas necessárias à 
+atuação docente que podem ser desenvolvidas por meio de atividades 
+práticas estruturadas em um Laboratório Didático das Licenciaturas;
+•	 Analisar as contribuições do modelo CDIO para a organização e 
+execução de práticas pedagógicas no contexto da formação inicial de 
+professores em cursos semipresenciais de licenciatura;
+•	 Investigar o potencial do Laboratório Didático das Licenciaturas, 
+ofertado de forma híbrida, para a qualificação da formação docente 
+e para o atendimento às exigências curriculares dos cursos 
+semipresenciais de licenciatura;
+•	 Compreender de que forma a integração entre atividades online 
+orientadas e práticas presenciais nos Polos EaD contribui para o 
+desenvolvimento da autonomia, da reflexão crítica e da tomada de 
+decisões pedagógicas dos acadêmicos .
+8
+4. FUNDAMENTAÇÃO TEÓRICA
+As demandas contemporâneas da educação, associadas às transformações 
+sociais, tecnológicas e pedagógicas, impõem a necessidade de repensar os 
+processos de formação docente, especialmente no que se refere à articulação 
+entre os conhecimentos teóricos e as experiências práticas . Nesse contexto, 
+abordagens que valorizam metodologias ativas, a vivência de situações 
+pedagógicas contextualizadas e o protagonismo discente assumem centralidade, 
+uma vez que contribuem para o desenvolvimento de competências profissionais, 
+reflexivas e críticas indispensáveis ao exercício da docência.
+O Laboratório Didático das Licenciaturas configura-se, assim, como um espaço 
+formativo relevante, ao possibilitar a sistematização de experiências práticas 
+orientadas, fundamentadas teoricamente e alinhadas às exigências curriculares 
+dos cursos semipresenciais de licenciatura . Por meio desse ambiente, torna-se 
+possível promover a integração entre teoria e prática, favorecer a reflexão sobre a 
+ação pedagógica e fortalecer o processo de construção da identidade profissional 
+docente .
+Paralelamente, a adoção de modelos pedagógicos inovadores, como o CDIO, 
+apresenta-se como uma alternativa consistente para a reorganização das práticas 
+formativas no ensino superior . Ao ser adaptado ao campo educacional, esse modelo 
+contribui para a estruturação de processos de ensino e aprendizagem centrados 
+na resolução de problemas reais, na aprendizagem experiencial e na tomada de 
+decisões fundamentadas, aspectos essenciais à formação de professores capazes 
+de responder às demandas da Educação Básica contemporânea.
+4.1 LABORATÓRIO DIDÁTICO DAS 
+LICENCIATURAS COM PRÁTICAS 
+PEDAGÓGICAS NA FORMAÇÃO DOCENTE
+A formação inicial de professores tem sido objeto de debates recorrentes no campo 
+educacional, sobretudo no que se refere à necessidade de superar a dicotomia 
+historicamente construída entre teoria e prática nos cursos semipresenciais de 
+licenciatura . Diversos estudos apontam que uma formação centrada apenas na 
+transmissão de conhecimentos teóricos mostra-se insuficiente para preparar 
+9
+o futuro docente para a complexidade do trabalho pedagógico desenvolvido 
+na Educação Básica (Tardif, 2014; Pimenta; Lima, 2019). Nesse sentido, torna-
+se fundamental a consolidação de propostas formativas que promovam 
+experiências práticas sistematizadas, reflexivas e contextualizadas ao longo do 
+percurso formativo .
+A prática pedagógica, quando compreendida como espaço de produção de 
+saberes profissionais, assume papel central na constituição da identidade 
+docente . Tardif (2014) destaca que os saberes do professor são construídos a partir 
+da articulação entre saberes acadêmicos, curriculares e experienciais, sendo 
+estes últimos fortemente vinculados às vivências concretas do cotidiano escolar . 
+Assim, iniciativas que possibilitem ao licenciando vivenciar situações reais ou 
+simuladas de ensino, acompanhadas de orientação pedagógica, contribuem de 
+forma significativa para a formação de professores mais conscientes, críticos e 
+autônomos .
+Nesse contexto, o Laboratório Didático das Licenciaturas se configura como um 
+espaço formativo estratégico, ao permitir a integração entre conhecimentos 
+teóricos e experiências práticas de maneira planejada e institucionalmente 
+validada . Ao proporcionar atividades práticas orientadas, o laboratório favorece 
+a reflexão sobre a ação pedagógica, conforme proposto por Schön (2000) ao 
+defender a importância da reflexão-na-ação e da reflexão-sobre-a-ação como 
+elementos constitutivos do desenvolvimento profissional docente. Dessa forma, 
+o laboratório não se limita à execução de atividades práticas, mas se consolida 
+como um ambiente de aprendizagem reflexiva e crítica.
+No âmbito da Educação Superior, especialmente nos cursos semipresenciais, a 
+organização de práticas pedagógicas apresenta desafios adicionais, relacionados 
+à distância física entre estudantes e instituição, bem como à necessidade de 
+garantir a qualidade e a legitimidade das atividades desenvolvidas . Moran (2015) 
+ressalta que os modelos híbridos de ensino exigem propostas pedagógicas 
+que articulem intencionalmente atividades online e presenciais, de modo a 
+potencializar a aprendizagem e o desenvolvimento de competências . Assim, a 
+proposta de um Laboratório Didático das Licenciaturas com práticas pedagógicas 
+ofertado de forma híbrida é coerente com as especificidades do modelo 
+semipresencial, combinando orientações em ambiente virtual com a execução 
+prática presencial nos Polos EaD .
+Além da dimensão organizacional, a fundamentação metodológica do Laboratório 
+Didático das Licenciaturas assume relevância central . A adoção do modelo CDIO 
+10
+como base para a estruturação das atividades práticas se insere no conjunto das 
+abordagens alinhadas às metodologias ativas de aprendizagem . Originalmente 
+desenvolvido para a formação em engenharia, o modelo CDIO propõe um 
+processo formativo centrado na resolução de problemas reais, no protagonismo 
+discente e na aprendizagem experiencial (Crawley et al., 2014) . Ao ser adaptado 
+ao campo da formação docente, esse modelo contribui para o desenvolvimento 
+de competências essenciais à atuação pedagógica, como o planejamento, a 
+tomada de decisões, a avaliação e a reflexão crítica sobre a prática.
+A aprendizagem experiencial, conforme defendida por Kolb (1984), sustenta-
+se na ideia de que o conhecimento é construído a partir da transformação da 
+experiência, em um ciclo que envolve vivência concreta, observação reflexiva, 
+conceitualização abstrata e experimentação ativa . O Laboratório Didático das 
+Licenciaturas, fundamentado no modelo CDIO, dialoga diretamente com essa 
+perspectiva, ao conduzir o licenciando por etapas que envolvem a concepção de 
+situações pedagógicas, o planejamento das ações, a implementação das práticas 
+e a análise de seus resultados .
+Nesse sentido, o laboratório contribui não apenas para o desenvolvimento de 
+habilidades técnicas relacionadas ao ensino, mas também para a formação 
+de professores reflexivos e comprometidos com a transformação da realidade 
+educacional . Freire (1996) destaca que a prática docente deve estar ancorada 
+na reflexão crítica e na consciência do papel social do educador. Ao promover 
+experiências práticas contextualizadas e reflexivas, o Laboratório Didático das 
+Licenciaturas fortalece essa dimensão ética e política da formação docente .
+Portanto, a implementação de um Laboratório Didático das Licenciaturas 
+com práticas pedagógicas na formação inicial de professores, especialmente 
+em cursos de licenciatura ofertados no formato semipresencial, apresenta-se 
+como uma proposta consistente e alinhada às demandas contemporâneas da 
+educação . Fundamentado em abordagens teóricas que valorizam a integração 
+entre teoria e prática, a aprendizagem experiencial e o protagonismo discente, 
+o laboratório constitui um espaço formativo capaz de qualificar o processo de 
+formação docente e de preparar profissionais mais competentes, reflexivos e 
+comprometidos com a Educação Básica.
+11
+4.2 O MÉTODO CDIO OU CPIO (TRADUZIDO 
+PARA O PORTUGUÊS)
+O método CDIO emerge nesse cenário como uma proposta formativa orientada 
+para o desenvolvimento de competências profissionais a partir da resolução de 
+problemas concretos . Desenvolvido inicialmente no âmbito da formação em 
+engenharia pelo Massachusetts Institute of Technology (MIT) em parceria com 
+universidades europeias, o modelo CDIO propõe uma estrutura curricular que 
+integra conhecimentos teóricos, habilidades práticas e atitudes profissionais, 
+organizadas em torno de experiências autênticas de aprendizagem (Crawley et 
+al., 2014) . Nesse contexto, modelos pedagógicos baseados em abordagens ativas 
+e experienciais ganham destaque por favorecerem o protagonismo discente 
+e a articulação entre conhecimento acadêmico e situações reais de atuação 
+profissional (Moran, 2015; Bacich; Moran, 2018).
+Esta seção busca ampliar, de forma sintética, as concepções associadas à 
+abordagem CDIO, discutidas na seção anterior, ao mesmo tempo em que suscita 
+reflexões sobre sua aplicação no contexto educacional. Para aprofundamento 
+teórico e metodológico, recomenda-se a consulta a Crawley et al.  (2014) e à 
+CDIO Initiative . Nesse sentido, coloca-se a seguinte questão: de que maneira 
+metodologias ativas, como o CDIO, podem contribuir para uma formação mais 
+integrada e alinhada às demandas contemporâneas da prática profissional?
+O método CDIO, denominado CPIO em português, estrutura-se como uma 
+estratégia pedagógica centrada no estudante, atribuindo ao professor o papel de 
+mediador do processo formativo . Ao deslocar o foco da transmissão de conteúdo 
+para a construção ativa do conhecimento, o CDIO convida a refletir sobre o 
+protagonismo discente: até que ponto os estudantes estão preparados para 
+assumir maior autonomia e responsabilidade por sua aprendizagem ao longo do 
+curso?
+No âmbito dessa abordagem, os alunos são envolvidos em atividades que 
+contemplam as etapas de concepção, projeto, implementação e operação de 
+sistemas vinculados à sua área de formação . Tais atividades são desenvolvidas em 
+ambiente acadêmico, com ênfase na autonomia, na responsabilidade coletiva 
+e na resolução de problemas reais ou contextualizados . Nesse cenário, emerge 
+outra indagação relevante: como equilibrar a liberdade criativa dos estudantes 
+com a necessidade de assegurar rigor técnico e alinhamento aos objetivos 
+curriculares?
+12
+Ressalta-se que a adoção do CDIO não implica a substituição da formação 
+tradicional, mas sua complementação  . As disciplinas de caráter básico, 
+profissionalizante e específico permanecem compondo a estrutura curricular, 
+garantindo a base conceitual necessária . Entretanto, ao integrar projetos ao 
+longo de toda a formação, o CDIO propicia uma articulação mais orgânica entre 
+teoria e prática . Assim, questiona-se: de que forma essa integração contribui para 
+a consolidação do conhecimento e para o desenvolvimento de competências 
+profissionais mais amplas?
+Os projetos desenvolvidos em grupo, sob coordenação dos próprios estudantes, 
+constituem um espaço privilegiado para essa integração  . Nesse processo, os 
+professores atuam como mediadores, responsáveis por esclarecer dúvidas, 
+definir os objetivos do semestre, avaliar as propostas de trabalho, os relatórios e 
+as apresentações orais e práticas, além de realizar aconselhamento acadêmico e 
+profissional. Tal dinâmica suscita uma reflexão adicional: como redefinir o papel 
+docente sem comprometer a qualidade da formação e os critérios de avaliação?
+As atividades do CDIO devem apresentar uma progressão gradual em 
+termos de complexidade e profundidade . Nos períodos iniciais do curso, são 
+propostas atividades introdutórias, como estudos de caso, montagens simples, 
+desenvolvimento de protótipos elementares e testes básicos . À medida que 
+os estudantes avançam na formação e ampliam seu repertório conceitual e 
+experiencial, essas atividades se tornam mais complexas . Em cada período (fase), 
+cabe aos professores avaliar se o nível de exigência dos projetos está compatível 
+com o estágio de formação dos alunos . Nesse contexto, torna-se pertinente 
+questionar: quais critérios devem orientar essa avaliação para assegurar coerência 
+entre os projetos propostos, as disciplinas cursadas e os objetivos do curso de 
+graduação?
+13
+4.2.1. ENTENDENDO A SIGLA CDIO OU CPIO 
+(TRADUZIDO PARA O PORTUGUÊS)
+O acrônimo Conceive, Design, Implement, 
+Operate (CDIO) representa uma abordagem 
+educacional que propõe uma forma 
+integrada de compreender e 
+vivenciar o processo de formação 
+nas engenharias . Em português, 
+essa abordagem é traduzida como 
+Conceber, Projetar, Implementar 
+e Operar  (CPIO), termos que 
+expressam etapas complementares e 
+interdependentes do desenvolvimento 
+de sistemas e soluções de engenharia .
+Mas o que, de fato, cada uma dessas etapas significa 
+no contexto da formação do estudante?
+A etapa de Concepção corresponde ao momento inicial do processo, no qual 
+o foco está na compreensão do problema a ser enfrentado  . Trata-se de uma 
+fase marcada pela análise do contexto real, pela identificação de necessidades 
+e pela formulação de questões relevantes de engenharia — no nosso caso, 
+da educação  . Nesse estágio, estimulam-se a criatividade e a capacidade de 
+observação crítica, incentivando o estudante a transformar demandas do mundo 
+real em problemas passíveis de solução técnica . Mais do que propor respostas 
+imediatas, a concepção convida à reflexão: qual é o problema central? Quais são 
+suas limitações e impactos? Quais alternativas podem ser exploradas?
+Na sequência, a etapa de Projeto aprofunda essas reflexões ao direcioná-las 
+para a elaboração de soluções estruturadas . Projetar implica planejar, modelar 
+e avaliar diferentes possibilidades, considerando não apenas aspectos técnicos, 
+mas também fatores sistêmicos e contextuais . Nessa fase, ganham destaque 
+o trabalho colaborativo, a integração entre diferentes áreas do conhecimento 
+e a análise de variáveis, como sustentabilidade, ética, viabilidade econômica e 
+restrições normativas . Assim, o projeto deixa de ser apenas um exercício técnico e 
+passa a ser compreendido como uma atividade que exige visão ampla e tomada 
+de decisões fundamentadas .
+
+14
+A fase de Implementação marca a transição do planejamento para a ação . É nesse 
+momento que as soluções projetadas são materializadas, permitindo ao estudante 
+aplicar conhecimentos teóricos em situações práticas . A implementação envolve 
+o uso de ferramentas, tecnologias e métodos adequados, além de demandar 
+organização, gestão do tempo e dos recursos disponíveis. Ao enfrentar desafios 
+concretos durante essa etapa, o aluno passa a compreender melhor os limites e as 
+possibilidades das soluções propostas, desenvolvendo habilidades relacionadas à 
+execução, à adaptação e à resolução de problemas imprevistos .
+Por fim, a etapa de Operação amplia a perspectiva do estudante ao considerar 
+o funcionamento dos sistemas em condições reais de uso. Operar significa 
+compreender como as soluções se comportam ao longo do tempo, levando em 
+conta aspectos como manutenção, confiabilidade, segurança e eficiência. Essa 
+fase destaca a importância da avaliação contínua e da busca por melhorias, 
+incentivando uma visão de ciclo de vida dos sistemas de engenharia. Ao refletir 
+sobre o desempenho e a sustentabilidade das soluções implementadas, o 
+estudante é levado a perceber que o trabalho por exemplo do engenheiro 
+não se encerra com a entrega do projeto, mas se estende à sua utilização e 
+aprimoramento contínuo .
+4.3 O MÉTODO CDIO APLICADO À 
+EDUCAÇÃO
+Os estudantes devem desenvolver seus conhecimentos e habilidades por meio 
+de atividades de concepção, projeto, implementação e operação de sistemas 
+vinculados à sua área de formação ou a áreas correlatas . Tais atividades permitem 
+a integração do conhecimento em ambientes controlados e seguros no contexto 
+universitário, ao mesmo tempo que introduzem os alunos às limitações e aos 
+desafios característicos da prática profissional. Ao transpor esse modelo para o 
+campo educacional, torna-se possível reorganizar práticas pedagógicas de modo 
+a favorecer a aprendizagem ativa, a autonomia e a reflexão crítica sobre a prática 
+docente .
+A aplicação do método CDIO à educação dialoga diretamente com os 
+pressupostos da aprendizagem experiencial, conforme proposto por Kolb (1984), 
+segundo os quais o conhecimento é construído a partir da experiência, mediada 
+pela reflexão e pela ação. No contexto da formação docente, o CDIO possibilita 
+que o licenciando vivencie situações pedagógicas que envolvem o planejamento 
+de aulas, a elaboração de estratégias didáticas, a implementação de práticas 
+15
+de ensino e a avaliação de seus resultados, promovendo um ciclo contínuo de 
+reflexão e aprimoramento profissional.
+Além disso, o método CDIO contribui para o desenvolvimento de competências 
+essenciais à docência contemporânea, tais como a tomada de decisões 
+pedagógicas fundamentadas, a resolução de problemas educacionais complexos, 
+o trabalho colaborativo e a capacidade de adaptação a diferentes contextos 
+escolares . Essas competências estão alinhadas às demandas atuais da Educação 
+Básica, que requer profissionais capazes de atuar de forma crítica, reflexiva e 
+inovadora frente aos desafios do cotidiano escolar (Pimenta; Lima, 2019).
+Outro aspecto relevante do modelo CDIO aplicado à educação refere-se à 
+sua compatibilidade com propostas de ensino híbrido e com a utilização de 
+ambientes virtuais de aprendizagem . Moran (2015) destaca que a educação 
+híbrida exige metodologias que articulem atividades online e presenciais de 
+maneira intencional e significativa. Nesse sentido, o CDIO oferece uma estrutura 
+flexível, que pode ser adaptada a diferentes modalidades de ensino, permitindo 
+que as etapas de concepção e planejamento ocorram em ambientes virtuais, 
+enquanto as etapas de implementação e operação se desenvolvem em contextos 
+presenciais ou de prática supervisionada .
+No campo da formação de professores, a adoção do método CDIO favorece ainda 
+a construção da identidade profissional docente, ao estimular a reflexão sobre 
+a prática e a compreensão do papel social do educador. Schön (2000) ressalta 
+que o desenvolvimento profissional está diretamente relacionado à capacidade 
+do professor de refletir sobre sua ação, analisando criticamente suas decisões e 
+práticas . Ao estruturar o processo formativo em torno de experiências práticas 
+e reflexivas, o CDIO contribui para a formação de docentes mais conscientes de 
+sua atuação e de suas responsabilidades educacionais .
+Assim, a aplicação do método CDIO à educação configura-se como uma 
+alternativa metodológica consistente e inovadora para a formação inicial de 
+professores . Ao integrar teoria e prática, promover a aprendizagem experiencial e 
+favorecer o desenvolvimento de competências profissionais, o CDIO contribui para 
+a qualificação dos processos formativos no Ensino Superior e para a preparação 
+de docentes capazes de responder às demandas contemporâneas da Educação 
+Básica de forma crítica, reflexiva e comprometida com a qualidade do ensino.
+16
+4.3.1. OS PRINCÍPIOS DO MÉTODO CDIO E 
+SUA CONTRIBUIÇÃO PARA A FORMAÇÃO 
+PROFISSIONAL NO ENSINO SUPERIOR
+O método CDIO se fundamenta no princípio de que o desenvolvimento e a 
+implantação sustentáveis do ciclo de vida de produtos, processos, sistemas e 
+serviços devem constituir o contexto estruturante da formação profissional no 
+Ensino Superior. Originalmente concebido para a educação em engenharia, 
+esse modelo propõe uma reorganização curricular e pedagógica orientada para 
+a formação de profissionais capazes de atuar de maneira integrada, crítica e 
+responsável em contextos complexos e dinâmicos (Crawley et al., 2014) .
+A abordagem CDIO compreende o processo formativo como um ciclo contínuo 
+que envolve quatro etapas interdependentes . A etapa de conceber refere-se à 
+identificação de necessidades sociais, organizacionais e institucionais, à análise 
+de contextos, restrições e regulamentações, bem como à elaboração de planos 
+conceituais e estratégicos. A etapa de projetar se concentra na definição de 
+soluções estruturadas, por meio da elaboração de planos, modelos, métodos 
+e estratégias que orientam a execução das ações . A fase de implementar 
+corresponde à materialização do projeto, incluindo processos de execução, testes, 
+validação e ajustes. Por fim, a etapa de operar envolve o uso efetivo da solução 
+desenvolvida, contemplando sua avaliação, manutenção, aprimoramento e 
+eventual descontinuidade .
+Um elemento transversal a todas as etapas do modelo CDIO é a incorporação 
+da sustentabilidade em suas dimensões ambiental, social e econômica . Esse 
+princípio amplia a compreensão da formação profissional, enfatizando que as 
+decisões técnicas e pedagógicas devem considerar seus impactos no contexto 
+social mais amplo. Tal perspectiva contribui para a formação de profissionais 
+comprometidos com a ética, a responsabilidade social e o desenvolvimento 
+sustentável, aspectos cada vez mais exigidos no cenário contemporâneo (Unesco, 
+2017) .
+No âmbito pedagógico, o CDIO estabelece a definição clara e detalhada dos 
+resultados de aprendizagem como um de seus pilares estruturantes . Esses 
+resultados contemplam, de forma integrada, o conhecimento disciplinar, as 
+competências pessoais e interpessoais, e as competências relacionadas ao 
+desenvolvimento de produtos, processos, sistemas e serviços . A explicitação dos 
+resultados de aprendizagem permite alinhar currículo, metodologias de ensino e 
+17
+processos avaliativos, garantindo maior coerência e intencionalidade ao processo 
+formativo (Crawley et al., 2014) .
+As competências pessoais incluem aspectos cognitivos e afetivos, como 
+pensamento crítico, criatividade, resolução de problemas, ética profissional e 
+aprendizagem ao longo da vida . Já as competências interpessoais envolvem 
+a capacidade de comunicação, trabalho em equipe, liderança e interação em 
+contextos multiculturais . As competências relacionadas ao desenvolvimento de 
+soluções abrangem a capacidade de conceber, planejar, implementar e operar 
+projetos em contextos reais, integrando conhecimentos técnicos e práticos . Na 
+formação superior, essas competências são essenciais para preparar profissionais 
+aptos a atuar de forma colaborativa e eficaz em ambientes organizacionais e 
+sociais complexos .
+Outro princípio central do CDIO é a organização de um currículo integrado, 
+no qual as diferentes disciplinas se complementam e estabelecem conexões 
+explícitas entre conteúdos, competências e resultados de aprendizagem . Essa 
+integração busca superar a fragmentação do conhecimento, promovendo 
+experiências formativas que articulem teoria e prática de maneira contínua 
+e progressiva. O currículo integrado possibilita o uso mais eficiente do tempo 
+formativo, ao permitir que uma mesma atividade de aprendizagem contribua 
+simultaneamente para o desenvolvimento de múltiplas competências (Pimenta; 
+Lima, 2019) .
+O CDIO também enfatiza a importância de experiências de projeto e 
+implementação ao longo do percurso formativo, organizadas de forma 
+progressiva, desde níveis introdutórios até experiências mais avançadas . Essas 
+experiências permitem que os estudantes apliquem conhecimentos teóricos 
+em situações práticas, enfrentem problemas reais e desenvolvam autonomia 
+e responsabilidade profissional. A aprendizagem experiencial, conforme 
+destaca Kolb (1984), constitui um elemento fundamental para a consolidação 
+do conhecimento e para o desenvolvimento de competências profissionais 
+duradouras .
+No que se refere aos ambientes de aprendizagem, o CDIO valoriza a 
+integração entre espaços físicos e digitais . Laboratórios, espaços de trabalho 
+colaborativo e ambientes virtuais de aprendizagem são compreendidos como 
+elementos essenciais para o desenvolvimento de práticas pedagógicas ativas e 
+experiencialmente significativas. Moran (2015) ressalta que a articulação entre 
+18
+ambientes presenciais e digitais amplia as possibilidades de interação, flexibiliza 
+os percursos formativos e favorece a personalização da aprendizagem .
+As experiências de aprendizagem integradas e a adoção de metodologias ativas 
+constituem outro eixo estruturante do CDIO . Essas abordagens deslocam o foco 
+da transmissão de conteúdos para o engajamento ativo do estudante na análise, 
+aplicação e reflexão sobre o conhecimento. Ao assumir papéis que simulam 
+a prática profissional, os estudantes desenvolvem competências cognitivas, 
+técnicas e atitudinais de forma contextualizada, fortalecendo sua preparação 
+para o exercício profissional (Schön, 2000).
+Por fim, o CDIO reconhece a centralidade do desenvolvimento da competência 
+docente para a efetivação de seus princípios . A formação continuada dos docentes, 
+tanto no domínio do conteúdo quanto nas dimensões pedagógicas e avaliativas, 
+é fundamental para a implementação de experiências de aprendizagem 
+integradas e metodologias ativas . A avaliação da aprendizagem, nesse contexto, 
+deve utilizar instrumentos diversificados, capazes de mensurar de forma válida e 
+confiável o desenvolvimento de conhecimentos, habilidades e atitudes.
+Dessa forma, os princípios do CDIO se configuram como uma base teórico-
+metodológica consistente para a reorganização dos processos formativos no 
+Ensino Superior. Ao articular resultados de aprendizagem claros, currículo 
+integrado, experiências práticas, ambientes de aprendizagem adequados e 
+avaliação coerente, o CDIO contribui para a formação de profissionais capazes de 
+responder às demandas contemporâneas de maneira ética, crítica e socialmente 
+responsável .
+19
+5. METODOLOGIA
+A metodologia deste projeto se fundamenta na promoção de experiências 
+formativas ativas, orientadas e contextualizadas, voltadas à articulação entre 
+os conhecimentos teóricos desenvolvidos nos cursos semipresenciais de 
+licenciatura e as práticas pedagógicas exigidas no exercício da docência . Para 
+tanto, o Laboratório Didático das Licenciaturas com práticas pedagógicas será 
+estruturado a partir do CDIO — traduzido como Conceber, Projetar, Implementar 
+e Operar (CPIO) — adaptado ao contexto da formação inicial de professores .
+As atividades do Laboratório Didático das Licenciaturas serão organizadas 
+em momentos complementares, articulando o AVA com a execução prática 
+presencial nos Polos EaD  . No ambiente virtual, os acadêmicos terão acesso às 
+orientações pedagógicas, aos objetivos das atividades, aos materiais de apoio e aos 
+momentos síncronos de acompanhamento . Nesses encontros, serão abordados 
+os fundamentos teóricos, os critérios de avaliação e as diretrizes necessárias para 
+o desenvolvimento das práticas, de modo a preparar os estudantes para uma 
+realização consciente, crítica e fundamentada das atividades presenciais .
+No que se refere à dinâmica de cada encontro, haverá a atuação de dois docentes 
+com funções complementares . Um professor será responsável por ministrar a 
+aula, conduzindo a proposta pedagógica e o desenvolvimento dos conteúdos, 
+enquanto o outro atuará no acompanhamento do chat, prestando suporte aos 
+estudantes durante a aula . Este último também integra a equipe de produção 
+do Laboratório Didático das Licenciaturas, contribuindo para a organização e 
+mediação das atividades .
+A equipe docente é composta por professores que representam diferentes áreas 
+da ESEHL, assegurando a interdisciplinaridade da proposta. São eles:
+20
+•	 Bruno Luis Simão, da Área de Extensão Curricularizada.
+•	 Fernanda Gusso Rosa Meller, da Área de LCC.
+•	 Sandra Regina Bernardes de Oliveira Rosa, da Área de Educação.
+•	 Michelle Roberta Cruvinel Buzani, da Área de LS.
+•	 Karina da Costa Santos, da Área de TES.
+•	 Rodrigo Mathias Rangel, da Área de Humanidades.
+•	 Carolina Datria Schulze, da Área de Geociências.
+•	 Flavio Tajima Barbosa, da Área de Exatas.
+Essa composição garante a diversidade de perspectivas e a integração de 
+diferentes campos do conhecimento no desenvolvimento das atividades do 
+Laboratório Didático das Licenciaturas .
+Os encontros presenciais nos polos constituirão, prioritariamente, momentos 
+de caráter prático e experiencial, assumindo a lógica de “mão na massa”  . 
+Nesses espaços, os estudantes serão convidados a aplicar os conhecimentos 
+discutidos previamente, desenvolvendo atividades que envolvem planejamento, 
+experimentação, construção e avaliação de propostas pedagógicas . A vivência 
+presencial permitirá a interação direta entre os participantes, o uso de materiais 
+concretos e a observação dos processos de ensino e aprendizagem de forma 
+situada e reflexiva.
+Um aspecto central da metodologia consiste na realização das atividades por 
+estudantes de diferentes cursos semipresenciais de licenciatura, favorecendo 
+a interdisciplinaridade e a troca de saberes entre áreas distintas da formação 
+docente . Esses acadêmicos atuarão de forma colaborativa na concepção, 
+no planejamento e na construção de materiais didáticos práticos, tais como 
+jogos educativos, recursos manipuláveis, sequências didáticas, experimentos 
+pedagógicos, entre outros dispositivos voltados ao ensino na Educação 
+Básica. Essa dinâmica busca estimular o trabalho em equipe, a comunicação, 
+a responsabilidade compartilhada e a capacidade de adaptação a diferentes 
+contextos educacionais .
+21
+ 
+No que se refere às etapas do CDIO, a fase de Concepção envolverá a identificação 
+de necessidades pedagógicas bem como a definição do público-alvo e dos 
+objetivos educacionais dos materiais a serem desenvolvidos . Na etapa de Projeto, 
+os grupos deverão planejar os materiais didáticos, definindo estratégias, recursos, 
+metodologias e critérios de utilização em sala de aula . A fase de Implementação 
+corresponderá à construção efetiva dos materiais nos encontros presenciais, 
+utilizando recursos disponíveis nos polos e que os alunos deverão trazer e 
+explorando soluções criativas e viáveis. Por fim, a etapa de Operação consistirá 
+na apresentação, demonstração e reflexão sobre o uso pedagógico dos materiais 
+produzidos, considerando sua aplicabilidade, potencial educativo e possibilidades 
+de aprimoramento .
+A avaliação das atividades será realizada de forma processual e formativa, 
+considerando o envolvimento dos estudantes, a coerência pedagógica dos 
+materiais construídos, a capacidade de trabalho colaborativo e a qualidade 
+das apresentações práticas, orais e dos registros escritos . Os professores 
+acompanharão todo o processo, oferecendo orientações, feedbacks e validação 
+institucional das atividades realizadas, incluindo o registro e a assinatura dos 
+Polos EaD .
+22
+Dessa forma, a metodologia proposta busca consolidar o Laboratório Didático 
+das Licenciaturas como um espaço de aprendizagem ativa e integrada, no qual 
+os estudantes das licenciaturas possam vivenciar práticas pedagógicas concretas, 
+desenvolver competências profissionais essenciais e fortalecer sua preparação 
+para os desafios reais da atuação docente na Educação Básica.
+5.1 ABORDAGEM PRÁTICA
+Cada encontro do Laboratório Didático das Licenciaturas com práticas 
+pedagógicas será organizado a partir de uma temática específica, previamente 
+definida, que servirá como eixo orientador para a fundamentação didática e 
+para a construção de um material pedagógico concreto  . Essa organização visa 
+assegurar que a produção dos materiais esteja alinhada a objetivos educacionais 
+claros e contextualizados, considerando, de forma integrada, os conteúdos e as 
+temáticas abordadas nos cursos semipresenciais de graduação dos estudantes, 
+bem como as orientações e competências previstas na Base Nacional Comum 
+Curricular (BNCC) para a Educação Básica. Dessa forma, os materiais produzidos 
+buscarão fazer sentido no contexto real da sala de aula, respeitando os referenciais 
+curriculares vigentes .
+Em todos os encontros, os estudantes serão responsáveis pela construção efetiva 
+dos materiais didáticos, mobilizando conhecimentos teóricos, pedagógicos 
+e específicos de suas áreas de formação, seguindo temas estabelecidos como 
+oficinas de: jogos de inclusão; jogos motores; jogos de tabuleiro; jogos de atenção; 
+jogos de resolução de problemas; jogos de raciocínio lógico e desenvolvimento 
+da flexibilidade cognitiva; jogos para a Educação Infantil; jogos para o Ensino 
+Fundamental – Anos Iniciais e Finais; e jogos para o Ensino Médio . Esse processo 
+envolverá a análise dos conteúdos estudados nos cursos semipresenciais 
+de licenciatura, a definição do público-alvo e a adequação dos recursos às 
+competências e habilidades descritas na BNCC, fortalecendo a coerência entre a 
+formação inicial do professor e as demandas da prática docente .
+Considerando o potencial pedagógico dos jogos como instrumentos de mediação 
+do processo de ensino e aprendizagem, torna-se relevante explorar diferentes 
+modalidades de atividades lúdicas que possam contribuir para o desenvolvimento 
+cognitivo, motor e socioemocional dos estudantes da Educação Básica. No 
+contexto da formação inicial de professores, a elaboração e a utilização de jogos 
+pedagógicos constituem estratégias didáticas capazes de promover a integração 
+entre conhecimentos teóricos e práticas educativas, favorecendo a construção 
+de experiências de aprendizagem mais significativas e contextualizadas.
+23
+Em consonância com os princípios formativos orientados pela BNCC, que 
+destaca a importância do desenvolvimento integral dos estudantes e da adoção 
+de metodologias ativas no processo educativo, o presente projeto propõe a 
+exploração de diferentes tipos de jogos pedagógicos que podem ser aplicados em 
+contextos educacionais diversos . Tais propostas buscam estimular competências 
+relacionadas ao pensamento crítico, à resolução de problemas, à cooperação, à 
+criatividade e à autonomia no processo de aprendizagem .
+Nesse sentido, a seguir serão apresentados os diferentes tipos de jogos e as áreas 
+que serão exploradas ao longo do desenvolvimento das atividades, destacando-
+se suas características, possibilidades pedagógicas e a relevância de sua utilização 
+no contexto da Educação Básica. Essas abordagens incluem jogos voltados à 
+inclusão, ao desenvolvimento motor, ao raciocínio lógico, à atenção, à resolução 
+de problemas e à flexibilidade cognitiva, bem como jogos específicos para 
+diferentes etapas da Educação Básica, contemplando a Educação Infantil, o Ensino 
+Fundamental e o Ensino Médio  . Cada uma dessas temáticas será apresentada 
+com o objetivo de evidenciar seu potencial formativo e sua contribuição para a 
+qualificação das práticas pedagógicas no ambiente escolar.
+Dessa maneira, ao associar a produção dos materiais didáticos aos conteúdos 
+acadêmicos das licenciaturas e às diretrizes da BNCC, o Laboratório Didático das 
+Licenciaturas com práticas pedagógicas fortalece a intencionalidade educativa 
+das atividades propostas . Além de promover a aprendizagem ativa e colaborativa, 
+o projeto contribui para a formação de professores capazes de planejar, construir 
+e utilizar recursos pedagógicos coerentes com os currículos da Educação Básica 
+e com as demandas reais da prática docente .
+Com base na organização metodológica do Laboratório Didático das Licenciaturas 
+com práticas pedagógicas, cada oficina temática resultará na construção de 
+materiais didáticos concretos, concebidos, projetados e implementados pelos 
+estudantes das licenciaturas, considerando os conteúdos estudados em seus 
+cursos semipresenciais de graduação e as competências e habilidades previstas 
+na BNCC. As práticas desenvolvidas em cada encontro buscarão assegurar a 
+aplicabilidade dos materiais no contexto real da sala de aula, respeitando a 
+faixa etária dos estudantes da Educação Básica e os objetivos de aprendizagem 
+correspondentes .
+24
+PASSO A PASSO  
+DA ESTRUTURA DA OFICINA
+
+25
+Jogos de inclusão
+Os jogos de inclusão correspondem a atividades lúdicas planejadas com o 
+objetivo de garantir a participação efetiva de todos os estudantes no processo 
+educativo, considerando as diferenças cognitivas, físicas, sensoriais, culturais 
+e sociais presentes no ambiente escolar  . No contexto pedagógico, tais jogos 
+são concebidos de modo a reduzir barreiras à aprendizagem e à participação, 
+promovendo interações baseadas no respeito às diferenças e na cooperação 
+entre os alunos .
+No desenvolvimento dessa temática, os acadêmicos serão orientados a conceber 
+e elaborar jogos pedagógicos adaptáveis, que possam ser aplicados em turmas 
+heterogêneas e em contextos de educação inclusiva, contemplando diferentes 
+ritmos de aprendizagem e necessidades educacionais específicas.
+Serão exploradas estratégias como adaptação de regras, elaboração de 
+materiais acessíveis e utilização de estímulos multissensoriais que ampliem as 
+possibilidades de participação dos estudantes . A importância dessa temática 
+se fundamenta nos princípios de equidade e inclusão previstos na BNCC, que 
+orienta a construção de práticas pedagógicas capazes de assegurar o direito 
+de todos os alunos à aprendizagem, valorizando a diversidade e promovendo a 
+participação ativa no processo educativo .
+Jogos motores
+Os jogos motores constituem atividades que utilizam o movimento corporal 
+como elemento central para o desenvolvimento das habilidades físicas, cognitivas 
+e socioemocionais dos estudantes . Essas práticas estimulam aspectos como 
+coordenação motora, equilíbrio, lateralidade, orientação espacial e percepção 
+corporal, além de favorecerem a socialização e o trabalho coletivo .
+No desenvolvimento dessa temática, os acadêmicos serão convidados a elaborar 
+propostas de jogos que integrem movimento e aprendizagem, articulando 
+conteúdos de suas áreas de formação com atividades que mobilizem o corpo 
+como instrumento de expressão e construção do conhecimento .
+
+26
+Serão exploradas dinâmicas que envolvam deslocamentos, desafios motores, 
+organização espacial e ações coordenadas, adaptáveis a diferentes contextos 
+escolares. A relevância dessa temática está alinhada às orientações da BNCC, 
+que destaca a importância do desenvolvimento integral do estudante, incluindo 
+dimensões corporais, cognitivas e socioemocionais no processo educativo .
+Jogos de tabuleiro
+Os jogos de tabuleiro configuram-se como recursos didáticos estruturados que 
+envolvem regras, estratégias e interação entre os participantes, possibilitando a 
+construção de conhecimentos por meio da ludicidade e da resolução de desafios.
+No contexto educacional, esses jogos podem ser utilizados para explorar conteúdos 
+curriculares de diferentes áreas do conhecimento, estimulando habilidades 
+como planejamento, tomada de decisões, cooperação, argumentação e respeito 
+às regras estabelecidas .
+Durante o desenvolvimento dessa temática, os acadêmicos serão orientados a 
+conceber e produzir jogos de tabuleiro relacionados aos conteúdos de suas áreas 
+de formação, buscando estabelecer conexões entre os conceitos trabalhados 
+nos cursos semipresenciais de licenciatura e as habilidades previstas para a 
+Educação Básica. A importância dessa abordagem se relaciona ao potencial dos 
+jogos de tabuleiro para promover aprendizagens significativas e colaborativas, 
+em consonância com as competências gerais previstas na BNCC, que valoriza o 
+pensamento crítico, a cooperação e a resolução de problemas .
+Jogos de atenção
+Os jogos de atenção consistem em atividades pedagógicas voltadas ao 
+desenvolvimento de processos cognitivos relacionados à concentração, ao foco, 
+à percepção seletiva e à capacidade de manter-se engajado em uma tarefa 
+por determinado período  . Esses jogos contribuem para o fortalecimento de 
+habilidades essenciais ao processo de aprendizagem, como a escuta ativa, a 
+observação cuidadosa e o acompanhamento de instruções .
+27
+No âmbito dessa temática, os acadêmicos desenvolverão propostas de jogos 
+que integrem conteúdos de suas áreas de formação com atividades voltadas ao 
+desenvolvimento da atenção e da organização mental .
+Serão exploradas estratégias que envolvam identificação de estímulos, 
+acompanhamento de sequências, discriminação de informações relevantes 
+e resolução de desafios cognitivos progressivos. A relevância dessa temática 
+encontra respaldo nas orientações da BNCC, que destaca a importância do 
+desenvolvimento de competências cognitivas e socioemocionais necessárias à 
+participação ativa dos estudantes nas atividades escolares .
+Jogos de resolução de problemas
+Os jogos de resolução de problemas são atividades lúdicas estruturadas de 
+forma a apresentar desafios que exigem dos participantes a análise de situações, 
+a formulação de hipóteses e a escolha de estratégias para alcançar determinados 
+objetivos . Essas atividades estimulam o pensamento crítico, a tomada de decisões 
+e a capacidade de avaliar diferentes caminhos para solucionar uma determinada 
+situação .
+Durante o desenvolvimento dessa temática, os acadêmicos serão orientados 
+a criar jogos que apresentem problemas contextualizados e relacionados aos 
+conteúdos curriculares de suas áreas de formação, incentivando os estudantes da 
+Educação Básica a mobilizar conhecimentos prévios e a construir novas soluções.
+Serão exploradas situações que envolvam desafios progressivos, análise de 
+alternativas e reflexão sobre os resultados obtidos. A importância desse tipo de 
+atividade está diretamente relacionada às competências previstas na BNCC, que 
+enfatiza o desenvolvimento da capacidade de resolver problemas e de aplicar 
+conhecimentos em diferentes contextos .
+28
+Jogos de raciocínio lógico e  
+flexibilidade cognitiva
+Os jogos de raciocínio lógico e de desenvolvimento da flexibilidade cognitiva 
+são atividades que estimulam a capacidade de analisar informações, identificar 
+padrões, estabelecer relações e adaptar estratégias diante de novos desafios. 
+Tais jogos incentivam os estudantes a refletir sobre seus próprios processos de 
+pensamento, revisar hipóteses e explorar diferentes possibilidades de solução 
+para um mesmo problema .
+No âmbito dessa temática, os acadêmicos serão incentivados a conceber 
+jogos que integrem conteúdos curriculares com desafios lógicos, sequências, 
+classificações e relações de causa e efeito. Além disso, serão exploradas propostas 
+que estimulem a mudança de estratégias, a reorganização de ideias e a adaptação 
+a novas regras ou condições durante o jogo .
+A relevância desse tema está associada ao desenvolvimento do pensamento 
+lógico e da flexibilidade cognitiva, aspectos valorizados nas competências gerais 
+estabelecidas pela BNCC, que orienta a formação de estudantes capazes de 
+pensar criticamente e resolver problemas de forma criativa .
+Jogos para a Educação Infantil
+Os jogos destinados à Educação Infantil são concebidos considerando as 
+características do desenvolvimento das crianças nessa etapa, priorizando 
+experiências lúdicas que estimulem a curiosidade, a exploração e a interação com 
+o ambiente e com os colegas . Esses jogos valorizam o brincar como elemento 
+central do processo educativo, promovendo o desenvolvimento cognitivo, motor, 
+social e emocional das crianças .
+No desenvolvimento dessa temática, os acadêmicos serão orientados a elaborar 
+jogos simples, interativos e adequados à faixa etária, envolvendo cores, formas, 
+sons, movimentos, narrativas e desafios exploratórios. Serão priorizadas atividades 
+que favoreçam a imaginação, a experimentação e a construção de vínculos 
+sociais .
+29
+A importância dessa abordagem está relacionada ao reconhecimento do 
+brincar como uma das principais formas de aprendizagem na infância, princípio 
+amplamente destacado na BNCC, que orienta a organização das práticas 
+pedagógicas na Educação Infantil a partir das interações e das brincadeiras .
+Jogos para o Ensino Fundamental 
+(Anos Iniciais e Finais)
+Os jogos destinados ao Ensino Fundamental devem considerar as especificidades 
+do desenvolvimento cognitivo e social dos estudantes nessa etapa, bem como os 
+objetivos de aprendizagem previstos para os anos iniciais e finais da Educação 
+Básica. Esses jogos podem ser utilizados como estratégias pedagógicas para 
+explorar conteúdos curriculares de forma dinâmica, incentivando a participação 
+ativa dos alunos e a construção coletiva do conhecimento .
+No desenvolvimento dessa temática, os acadêmicos elaborarão jogos que 
+integrem conteúdos das diferentes áreas do conhecimento, promovendo desafios 
+progressivos, interação entre os estudantes e aplicação prática de conceitos 
+trabalhados em sala de aula .
+Serão exploradas atividades que envolvam investigação, experimentação, 
+cooperação e tomada de decisões . A importância dessa temática está relacionada 
+às orientações da BNCC, que enfatiza o desenvolvimento de competências 
+cognitivas, sociais e comunicativas ao longo do Ensino Fundamental .
+Jogos para o Ensino Médio
+Os jogos voltados ao Ensino Médio são concebidos com o objetivo de promover 
+desafios cognitivos mais complexos, estimulando o pensamento crítico, a análise 
+de informações, a argumentação e a tomada de decisões fundamentadas . 
+Nessa etapa da Educação Básica, os jogos podem assumir caráter investigativo e 
+interdisciplinar, permitindo a articulação entre diferentes áreas do conhecimento 
+e a aplicação prática de conceitos mais abstratos .
+30
+Durante o desenvolvimento dessa temática, os acadêmicos serão orientados a 
+criar jogos que envolvam análise de situações-problema, interpretação de dados, 
+elaboração de estratégias e discussão de soluções em grupo .
+Serão exploradas propostas que incentivem a reflexão, o debate e a construção 
+coletiva de conhecimentos . A relevância desse tipo de atividade está alinhada 
+às competências formativas previstas na BNCC, que orienta o Ensino Médio 
+para o desenvolvimento da autonomia intelectual, do pensamento crítico e da 
+preparação dos estudantes para a vida acadêmica, social e profissional.
+Ao término da atividade, o estudante será responsável pela elaboração de um 
+produto, cujo objetivo é consolidar os fundamentos teóricos que sustentam a ação 
+proposta . Esse registro também visa assegurar o desenvolvimento completo do 
+perfil profissional do egresso, em conformidade com os princípios do CDIO e os 
+níveis de competência definidos pelo Quadro Brasileiro de Qualificações (QBQ).
+Em síntese, o estudante será responsável pela elaboração de quatro produtos 
+distintos:
+1. Jogo desenvolvido durante a aula : atividade prática que permite a 
+aplicação imediata de conceitos e técnicas discutidos em sala .
+2. Jogo personalizado com características do curso: desenvolvimento 
+de um produto que incorpora conteúdos, temas e habilidades 
+específicas da formação acadêmica.
+3. Relatório: documento reflexivo e analítico que registra o processo de 
+criação, os fundamentos teóricos aplicados e os resultados obtidos .
+4. Plano de aula : instrumento didático que sistematiza a aplicação 
+pedagógica do jogo, integrando objetivos, conteúdos, métodos e 
+avaliação .
+Todos os produtos serão concebidos e avaliados considerando os princípios 
+do CDIO e os níveis de competência descritos pelo QBQ, garantindo que o 
+estudante desenvolva progressivamente conhecimentos, habilidades e atitudes 
+compatíveis com a prática profissional qualificada.
+31
+5.2 AVALIAÇÃO
+A avaliação será realizada de forma estruturada e ocorrerá em etapas, conforme 
+descrito a seguir:
+1. Produção de jogos
+O estudante deverá desenvolver dois jogos:
+◊	 O primeiro será criado junto ao professor, em atividades presenciais 
+ao vivo, permitindo orientação direta e aplicação imediata dos 
+conceitos discutidos em aula .
+◊	 O segundo jogo será desenvolvido de forma independente, 
+utilizando a mesma estratégia do primeiro, porém abordando 
+uma temática relacionada à área de formação do estudante em 
+sua licenciatura .
+Ambos os jogos serão disponibilizados no Polo EaD, integrando o acervo 
+do laboratório do polo e servindo como referência para futuras atividades 
+pedagógicas .
+2. Elaboração do relatório
+Após a produção dos jogos, o estudante deverá elaborar um relatório detalhado, 
+registrando todo o processo realizado durante o Laboratório Didático das 
+Licenciaturas . O relatório deve incluir:
+◊	 Descrição das atividades realizadas .
+◊	 Estratégias pedagógicas aplicadas .
+◊	 Resultados observados .
+◊	 Registro fotográfico da produção e das etapas de desenvolvimento.
+3. Preparação do plano de aula
+32
+O estudante também será responsável por desenvolver um plano de aula, 
+detalhando como o jogo produzido poderá ser utilizado de forma didática em 
+sala de aula . O plano deve contemplar:
+◊	 Objetivos de aprendizagem .
+◊	 Conteúdos abordados .
+◊	 Estratégias de ensino e metodologias .
+◊	 Formas de avaliação da aprendizagem .
+4. Entrega e validação
+Tanto o relatório quanto o plano de aula deverão ser postados no link “TRABALHOS”, 
+para revisão e validação do professor responsável pelo laboratório (SEM VALOR 
+DE NOTA, APENAS VALIDAÇÃO).
+5. Conclusão e emissão de certificado
+Ao final de todos os encontros do mês, o estudante receberá uma PALAVRA-
+CHAVE, que deverá ser inserida no campo “AVALIAÇÃO”. Isso permitirá a 
+geração automática do certificado de conclusão, contemplando a carga horária 
+correspondente às atividades desenvolvidas .
+É importante destacar que o link para a avaliação será disponibilizado apenas 
+no final do mês, e a certificação refletirá integralmente o tempo e o esforço 
+dedicados às atividades do Laboratório Didático das Licenciaturas .
+33
+6. CRONOGRAMA
+A seguir, apresentamos o cronograma dos eventos que o estudante pode escolher 
+para cumprir sua presencialidade como ouvinte e/ou proponente .
+Quadro 1 – Cronograma dos encontros do Laboratório 
+Didático das Licenciaturas
+MÊS/DATA HORÁRIO TEMÁTICAS
+Maio
+08/05 19h às 21h40 Tema: jogos de inclusão
+15/05 19h às 21h40 Tema: jogos de inclusão
+22/05 19h às 21h40 Tema: jogos motores
+29/05 19h às 21h40 Tema: jogos motores
+Junho
+05/06 19h às 21h40 Tema: jogos de tabuleiro
+12/06 19h às 21h40 Tema: jogos de tabuleiro
+19/06 19h às 21h40 Tema: jogos de tabuleiro
+26/06 19h às 21h40 Tema: jogos de tabuleiro
+Julho
+03/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+34
+MÊS/DATA HORÁRIO TEMÁTICAS
+10/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+17/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+24/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+31/07 19h às 21h40 Tema: jogos de atenção e jogos para resolução de 
+problemas
+Agosto
+07/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+14/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+21/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+28/08 19h às 21h40 Tema: jogos de raciocínio lógico e jogos para 
+desenvolvimento da flexibilidade cognitiva
+Setembro
+04/09 19h às 21h40 Tema: jogos para a Educação Infantil
+11/09 19h às 21h40 Tema: jogos para a Educação Infantil
+18/09 19h às 21h40 Tema: jogos para a Educação Infantil
+25/09 19h às 21h40 Tema: jogos para a Educação Infantil
+Outubro
+02/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+09/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+16/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+2310 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+30/10 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Iniciais
+Novembro
+06/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+35
+MÊS/DATA HORÁRIO TEMÁTICAS
+13/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+20/11 Gravado Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+27/11 19h às 21h40 Tema: jogos para o Ensino Fundamental – Anos 
+Finais e Ensino Médio
+A carga horária total prevista para o desenvolvimento das atividades corresponde 
+a 120 horas. O cômputo dessas horas ocorrerá mediante a emissão de certificados 
+mensais, disponibilizados para os estudantes ao término de cada período de 
+realização das atividades. A certificação será concedida após a participação nas 
+ações propostas e a realização da respectiva avaliação, a qual será disponibilizada 
+na sala de extensão no AVA .
+Para fins de registro e validação da carga horária, o estudante deverá realizar sua 
+inscrição mensalmente nas atividades correspondentes ao período em questão  . 
+Somente após a inscrição e a conclusão das atividades previstas para aquele 
+mês, assim como da avaliação disponibilizada no AVA, será possível gerar o 
+certificado referente à carga horária cumprida. Esse procedimento visa assegurar 
+o adequado acompanhamento das atividades realizadas e a organização e 
+validação institucional da participação dos estudantes no projeto de extensão .
+Ao final do percurso formativo, a soma das certificações mensais poderá totalizar 
+até 120 horas de participação nas atividades propostas, desde que o estudante 
+cumpra integralmente os requisitos estabelecidos em cada período de realização 
+das ações .
+6.1 CRONOGRAMA DE ELABORAÇÃO DAS 
+PROPOSTAS E MATERIAIS DO LABORATÓRIO 
+DIDÁTICO DAS LICENCIATURAS
+O desenvolvimento das propostas e dos materiais do Laboratório Didático das 
+Licenciaturas foi estruturado de forma progressiva ao longo dos meses iniciais 
+do projeto, contemplando etapas de planejamento, definição, produção e 
+implementação .
+36
+No mês de fevereiro, deu-se início ao projeto, marcado pela realização da primeira 
+reunião de alinhamento . Nessa etapa inicial, foram discutidos os objetivos gerais 
+e delineada a proposta preliminar, estabelecendo-se as bases conceituais e 
+operacionais que orientariam as fases subsequentes .
+Em março, ocorreu a etapa de alinhamento e definição, caracterizada por reuniões 
+com o corpo docente. Nesse período, foram definidas as estratégias de atuação e foi 
+realizada a coleta de dados necessária para a construção do perfil dos estudantes 
+a serem atendidos . Paralelamente, houve a produção de documentação formal 
+do projeto e o desenvolvimento de materiais de divulgação, incluindo peças de 
+comunicação visual, estratégias de marketing, organização de ações de extensão 
+e disponibilização do link de inscrição .
+No mês de abril, terá início a produção dos materiais protótipos . Nessa fase, foram 
+definidos e elaborados os materiais que seriam utilizados e produzidos em sala 
+de aula pelos estudantes, além da consolidação da lista de insumos necessários . 
+Ademais, será iniciado o processo de divulgação do projeto junto aos estudantes 
+em fase de transição, ampliando o alcance e o engajamento do público-alvo .
+Por fim, em maio, ocorrerá o início efetivo das atividades do projeto, com a 
+implementação das ações planejadas e a utilização dos materiais previamente 
+desenvolvidos, consolidando a fase operacional do Laboratório Didático das 
+Licenciaturas .
+37
+6.2 ATIVIDADES A SEREM DESENVOLVIDAS 
+PELO ESTUDANTE
+O estudante poderá participar do Laboratório Didático das Licenciaturas de 
+Práticas Pedagógicas na condição de participante ativo, assumindo papel 
+colaborativo na organização e na execução das práticas pedagógicas propostas 
+no âmbito das atividades do laboratório . Para tanto, deverá realizar sua inscrição 
+previamente por meio do link disponibilizado para essa finalidade no AVA, 
+respeitando os prazos e orientações estabelecidos para cada encontro .
+As atividades do laboratório serão desenvolvidas em formato online e síncrono, 
+com transmissão ao vivo, contando simultaneamente com a execução prática 
+presencial nos Polos EaD  . A realização das atividades práticas deverá ocorrer 
+obrigatoriamente nas dependências do polo escolhido pelo estudante, sendo 
+posteriormente registrada no espaço destinado à postagem de atividades, 
+denominado “TRABALHOS”, no AVA. A organização e a disponibilização do 
+espaço físico necessário para a realização das atividades são de responsabilidade 
+do polo, que deverá oferecer condições adequadas para o desenvolvimento das 
+práticas propostas .
+Os estudantes participantes receberão um certificado de participação ao final 
+de cada encontro realizado, desde que cumpram integralmente as exigências 
+estabelecidas para a atividade. A certificação estará condicionada à participação 
+efetiva no encontro síncrono, ao cumprimento das tarefas propostas e à realização 
+da avaliação correspondente, que ocorrerá mediante a identificação da palavra-
+chave informada durante o encontro .
+Durante a realização das atividades do laboratório, caberá ao estudante 
+participante cumprir as seguintes atribuições:
+•	 Realizar a preparação prévia dos materiais necessários para a produção 
+dos jogos ou atividades pedagógicas propostos para o encontro 
+programado . A responsabilidade pela obtenção e organização desses 
+materiais é exclusiva do estudante, sendo a lista de itens necessários 
+disponibilizada previamente no AVA .
+•	 Registrar obrigatoriamente evidências da realização da atividade 
+prática, por meio de fotografias que documentem o processo de 
+desenvolvimento do jogo ou atividade pedagógica .
+38
+•	 Elaborar um plano de aula relacionado ao jogo ou atividade 
+desenvolvida, considerando suas possibilidades de aplicação no 
+contexto educacional .
+•	 Produzir um relatório descritivo da atividade realizada, contemplando 
+os principais aspectos do processo de construção e aplicação do 
+recurso pedagógico .
+•	 Preencher a lista de presença organizada e disponibilizada pelo Polo 
+EaD onde a atividade for realizada .
+É importante reforçar que o estudante deverá providenciar previamente 
+todos os materiais necessários à atividade e realizar a produção dos jogos ou 
+recursos pedagógicos durante o encontro programado  . Após sua elaboração, 
+os materiais confeccionados permanecerão disponíveis no Laboratório Didático 
+das Licenciaturas do Polo EaD, constituindo um acervo pedagógico destinado ao 
+uso coletivo por outros estudantes da instituição, especialmente em atividades 
+acadêmicas, projetos de extensão e práticas de estágio supervisionado .
+A postagem desses documentos deverá ser realizada pelo próprio estudante no 
+link “TRABALHOS”, disponível no AVA, observando-se as orientações e prazos 
+previamente estabelecidos pela coordenação do projeto .
+Constituem responsabilidades do estudante participante:
+•	 Consultar, com antecedência, a lista de materiais disponibilizada no 
+AVA e providenciar todos os itens necessários para a realização da 
+atividade proposta .
+•	 Participar do encontro síncrono online e realizar presencialmente, no 
+Polo EaD, a produção dos jogos ou atividades pedagógicas previstas .
+•	 Elaborar o relatório e o plano de aula referentes à prática pedagógica 
+desenvolvida .
+•	 Preencher corretamente a ficha ou lista de frequência disponibilizada 
+pelo polo .
+•	 Realizar a postagem do relatório e do plano de aula no link 
+“TRABALHOS”, conforme orientações estabelecidas, para fins de 
+validação da atividade e registro institucional .
+39
+•	 Ressalta-se que a apresentação e o envio desses registros são requisitos 
+indispensáveis para a certificação dos estudantes participantes, uma 
+vez que constituem evidências formais da realização das atividades 
+propostas no âmbito do Laboratório Didático das Licenciaturas .
+Para a verificação da carga horária presencial a ser integralizada no curso, o 
+estudante deverá observar seu período de ingresso na graduação, considerando 
+que cada matriz curricular estabelece uma carga horária presencial específica a 
+ser cumprida ao longo do percurso formativo  . Dessa forma, recomenda-se que 
+o estudante acompanhe atentamente as orientações institucionais e consulte 
+regularmente seu histórico acadêmico, a fim de assegurar o cumprimento 
+adequado das exigências curriculares previstas .
+A presencialidade aliada à flexibilidade permite ao estudante ter acesso 
+a  ambientes formativos coerentes com a nova legislação, assegurando a 
+qualidade acadêmica, o suporte pedagógico e a efetividade dos processos de 
+ensino e aprendizagem . Os Polos EaD, nesse contexto, desempenham papel 
+fundamental ao oferecer estrutura, orientação e espaços de vivência prática que 
+fortalecem a formação integral do futuro professor  . Esse momento representa 
+não apenas uma adequação normativa, mas também uma oportunidade de 
+transformação na forma como os cursos semipresenciais de licenciatura são 
+concebidos e vivenciados, preparando os estudantes para atuar com competência, 
+sensibilidade e compromisso social na educação brasileira .
+40
+7. RECURSOS NECESSÁRIOS
+A realização das atividades no Laboratório Didático das Licenciaturas requer a 
+articulação adequada entre recursos materiais, organizacionais e humanos, bem 
+como a definição clara das responsabilidades de cada participante envolvido. Para 
+o desenvolvimento efetivo das práticas, é necessário considerar tanto os materiais 
+específicos destinados à produção dos jogos pedagógicos — previamente 
+indicados na sala de extensão, no AVA, onde o aluno também fará sua inscrição 
+antecipadamente através do link disponibilizado na aba “AVISOS” das disciplinas 
+do seu curso — quanto a infraestrutura física e tecnológica indispensável para a 
+realização dos encontros síncronos e para a execução das atividades presenciais .
+O Polo EaD desempenha papel essencial na condução das atividades do 
+Laboratório Didático das Licenciaturas, sendo responsável pelo acolhimento dos 
+estudantes participantes, pela organização do espaço físico necessário para a 
+execução das práticas e pela disponibilização das condições estruturais adequadas 
+ao desenvolvimento das atividades . O polo também será responsável por manter 
+uma lista de presença para controle interno da participação dos estudantes, 
+cuja finalidade é exclusivamente administrativa, não sendo necessário o envio 
+ao professor responsável pelo Laboratório Didático das Licenciaturas . Além disso, 
+o polo providenciará espaço apropriado para o armazenamento dos materiais 
+produzidos pelos estudantes, garantindo que os jogos e recursos pedagógicos 
+permaneçam disponíveis para uso coletivo em atividades futuras, incluindo 
+outras práticas no Laboratório Didático das Licenciaturas, projetos acadêmicos e 
+estágios supervisionados .
+Cabe ao estudante participante do Laboratório Didático das Licenciaturas preparar 
+previamente os materiais necessários, conforme a lista disponibilizada no AVA, 
+participar dos encontros síncronos e realizar a produção prática no Polo EaD, além 
+de elaborar os registros acadêmicos exigidos para a validação da atividade . Esses 
+registros compreendem a produção do relatório da atividade desenvolvida e a 
+41
+elaboração do plano de aula, seguindo os modelos disponibilizados previamente 
+no AVA .
+A atuação colaborativa e responsável entre o Polo EaD e os estudantes é 
+fundamental para assegurar a qualidade das práticas pedagógicas realizadas no 
+Laboratório Didático das Licenciaturas, garantindo a efetividade da aprendizagem, 
+a organização das atividades e a validação institucional das ações desenvolvidas .
+42
+8. PERGUNTAS & RESPOSTAS
+1. O que é, exatamente, o Laboratório Didático das 
+Licenciaturas?
+Resposta:
+O Laboratório Didático das Licenciaturas é um projeto formativo que propõe 
+a realização de práticas pedagógicas orientadas para estudantes dos cursos 
+semipresenciais de licenciatura da UNINTER. Seu objetivo central é integrar teoria 
+e prática por meio de atividades planejadas, acompanhadas por professores e 
+validadas institucionalmente, complementando a carga horária prática dos 
+cursos .
+2. Por que esse laboratório é necessário na formação 
+inicial de professores?
+Resposta:
+Porque a formação docente não pode se limitar à transmissão de conteúdos 
+teóricos . O laboratório surge como resposta à necessidade de vivências práticas 
+sistematizadas, que permitam ao licenciando experimentar, refletir e reconstruir 
+suas concepções sobre o ensino e a aprendizagem, fortalecendo a identidade 
+profissional docente.
+3. Quem pode participar do Laboratório Didático das 
+Licenciaturas?
+Resposta:
+O laboratório é destinado aos estudantes dos cursos semipresenciais de 
+licenciatura da UNINTER, especialmente aqueles em situação de transição 
+(matriculados antes do novo marco regulatório), que precisam complementar ou 
+validar sua carga horária prática presencial prevista no currículo .
+43
+4. Como o laboratório funciona na prática, considerando 
+que o curso é semipresencial?
+Resposta:
+O funcionamento é híbrido . As orientações pedagógicas e aulas ocorrem de forma 
+síncrona no Ambiente Virtual de Aprendizagem (AVA), enquanto as atividades 
+práticas são realizadas presencialmente nos Polos EaD . Essa organização permite 
+o acompanhamento docente, o registro das práticas e a validação institucional 
+das atividades .
+5. O que significa dizer que o laboratório é fundamentado 
+no modelo CDIO (ou CPIO)?
+Resposta:
+Significa que as atividades do laboratório são organizadas em quatro etapas: 
+Conceber, Projetar, Implementar e Operar  . Esse modelo orienta o estudante a 
+identificar um problema pedagógico, planejar uma solução, executar a proposta 
+e refletir sobre seu uso e aprimoramento, promovendo aprendizagem ativa e 
+experiencial .
+6. O modelo CDIO, originalmente da engenharia, realmente 
+se aplica à formação de professores?
+Resposta:
+Sim. O CDIO pode ser adaptado ao contexto educacional, pois valoriza a resolução 
+de problemas reais, o protagonismo discente, a reflexão crítica e a tomada 
+de decisões fundamentadas — competências essenciais à prática docente 
+contemporânea .
+7. Quais tipos de atividades práticas os estudantes 
+desenvolvem no laboratório?
+Resposta:
+Os estudantes desenvolvem principalmente materiais didáticos concretos, com 
+destaque para jogos pedagógicos . Esses jogos são organizados por temáticas, 
+como jogos de inclusão, motores, de atenção, de raciocínio lógico, de resolução 
+de problemas e jogos específicos para a Educação Infantil, o Ensino Fundamental 
+e o Ensino Médio .
+44
+8. Esses jogos precisam estar alinhados à BNCC?
+Resposta:
+Sim. Todo o planejamento das oficinas e dos materiais didáticos deve considerar 
+as competências e habilidades previstas na Base Nacional Comum Curricular 
+(BNCC), garantindo que os jogos sejam aplicáveis ao contexto real da Educação 
+Básica.
+9. Como ocorre a avaliação das atividades realizadas no 
+laboratório?
+Resposta:
+A avaliação é processual e formativa. São considerados o envolvimento do 
+estudante, a coerência pedagógica do material produzido, o trabalho colaborativo, 
+a qualidade das apresentações e os registros escritos, como relatório e plano de 
+aula . Não há atribuição de nota, apenas validação institucional .
+10. Quais produtos o estudante precisa entregar ao final 
+das atividades?
+Resposta:
+O estudante deve elaborar quatro produtos:
+1 . Um jogo desenvolvido durante a aula .
+2 . Um jogo personalizado relacionado ao seu curso .
+3 . Um relatório reflexivo sobre a prática.
+4 . Um plano de aula que sistematize o uso pedagógico do jogo .
+11. O que acontece com os materiais produzidos pelos 
+estudantes?
+Resposta: 
+ 
+Os materiais permanecem no Laboratório Didático das Licenciaturas do Polo 
+EaD, formando um acervo pedagógico coletivo que poderá ser utilizado por 
+outros estudantes em atividades acadêmicas, projetos de extensão e estágios 
+supervisionados .
+45
+12. A participação no laboratório gera certificação? É 
+obrigatório estar presencialmente no polo no dia da 
+atividade?
+Resposta:
+Sim. Ao final de cada período mensal, o estudante recebe um certificado 
+correspondente à carga horária cumprida, desde que participe das atividades, 
+realize a avaliação no AVA e utilize corretamente a palavra-chave informada ao 
+final dos encontros. Quanto à presencialidade: sim, é obrigatório desenvolver 
+essa atividade presencialmente no polo. Haverá lista de presença para assinatura.
+13. Qual é a carga horária total que pode ser cumprida no 
+laboratório?
+Resposta:
+A carga horária total prevista é de até 120 horas, distribuídas ao longo dos meses, 
+por meio de certificações mensais, conforme a participação efetiva do estudante 
+nas atividades propostas .
+14. Qual é o papel do Polo EaD no funcionamento do 
+laboratório?
+Resposta:
+O Polo EaD é responsável por organizar o espaço físico, garantir os recursos físicos 
+(sala, projeção, acesso a aula ao vivo) necessários para as práticas presenciais, 
+registrar a frequência dos estudantes e armazenar adequadamente os materiais 
+produzidos durante o laboratório . Os materiais para a produção dos jogos são de 
+responsabilidade do estudante .
+15. De que forma o laboratório contribui para a formação 
+profissional do futuro professor?
+Resposta:
+O laboratório contribui ao possibilitar a integração entre teoria e prática, o 
+desenvolvimento da autoria pedagógica, a reflexão crítica sobre a ação docente, 
+a produção de materiais inclusivos e contextualizados e o fortalecimento da 
+identidade profissional do licenciando.
+46
+16. E se eu não puder comparecer no dia da atividade?
+Resposta:
+Não haverá reposição de atividades . Caso o estudante não compareça ao encontro 
+programado, ele não receberá a carga horária correspondente àquele dia . Por 
+isso, é fundamental que o aluno acompanhe atentamente sua carga horária já 
+cumprida e verifique quantas horas ainda precisa integralizar ao longo do projeto. 
+Ao todo, o Laboratório Didático das Licenciaturas oferece 120 horas, distribuídas 
+mensalmente no período de maio a novembro, permitindo que o estudante 
+organize sua participação de acordo com suas necessidades formativas .
+17. E os materiais para a produção?
+Resposta:
+Os materiais para a produção dos jogos são de responsabilidade do estudante, 
+sendo disponibilizada a lista na sala do AVA onde o estudante deverá realizar 
+a sua inscrição. Portanto, é importantíssimo verificar a lista de materiais com 
+antecedência para que sua produção não seja prejudicada . O polo fornecerá 
+apenas o espaço, a projeção da aula ao vivo e o armazenamento após a finalização 
+do trabalho .
+18. Preciso participar de todos os encontros até o final do 
+ano?
+Resposta:
+Não, você pode participar das atividades até completar a sua carga horária 
+de transição  . Após, caso queira, poderá participar das atividades para obter 
+certificação para as Atividades Complementares.
+47
+9. REFERÊNCIAS
+BACICH, L.; MORAN, J. Metodologias ativas para uma educação inovadora . Porto 
+Alegre: Penso, 2018 .
+CRAWLEY, E . F . et al.  Rethinking Engineering Education : The CDIO Approach . 
+2nd ed. Cham: Springer, 2014.
+FREIRE, P . Pedagogia da autonomia : saberes necessários à prática educativa . 
+São Paulo: Paz e Terra, 1996.
+KOLB, D. A. Experiential Learning : Experience as the Source of Learning and 
+Development. Englewood Cliffs: Prentice Hall, 1984.
+MORAN, J  . M . Educação híbrida: um conceito-chave para a educação hoje . In: 
+BACICH, L.; TANZI NETO, A.; TREVISANI, F. M. (org.). Ensino híbrido: personalização 
+e tecnologia na educação . Porto Alegre: Penso, 2015 .
+PIMENTA, S. G.; LIMA, M. S. L. Estágio e docência. 8. ed. São Paulo: Cortez, 2019.
+SCHÖN, D. A. Educando o profissional reflexivo: um novo design para o ensino e 
+a aprendizagem . Porto Alegre: Artmed, 2000 .
+TARDIF, M . Saberes docentes e formação profissional  . 17 . ed . Petrópolis: Vozes, 
+2014 .
+UNESCO. Educação para os Objetivos de Desenvolvimento Sustentável: objetivos 
+de aprendizagem. Paris: UNESCO, 2017. Disponível em: http://unesdoc .unesco .
+org/images/0025/002521/252197por .pdf . Acesso em: 20 mar . 2026 .
+48
+ANEXO 1
+RELATÓRIO DE PRÁTICA
+1. IDENTIFICAÇÃO
+Polo EaD:
+Cidade-UF:
+Data do encontro: __ / __ / 2026
+2. RELATÓRIO DA PRÁTICA REALIZADA NO LABORATÓRIO 
+DIDÁTICO DAS LICENCIATURAS
+Elabore um texto descritivo com extensão de 10 a 15 linhas, detalhando como 
+ocorreu a atividade no Laboratório Didático das Licenciaturas . O relato deve incluir 
+a organização do laboratório, os procedimentos realizados, os materiais utilizados, 
+a interação entre os participantes, bem como as observações e resultados obtidos 
+durante a prática . Procure descrever de forma clara e objetiva cada etapa da 
+experiência, destacando os aprendizados, dificuldades encontradas e soluções 
+adotadas . O objetivo é que o leitor compreenda completamente o desenvolvimento 
+da atividade e visualize o processo desde o início até a conclusão, sendo ressaltada, 
+assim, a aplicação prática dos conceitos estudados em sala de aula .
+3. REGISTROS FOTOGRÁFICOS – no mínimo 3 e no máximo 5 fotos
+Inclua as fotos de diferentes momentos do Laboratório Didático das Licenciaturas .
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+[Incluir foto aqui]
+Descrição da foto
+49
+ANEXO 2
+PLANO DE AULA
+Tema
+O tema corresponde ao assunto central da aula, isto é, o recorte do conteúdo 
+que será trabalhado com os estudantes. Deve ser apresentado de forma clara, 
+objetiva e específica, evitando generalizações excessivas. O que você deve 
+considerar: delimitar o conteúdo a ser abordado, garantindo foco e coerência 
+com o currículo e com os objetivos de aprendizagem. Exemplo: “Interpretação 
+de textos argumentativos” ou “Ciclo da água”.
+Duração:refere-se ao 
+tempo previsto para a 
+realização da aula ou 
+conjunto de aulas (ex.: 
+50 minutos, 2 aulas de 
+45 minutos etc.).
+Série/Turma indicada: indica o público-alvo da aula (ano/
+série, etapa de ensino ou perfil da turma).
+Objetivos
+Geral: o objetivo geral expressa a finalidade ampla 
+da aula, ou seja, o que se espera que o estudante 
+compreenda ou desenvolva ao final do processo. Está 
+relacionado à aprendizagem mais abrangente. Deve 
+ser escrito com verbos no infinitivo, como: compreender, 
+analisar, desenvolver, refletir.
+Específico: os objetivos específicos detalham as 
+aprendizagens que contribuirão para o alcance do objetivo 
+geral. São mais concretos, observáveis e mensuráveis. O 
+que você deve considerar:
+Descrever ações que o estudante deverá realizar .
+Utilizar verbos como: identificar, interpretar, comparar, 
+produzir, argumentar .
+Garantir coerência com o conteúdo e com a avaliação .
+Habilidade BNCC
+Refere-se à habilidade da Base Nacional Comum Curricular 
+(BNCC) que será desenvolvida na aula. Deve ser indicada 
+com o código (ex .: EF15LP02) e sua descrição .
+O que você deve considerar:
+Selecionar uma ou mais habilidades pertinentes ao tema.
+Garantir alinhamento entre habilidade, objetivos e 
+atividades propostas.
+Priorizar habilidades que envolvam competências 
+cognitivas e socioemocionais. 
+Objetivo
+de conhecimento
+Corresponde ao conteúdo conceitual que será trabalhado 
+na aula . Trata-se de “o que ensinar”, conforme previsto na 
+BNCC.
+O que você deve considerar:
+Identificar o conteúdo específico vinculado à habilidade.
+Evitar termos genéricos.
+Relacionar o conteúdo ao contexto da aula. Exemplo: 
+“Estrutura do texto argumentativo”, “Estados físicos da 
+água”.
+50
+Estratégias
+e recursos didáticos
+Este item descreve os meios e instrumentos que 
+serão utilizados para viabilizar o processo de ensino-
+aprendizagem .
+Estratégias: dizem respeito às ações pedagógicas 
+planejadas (ex .: aula expositiva dialogada, debate, estudo 
+de caso, trabalho em grupo, leitura orientada) .
+Recursos didáticos: correspondem aos materiais utilizados 
+(ex .: quadro, slides, vídeos, textos, jogos, plataformas 
+digitais) .
+O que você deve considerar:
+Escolher estratégias adequadas ao perfil da turma.
+Variar os recursos para tornar a aula mais dinâmica .
+Garantir acessibilidade e clareza na utilização dos materiais .
+Metodologia
+A metodologia descreve como a aula será conduzida, ou 
+seja, o passo a passo do desenvolvimento das atividades . 
+Deve apresentar a sequência didática de forma organizada .
+O que você deve incluir:
+Momento inicial (motivação/introdução do tema) .
+Desenvolvimento (explicação, atividades, interação) .
+Fechamento (síntese, retomada dos pontos principais) .
+O que o professor deve considerar:
+A participação ativa dos estudantes.
+A mediação pedagógica.
+A progressão do conteúdo (do mais simples ao mais 
+complexo). 
+Avaliação
+A avaliação descreve como será verificado se os objetivos da 
+aula foram alcançados . Deve estar alinhada aos objetivos e 
+às atividades propostas .
+O que você deve considerar:
+Se a avaliação será diagnóstica, formativa ou somativa.
+Quais instrumentos serão utilizados (ex.: participação, 
+exercícios, produção textual, apresentação oral) .
+Quais critérios serão observados (ex.: compreensão, 
+argumentação, organização de ideias) .
+A avaliação deve ser contínua e considerar o processo de 
+aprendizagem, não apenas o resultado final.
+Referências
+bibliográficas
+(se houver)
+Neste item devem ser indicadas as fontes utilizadas para 
+o planejamento da aula, como livros, artigos, documentos 
+oficiais ou materiais digitais.
+O que você deve considerar:
+Utilizar referências confiáveis e atualizadas.
+Seguir, preferencialmente, normas acadêmicas (como 
+ABNT).
+Incluir também materiais utilizados pelos estudantes, se 
+pertinente .
+51
+Dados de
+produção
+Instituição
+CENTRO UNIVERSITÁRIO INTERNACIONAL UNINTER
+Projeto/Documento
+LABORATÓRIO DIDÁTICO DAS LICENCIATURAS: MANUAL
+Elaboração
+BRUNO LUIS SIMÃO
+CAROLINA DATRIA SCHULZE
+DINAMARA PEREIRA MACHADO
+FERNANDA GUSSO ROSA
+FLAVIO TAJIMA BARBOSA
+KARINA DA COSTA SANTOS
+MICHELLE ROBERTA CRUVINEL BUZANI
+RODRIGO MATHIAS RANGEL
+SANDRA REGINA BERNARDES DE OLIVEIRA ROSA
+Reitor
+BENHUR ETELBERTO GAIO
+Pró-Reitor de Graduação
+RODRIGO BERTÉ
+Diretora ESEHL
+DINAMARA PEREIRA MACHADO
+Diagramação e Projeto Gráfico
+SAMUEL PEDRO CARDOSO
+Revisão
+JULIANA FOGIATO RODRIGUES

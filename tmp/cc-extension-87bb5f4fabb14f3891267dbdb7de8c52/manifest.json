@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Candidatura Certa — preenchimento assistido",
+  "short_name": "Candidatura Certa",
+  "version": "0.1.0",
+  "description": "Preenche campos reconhecidos de formulários de candidatura a pedido do usuário.",
+  "action": {
+    "default_title": "Candidatura Certa — preencher formulário",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"]
+}
