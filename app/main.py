@@ -6370,3 +6370,37 @@ Liste as 5 principais habilidades técnicas e as 3 principais habilidades compor
     except Exception as e:
         logger.error(f"Failed to generate LinkedIn rebranding: {e}")
         raise HTTPException(500, "Falha ao gerar o rebranding. Tente novamente mais tarde.")
+
+
+@app.get("/billing/ebook/preview", include_in_schema=False)
+@app.get("/ebook/download/preview", include_in_schema=False)
+async def download_ebook_preview():
+    """Serve a prévia gratuita do e-book DISC em PDF."""
+    pdf_candidates = [
+        PREVIEW_BOOK_PATH,
+        Path(__file__).parent.parent / "output_pdfs" / "Hackeando_DISC_Livro.pdf",
+        Path(__file__).parent.parent / "output_pdfs" / "Hackeando_DISC_Card_Bolso.pdf",
+    ]
+    for candidate in pdf_candidates:
+        if candidate.is_file():
+            return FileResponse(
+                candidate,
+                media_type="application/pdf",
+                filename="Preview_DISC_Hackeado.pdf",
+            )
+    raise HTTPException(404, "Arquivo de prévia do e-book não encontrado.")
+
+
+@app.get("/chrome-extension/download", include_in_schema=False)
+@app.get("/extension/download", include_in_schema=False)
+async def download_chrome_extension_zip():
+    """Serve o arquivo ZIP da extensão do Chrome para instalação manual."""
+    zip_path = (STATIC_DIR / "chrome-extension.zip").resolve()
+    if zip_path.is_file():
+        return FileResponse(
+            zip_path,
+            media_type="application/zip",
+            filename="candidatura-certa-extensao.zip",
+        )
+    raise HTTPException(404, "Arquivo de extensão não encontrado.")
+

@@ -351,6 +351,14 @@
       td, th { padding-left: 12px; padding-right: 12px; }
       .form-grid, .analysis-columns { grid-template-columns: 1fr; }
     }
+  .ebook-badge { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; color: #166534; border-color: #bbf7d0; font-weight: 800; }
+  .user-journey-card { margin-bottom: 28px; padding: 20px 24px; border: 1px solid #cbd9f7; border-radius: 18px; background: linear-gradient(135deg, #f0f5ff 0%, #ffffff 100%); box-shadow: 0 4px 16px rgba(47,111,237,.06); }
+  .user-journey-wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .user-journey-content { flex: 1; min-width: 280px; }
+  .user-journey-content h2 { margin: 0 0 6px; font-size: 16px; color: #0f172a; font-weight: 800; }
+  .user-journey-content p { margin: 0; font-size: 13px; color: #334155; line-height: 1.6; }
+  .user-journey-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .user-journey-actions a { text-decoration: none; }
   .auto-checkbox{width:auto}.capture-textarea{min-height:220px}.cover-letter-textarea{min-height:360px}.bar-fill-0{width:0}.bar-fill-10{width:10%}.bar-fill-20{width:20%}.bar-fill-30{width:30%}.bar-fill-40{width:40%}.bar-fill-50{width:50%}.bar-fill-60{width:60%}.bar-fill-70{width:70%}.bar-fill-80{width:80%}.bar-fill-90{width:90%}.bar-fill-100{width:100%}</style>
 </head>
 <body>
@@ -443,11 +451,14 @@
           <p>Acompanhe aderência, documentos e cada avanço do processo seletivo.</p>
         </div>
         <div class="hero-actions">
+          <a href="/billing/ebook/preview" target="_blank" class="refresh ebook-badge">📘 E-Book Grátis</a>
           <button class="new-job" id="captureJobButton">+ Captar vaga</button>
           <details class="hero-menu">
             <summary class="refresh">Ações ▾</summary>
             <div class="hero-menu-panel">
               <a id="documentStudioButton" href="/criar-documentos">✦ Criar currículo + carta</a>
+              <a href="/billing/ebook/preview" target="_blank">📘 Download E-Book DISC (Prévia)</a>
+              <a href="/chrome-extension/download">🧩 Baixar Extensão do Chrome (.zip)</a>
               <button id="profileButton" type="button">▤ Meu currículo</button>
               <button id="gmailButton" class="gmail-status" type="button">Conectar Gmail</button>
               <button id="gmailSyncButton" type="button" hidden>↻ Buscar e-mails</button>
@@ -456,6 +467,23 @@
           </details>
           <button class="refresh" id="preferencesButton">⚙ Preferências</button>
           <button class="new-job" id="newJobButton">Nova vaga</button>
+        </div>
+      </section>
+
+      <!-- Card da Jornada do Usuário (Celular & Computador) -->
+      <section class="user-journey-card">
+        <div class="user-journey-wrap">
+          <div class="user-journey-content">
+            <h2>💡 Como usar a plataforma no Celular e no Computador</h2>
+            <p>
+              <strong>📱 No Smartphone:</strong> Clique em <strong>+ Captar vaga</strong> para colar o link/texto do anúncio ou conecte seu e-mail para capturar vagas automaticamente.<br>
+              <strong>💻 No Computador:</strong> Baixe nossa extensão para preencher formulários nos 8 principais portais (Gupy, Vagas.com, LinkedIn, Catho, etc.) com 1 clique.
+            </p>
+          </div>
+          <div class="user-journey-actions">
+            <a href="/billing/ebook/preview" target="_blank" class="refresh ebook-badge">📘 E-Book DISC Grátis</a>
+            <a href="/chrome-extension/download" class="new-job">🧩 Baixar Extensão (.zip)</a>
+          </div>
         </div>
       </section>
 
