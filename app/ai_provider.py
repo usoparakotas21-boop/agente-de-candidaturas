@@ -63,6 +63,61 @@ def _untrusted_prompt_block(label: str, value: str, max_chars: int) -> str:
     cleaned = sanitize_untrusted_text(value, max_chars=max_chars)
     return f"<{label}>\n{cleaned}\n</{label}>"
 
+def generate_interview_questions_with_gemini(job_title: str, job_description: str) -> list[str]:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise AIProviderError("GEMINI_API_KEY nao configurada")
+
+    prompt = (
+        "Você é um recrutador sênior. Analise o cargo e a descrição da vaga abaixo e gere as 3 perguntas comportamentais ou técnicas mais prováveis e importantes que a empresa faria na entrevista para esse cargo.\n"
+        "Retorne APENAS um array JSON válido contendo exatamente 3 strings, sem crases, sem markdown e sem nenhum texto extra.\n"
+        "Exemplo de saída: [\"Pergunta 1\", \"Pergunta 2\", \"Pergunta 3\"]\n"
+        f"Cargo: {job_title}\n"
+        f"Descrição da vaga: {job_description[:2000]}\n"
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    try:
+        import httpx
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                url,
+                params={"key": api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400},
+                },
+            )
+            if response.status_code != 200:
+                raise AIProviderError(f"Gemini respondeu HTTP {response.status_code}")
+            
+            data = response.json()
+            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            
+            # Clean up potential markdown formatting
+            text = text.strip()
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.startswith("```"):
+                text = text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+            
+            import json
+            questions = json.loads(text)
+            if not isinstance(questions, list) or len(questions) != 3:
+                raise AIProviderError("Gemini nao retornou uma lista de 3 perguntas")
+            return [str(q) for q in questions]
+    except Exception as exc:
+        logger.error(f"Erro ao gerar perguntas de entrevista: {exc}")
+        return [
+            "Conte-me sobre uma situação em que você teve que resolver um problema difícil.",
+            "Como você lida com prazos apertados e pressão no trabalho?",
+            "Por que você está interessado nesta vaga e na nossa empresa?"
+        ]
+
+
 
 async def evaluate_interview_answer(question: str, answer: str, context: str = "") -> dict:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()

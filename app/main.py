@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, urlparse
 from weakref import WeakValueDictionary
 
 import httpx
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
@@ -43,7 +43,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -69,7 +69,33 @@ from .plan_limits import (
     month_window,
     monthly_opportunity_usage,
 )
-from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions, extract_job_from_image
+from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions, extract_job_from_image, generate_interview_questions_with_gemini
+from email.message import EmailMessage
+from .email_transport import send_via_brevo_api, brevo_api_key
+
+def send_interview_questions_email(job_title: str, job_description: str, to_email: str, candidate_name: str):
+    import logging
+    logger = logging.getLogger(__name__)
+    if not brevo_api_key() or not to_email:
+        return
+    try:
+        questions = generate_interview_questions_with_gemini(job_title, job_description)
+        msg = EmailMessage()
+        msg["Subject"] = f"Dica de Entrevista: {job_title}"
+        msg["From"] = "contato@candidaturacerta.com.br"
+        msg["To"] = to_email
+
+        body = f"Olá {candidate_name},\n\n"
+        body += f"Nossa IA analisou a vaga de '{job_title}' e preparou as 3 perguntas comportamentais ou técnicas mais prováveis que podem aparecer na sua entrevista:\n\n"
+        for i, q in enumerate(questions, 1):
+            body += f"{i}. {q}\n\n"
+        body += "Prepare suas respostas usando o método STAR (Situação, Tarefa, Ação, Resultado) e boa sorte!\n\n"
+        body += "Equipe Candidatura Certa\nhttps://candidaturacerta.com.br"
+
+        msg.set_content(body)
+        send_via_brevo_api(msg, timeout=10.0)
+    except Exception as exc:
+        logger.error(f"Erro ao enviar dicas de entrevista para {to_email}: {exc}")
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
@@ -112,7 +138,9 @@ DOCUMENT_PROCESSING_TIMEOUT = 30
 MAX_DOCUMENT_EMAIL_BYTES = 10 * 1024 * 1024
 MAX_DOCUMENT_FILE_BYTES = 10 * 1024 * 1024
 DOCUMENT_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-PRO_BOOK_PATH = Path(__file__).parent / "private_products" / "hackeando_disc.docx"
+PREVIEW_BOOK_PATH = Path(__file__).parent / "private_products" / "Preview_DISC_Hackeado.pdf"
+NORMAL_BOOK_PATH = Path(__file__).parent / "private_products" / "DISC_Hackeado.pdf"
+PRO_BOOK_PATH = Path(__file__).parent / "private_products" / "hackeando_disc_pacote.zip"
 DOCUMENT_CLEANUP_INTERVAL_SECONDS = max(
     300,
     int(os.getenv("DOCUMENT_CLEANUP_INTERVAL_SECONDS", str(24 * 60 * 60))),
@@ -553,6 +581,7 @@ def _document_export_price() -> str:
 
 SUBSCRIPTION_PLANS: dict[str, dict[str, Any]] = {
     "start": {"name": "Start", "amount": 3490, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
+    "start_plus": {"name": "Start + E-book", "amount": 5000, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
     "pro": {"name": "Pro", "amount": 9900, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["pro"]},
     "consultoria": {"name": "Consultoria", "amount": 19700},
 }
@@ -901,7 +930,7 @@ class JobIntakeConfirmRequest(BaseModel):
     auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
-class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "pro", "consultoria"]
+class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "start_plus", "pro", "consultoria"]
 class ConsultationBookingRequest(BaseModel): availability: str = Field(min_length=5, max_length=800)
 class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
 class EmailApplicationSubmissionRequest(BaseModel):
@@ -5010,38 +5039,117 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
         db.close()
 
 
+@app.get("/billing/ebook/preview", include_in_schema=False)
+def download_preview_ebook():
+    if not PREVIEW_BOOK_PATH.is_file():
+        raise HTTPException(503, "O preview ainda não está disponível para download.")
+    return FileResponse(
+        PREVIEW_BOOK_PATH,
+        media_type="application/pdf",
+        filename="Preview-DISC-Hackeado.pdf",
+        headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get("/billing/ebook/hackeando-disc", include_in_schema=False)
 def download_pro_ebook(user=Depends(authenticated_user)):
-    offer = _document_export_metadata(user)
-    allowed = offer.get("plan") == "pro" and offer.get("allowed") is True
     owner_id = _owner_id(user)
-    if owner_id:
-        db = SessionLocal()
-        try:
-            subscription = db.scalar(
-                select(BillingSubscription)
-                .where(BillingSubscription.owner_id == owner_id)
-                .order_by(BillingSubscription.updated_at.desc())
+    if not owner_id:
+        raise HTTPException(401, "Login necessário")
+    db = SessionLocal()
+    try:
+        subscription = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .where(BillingSubscription.status.in_(["authorized", "active", "pending", "paused"]))
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        has_access = subscription is not None and _subscription_is_entitled(subscription)
+        plan = str(subscription.plan_code).casefold() if has_access and subscription.plan_code else "none"
+
+        if plan not in ["consultoria", "pro", "start_plus"]:
+            ebook_purchase = db.scalar(
+                select(EbookPurchase)
+                .where(EbookPurchase.owner_id == owner_id)
+                .where(EbookPurchase.status == "PAID")
                 .limit(1)
             )
-            allowed = allowed or (
-                subscription is not None
-                and subscription.plan_code in {"pro", "consultoria"}
-                and _subscription_is_entitled(subscription)
-            )
-        finally:
-            db.close()
-    if not allowed:
-        raise HTTPException(403, "O e-book Hackeando o DISC está incluído nos planos Pro e Consultoria ativos.")
-    if not PRO_BOOK_PATH.is_file():
-        logger.error("Arquivo do e-book Pro não está disponível no deploy.")
+            if ebook_purchase:
+                plan = "ebook_standalone"
+    finally:
+        db.close()
+
+    if plan == "consultoria":
+        path = PRO_BOOK_PATH
+        name = "Hackeando-DISC-Pacote-Completo.zip"
+        mime = "application/zip"
+    elif plan in ["pro", "start_plus", "ebook_standalone"]:
+        path = NORMAL_BOOK_PATH
+        name = "DISC-Hackeado.pdf"
+        mime = "application/pdf"
+    else:
+        raise HTTPException(403, "O e-book Hackeando o DISC está incluído nos planos Start+Ebook, Pro e Consultoria ativos, ou via compra avulsa.")
+
+    if not path.is_file():
+        logger.error(f"Arquivo do e-book não está disponível no deploy: {path}")
         raise HTTPException(503, "O e-book ainda não está disponível para download. Tente novamente mais tarde.")
+
     return FileResponse(
-        PRO_BOOK_PATH,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename="Hackeando-DISC.docx",
+        path,
+        media_type=mime,
+        filename=name,
         headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@app.post("/billing/ebook/checkout", include_in_schema=False)
+async def create_ebook_checkout(request: Request, user=Depends(authenticated_user)):
+    owner_id = _owner_id(user)
+    if not owner_id:
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
+    _enforce_rate_limit(request, "billing-checkout", str(owner_id))
+    mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    if not mercadopago_token:
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
+    price_cents = 3490
+    order_nsu = f"ebook-{uuid.uuid4().hex}"
+    base_url = _public_base_url()
+    return_url = f"{base_url}/billing/mercadopago/success?order_nsu={quote(order_nsu, safe='')}"
+    payload = {
+        "items": [{"id": "ebook-avulso", "title": "E-book: Hackeando o DISC", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "external_reference": order_nsu,
+        "payer": {"email": str(user.get("email") or "")},
+        "back_urls": {
+            "success": f"{return_url}&return_status=approved",
+            "pending": f"{return_url}&return_status=pending",
+            "failure": f"{return_url}&return_status=rejected",
+        },
+        "auto_return": "approved",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post("https://api.mercadopago.com/checkout/preferences", headers={"Authorization": f"Bearer {mercadopago_token}"}, json=payload)
+            res.raise_for_status()
+            data = res.json()
+    except httpx.HTTPError:
+        logger.exception("Falha na integracao com Mercado Pago")
+        raise HTTPException(502, "Falha ao gerar link de pagamento Mercado Pago.")
+    
+    db = SessionLocal()
+    try:
+        purchase = EbookPurchase(
+            owner_id=owner_id,
+            order_nsu=order_nsu,
+            amount=price_cents,
+            status="PENDING",
+        )
+        db.add(purchase)
+        db.commit()
+    finally:
+        db.close()
+    
+    return {"checkout_url": data.get("init_point")}
 
 
 @app.post("/billing/document-export/checkout")
@@ -5279,6 +5387,19 @@ async def mercadopago_webhook(request: Request):
         return {"received": True, "verified": False}
     db = SessionLocal()
     try:
+        if order_nsu.startswith("ebook-"):
+            ebook_purchase = db.scalar(select(EbookPurchase).where(EbookPurchase.order_nsu == order_nsu))
+            if ebook_purchase and str(payment.get("status") or "").casefold() == "approved":
+                paid_amount = int(round(float(payment.get("transaction_amount") or 0) * 100))
+                if ebook_purchase.status != "PAID" and paid_amount == ebook_purchase.amount:
+                    ebook_purchase.status = "PAID"
+                    ebook_purchase.transaction_nsu = payment_id
+                    ebook_purchase.paid_amount = paid_amount
+                    ebook_purchase.paid_at = utc_now()
+                    db.commit()
+                return {"received": True, "verified": True, "status": payment.get("status")}
+            return {"received": True, "verified": bool(ebook_purchase), "status": payment.get("status")}
+
         purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
         if purchase and str(payment.get("status") or "").casefold() == "approved":
             outcome = _mark_purchase_paid(
@@ -5616,7 +5737,7 @@ def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request
     finally: db.close()
 
 @app.post("/document-studio/generate")
-def generate_document_studio(req: DocumentStudioRequest, user=Depends(authenticated_user), request: Request = None):
+def generate_document_studio(req: DocumentStudioRequest, background_tasks: BackgroundTasks, user=Depends(authenticated_user), request: Request = None):
     """Create a tailored resume and cover letter from a role pasted by the user.
 
     The role is saved as a private opportunity so the existing preview, payment,
@@ -5676,6 +5797,16 @@ def generate_document_studio(req: DocumentStudioRequest, user=Depends(authentica
         app_record.cover_letter_version = _content_version("carta", app_record.cover_letter_text)
         _advance_app(db, app_record, "ANALISADA", "Documento personalizado criado no Criador de documentos.")
         db.commit()
+
+        if user and hasattr(user, "email") and user.email:
+            candidate_name = arts.get("profile", {}).get("name", "Candidato")
+            background_tasks.add_task(
+                send_interview_questions_email,
+                title,
+                description,
+                user.email,
+                candidate_name
+            )
         db.refresh(job)
         db.refresh(app_record)
         export = _document_export_metadata(user, app_record.id)

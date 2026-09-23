@@ -13,7 +13,8 @@
         headline: ["input[name*='headline']", "input[data-testid*='headline']"],
         summary: ["textarea[name*='summary']", "textarea[data-testid*='summary']"],
         linkedin: ["input[name*='linkedin']", "input[data-testid*='linkedin']"]
-      }
+      },
+      submit_buttons: ["button[data-testid='submit-button']", "button[data-testid='next-step-button']", "button[type='submit']", "button:contains('Avançar')", "button:contains('Próximo')", "button:contains('Enviar')"]
     },
     {
       id: "vagas",
@@ -25,7 +26,8 @@
         headline: ["input#ObjetivoProfissional", "input[name='objetivo']"],
         summary: ["textarea#ResumoProfissional", "textarea[name='resumo']"],
         linkedin: ["input[name*='linkedin']"]
-      }
+      },
+      submit_buttons: ["input[type='submit']", "button#btn-candidatar", "button:contains('Candidatar-se')", "button[type='submit']"]
     },
     {
       id: "infojobs",
@@ -37,7 +39,8 @@
         headline: ["input[name*='title']", "input[name*='cargo']"],
         summary: ["textarea[name*='summary']", "textarea[name*='resumo']"],
         linkedin: ["input[name*='linkedin']"]
-      }
+      },
+      submit_buttons: ["button.btn-primary", "button[type='submit']", "button:contains('Candidatar')"]
     },
     {
       id: "catho",
@@ -49,7 +52,8 @@
         headline: ["input[name='cargo']", "input[name='objetivo']"],
         summary: ["textarea[name='resumo']", "textarea[name='summary']"],
         linkedin: ["input[name*='linkedin']"]
-      }
+      },
+      submit_buttons: ["button[type='submit']", "button:contains('Enviar currículo')"]
     },
     {
       id: "empregos",
@@ -61,7 +65,8 @@
         headline: ["input[name='cargo']", "input[name='titulo']"],
         summary: ["textarea[name='resumo']", "textarea[name='sobre']"],
         linkedin: ["input[name*='linkedin']"]
-      }
+      },
+      submit_buttons: ["button[type='submit']", "button:contains('Candidatar')"]
     },
     {
       id: "solides",
@@ -74,6 +79,7 @@
         summary: ["textarea[data-testid*='about-me']", "textarea[name*='summary']"],
         linkedin: ["input[name*='linkedin']"]
       },
+      submit_buttons: ["button[type='submit']", "button:contains('Finalizar')"],
       note: "Listas suspensas personalizadas e perguntas não padronizadas ficam para revisão manual."
     }
   ];
