@@ -76,6 +76,18 @@ MASTER_PROFILE = {
             ],
         },
         {
+            "company": "Inovar Telecom",
+            "role": "Supervisor Administrativo e Contratual (PJ)",
+            "period": "Outubro de 2024 – Setembro de 2025",
+            "bullets": [
+                "Liderança na criação e implementação de dashboards gerenciais e KPIs em Power BI para toda a operação.",
+                "Criação de visualização de dados de RH que anteriormente não existia na operação.",
+                "Desenvolvimento de controles em Excel e Visual Basic (macros), reduzindo em 30% o tempo gasto em rotinas de acompanhamento documental.",
+                "Administração e supervisão de rotinas contratuais, acompanhamento documental e emissão de relatórios gerenciais.",
+                "Monitoramento e otimização de rotas, obtendo redução de 12% nos custos logísticos da frota.",
+            ],
+        },
+        {
             "company": "TPC Logística",
             "role": "Supervisor de Recursos Humanos",
             "period": "Julho de 2022 – Agosto de 2024",
@@ -87,18 +99,6 @@ MASTER_PROFILE = {
                 "Coordenação do time de Gente & Gestão, com implementação de programa contínuo de T&D da liderança.",
                 "Implementação de ciclos de avaliação de desempenho.",
                 "Apresentação de indicadores e KPIs para a Diretoria utilizando Power BI, RM Labore e TOTVS.",
-            ],
-        },
-        {
-            "company": "Inovar Telecom",
-            "role": "Supervisor Administrativo e Contratual (PJ)",
-            "period": "Outubro de 2024 – Setembro de 2025",
-            "bullets": [
-                "Liderança na criação e implementação de dashboards gerenciais e KPIs em Power BI para toda a operação.",
-                "Criação de visualização de dados de RH que anteriormente não existia na operação.",
-                "Desenvolvimento de controles em Excel e Visual Basic (macros), reduzindo em 30% o tempo gasto em rotinas de acompanhamento documental.",
-                "Administração e supervisão de rotinas contratuais, acompanhamento documental e emissão de relatórios gerenciais.",
-                "Monitoramento e otimização de rotas, obtendo redução de 12% nos custos logísticos da frota.",
             ],
         },
         {

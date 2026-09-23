@@ -188,10 +188,8 @@ def personalize_resume(
             }
         )
 
-    ranked_experiences.sort(
-        key=lambda item: item["relevance_score"],
-        reverse=True,
-    )
+    # Mantém a ordem cronológica profissional das experiências.
+    # O score de relevância continua gravado em cada item para análise e métricas.
 
     # -----------------------------------------------
     # COMPETÊNCIAS RELEVANTES

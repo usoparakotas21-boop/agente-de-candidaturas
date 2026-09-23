@@ -13,8 +13,8 @@ from pypdf import PdfReader
 MAX_JOB_FILE_BYTES = 10 * 1024 * 1024
 MAX_PDF_PAGES = 20
 MAX_IMAGE_PIXELS = 30_000_000
-MIN_OCR_CHARS = 250
-MIN_OCR_LINES = 8
+MIN_OCR_CHARS = 25
+MIN_OCR_LINES = 2
 SUPPORTED_JOB_FILES = {".png", ".jpg", ".jpeg", ".webp", ".pdf"}
 _OCR_ENGINE: Any | None = None
 
@@ -203,7 +203,7 @@ def extract_job_file_text(content: bytes, filename: str) -> dict[str, Any]:
             "O print esta distante demais para uma analise confiavel. "
             "Amplie a pagina e envie um print que mostre o anuncio em tamanho maior."
         )
-    if len(text.strip()) < 60:
+    if len(text.strip()) < 20:
         raise ValueError(
             "Pouco texto foi reconhecido. Envie um print mais nitido e completo."
         )
