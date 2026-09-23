@@ -59,17 +59,17 @@ class PlanLimitTests(unittest.TestCase):
         )
 
     def test_free_plan_has_thirty_monthly_opportunities_and_blocks_the_next(self):
-        for index in range(30):
+        for index in range(50):
             self._queue_item("free-user", index)
         self.db.commit()
 
         usage = monthly_opportunity_usage(self.db, "free-user", self.now)
-        self.assertEqual((usage["plan_code"], usage["used"], usage["limit"]), ("essential", 30, 30))
+        self.assertEqual((usage["plan_code"], usage["used"], usage["limit"]), ("essential", 50, 50))
         with self.assertRaises(PlanLimitReachedError):
             ensure_opportunity_capacity(self.db, "free-user", self.now)
 
     def test_queue_limit_blocks_new_items_but_does_not_consume_duplicates(self):
-        for index in range(30):
+        for index in range(50):
             self._queue_item("queue-user", index)
         self.db.commit()
         duplicate, created = enqueue(
@@ -97,8 +97,8 @@ class PlanLimitTests(unittest.TestCase):
 
         start = monthly_opportunity_usage(self.db, "start-user", self.now)
         pro = monthly_opportunity_usage(self.db, "pro-user", self.now)
-        self.assertEqual((start["plan_code"], start["limit"]), ("start", 150))
-        self.assertEqual((pro["plan_code"], pro["limit"]), ("pro", 500))
+        self.assertEqual((start["plan_code"], start["limit"]), ("start", 250))
+        self.assertEqual((pro["plan_code"], pro["limit"]), ("pro", 1000))
 
         expired_at = self.now - timedelta(seconds=1)
         start_subscription = self.db.query(BillingSubscription).filter_by(owner_id="start-user").one()

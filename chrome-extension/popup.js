@@ -49,7 +49,7 @@
     showWidgetButton.disabled = !connected || !supported || !checked || !activeTab?.id;
     autoWidgetButton.disabled = !supported || !activeTab?.id || (!connected && autoWidgetButton.dataset.enabled !== "true");
     closeWidgetButton.disabled = !supported || !activeTab?.id;
-    autoApplyButton.disabled = !connected || !supported || !autoSubmitConsent.checked || !activeTab?.id;
+    if (autoApplyButton) autoApplyButton.disabled = !connected || !supported || !autoSubmitConsent?.checked || !activeTab?.id;
     updateLibraryControls();
     if (!supported) {
       let host = "página indisponível";

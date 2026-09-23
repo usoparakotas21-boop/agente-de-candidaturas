@@ -152,6 +152,34 @@ Requisitos: experiência com recrutamento, seleção e comunicação com equipes
         self.assertFalse(quality["health"]["fraud_suspected"])
         self.assertEqual(quality["decision"], "REVISAR")
 
+    def test_cleans_tracking_parameters_from_all_8_portals(self):
+        from app.job_intake import clean_tracking_url
+        linkedin = "https://br.linkedin.com/jobs/view/4123456789/?trk=eml-email_job_alert-job_card-0-job_title&eType=EMAIL_JOB_ALERT&refId=abc"
+        self.assertEqual(clean_tracking_url(linkedin), "https://br.linkedin.com/jobs/view/4123456789")
+
+        indeed = "https://br.indeed.com/rc/clk?jk=1234567890abcdef&from=vj&pos=top&cmp=Company"
+        self.assertEqual(clean_tracking_url(indeed), "https://br.indeed.com/rc/clk?jk=1234567890abcdef&pos=top")
+
+        gupy = "https://empresa.gupy.io/jobs/1234567?jobBoardSource=gupy_portal&utm_source=gupy"
+        self.assertEqual(clean_tracking_url(gupy), "https://empresa.gupy.io/jobs/1234567")
+
+        catho = "https://www.catho.com.br/vagas/analista-de-rh/12345/?utm_source=email&utm_campaign=alert"
+        self.assertEqual(clean_tracking_url(catho), "https://www.catho.com.br/vagas/analista-de-rh/12345")
+
+        infojobs = "https://www.infojobs.com.br/vaga-de-analista__12345.aspx?utm_medium=email"
+        self.assertEqual(clean_tracking_url(infojobs), "https://www.infojobs.com.br/vaga-de-analista__12345.aspx")
+
+    def test_recognizes_all_8_portal_sources(self):
+        self.assertEqual(job_source_from_url("https://www.linkedin.com/jobs/view/123"), "linkedin")
+        self.assertEqual(job_source_from_url("https://br.indeed.com/rc/clk?jk=123"), "indeed")
+        self.assertEqual(job_source_from_url("https://empresa.gupy.io/jobs/123"), "gupy")
+        self.assertEqual(job_source_from_url("https://www.vagas.com.br/vagas/v123"), "vagas.com")
+        self.assertEqual(job_source_from_url("https://www.infojobs.com.br/vagas/123"), "infojobs")
+        self.assertEqual(job_source_from_url("https://www.catho.com.br/vagas/123"), "catho")
+        self.assertEqual(job_source_from_url("https://www.empregos.com.br/vagas/123"), "empregos")
+        self.assertEqual(job_source_from_url("https://vagas.solides.com.br/vaga/123"), "solides")
+
 
 if __name__ == "__main__":
     unittest.main()
+

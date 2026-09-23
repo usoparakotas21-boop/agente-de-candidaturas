@@ -82,28 +82,55 @@
     .plan{display:flex;flex-direction:column}
     .plan>a{margin-top:auto}
   </style>
-  <style>
-    .demo-video-section{padding-top:8px}.demo-video-frame{max-width:920px;margin:0 auto;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#0b1930;box-shadow:var(--shadow);aspect-ratio:16/9}.demo-video-frame iframe{display:block;width:100%;height:100%;border:0}
-    @media(max-width:600px){.demo-video-frame{border-radius:12px}}
+    .section-head-center { text-align: center; max-width: 700px; margin: 0 auto 2rem; }
+    .demo-video-box { display: flex; align-items: center; justify-content: center; background: #0b1930; border-radius: 18px; aspect-ratio: 16/9; max-width: 920px; margin: 0 auto; }
+    .demo-video-content { text-align: center; color: #7CA8D6; padding: 2rem; }
+    .demo-play-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .demo-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+    .demo-subtext { font-size: 0.9rem; margin: 0; }
+
+    .combo-box { margin-top: 15px; text-align: center; font-size: 0.9em; padding-top: 15px; border-top: 1px solid var(--color-border, #e5edff); }
+    .combo-dim { color: var(--color-text-dim, #718198); }
+    .combo-price { color: var(--color-success, #28a36a); font-size: 1.2em; }
+    .combo-btn { display: inline-block; margin-top: 8px; padding: 6px 12px; background: var(--color-border, #dce5f1); color: var(--color-text, #132944); border-radius: 4px; text-decoration: none; }
+
+    .creator-section { padding-bottom: 60px; }
+    .creator-grid { max-width: 860px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 3rem; align-items: center; border: 1px solid var(--line, #dce5f1); border-radius: 22px; padding: 2.5rem; background: var(--paper, #fff); box-shadow: 0 8px 24px rgba(27,55,105,.06); }
+    .creator-avatar-box { text-align: center; }
+    .creator-avatar { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 1rem; background: linear-gradient(135deg,#0e3157,#3568e8); display: flex; align-items: center; justify-content: center; font-size: 3.5rem; color: white; box-shadow: 0 8px 24px rgba(53,104,232,.3); }
+    .creator-name { display: block; font-size: 1.1rem; color: var(--ink, #132944); }
+    .creator-role { color: var(--muted, #718198); font-size: 0.85rem; }
+    .creator-contact { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
+    .creator-wa-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: #25D366; color: #fff; font-size: 0.85rem; font-weight: 700; text-decoration: none; }
+    .creator-title { margin: 0 0 0.75rem; font-size: clamp(20px,3vw,28px); letter-spacing: -.03em; }
+    .creator-desc { color: var(--muted, #718198); line-height: 1.7; margin: 0 0 1rem; }
+    .creator-metrics { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .creator-metric-item { padding: 10px 16px; border: 1px solid var(--line, #dce5f1); border-radius: 10px; font-size: 0.85rem; }
+    .creator-metric-val { display: block; color: var(--blue, #2f6fed); font-size: 1.2rem; }
+    @media(max-width:700px){
+      .creator-grid { grid-template-columns: 1fr; }
+      .creator-avatar-box { order: -1; }
+    }
   </style>
 </head>
 <body>
   <nav class="nav"><a class="brand" href="/"><img class="brand-logo" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><div class="nav-links"><details class="tools-menu"><summary>Ferramentas</summary><div class="tools-popover"><strong>Nossas ferramentas</strong><small>Clique para conhecer cada etapa</small><a href="#recursos">⚡ Candidatura inteligente<small>Organize e priorize suas oportunidades</small></a><a href="#recursos">◎ Banco de vagas<small>Encontre oportunidades relevantes</small></a><a href="#recursos">▤ Currículos profissionais<small>Versões adaptadas para cada vaga</small></a><a href="#recursos">▱ Simulação de entrevista<small>Pratique antes da conversa real</small></a><a href="#planos">♧ Consultoria<small>Acompanhamento humano</small></a></div></details><a href="#planos">Planos</a><a href="#auth" data-auth-mode="login" class="nav-cta">Entrar no painel</a></div></nav>
   <main>
     <section class="hero"><div><span class="eyebrow">Vagas certas, com menos esforço</span><h1>Menos tempo procurando.<br><em>Mais foco na vaga certa.</em></h1><p class="hero-copy">Conecte seus alertas do Gmail ou Outlook. A Candidatura Certa separa as vagas, organiza duplicadas e mostra quais combinam com seu perfil — para você revisar e seguir com confiança.</p><div class="hero-actions"><a class="hero-cta" href="#auth" data-auth-mode="signup">Começar gratuitamente</a><a class="ghost" href="#como-funciona">Ver como funciona</a></div><div class="proof"><strong>Sua busca, organizada em um só lugar.</strong><span>Alertas · triagem · compatibilidade</span></div></div><div class="mock" aria-label="Prévia do painel"><div class="mock-window"><div class="mock-top"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="mock-window-label">candidaturacerta.com.br</span></div><div class="mock-body"><div class="mock-title">Sua busca em movimento</div><div class="mini-grid"><div class="mini-card"><span>Match alto</span><strong>12</strong></div><div class="mini-card"><span>Em revisão</span><strong>7</strong></div><div class="mini-card"><span>Entrevistas</span><strong>3</strong></div></div><div class="job"><div><b>Product Designer</b><small>TechFlow · Remoto</small></div><span class="pill">94% match</span></div><div class="job"><div><b>Analista de Produto</b><small>Nova Empresa · São Paulo</small></div><span class="pill">88% match</span></div><div class="job"><div><b>UX Researcher</b><small>ScaleUp · Híbrido</small></div><span class="pill">84% match</span></div></div></div></div></section>
+    <!-- CANDIDATURA_CERTA_DEMO_VIDEO -->
     <!-- SEÇÃO: VÍDEO EXPLICATIVO -->
     <section class="section demo-video-section" id="como-funciona" aria-label="Veja como funciona">
-      <div class="section-head" style="text-align:center; max-width:700px; margin:0 auto 2rem;">
+      <div class="section-head section-head-center">
         <h2>Veja como funciona em 2 minutos</h2>
         <p>Uma demonstração rápida de como a plataforma organiza sua busca do zero até a candidatura enviada.</p>
       </div>
       <!-- VIDEO_PLACEHOLDER: Grave um vídeo no Loom ou YouTube e cole o embed abaixo. -->
       <!-- Exemplo: <div class="demo-video-frame"><iframe src="https://www.youtube.com/embed/SEU_VIDEO_ID" allowfullscreen></iframe></div> -->
-      <div class="demo-video-frame" style="display:flex; align-items:center; justify-content:center; background:#0b1930; border-radius:18px; aspect-ratio:16/9; max-width:920px; margin:0 auto;">
-        <div style="text-align:center; color:#7CA8D6; padding:2rem;">
-          <div style="font-size:4rem; margin-bottom:1rem;">▶</div>
-          <p style="font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:0.5rem;">Vídeo explicativo em breve</p>
-          <p style="font-size:0.9rem; margin:0;">Em breve você poderá assistir ao passo a passo completo da plataforma aqui.</p>
+      <div class="demo-video-frame demo-video-box">
+        <div class="demo-video-content">
+          <div class="demo-play-icon">▶</div>
+          <p class="demo-title">Vídeo explicativo em breve</p>
+          <p class="demo-subtext">Em breve você poderá assistir ao passo a passo completo da plataforma aqui.</p>
         </div>
       </div>
     </section>
@@ -112,11 +139,11 @@
     <section class="section" id="planos"><div class="section-head"><h2>Comece leve. Evolua quando precisar.</h2><p>Organize sua busca gratuitamente, ganhe velocidade com uma assinatura mensal ou escolha o acompanhamento humano.</p></div><div class="plans">
 <article class="plan"><h3>Essencial</h3><p>Para experimentar a busca organizada</p><div class="price">Grátis</div><ul><li>Até 30 novas oportunidades por mês</li><li>Até 30 preparações assistidas de formulário por mês</li><li>Cadastro manual e fila de decisão</li><li>Triagem de alertas conectados e deduplicação</li><li>Compatibilidade e prévia de currículo e carta</li><li>Downloads avulsos por R$ 9,90 cada</li></ul><a href="#auth" data-auth-mode="signup">Começar grátis</a></article>
 <article class="plan"><h3>Start</h3><p>Mais volume e documentos prontos</p><div class="price">R$ 34,90 <small>/mês</small></div><ul><li>Até 150 novas oportunidades por mês</li><li>Até 150 preparações assistidas de formulário por mês</li><li>Captura e separação de alertas Gmail e Outlook</li><li>Fila priorizada e compatibilidade com seu perfil</li><li>Downloads de currículo e carta personalizados incluídos</li><li>Histórico de documentos para baixar</li></ul><a href="#auth" data-plan-checkout="start">Assinar Start</a>
-<div style="margin-top: 15px; text-align: center; font-size: 0.9em; padding-top: 15px; border-top: 1px solid var(--color-border);">
+<div class="combo-box">
   <strong>Promoção 1º mês:</strong><br>
-  <span style="color: var(--color-text-dim);">Assinatura Start (30 dias) + E-book Hackeando o DISC</span><br>
-  <strong style="color: var(--color-success); font-size: 1.2em;">R$ 50,00</strong><br>
-  <a href="#auth" data-plan-checkout="combo" style="display: inline-block; margin-top: 8px; padding: 6px 12px; background: var(--color-border); color: var(--color-text); border-radius: 4px; text-decoration: none;">Comprar Combo</a>
+  <span class="combo-dim">Assinatura Start (30 dias) + E-book Hackeando o DISC</span><br>
+  <strong class="combo-price">R$ 50,00</strong><br>
+  <a href="#auth" data-plan-checkout="combo" class="combo-btn">Comprar Combo</a>
 </div>
 </article>
 <article class="plan highlight"><span class="tag">Maior capacidade</span><h3>Pro</h3><p>Para uma busca intensa e completa</p><div class="price">R$ 99,00 <small>/mês</small></div><ul><li>Até 500 novas oportunidades e preparações assistidas por mês</li><li>Tudo do Start, com mais capacidade para sua busca</li><li>Treino de entrevista com avaliação por IA</li><li>E-book digital Hackeando o DISC incluído enquanto o plano estiver ativo</li><li>Renovação mensal pelo Mercado Pago</li></ul><a href="#auth" data-plan-checkout="pro">Assinar Pro</a></article>
@@ -124,34 +151,28 @@
 </div><p class="billing-note">As vagas são contadas por mês-calendário; duplicadas não consomem o limite. O copiloto inclui até 30 preparações assistidas por mês no Essencial, 150 no Start e 500 no Pro e na Consultoria. Cada vez que você autoriza buscar seu perfil para preencher uma vaga, uma preparação é contabilizada, mesmo que a página não tenha campos compatíveis. Ambos os limites renovam no primeiro dia de cada mês. Start custa R$ 34,90 por mês e Pro R$ 99,00 por mês, com renovação automática pelo Mercado Pago até o cancelamento. Cancele em Configurações → Plano e cobrança; o acesso pago continua até o fim do período já quitado. A promoção do Combo inclui o pagamento único de R$ 50,00 por 30 dias do plano Start mais o acesso definitivo ao e-book Hackeando o DISC; após os 30 dias, caso deseje continuar, será necessário realizar uma nova assinatura do plano desejado. As formas de pagamento aparecem no checkout. A Consultoria custa R$ 197,00 por mês, com cobrança recorrente pelo Mercado Pago até o cancelamento. Cada ciclo pago inclui 1 atendimento individual online de até 60 minutos, agendado pelo canal liberado na sua área de cobrança após a confirmação do pagamento. O atendimento deve ser solicitado durante o ciclo pago e não acumula para os meses seguintes.</p></section>
     <section class="section" id="faq"><div class="section-head"><h2>Dúvidas rápidas</h2><p>Transparência para você decidir como começar.</p></div><div class="faq-list"><details><summary>A plataforma envia candidaturas automaticamente?</summary><p>Não. O copiloto pode preparar campos de texto reconhecidos em páginas da Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br, somente depois da sua autorização e onde o portal permitir. Você revisa e clica em Enviar no próprio portal.</p></details><details><summary>O que o copiloto preenche?</summary><p>Ele pode preencher campos básicos vazios que correspondam ao perfil salvo, como nome, contato, resumo e experiências. Não responde perguntas abertas ou sensíveis, não resolve CAPTCHA e não anexa arquivos sem uma autorização específica. Quando você autoriza, ele pode colocar um currículo ou uma carta da sua biblioteca em um campo de PDF claramente identificado; você continua responsável pela revisão e pelo envio.</p></details><details><summary>Como funcionam os limites do copiloto?</summary><p>O Essencial inclui 30 preparações assistidas por mês, o Start 150, e o Pro e a Consultoria 500. Uma preparação é contabilizada quando você autoriza o complemento a buscar seu perfil para aquela vaga.</p></details><details><summary>Os currículos funcionam em plataformas como Gupy e Workday?</summary><p>As prévias são organizadas para leitura humana e compatibilidade com ATS. Confira sempre os campos finais da plataforma antes de enviar.</p></details><details><summary>Como funcionam a cobrança e o cancelamento?</summary><p>Start custa R$ 34,90 por mês e Pro custa R$ 99,00 por mês. A cobrança começa no checkout e se repete mensalmente pelo Mercado Pago até você cancelar em Configurações → Plano e cobrança. Depois do cancelamento, seu acesso permanece até o fim do período já pago. A Consultoria custa R$ 197,00 por mês, com cobrança recorrente pelo Mercado Pago até o cancelamento e 1 atendimento individual online de até 60 minutos em cada ciclo pago. O agendamento fica disponível em Configurações → Plano e cobrança após a confirmação do pagamento e não acumula para os meses seguintes.</p></details></div></section>
     <!-- SEÇÃO: CRIADOR / ROSTO HUMANO -->
-    <section class="section" id="sobre-o-criador" style="padding-bottom:60px;">
-      <div style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:1fr 2fr; gap:3rem; align-items:center; border:1px solid var(--line); border-radius:22px; padding:2.5rem; background:var(--paper); box-shadow:0 8px 24px rgba(27,55,105,.06);">
-        <div style="text-align:center;">
+    <section class="section creator-section" id="sobre-o-criador">
+      <div class="creator-grid">
+        <div class="creator-avatar-box">
           <!-- FOTO_PLACEHOLDER: Substitua pelo src da sua foto. Ex: src="/static/foto-criador.jpg" -->
-          <div style="width:160px; height:160px; border-radius:50%; margin:0 auto 1rem; background:linear-gradient(135deg,#0e3157,#3568e8); display:flex; align-items:center; justify-content:center; font-size:3.5rem; color:white; box-shadow:0 8px 24px rgba(53,104,232,.3);">👤</div>
-          <strong style="display:block; font-size:1.1rem; color:var(--ink);">Thiago Cruz</strong>
-          <span style="color:var(--muted); font-size:0.85rem;">Criador da Candidatura Certa</span>
-          <div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem; align-items:center;">
-            <a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; background:#25D366; color:#fff; font-size:0.85rem; font-weight:700; text-decoration:none;">💬 Falar no WhatsApp</a>
+          <div class="creator-avatar">👤</div>
+          <strong class="creator-name">Thiago Cruz</strong>
+          <span class="creator-role">Criador da Candidatura Certa</span>
+          <div class="creator-contact">
+            <a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer" class="creator-wa-btn">💬 Falar no WhatsApp</a>
           </div>
         </div>
         <div>
-          <h2 style="margin:0 0 0.75rem; font-size:clamp(20px,3vw,28px); letter-spacing:-.03em;">Uma ferramenta criada por quem viveu a busca de emprego de perto.</h2>
-          <p style="color:var(--muted); line-height:1.7; margin:0 0 1rem;">Criei a Candidatura Certa porque já vi de perto a frustração de profissionais competentes que se perdiam no volume de vagas, CVs enviados sem retorno e entrevistas para as quais não estavam preparados.</p>
-          <p style="color:var(--muted); line-height:1.7; margin:0 0 1.5rem;">A plataforma usa IA para fazer o trabalho pesado — organizar, priorizar e personalizar — para que você foque no que realmente importa: a conversa humana, o seu desenvolvimento e a vaga certa.</p>
-          <div style="display:flex; flex-wrap:wrap; gap:1rem;">
-            <div style="padding:10px 16px; border:1px solid var(--line); border-radius:10px; font-size:0.85rem;"><strong style="display:block; color:var(--blue); font-size:1.2rem;">+12</strong>usuários ativos</div>
-            <div style="padding:10px 16px; border:1px solid var(--line); border-radius:10px; font-size:0.85rem;"><strong style="display:block; color:var(--blue); font-size:1.2rem;">100%</strong>feito no Brasil</div>
-            <div style="padding:10px 16px; border:1px solid var(--line); border-radius:10px; font-size:0.85rem;"><strong style="display:block; color:var(--blue); font-size:1.2rem;">IA</strong>no coração</div>
+          <h2 class="creator-title">Uma ferramenta criada por quem viveu a busca de emprego de perto.</h2>
+          <p class="creator-desc">Criei a Candidatura Certa porque já vi de perto a frustração de profissionais competentes que se perdiam no volume de vagas, CVs enviados sem retorno e entrevistas para as quais não estavam preparados.</p>
+          <p class="creator-desc">A plataforma usa IA para fazer o trabalho pesado — organizar, priorizar e personalizar — para que você foque no que realmente importa: a conversa humana, o seu desenvolvimento e a vaga certa.</p>
+          <div class="creator-metrics">
+            <div class="creator-metric-item"><strong class="creator-metric-val">+12</strong>usuários ativos</div>
+            <div class="creator-metric-item"><strong class="creator-metric-val">100%</strong>feito no Brasil</div>
+            <div class="creator-metric-item"><strong class="creator-metric-val">IA</strong>no coração</div>
           </div>
         </div>
       </div>
-      <style>
-        @media(max-width:700px){
-          #sobre-o-criador > div { grid-template-columns: 1fr !important; }
-          #sobre-o-criador > div > div:first-child { order: -1; }
-        }
-      </style>
     </section>
     <section class="cta"><div class="cta-inner"><div><h2>Pronto para transformar sua busca?</h2><p>Crie seu perfil e veja o primeiro match com clareza.</p></div><a class="ghost" href="#auth" data-auth-mode="signup">Abrir meu painel</a></div></section>
   </main>

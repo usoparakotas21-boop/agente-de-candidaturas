@@ -404,6 +404,22 @@ STATIC_DIR = Path(__file__).parent / "static"
 FAVICON_TAG = '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=2">'
 
 
+@app.get("/manifest.json", include_in_schema=False)
+async def pwa_manifest():
+    manifest_path = (STATIC_DIR / "manifest.json").resolve()
+    if not manifest_path.is_file():
+        raise HTTPException(status_code=404, detail="Manifest nao encontrado.")
+    return FileResponse(manifest_path, media_type="application/manifest+json")
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def pwa_service_worker():
+    sw_path = (STATIC_DIR / "sw.js").resolve()
+    if not sw_path.is_file():
+        raise HTTPException(status_code=404, detail="Service Worker nao encontrado.")
+    return FileResponse(sw_path, media_type="application/javascript")
+
+
 @app.get("/static/{asset_path:path}", include_in_schema=False)
 async def static_asset(asset_path: str):
     """Serve frontend assets without allowing filesystem traversal."""
@@ -428,10 +444,11 @@ def _nonce_styles(html: str, nonce: str) -> str:
 
 
 def _with_favicon(html: str) -> str:
-    """Attach the product favicon to every active HTML shell."""
-    if 'rel="icon"' in html.casefold():
-        return html
-    return html.replace("</head>", FAVICON_TAG + "</head>", 1)
+    """Attach the product favicon and PWA manifest to every active HTML shell."""
+    tags = '<link rel="manifest" href="/manifest.json">'
+    if 'rel="icon"' not in html.casefold():
+        tags = FAVICON_TAG + tags
+    return html.replace("</head>", tags + "</head>", 1)
 
 
 def _landing_demo_video() -> str:
@@ -490,7 +507,7 @@ def _style_nonce_bootstrap(nonce: str) -> str:
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
     html = _with_favicon(html)
-    html = html.replace("</body>", '<script src="/static/support-chat.js?v=7" defer></script></body>', 1)
+    html = html.replace("</body>", '<script src="/static/support-chat.js?v=7" defer></script><script src="/static/device-adaptive.js" defer></script></body>', 1)
     if path.name == "settings.html":
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")

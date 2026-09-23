@@ -1,4 +1,4 @@
-﻿import re
+import re
 import unicodedata
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -121,6 +121,7 @@ JOB_SOURCE_DOMAINS = {
     "linkedin.com": "linkedin",
     "lnkd.in": "linkedin",
     "indeed.com": "indeed",
+    "indeed.com.br": "indeed",
     "gupy.io": "gupy",
     "glassdoor.com": "glassdoor",
     "glassdoor.com.br": "glassdoor",
@@ -128,12 +129,15 @@ JOB_SOURCE_DOMAINS = {
     "bebee.com": "bebee",
     "catho.com.br": "catho",
     "vagas.com.br": "vagas.com",
+    "empregos.com.br": "empregos",
+    "solides.com.br": "solides",
     "jobbol.com.br": "jobbol",
 }
 
 _PROVIDER_JOB_PATHS = {
     "linkedin.com": (r"/jobs/view/",),
-    "indeed.com": (r"/rc/clk(?:/|$)", r"/viewjob(?:/|$)"),
+    "indeed.com": (r"/rc/clk(?:/|$)", r"/viewjob(?:/|$)", r"/job(?:/|$)"),
+    "indeed.com.br": (r"/rc/clk(?:/|$)", r"/viewjob(?:/|$)", r"/job(?:/|$)"),
     "glassdoor.com": (r"/job-listing/", r"/partner/joblisting\.htm"),
     "glassdoor.com.br": (r"/job-listing/", r"/partner/joblisting\.htm"),
     "gupy.io": (r"/jobs?/", r"/vaga/"),
@@ -142,6 +146,8 @@ _PROVIDER_JOB_PATHS = {
     "catho.com.br": (r"/vagas?/", r"/cargos?/"),
     "vagas.com.br": (r"/vagas?/", r"/perfil/"),
     "infojobs.com.br": (r"/vagas?/", r"/ofertas?/"),
+    "empregos.com.br": (r"/vagas?/", r"/empresa/"),
+    "solides.com.br": (r"/vagas?/", r"/vaga/"),
 }
 
 

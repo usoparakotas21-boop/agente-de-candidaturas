@@ -1,0 +1,18 @@
+{
+  "name": "Candidatura Certa — Copiloto de Empregos",
+  "short_name": "Candidatura",
+  "description": "Seu copiloto inteligente de candidaturas, currículos e treinamento de entrevista por voz.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#153a70",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

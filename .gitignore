@@ -30,3 +30,5 @@ Imagem do Codex *.png
 .vscode/
 .idea/
 *.log
+scratch/
+audit_mobile.py

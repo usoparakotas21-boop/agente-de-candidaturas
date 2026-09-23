@@ -56,6 +56,8 @@ KNOWN_SOURCES = {
     "glassdoor": "glassdoor",
     "jobbol": "jobbol",
     "vagas.com": "vagas.com",
+    "empregos": "empregos",
+    "solides": "solides",
 }
 JOB_TERMS = (
     "vaga",

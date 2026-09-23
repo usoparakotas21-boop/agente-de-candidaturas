@@ -87,8 +87,13 @@
       }
       return plan;
     }
-    return { createFillPlan, valueFor, normalize };
+    return { createFillPlan, valueFor, normalize, describe, fillProfileFields };
   })();
+
+  api.describe = describe;
+  api.fillProfileFields = fillProfileFields;
+  api.observeAndFill = observeAndFill;
+  api.stopObserver = stopObserver;
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   globalThis.CandidaturaCertaFieldFiller = api;
@@ -126,9 +131,12 @@
         if (descriptor.disabled || descriptor.readOnly || !descriptor.visible || descriptor.hasValue || /captcha|senha|password|consent|termos|privacy|salary|pretensao|curriculo|resume|cover|carta|file|birth|nascimento|gender|genero|race|etnia|deficiencia|disability/.test(signal)) return false;
         if (descriptor.maxLength > 0 && value.length > descriptor.maxLength) return false;
         const prototype = element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-        if (!setter) return false;
-        setter.call(element, value);
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(prototype) || {}, "value")?.set;
+        if (setter) {
+          setter.call(element, value);
+        } else {
+          element.value = value;
+        }
         element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
         element.dispatchEvent(new Event("change", { bubbles: true }));
         filled += 1;
@@ -170,70 +178,56 @@
     }
   }
 
-  api.fillProfileFields = fillProfileFields;
+  var activeObserver = null;
+  var activeProfile = null;
+  var fillDebounceTimer = null;
 
-  let autoApplyActive = false;
-
-  async function startAutoApply() {
-    if (autoApplyActive) return;
-    autoApplyActive = true;
-    sessionStorage.setItem("cc_auto_apply_active", "true");
-    
-    let profile = null;
-    try {
-      const resp = await chrome.runtime.sendMessage({ type: "CC_GET_PROFILE" });
-      if (resp?.ok) profile = resp.value;
-    } catch (e) {
-      console.error("Candidatura Certa:", e);
-      stopAutoApply();
-      return;
+  function stopObserver() {
+    if (activeObserver) {
+      activeObserver.disconnect();
+      activeObserver = null;
     }
+    if (fillDebounceTimer) {
+      clearTimeout(fillDebounceTimer);
+      fillDebounceTimer = null;
+    }
+    activeProfile = null;
+  }
 
-    async function tick() {
-      if (!autoApplyActive) return;
-      
-      if (profile) fillProfileFields(profile);
+  function observeAndFill(profile) {
+    activeProfile = profile;
+    fillProfileFields(profile);
 
-      const portal = globalThis.CandidaturaCertaPortalSelectors?.getPortalDefinition?.(location.hostname);
-      if (portal && portal.submit_buttons) {
-        for (const selector of portal.submit_buttons) {
-          const btn = document.querySelector(selector);
-          if (btn && !btn.disabled && btn.getClientRects().length > 0 && getComputedStyle(btn).display !== "none") {
-            try { btn.click(); } catch (err) {}
-            // Pausa maior após clicar
-            setTimeout(tick, 3000);
-            return;
-          }
+    if (activeObserver) activeObserver.disconnect();
+    if (typeof MutationObserver === "undefined" || typeof document === "undefined" || !document.body) return;
+
+    activeObserver = new MutationObserver(mutations => {
+      const hasAddedNodes = mutations.some(m => m.addedNodes && m.addedNodes.length > 0);
+      if (!hasAddedNodes) return;
+      if (fillDebounceTimer) clearTimeout(fillDebounceTimer);
+      fillDebounceTimer = setTimeout(() => {
+        if (activeProfile) {
+          fillProfileFields(activeProfile);
         }
-      }
-      setTimeout(tick, 1500);
-    }
-    tick();
-  }
+      }, 300);
+    });
 
-  function stopAutoApply() {
-    autoApplyActive = false;
-    sessionStorage.removeItem("cc_auto_apply_active");
+    activeObserver.observe(document.body, { childList: true, subtree: true });
   }
-
-  api.startAutoApply = startAutoApply;
-  api.stopAutoApply = stopAutoApply;
 
   const messageListener = (message, _sender, sendResponse) => {
     if (message?.type === "CC_FILL_PROFILE_FIELDS") {
-      sendResponse(fillProfileFields(message.profile || {}));
+      const res = fillProfileFields(message.profile || {});
+      observeAndFill(message.profile || {});
+      sendResponse(res);
       return false;
     }
-    if (message?.type === "CC_STOP_AUTO_APPLY") {
-      stopAutoApply();
+    if (message?.type === "CC_STOP_FILLER_OBSERVER") {
+      stopObserver();
       sendResponse({ ok: true });
       return false;
     }
   };
   chrome.runtime.onMessage.addListener(messageListener);
   globalThis.__ccAutofillMessageListener = messageListener;
-
-  if (sessionStorage.getItem("cc_auto_apply_active") === "true") {
-    startAutoApply();
-  }
 })();

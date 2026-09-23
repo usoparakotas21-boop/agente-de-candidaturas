@@ -121,7 +121,7 @@ class GmailQuotaGateTest(unittest.IsolatedAsyncioTestCase):
         Base.metadata.create_all(self.engine)
         self.session_factory = sessionmaker(bind=self.engine, autoflush=False)
         with self.session_factory() as db:
-            for index in range(30):
+            for index in range(50):
                 db.add(
                     QueueItem(
                         owner_id="free-owner",

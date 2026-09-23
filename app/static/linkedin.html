@@ -111,6 +111,12 @@
       box-shadow: 0 0 20px rgba(124, 255, 107, 0.1);
     }
 
+    .upload-title { color: white; margin-bottom: 0.5rem; }
+    .upload-subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    .loading-subtext { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
+    .paywall-icon { color: var(--highlight); font-size: 3rem; margin-bottom: 1rem; }
+    .copy-btn { margin-top: 2rem; }
+
     .upload-icon {
       font-size: 3rem;
       color: var(--highlight);
@@ -306,8 +312,8 @@
     <div class="upload-card" id="dropzone" onclick="document.getElementById('file-upload').click()">
       <div id="upload-content">
         <i class="fa-solid fa-file-pdf upload-icon"></i>
-        <h3 style="color: white; margin-bottom: 0.5rem;">Clique para enviar seu PDF</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Ou arraste e solte o arquivo aqui</p>
+        <h3 class="upload-title">Clique para enviar seu PDF</h3>
+        <p class="upload-subtitle">Ou arraste e solte o arquivo aqui</p>
         <button class="btn">Selecionar Arquivo</button>
       </div>
 
@@ -315,12 +321,12 @@
       <div class="loading-overlay" id="loading-state">
         <div class="spinner"></div>
         <div class="loading-text">Analisando seu perfil com IA...</div>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Isso pode levar até 30 segundos.</p>
+        <p class="loading-subtext">Isso pode levar até 30 segundos.</p>
       </div>
 
       <!-- Paywall State -->
       <div class="paywall-overlay" id="paywall-state">
-        <i class="fa-solid fa-lock" style="color: var(--highlight); font-size: 3rem; margin-bottom: 1rem;"></i>
+        <i class="fa-solid fa-lock paywall-icon"></i>
         <h3>Recurso Premium</h3>
         <p>O Rebranding de LinkedIn é exclusivo para assinantes PRO/Consultoria ou mediante compra avulsa.</p>
         <div class="price-tag">R$ 19,90</div>
@@ -333,7 +339,7 @@
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
       <div class="markdown-body" id="result-content"></div>
-      <button class="btn" style="margin-top: 2rem;" onclick="copyResult()"><i class="fa-regular fa-copy"></i> Copiar Texto</button>
+      <button class="btn copy-btn" onclick="copyResult()"><i class="fa-regular fa-copy"></i> Copiar Texto</button>
     </div>
   </div>
 

@@ -411,3 +411,286 @@ test("complemento pede permissão do app só após clique e limita atuação à 
   assert.doesNotMatch(attachPdfsInPage.toString(), /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
   assert.doesNotMatch(attachment, /fetch\s*\(|XMLHttpRequest|\.submit\s*\(|requestSubmit|\.click\s*\(/);
 });
+
+test("preenche de forma isolada formulários reais nos portais Gupy, Vagas, InfoJobs, Catho, Empregos e Solides", () => {
+  const root = path.resolve(__dirname, "../chrome-extension");
+  const portalSelectorsCode = fs.readFileSync(path.join(root, "portal-selectors.js"), "utf8");
+  const fieldFillerCode = fs.readFileSync(path.join(root, "field-filler.js"), "utf8");
+
+  function createMockDom(hostname, elements) {
+    class Element {
+      constructor(data) {
+        Object.assign(this, data);
+        this.tagName = (data.tagName || "INPUT").toUpperCase();
+        this._val = data.value || "";
+      }
+      get value() { return this._val; }
+      set value(v) { this._val = String(v); }
+      getAttribute(attr) { return this[attr] || null; }
+      getClientRects() { return [1]; }
+      dispatchEvent(event) {
+        this.dispatchedEvents = this.dispatchedEvents || [];
+        this.dispatchedEvents.push(event.type);
+        return true;
+      }
+    }
+    class HTMLInputElement extends Element {}
+    class HTMLTextAreaElement extends Element {}
+    class HTMLSelectElement extends Element {}
+
+    const domElements = elements.map(e => {
+      const tag = (e.tagName || "INPUT").toUpperCase();
+      if (tag === "TEXTAREA") return new HTMLTextAreaElement(e);
+      if (tag === "SELECT") return new HTMLSelectElement(e);
+      return new HTMLInputElement(e);
+    });
+
+    const context = {
+      console,
+      location: { hostname },
+      getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+      Event: class Event { constructor(type) { this.type = type; } },
+      HTMLInputElement,
+      HTMLTextAreaElement,
+      HTMLSelectElement,
+      document: {
+        querySelectorAll: (selector) => {
+          return domElements.filter(el => {
+            const tag = el.tagName.toLowerCase();
+            if (selector === "input, textarea, select") return true;
+            if (selector === "input") return tag === "input";
+            if (selector === "textarea") return tag === "textarea";
+            if (selector === "select") return tag === "select";
+
+            const idMatch = selector.match(/#([A-Za-z0-9_-]+)/);
+            if (idMatch && el.id === idMatch[1]) return true;
+
+            const nameExactMatch = selector.match(/\[name='([^']+)'\]/);
+            if (nameExactMatch && el.name === nameExactMatch[1]) return true;
+
+            const nameContainsMatch = selector.match(/\[name\*='([^']+)'\]/);
+            if (nameContainsMatch && el.name && el.name.includes(nameContainsMatch[1])) return true;
+
+            const testIdMatch = selector.match(/\[data-testid\*='([^']+)'\]/);
+            if (testIdMatch && el["data-testid"] && el["data-testid"].includes(testIdMatch[1])) return true;
+
+            const typeMatch = selector.match(/\[type='([^']+)'\]/);
+            if (typeMatch && el.type === typeMatch[1]) return true;
+
+            return false;
+          });
+        },
+        querySelector: (selector) => {
+          return context.document.querySelectorAll(selector)[0] || null;
+        }
+      }
+    };
+    context.globalThis = context;
+    vm.createContext(context);
+    vm.runInContext(portalSelectorsCode, context);
+    vm.runInContext(fieldFillerCode, context);
+    return { context, domElements };
+  }
+
+  // 1. Gupy
+  {
+    const gupyElements = [
+      { tagName: "input", type: "text", name: "firstName", placeholder: "Nome" },
+      { tagName: "input", type: "text", name: "lastName", placeholder: "Sobrenome" },
+      { tagName: "input", type: "email", name: "email", placeholder: "E-mail" },
+      { tagName: "input", type: "tel", name: "phone", placeholder: "Telefone" },
+      { tagName: "input", type: "text", name: "headline", placeholder: "Título Profissional" },
+      { tagName: "textarea", name: "summary", placeholder: "Resumo" },
+      { tagName: "input", type: "text", name: "linkedin", placeholder: "Perfil LinkedIn" },
+    ];
+    const { context, domElements } = createMockDom("careers.gupy.io", gupyElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana");
+    assert.equal(domElements[1].value, "Beatriz Souza");
+    assert.equal(domElements[2].value, "ana@example.com");
+    assert.equal(domElements[3].value, "+55 71 99999-0000");
+    assert.equal(domElements[4].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[5].value, "Profissional de RH com experiência em seleção.");
+    assert.equal(domElements[6].value, "https://linkedin.com/in/anabeatriz");
+    assert.ok(domElements[0].dispatchedEvents.includes("input"));
+    assert.ok(domElements[0].dispatchedEvents.includes("change"));
+  }
+
+  // 2. Vagas.com.br
+  {
+    const vagasElements = [
+      { tagName: "input", type: "text", id: "Nome", name: "nome" },
+      { tagName: "input", type: "email", id: "Email", name: "email" },
+      { tagName: "input", type: "tel", id: "Celular", name: "celular" },
+      { tagName: "input", type: "text", id: "ObjetivoProfissional", name: "objetivo" },
+      { tagName: "textarea", id: "ResumoProfissional", name: "resumo" }
+    ];
+    const { context, domElements } = createMockDom("www.vagas.com.br", vagasElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana Beatriz Souza");
+    assert.equal(domElements[1].value, "ana@example.com");
+    assert.equal(domElements[2].value, "+55 71 99999-0000");
+    assert.equal(domElements[3].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[4].value, "Profissional de RH com experiência em seleção.");
+  }
+
+  // 3. InfoJobs
+  {
+    const infojobsElements = [
+      { tagName: "input", type: "text", name: "name" },
+      { tagName: "input", type: "email", name: "email" },
+      { tagName: "input", type: "tel", name: "phone" },
+      { tagName: "input", type: "text", name: "title" },
+      { tagName: "textarea", name: "summary" }
+    ];
+    const { context, domElements } = createMockDom("empregos.infojobs.com.br", infojobsElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana Beatriz Souza");
+    assert.equal(domElements[1].value, "ana@example.com");
+    assert.equal(domElements[2].value, "+55 71 99999-0000");
+    assert.equal(domElements[3].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[4].value, "Profissional de RH com experiência em seleção.");
+  }
+
+  // 4. Catho
+  {
+    const cathoElements = [
+      { tagName: "input", type: "text", name: "nome" },
+      { tagName: "input", type: "email", name: "email" },
+      { tagName: "input", type: "tel", name: "celular" },
+      { tagName: "input", type: "text", name: "cargo" },
+      { tagName: "textarea", name: "resumo" }
+    ];
+    const { context, domElements } = createMockDom("jobs.catho.com.br", cathoElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana Beatriz Souza");
+    assert.equal(domElements[1].value, "ana@example.com");
+    assert.equal(domElements[2].value, "+55 71 99999-0000");
+    assert.equal(domElements[3].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[4].value, "Profissional de RH com experiência em seleção.");
+  }
+
+  // 5. Empregos.com.br
+  {
+    const empregosElements = [
+      { tagName: "input", type: "text", name: "nome" },
+      { tagName: "input", type: "email", name: "email" },
+      { tagName: "input", type: "tel", name: "telefone" },
+      { tagName: "input", type: "text", name: "cargo" },
+      { tagName: "textarea", name: "resumo" }
+    ];
+    const { context, domElements } = createMockDom("careers.empregos.com.br", empregosElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana Beatriz Souza");
+    assert.equal(domElements[1].value, "ana@example.com");
+    assert.equal(domElements[2].value, "+55 71 99999-0000");
+    assert.equal(domElements[3].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[4].value, "Profissional de RH com experiência em seleção.");
+  }
+
+  // 6. Solides
+  {
+    const solidesElements = [
+      { tagName: "input", type: "text", name: "name" },
+      { tagName: "input", type: "email", name: "email" },
+      { tagName: "input", type: "tel", name: "phone" },
+      { tagName: "input", type: "text", "data-testid": "job-title" },
+      { tagName: "textarea", "data-testid": "about-me" }
+    ];
+    const { context, domElements } = createMockDom("vagas.solides.com.br", solidesElements);
+    const result = context.CandidaturaCertaFieldFiller.fillProfileFields(profile);
+    assert.equal(result.ok, true);
+    assert.equal(domElements[0].value, "Ana Beatriz Souza");
+    assert.equal(domElements[1].value, "ana@example.com");
+    assert.equal(domElements[2].value, "+55 71 99999-0000");
+    assert.equal(domElements[3].value, "Analista de Recursos Humanos");
+    assert.equal(domElements[4].value, "Profissional de RH com experiência em seleção.");
+  }
+});
+
+test("MutationObserver detecta novas etapas do modal/wizard e aplica o preenchimento continuamente", async () => {
+  const root = path.resolve(__dirname, "../chrome-extension");
+  const portalSelectorsCode = fs.readFileSync(path.join(root, "portal-selectors.js"), "utf8");
+  const fieldFillerCode = fs.readFileSync(path.join(root, "field-filler.js"), "utf8");
+
+  const domElements = [];
+  const observerCallbacks = [];
+
+  class Element {
+    constructor(data) {
+      Object.assign(this, data);
+      this.tagName = (data.tagName || "INPUT").toUpperCase();
+      this._val = data.value || "";
+    }
+    get value() { return this._val; }
+    set value(v) { this._val = String(v); }
+    getAttribute(attr) { return this[attr] || null; }
+    getClientRects() { return [1]; }
+    dispatchEvent() { return true; }
+  }
+
+  class HTMLInputElement extends Element {}
+  class HTMLTextAreaElement extends Element {}
+
+  class MockMutationObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observerCallbacks.push(callback);
+    }
+    observe() {}
+    disconnect() {}
+  }
+
+  const step1Input = new HTMLInputElement({ tagName: "input", type: "text", name: "firstName", placeholder: "Nome" });
+  domElements.push(step1Input);
+
+  const context = {
+    console,
+    location: { hostname: "careers.gupy.io" },
+    getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+    Event: class Event { constructor(type) { this.type = type; } },
+    HTMLInputElement,
+    HTMLTextAreaElement,
+    MutationObserver: MockMutationObserver,
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (id) => clearTimeout(id),
+    document: {
+      body: {},
+      querySelectorAll: (selector) => {
+        if (selector === "input, textarea, select") return domElements;
+        if (selector.includes("name='firstName'")) return domElements.filter(el => el.name === "firstName");
+        if (selector.includes("name='lastName'")) return domElements.filter(el => el.name === "lastName");
+        return [];
+      },
+      querySelector: (selector) => context.document.querySelectorAll(selector)[0] || null
+    }
+  };
+  context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(portalSelectorsCode, context);
+  vm.runInContext(fieldFillerCode, context);
+
+  // Iniciar preenchimento + observador continuo
+  context.CandidaturaCertaFieldFiller.observeAndFill(profile);
+  assert.equal(step1Input.value, "Ana");
+
+  // Simular avanço de etapa no modal (Wizard): nova entrada de sobrenome injetada no DOM
+  const step2Input = new HTMLInputElement({ tagName: "input", type: "text", name: "lastName", placeholder: "Sobrenome" });
+  domElements.push(step2Input);
+
+  // Disparar mutação do MutationObserver
+  observerCallbacks[0]([{ addedNodes: [step2Input] }]);
+
+  // Aguardar o debounce do observer (300ms)
+  await new Promise(r => setTimeout(r, 400));
+  assert.equal(step2Input.value, "Beatriz Souza");
+
+  context.CandidaturaCertaFieldFiller.stopObserver();
+});
+
+

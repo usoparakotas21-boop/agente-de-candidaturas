@@ -2,13 +2,52 @@ import hashlib
 import re
 import unicodedata
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from .text_sanitization import sanitize_untrusted_text
 
-
 MAX_INTAKE_CHARS = 80_000
 MIN_INTAKE_CHARS = 60
+
+TRACKING_PARAMS = {
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "trk", "etype", "refid", "trackingid", "midtoken", "destredirect",
+    "from", "vjs", "attribs", "duphashes", "cmp", "fccid", "rk", "tk",
+    "jobboardsource", "gclid", "fbclid", "mc_eid", "context", "originalsubdomain"
+}
+
+
+def clean_tracking_url(url: str) -> str:
+    """Remove tracking tokens and parameters from captured job URLs."""
+    if not url or not isinstance(url, str):
+        return ""
+    stripped = url.strip().rstrip(".,;:!?)'\"]")
+    if not re.match(r"^https?://", stripped, flags=re.I):
+        return stripped
+    try:
+        parsed = urlparse(stripped)
+        if not parsed.netloc:
+            return stripped
+        qs = parse_qs(parsed.query, keep_blank_values=False)
+        cleaned_qs = {
+            k: v for k, v in qs.items()
+            if k.casefold() not in TRACKING_PARAMS
+        }
+        new_query = urlencode(cleaned_qs, doseq=True)
+        path = parsed.path
+        if len(path) > 1 and path.endswith("/"):
+            path = path.rstrip("/")
+        cleaned_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+        return cleaned_url
+    except Exception:
+        return stripped
 
 ROLE_WORDS = (
     "analista",
@@ -99,22 +138,28 @@ def _extract_url(text: str) -> str:
             r"(?<!@)\b(?:www\.)?(?:bebee\.com|(?:[a-z0-9-]+\.)?gupy\.io|"
             r"linkedin\.com|(?:[a-z0-9-]+\.)?indeed\.com|"
             r"glassdoor\.com(?:\.br)?|infojobs\.com\.br|"
-            r"catho\.com\.br|vagas\.com\.br|jobbol\.com\.br)/[^\s<>\]\[\)\(\"']+",
+            r"catho\.com\.br|vagas\.com\.br|jobbol\.com\.br|solides\.com\.br|empregos\.com\.br)/[^\s<>\]\[\)\(\"']+",
             text,
             flags=re.I,
         )
         urls = [f"https://{value}" for value in naked_urls]
     if not urls:
         return ""
-    preferred_hosts = ("gupy.io", "linkedin.com", "indeed.com", "jobs.", "careers.")
+    preferred_hosts = ("gupy.io", "linkedin.com", "indeed.com", "infojobs.com.br", "catho.com.br", "vagas.com.br", "solides.com.br", "empregos.com.br", "jobs.", "careers.")
+    selected_url = ""
     for url in urls:
         if any(host in url.casefold() for host in preferred_hosts):
-            return url.rstrip(".,;:")
-    for url in urls:
-        lowered = url.casefold()
-        if not any(word in lowered for word in ("unsubscribe", "descadastrar", "privacy")):
-            return url.rstrip(".,;:")
-    return urls[0].rstrip(".,;:")
+            selected_url = url.rstrip(".,;:")
+            break
+    if not selected_url:
+        for url in urls:
+            lowered = url.casefold()
+            if not any(word in lowered for word in ("unsubscribe", "descadastrar", "privacy")):
+                selected_url = url.rstrip(".,;:")
+                break
+    if not selected_url and urls:
+        selected_url = urls[0].rstrip(".,;:")
+    return clean_tracking_url(selected_url)
 
 
 def _title_from_url(value: str) -> str:
