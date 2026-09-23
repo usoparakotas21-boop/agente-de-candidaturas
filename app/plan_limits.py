@@ -12,9 +12,9 @@ from .models import Application, BillingSubscription, Job, QueueItem, utc_now
 
 
 MONTHLY_OPPORTUNITY_LIMITS = {
-    "essential": 30,
-    "start": 150,
-    "pro": 500,
+    "essential": 50,
+    "start": 250,
+    "pro": 1000,
 }
 BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
 
