@@ -1199,6 +1199,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/auth/logout",
         "/auth/logout/others",
         "/auth/mfa/complete",
+        "/admin",
+        "/admin/login",
+
         "/webhooks/mercadopago",
         "/billing/mercadopago/success",
         "/auth/verification-required",
@@ -1270,3 +1273,5 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if renewed_session:
             _set_session_cookies(response, renewed_session)
         return response
+
+

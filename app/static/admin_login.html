@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Login Administrativo</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0e3157; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: #333; }
+    .login-box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
+    h1 { margin-top: 0; color: #1a365d; font-size: 24px; margin-bottom: 25px; }
+    input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e0; border-radius: 6px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background: #2f6fed; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #255edb; }
+    .error { color: #b42318; font-size: 14px; margin-bottom: 15px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>Acesso Restrito</h1>
+    <div id="error" class="error"></div>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="E-mail administrador" required>
+      <input type="password" id="password" placeholder="Senha secreta" required>
+      <button type="submit" id="btnSubmit">Entrar no Painel</button>
+    </form>
+  </div>
+  <script>
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const errDiv = document.getElementById('error');
+      const btn = document.getElementById('btnSubmit');
+      errDiv.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Autenticando...";
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      
+      try {
+        const res = await fetch("/auth/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({email, password})
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Erro de acesso. Verifique suas credenciais.");
+        
+        if(data.mfa_required) {
+            const code = window.prompt("Insira o código de autenticação (2FA):");
+            if(!code) throw new Error("MFA obrigatorio.");
+            const v = await fetch("/auth/mfa/complete", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({factor_id: data.factor_id, challenge_id: data.challenge_id, code: code.trim()})
+            });
+            const out = await v.json().catch(()=>({}));
+            if (!v.ok) throw new Error(out.detail || "Código 2FA inválido.");
+        }
+        
+        // Success
+        location.href = "/admin";
+      } catch (err) {
+        errDiv.textContent = err.message;
+        btn.disabled = false;
+        btn.textContent = "Entrar no Painel";
+      }
+    };
+  </script>
+</body>
+</html>

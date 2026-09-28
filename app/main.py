@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import csv
 from contextlib import contextmanager
 import json
@@ -86,11 +86,11 @@ def send_interview_questions_email(job_title: str, job_description: str, to_emai
         msg["From"] = "contato@candidaturacerta.com.br"
         msg["To"] = to_email
 
-        body = f"OlÃ¡ {candidate_name},\n\n"
-        body += f"Nossa IA analisou a vaga de '{job_title}' e preparou as 3 perguntas comportamentais ou tÃ©cnicas mais provÃ¡veis que podem aparecer na sua entrevista:\n\n"
+        body = f"Olá {candidate_name},\n\n"
+        body += f"Nossa IA analisou a vaga de '{job_title}' e preparou as 3 perguntas comportamentais ou técnicas mais prováveis que podem aparecer na sua entrevista:\n\n"
         for i, q in enumerate(questions, 1):
             body += f"{i}. {q}\n\n"
-        body += "Prepare suas respostas usando o mÃ©todo STAR (SituaÃ§Ã£o, Tarefa, AÃ§Ã£o, Resultado) e boa sorte!\n\n"
+        body += "Prepare suas respostas usando o método STAR (Situação, Tarefa, Ação, Resultado) e boa sorte!\n\n"
         body += "Equipe Candidatura Certa\nhttps://candidaturacerta.com.br"
 
         msg.set_content(body)
@@ -276,7 +276,7 @@ async def _document_retention_loop():
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("Falha na limpeza periÃ³dica de documentos")
+            logger.exception("Falha na limpeza periódica de documentos")
             await asyncio.sleep(DOCUMENT_CLEANUP_INTERVAL_SECONDS)
 
 
@@ -308,7 +308,7 @@ async def _lifecycle_email_loop():
             for dispatcher, label in (
                 (run_followup_digest_cycle, "lembretes de candidatura"),
                 (run_interview_notification_cycle, "avisos de entrevista"),
-                (run_expiration_notification_cycle, "avisos de expiraÃ§Ã£o de vagas"),
+                (run_expiration_notification_cycle, "avisos de expiração de vagas"),
             ):
                 try:
                     await asyncio.to_thread(dispatcher, SessionLocal)
@@ -381,7 +381,7 @@ async def _run_fetch_work(function, *args):
             timeout=DOCUMENT_PROCESSING_TIMEOUT,
         )
     except asyncio.TimeoutError as exc:
-        raise SourceFetchError("A leitura da pÃ¡gina excedeu o limite seguro.") from exc
+        raise SourceFetchError("A leitura da página excedeu o limite seguro.") from exc
 DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 LANDING_PATH = Path(__file__).parent / "static" / "landing.html"
 SETTINGS_PATH = Path(__file__).parent / "static" / "settings.html"
@@ -489,7 +489,7 @@ def _landing_demo_video() -> str:
     if not embed_url:
         logger.warning("DEMO_VIDEO_URL is not a supported YouTube or Vimeo URL; demo remains hidden")
         return ""
-    return f'''<section class="section demo-video-section" id="demonstracao" aria-labelledby="demo-video-title"><div class="section-head"><h2 id="demo-video-title">Veja a Candidatura Certa em aÃ§Ã£o</h2><p>Da importaÃ§Ã£o do currÃ­culo Ã  anÃ¡lise de compatibilidade, documentos e fila de decisÃ£o.</p></div><div class="demo-video-frame"><iframe src="{embed_url}" title="DemonstraÃ§Ã£o da Candidatura Certa" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></section>'''
+    return f'''<section class="section demo-video-section" id="demonstracao" aria-labelledby="demo-video-title"><div class="section-head"><h2 id="demo-video-title">Veja a Candidatura Certa em ação</h2><p>Da importação do currículo à análise de compatibilidade, documentos e fila de decisão.</p></div><div class="demo-video-frame"><iframe src="{embed_url}" title="Demonstração da Candidatura Certa" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></section>'''
 
 
 def _style_nonce_bootstrap(nonce: str) -> str:
@@ -509,9 +509,9 @@ def _page(path: Path) -> HTMLResponse:
     html = _with_favicon(html)
     html = html.replace("</body>", '<script src="/static/support-chat.js?v=7" defer></script><script src="/static/device-adaptive.js" defer></script></body>', 1)
     if path.name == "settings.html":
-        html = html.replace("IntegraÃ§Ã£o OAuth em preparaÃ§Ã£o.", "Conecte sua conta Outlook para sincronizar mensagens.")
-        html = html.replace(">Em breve<", ">NÃ£o conectado<")
-        html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">NÃ£o conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">NÃ£o conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
+        html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
+        html = html.replace(">Em breve<", ">Não conectado<")
+        html = html.replace('<span class="badge" style="color:#64748b;background:#f1f5f9">Não conectado</span>', '<span class="badge" style="color:#a15c00;background:#fff5df">Não conectado</span><a class="secondary" href="/auth/outlook/start">Conectar</a>')
     nav = '''<style>
 .global-nav{height:52px;background:#092f56;color:#fff;display:flex;align-items:center;gap:18px;padding:0 max(22px,5vw);font:600 13px Inter,system-ui,sans-serif}
 body{min-height:100vh;display:flex;flex-direction:column}
@@ -538,9 +538,9 @@ body{min-height:100vh;display:flex;flex-direction:column}
 @media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
 @media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}
 </style>
-<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">ConfiguraÃ§Ãµes</a><a href="/billing/ebook/preview" target="_blank" style="color:#86efac;font-weight:800;">ðŸ“˜ E-Book DISC GrÃ¡tis</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/billing/ebook/preview" target="_blank" style="color:#86efac;font-weight:800;">📘 E-Book DISC Grátis</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
-        # O dashboard jÃ¡ possui cabeÃ§alho prÃ³prio e navegaÃ§Ã£o lateral.
+        # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.
         nav = re.sub(r'<nav class="global-nav">.*?</nav>', "", nav, count=1, flags=re.S)
     nav += '<style>button,.button,.btn,.refresh,.new-job,.action-button,.queue-action{font-family:inherit;min-height:44px}select{min-height:44px;border-radius:10px}.status-success{color:#14532d;background:#dcfce7;border:1px solid #86efac}.status-warning{color:#78350f;background:#fef3c7;border:1px solid #fcd34d}.status-neutral{color:#1e293b;background:#f1f5f9;border:1px solid #cbd5e1}.status-danger{color:#7f1d1d;background:#fee2e2;border:1px solid #fca5a5}@media(max-width:700px){.wrap{width:calc(100% - 24px);padding-top:24px}.top{padding:12px 14px;min-height:58px}.top nav{flex-wrap:wrap}.card{padding:18px}.actions button,.button{min-height:44px}}</style>'
@@ -551,9 +551,9 @@ body{min-height:100vh;display:flex;flex-direction:column}
         dashboard_insert = nav[style_end:]
         nav = nav[:style_end]
         nav += '<style>#newJobButton{display:none!important}.hero{display:grid;grid-template-columns:minmax(300px,1fr) auto;align-items:end;gap:32px}.hero h1{max-width:520px;font-size:clamp(32px,3.8vw,44px)}.hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:560px}.hero-actions button{width:auto;white-space:nowrap}@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-actions{justify-content:flex-start;max-width:none}}@media(max-width:700px){main{margin:24px 12px 60px}.metrics{grid-template-columns:1fr}.queue-summary{grid-template-columns:1fr 1fr}.hero{display:block}.hero-actions{margin-top:20px;display:grid;grid-template-columns:1fr 1fr}.hero-actions button{width:100%}.queue-actions{gap:8px}.queue-actions button{min-height:42px;padding:9px 11px}}</style>'
-        dashboard_insert += '<script>document.addEventListener("DOMContentLoaded",()=>{const s=document.querySelector("#queueStatusFilter");if(s){s.options[0].text="Status da oportunidade";s.title="Filtra em que ponto da anÃ¡lise a oportunidade estÃ¡."}const d=document.querySelector("#queueDecisionFilter");if(d)d.title="DecisÃ£o sugerida pelo agente: avanÃ§ar, revisar ou descartar.";const cards=document.querySelectorAll(".metric");if(cards.length>=4){cards[0].querySelector(".metric-label").textContent="Novas vagas para vocÃª";cards[1].querySelector(".metric-label").textContent="Compatibilidade mÃ©dia";cards[2].querySelector(".metric-label").textContent="Pendentes de aÃ§Ã£o";cards[3].querySelector(".metric-label").textContent="Resolvidas"}Promise.all([fetch("/jobs").then(r=>r.json()),fetch("/applications").then(r=>r.json())]).then(([j,a])=>{const apps=a.applications||[],scores=apps.map(x=>Number(x.analysis_score)).filter(Number.isFinite),pending=apps.filter(x=>x.queue_decision==="REVISAR").length,resolved=apps.filter(x=>["APROVADO","RECUSADO","ARQUIVADA"].includes(x.status)).length;if(cards.length>=4){cards[0].querySelector(".metric-value").textContent=(j.jobs||[]).length;cards[0].querySelector(".metric-note").textContent="oportunidades capturadas";cards[1].querySelector(".metric-value").textContent=scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length)+"%":"â€”";cards[1].querySelector(".metric-note").textContent="mÃ©dia das vagas analisadas";cards[2].querySelector(".metric-value").textContent=pending;cards[2].querySelector(".metric-note").textContent=pending?"Revisar "+pending+" pendentes":"Nenhuma pendÃªncia";cards[3].querySelector(".metric-value").textContent=resolved;cards[3].querySelector(".metric-note").textContent="jÃ¡ processadas"}})}).catch(()=>{})})</script>'
-    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"CurrÃ­culos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"ConfiguraÃ§Ãµes", "profile.html":"Perfil", "security.html":"SeguranÃ§a", "onboarding.html":"Mapeamento", "ajuda.html":"Ajuda"}.get(path.name, "")
-    crumb = f'<div class="breadcrumbs"><a class="back-link" href="/dashboard">â† Voltar</a><a href="/dashboard">InÃ­cio</a> <span> / {label}</span></div>' if label else ""
+        dashboard_insert += '<script>document.addEventListener("DOMContentLoaded",()=>{const s=document.querySelector("#queueStatusFilter");if(s){s.options[0].text="Status da oportunidade";s.title="Filtra em que ponto da análise a oportunidade está."}const d=document.querySelector("#queueDecisionFilter");if(d)d.title="Decisão sugerida pelo agente: avançar, revisar ou descartar.";const cards=document.querySelectorAll(".metric");if(cards.length>=4){cards[0].querySelector(".metric-label").textContent="Novas vagas para você";cards[1].querySelector(".metric-label").textContent="Compatibilidade média";cards[2].querySelector(".metric-label").textContent="Pendentes de ação";cards[3].querySelector(".metric-label").textContent="Resolvidas"}Promise.all([fetch("/jobs").then(r=>r.json()),fetch("/applications").then(r=>r.json())]).then(([j,a])=>{const apps=a.applications||[],scores=apps.map(x=>Number(x.analysis_score)).filter(Number.isFinite),pending=apps.filter(x=>x.queue_decision==="REVISAR").length,resolved=apps.filter(x=>["APROVADO","RECUSADO","ARQUIVADA"].includes(x.status)).length;if(cards.length>=4){cards[0].querySelector(".metric-value").textContent=(j.jobs||[]).length;cards[0].querySelector(".metric-note").textContent="oportunidades capturadas";cards[1].querySelector(".metric-value").textContent=scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length)+"%":"—";cards[1].querySelector(".metric-note").textContent="média das vagas analisadas";cards[2].querySelector(".metric-value").textContent=pending;cards[2].querySelector(".metric-note").textContent=pending?"Revisar "+pending+" pendentes":"Nenhuma pendência";cards[3].querySelector(".metric-value").textContent=resolved;cards[3].querySelector(".metric-note").textContent="já processadas"}})}).catch(()=>{})})</script>'
+    label = {"vagas.html":"Vagas", "candidaturas.html":"Candidaturas", "curriculos.html":"Currículos", "document-studio.html":"Criar documentos", "simulador-inteligente.html":"Entrevistas", "configuracoes.html":"Configurações", "profile.html":"Perfil", "security.html":"Segurança", "onboarding.html":"Mapeamento", "ajuda.html":"Ajuda"}.get(path.name, "")
+    crumb = f'<div class="breadcrumbs"><a class="back-link" href="/dashboard">← Voltar</a><a href="/dashboard">Início</a> <span> / {label}</span></div>' if label else ""
     html = html.replace("<section class=\"hero\">", dashboard_insert + "<section class=\"hero\">", 1)
     extra = '<script src="/static/modal-a11y.js"></script><script src="/static/ui-feedback.js"></script>'
     if path.name == "vagas.html": extra = '<script src="/static/jobs-enhance.js?v=2"></script>'
@@ -568,7 +568,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
     if path.name == "security.html": extra = '<script src="/static/security-enhance.js?v=7"></script>'
     nonce = current_csp_nonce()
     html = _nonce_styles(html, nonce)
-    footer = '''<footer class="global-footer"><span>Â© 2026 Candidatura Certa</span><span class="global-footer-status" id="globalServiceStatus" data-state="loading" role="status" aria-live="polite">Verificando sistemaâ€¦</span><span><a href="/termos">Termos</a> Â· <a href="/privacidade">Privacidade</a> Â· <a href="mailto:contato@candidaturacerta.com.br">Suporte</a></span></footer><script>(function(){const el=document.getElementById("globalServiceStatus");if(!el)return;fetch("/health",{credentials:"same-origin"}).then(async r=>{const d=await r.json();if(!r.ok||d.db!=="connected")throw new Error("unavailable");el.textContent="Sistema operacional";el.dataset.state="ok"}).catch(()=>{el.textContent="Sistema temporariamente indisponÃ­vel";el.dataset.state="error"})})();</script>'''
+    footer = '''<footer class="global-footer"><span>© 2026 Candidatura Certa</span><span class="global-footer-status" id="globalServiceStatus" data-state="loading" role="status" aria-live="polite">Verificando sistema…</span><span><a href="/termos">Termos</a> · <a href="/privacidade">Privacidade</a> · <a href="mailto:contato@candidaturacerta.com.br">Suporte</a></span></footer><script>(function(){const el=document.getElementById("globalServiceStatus");if(!el)return;fetch("/health",{credentials:"same-origin"}).then(async r=>{const d=await r.json();if(!r.ok||d.db!=="connected")throw new Error("unavailable");el.textContent="Sistema operacional";el.dataset.state="ok"}).catch(()=>{el.textContent="Sistema temporariamente indisponível";el.dataset.state="error"})})();</script>'''
     html = html.replace("</body>", footer + extra + "</body>", 1)
     html = re.sub(
         r"<script(?![^>]*\bsrc=)([^>]*)>",
@@ -712,8 +712,8 @@ def _ensure_consultation_credit(
 
 def _consultation_whatsapp_url(reference: str, availability: str = "") -> str:
     message = (
-        "OlÃ¡! Quero agendar o atendimento mensal da minha Consultoria Candidatura Certa. "
-        f"CÃ³digo do atendimento: {reference}."
+        "Olá! Quero agendar o atendimento mensal da minha Consultoria Candidatura Certa. "
+        f"Código do atendimento: {reference}."
     )
     if availability:
         message += f" Minha disponibilidade: {availability}"
@@ -809,7 +809,7 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
                 .limit(1)
             )
         except Exception:
-            # Bases antigas podem ainda nÃ£o ter recebido a tabela nova.
+            # Bases antigas podem ainda não ter recebido a tabela nova.
             local_paid = False
             local_subscription = None
         finally:
@@ -836,7 +836,7 @@ def _require_document_export(user: dict | None, application_id: int | None = Non
         return offer
     detail = {
         "code": "DOCUMENT_EXPORT_PAYMENT_REQUIRED",
-        "message": "A prÃ©via Ã© gratuita. O download completo estÃ¡ incluÃ­do no Start e no Pro, ou pode ser comprado Ã  parte.",
+        "message": "A prévia é gratuita. O download completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
         "price": offer["price"],
         "checkout_url": offer["checkout_url"],
     }
@@ -852,7 +852,7 @@ def _cover_letter_preview(text_value: str | None, limit: int = 560) -> str:
     boundary = max(cut.rfind("\n\n"), cut.rfind(". "))
     if boundary >= int(limit * 0.55):
         cut = cut[: boundary + (2 if text_value[boundary:boundary + 2] == ". " else 0)]
-    return cut.rstrip() + "â€¦"
+    return cut.rstrip() + "…"
 
 
 def _masked_name(name: str | None) -> str:
@@ -867,7 +867,7 @@ def _masked_email(email: str | None) -> str:
     if "@" not in value:
         return "contato oculto"
     local, domain = value.split("@", 1)
-    return f"{local[:1]}â€¢â€¢â€¢@â€¢â€¢â€¢{domain[domain.rfind('.'):]}" if "." in domain else f"{local[:1]}â€¢â€¢â€¢@â€¢â€¢â€¢"
+    return f"{local[:1]}•••@•••{domain[domain.rfind('.'):]}" if "." in domain else f"{local[:1]}•••@•••"
 
 
 def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
@@ -879,12 +879,12 @@ def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
         "name": _masked_name(candidate.get("name", "Candidato")),
         "target": resume.get("target", ""),
         "headline": resume.get("headline", ""),
-        "summary": summary[:420] + ("â€¦" if len(summary) > 420 else ""),
+        "summary": summary[:420] + ("…" if len(summary) > 420 else ""),
         "skills": list(resume.get("skills") or [])[:8],
         "contact": {
             "email": _masked_email(contact.get("email")),
             "phone": "telefone oculto",
-            "location": contact.get("location") or "LocalizaÃ§Ã£o oculta",
+            "location": contact.get("location") or "Localização oculta",
         },
         "experiences": [
             {
@@ -895,7 +895,7 @@ def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
             for item in (resume.get("experiences") or [])[:3]
         ],
         "personalization_score": arts["personalization"].get("personalization_score", 0),
-        "notice": "PrÃ©via gratuita. O arquivo completo estÃ¡ incluÃ­do no Start e no Pro, ou pode ser comprado Ã  parte.",
+        "notice": "Prévia gratuita. O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
     }
 
 
@@ -1023,7 +1023,7 @@ async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authentic
             402,
             detail={
                 "code": "PRO_PLAN_REQUIRED",
-                "message": "A avaliaÃ§Ã£o de entrevista com IA estÃ¡ incluÃ­da no plano Pro.",
+                "message": "A avaliação de entrevista com IA está incluída no plano Pro.",
                 "plans_url": "/#planos",
             },
         )
@@ -1071,14 +1071,14 @@ def interview_prep(app_id: int, user=Depends(authenticated_user)):
         gaps = bounded_items("gaps")
         strengths = bounded_items("strengths")
         questions = [
-            f"Conte uma situaÃ§Ã£o em que vocÃª aplicou {gap} e qual foi o resultado."
+            f"Conte uma situação em que você aplicou {gap} e qual foi o resultado."
             for gap in gaps
         ]
         if not questions:
             questions = [
-                "Conte uma realizaÃ§Ã£o profissional relevante para esta vaga.",
-                "Descreva uma situaÃ§Ã£o difÃ­cil que vocÃª resolveu e o que aprendeu.",
-                "Como vocÃª mede a qualidade do seu trabalho nesta Ã¡rea?",
+                "Conte uma realização profissional relevante para esta vaga.",
+                "Descreva uma situação difícil que você resolveu e o que aprendeu.",
+                "Como você mede a qualidade do seu trabalho nesta área?",
             ]
         return {
             "application_id": application.id,
@@ -1088,7 +1088,7 @@ def interview_prep(app_id: int, user=Depends(authenticated_user)):
             "gaps": gaps,
             "strengths": strengths,
             "questions": questions,
-            "answer_framework": "Use contexto, aÃ§Ã£o e resultado; nÃ£o invente experiÃªncias para preencher um gap.",
+            "answer_framework": "Use contexto, ação e resultado; não invente experiências para preencher um gap.",
         }
     finally:
         db.close()
@@ -1647,13 +1647,13 @@ def email_verification_page():
 @app.get("/health", include_in_schema=False)
 def health():
     try:
-        # Consulta mÃ­nima para confirmar que o processo consegue alcanÃ§ar o banco.
+        # Consulta mínima para confirmar que o processo consegue alcançar o banco.
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return {"status": "ok", "db": "connected"}
     except Exception:
         logger.exception("Health check do banco falhou")
-        # O monitor continua recebendo uma resposta estÃ¡vel sem detalhes internos.
+        # O monitor continua recebendo uma resposta estável sem detalhes internos.
         return {"status": "ok", "db": "error", "detail": "Banco indisponivel."}
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)
@@ -1738,7 +1738,7 @@ async def voice_interview_start(request: Request, user=Depends(authenticated_use
     """Inicia uma sessao de entrevista por voz e retorna a primeira pergunta da IA."""
     plan = getattr(user, "plan_code", "gratis") or "gratis"
     if plan not in ("pro", "consultoria"):
-        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA estÃ¡ disponÃ­vel nos planos Pro e Consultoria."})
+        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
     except Exception:
@@ -1749,7 +1749,7 @@ async def voice_interview_start(request: Request, user=Depends(authenticated_use
         return result
     except Exception as exc:
         logger.warning("voice_interview_start error: %s", exc)
-        raise HTTPException(503, "ServiÃ§o de IA temporariamente indisponÃ­vel.")
+        raise HTTPException(503, "Serviço de IA temporariamente indisponível.")
 
 
 @app.post("/api/interview/voice/chat", include_in_schema=False)
@@ -1757,11 +1757,11 @@ async def voice_interview_chat(request: Request, user=Depends(authenticated_user
     """Processa um turno da entrevista por voz e retorna a resposta da IA."""
     plan = getattr(user, "plan_code", "gratis") or "gratis"
     if plan not in ("pro", "consultoria"):
-        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA estÃ¡ disponÃ­vel nos planos Pro e Consultoria."})
+        raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(400, "Payload invÃ¡lido.")
+        raise HTTPException(400, "Payload inválido.")
     user_message = str(body.get("message") or "").strip()
     if not user_message:
         raise HTTPException(400, "Mensagem vazia.")
@@ -1780,7 +1780,7 @@ async def voice_interview_chat(request: Request, user=Depends(authenticated_user
         return result
     except Exception as exc:
         logger.warning("voice_interview_chat error: %s", exc)
-        raise HTTPException(503, "ServiÃ§o de IA temporariamente indisponÃ­vel.")
+        raise HTTPException(503, "Serviço de IA temporariamente indisponível.")
 
 @app.get("/profile")
 def get_profile(user=Depends(authenticated_user)):
@@ -1972,10 +1972,10 @@ def copilot_application_pdfs(
     try:
         application = _application_for_user(db, application_id, user)
         if application is None:
-            raise HTTPException(404, "Candidatura nÃ£o encontrada.")
+            raise HTTPException(404, "Candidatura não encontrada.")
         resume, letter = _current_application_documents(db, application, user)
-        resume_pdf = docx_to_pdf(resume.content, title=resume.title or "CurrÃ­culo")
-        letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentaÃ§Ã£o")
+        resume_pdf = docx_to_pdf(resume.content, title=resume.title or "Currículo")
+        letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentação")
         if len(resume_pdf) + len(letter_pdf) > 7 * 1024 * 1024:
             raise HTTPException(413, "Os PDFs excedem o limite combinado de 7 MB do complemento.")
         db.commit()
@@ -1999,7 +1999,7 @@ def copilot_application_pdfs(
         db.rollback()
         logger.exception("Falha ao preparar PDFs do copiloto application_id=%s", application_id)
         if isinstance(exc, ValueError):
-            raise HTTPException(409, "NÃ£o foi possÃ­vel converter os documentos desta candidatura em PDF.") from exc
+            raise HTTPException(409, "Não foi possível converter os documentos desta candidatura em PDF.") from exc
         raise
     finally:
         db.close()
@@ -2015,16 +2015,16 @@ def copilot_prepare(
     if not owner_id:
         raise HTTPException(401, "Entre na sua conta da Candidatura Certa.")
     if payload.analysis_only and not payload.consent_data_processing:
-        raise HTTPException(403, "Autorize o envio do perfil e do texto da vaga para anÃ¡lise.")
+        raise HTTPException(403, "Autorize o envio do perfil e do texto da vaga para análise.")
     if not payload.analysis_only and not payload.portal_allowed:
         raise HTTPException(403, "Confirme que o portal permite preenchimento assistido.")
     portal_host = _copilot_host_allowed(payload.portal_host)
     if not portal_host:
-        raise HTTPException(403, "O copiloto estÃ¡ habilitado somente para Gupy, Vagas.com e InfoJobs nesta versÃ£o.")
+        raise HTTPException(403, "O copiloto está habilitado somente para Gupy, Vagas.com e InfoJobs nesta versão.")
     try:
         request_id = str(uuid.UUID(payload.request_id))
     except (TypeError, ValueError, AttributeError) as exc:
-        raise HTTPException(422, "Identificador da preparaÃ§Ã£o invÃ¡lido.") from exc
+        raise HTTPException(422, "Identificador da preparação inválido.") from exc
     _enforce_rate_limit(request, "copilot-prepare", owner_id)
     db = SessionLocal()
     try:
@@ -2039,17 +2039,17 @@ def copilot_prepare(
             CopilotPreparation.owner_id == owner_id,
             CopilotPreparation.request_id == request_id,
         )):
-            raise HTTPException(409, "Esta preparaÃ§Ã£o jÃ¡ foi iniciada. Atualize a pÃ¡gina para comeÃ§ar outra.")
+            raise HTTPException(409, "Esta preparação já foi iniciada. Atualize a página para começar outra.")
         usage = _copilot_plan_usage(db, owner_id, now)
         if usage["used"] >= usage["limit"]:
             raise HTTPException(
                 403,
-                f"VocÃª atingiu o limite mensal de {usage['limit']} preparaÃ§Ãµes assistidas do plano {usage['plan_code'].title()}. O limite serÃ¡ renovado em {usage['resets_at']:%d/%m/%Y}.",
+                f"Você atingiu o limite mensal de {usage['limit']} preparações assistidas do plano {usage['plan_code'].title()}. O limite será renovado em {usage['resets_at']:%d/%m/%Y}.",
                 headers={"X-Copilot-Limit": "reached"},
             )
         profile = _copilot_profile_payload(db, user)
         if not any((profile["name"], profile["email"], profile["phone"])):
-            raise HTTPException(409, "Complete e salve os dados bÃ¡sicos do seu perfil antes de continuar.")
+            raise HTTPException(409, "Complete e salve os dados básicos do seu perfil antes de continuar.")
         job_title = sanitize_untrusted_text(payload.job_title, max_chars=200).strip()
         job_company = sanitize_untrusted_text(payload.job_company, max_chars=200).strip()
         job_location = sanitize_untrusted_text(payload.job_location, max_chars=200).strip()
@@ -2088,7 +2088,7 @@ def copilot_prepare(
                         vacancy_analysis["summary"] = suggestions["tailored_summary"]
                     ai_status = "ready"
                 except AIProviderError as exc:
-                    logger.warning("Copiloto Gemini indisponÃ­vel; mantendo anÃ¡lise determinÃ­stica: %s", exc)
+                    logger.warning("Copiloto Gemini indisponível; mantendo análise determinística: %s", exc)
                     ai_status = "unavailable"
         db.add(CopilotPreparation(
             owner_id=owner_id,
@@ -2103,7 +2103,7 @@ def copilot_prepare(
             db.commit()
         except IntegrityError as exc:
             db.rollback()
-            raise HTTPException(409, "Esta preparaÃ§Ã£o jÃ¡ foi iniciada. Atualize a pÃ¡gina para comeÃ§ar outra.") from exc
+            raise HTTPException(409, "Esta preparação já foi iniciada. Atualize a página para começar outra.") from exc
         usage["used"] += 1
         usage["remaining"] = max(0, usage["limit"] - usage["used"])
         return _copilot_json({
@@ -2139,7 +2139,7 @@ def copilot_complete(
     try:
         request_id = str(uuid.UUID(payload.request_id))
     except (TypeError, ValueError, AttributeError) as exc:
-        raise HTTPException(422, "Identificador da preparaÃ§Ã£o invÃ¡lido.") from exc
+        raise HTTPException(422, "Identificador da preparação inválido.") from exc
     _enforce_rate_limit(request, "copilot-complete", owner_id)
     db = SessionLocal()
     try:
@@ -2148,7 +2148,7 @@ def copilot_complete(
             CopilotPreparation.request_id == request_id,
         ))
         if entry is None:
-            raise HTTPException(404, "A preparaÃ§Ã£o nÃ£o foi encontrada.")
+            raise HTTPException(404, "A preparação não foi encontrada.")
         if entry.status == "PREPARED":
             entry.filled_count = payload.filled_count
             entry.status = "FILLED" if payload.filled_count else "NO_MATCH"
@@ -2168,7 +2168,7 @@ def update_profile(req: ProfileUpdateRequest, user=Depends(authenticated_user)):
         oid = _owner_id(user)
         c = db.scalar(select(Candidate).where(Candidate.owner_id == oid).order_by(Candidate.id))
         if c is None:
-            c = Candidate(owner_id=oid, name=req.name.strip() or "UsuÃ¡rio", location=req.location.strip(), email=user.get("email", ""), phone=req.phone.strip(), linkedin=req.linkedin.strip(), target_roles=", ".join(req.target_roles), summary=req.summary.strip())
+            c = Candidate(owner_id=oid, name=req.name.strip() or "Usuário", location=req.location.strip(), email=user.get("email", ""), phone=req.phone.strip(), linkedin=req.linkedin.strip(), target_roles=", ".join(req.target_roles), summary=req.summary.strip())
             db.add(c)
         else:
             c.name = req.name.strip() or c.name; c.location = req.location.strip(); c.phone = req.phone.strip(); c.linkedin = req.linkedin.strip(); c.target_roles = ", ".join(req.target_roles); c.summary = req.summary.strip()
@@ -2190,12 +2190,12 @@ def update_extracted_profile(req: ExtractedProfileUpdateRequest, user=Depends(au
     """Replace the user's editable resume sections atomically and mark them as manual."""
     oid = str(_owner_id(user) or "").strip()
     if not oid:
-        raise HTTPException(409, "Esta aÃ§Ã£o exige uma conta autenticada.")
+        raise HTTPException(409, "Esta ação exige uma conta autenticada.")
     db = SessionLocal()
     try:
         c = db.scalar(select(Candidate).where(Candidate.owner_id == oid).order_by(Candidate.id))
         if c is None:
-            raise HTTPException(409, "Salve as informaÃ§Ãµes principais do perfil antes de editar os dados do currÃ­culo.")
+            raise HTTPException(409, "Salve as informações principais do perfil antes de editar os dados do currículo.")
 
         def clean(value: str, maximum: int) -> str:
             return sanitize_untrusted_text(value, max_chars=maximum).strip()
@@ -2204,7 +2204,7 @@ def update_extracted_profile(req: ExtractedProfileUpdateRequest, user=Depends(au
         for item in req.experiences:
             role = clean(item.role, 200)
             if not role:
-                raise HTTPException(422, "Cada experiÃªncia precisa informar o cargo.")
+                raise HTTPException(422, "Cada experiência precisa informar o cargo.")
             experiences.append({
                 "role": role,
                 "company": clean(item.company, 200),
@@ -2217,7 +2217,7 @@ def update_extracted_profile(req: ExtractedProfileUpdateRequest, user=Depends(au
         for item in req.education:
             course = clean(item.course, 200)
             if not course:
-                raise HTTPException(422, "Cada formaÃ§Ã£o precisa informar o curso ou tÃ­tulo.")
+                raise HTTPException(422, "Cada formação precisa informar o curso ou título.")
             education.append({
                 "course": course,
                 "institution": clean(item.institution, 200),
@@ -2278,7 +2278,7 @@ def update_extracted_profile(req: ExtractedProfileUpdateRequest, user=Depends(au
                 c.skills.append(Skill(
                     name=name,
                     category=previous.category if previous else "Manual",
-                    proficiency=previous.proficiency if previous else "NÃ£o informada",
+                    proficiency=previous.proficiency if previous else "Não informada",
                 ))
         if "education" in requested_sections:
             profile_data["education"] = education
@@ -2660,7 +2660,7 @@ async def extract_image_endpoint(file: UploadFile = File(...), user=Depends(auth
     
     mime_type = file.content_type or "image/jpeg"
     if not mime_type.startswith("image/") and mime_type != "application/pdf":
-        raise HTTPException(422, "O arquivo enviado nÃ£o Ã© suportado. Envie uma imagem.")
+        raise HTTPException(422, "O arquivo enviado não é suportado. Envie uma imagem.")
         
     if mime_type == "application/pdf":
         mime_type = "application/pdf"
@@ -2946,7 +2946,7 @@ def application_metrics(user=Depends(authenticated_user)):
 
 @app.get("/api/applications/followups")
 def application_followups(user=Depends(authenticated_user)):
-    """Lista candidaturas sem retorno que jÃ¡ merecem acompanhamento."""
+    """Lista candidaturas sem retorno que já merecem acompanhamento."""
     db = SessionLocal()
     try:
         oid = _owner_id(user)
@@ -2977,7 +2977,7 @@ def application_followups(user=Depends(authenticated_user)):
                 "company": application.job.company,
                 "sent_at": sent_at.isoformat(),
                 "days_waiting": elapsed_days,
-                "message": "OlÃ¡, tudo bem? Gostaria de acompanhar o andamento da minha candidatura para esta oportunidade.",
+                "message": "Olá, tudo bem? Gostaria de acompanhar o andamento da minha candidatura para esta oportunidade.",
             })
         return {"items": items, "followup_after_days": 7}
     finally:
@@ -2986,7 +2986,7 @@ def application_followups(user=Depends(authenticated_user)):
 
 @app.get("/api/privacy/export")
 def privacy_export(user=Depends(authenticated_user)):
-    """Exporta os dados pessoais do usuÃ¡rio sem tokens ou segredos de integraÃ§Ã£o."""
+    """Exporta os dados pessoais do usuário sem tokens ou segredos de integração."""
     db = SessionLocal()
     try:
         oid = _owner_id(user)
@@ -3200,7 +3200,7 @@ def download_generated_document(document_id: int, user=Depends(authenticated_use
             GeneratedDocument.owner_id == owner_id,
         ))
         if document is None:
-            raise HTTPException(404, "Documento nÃ£o encontrado.")
+            raise HTTPException(404, "Documento não encontrado.")
             
         export_meta = _document_export_metadata(user, application_id=document.application_id)
         if not export_meta.get("allowed"):
@@ -3209,8 +3209,8 @@ def download_generated_document(document_id: int, user=Depends(authenticated_use
         if _document_expired(document):
             raise HTTPException(410, "Este documento expirou. Gere novamente para renovar o acesso.")
         if not document.content.startswith(b"PK"):
-            logger.error("DOCX invÃ¡lido no armazenamento document_id=%s", document.id)
-            raise HTTPException(404, "Documento nÃ£o encontrado.")
+            logger.error("DOCX inválido no armazenamento document_id=%s", document.id)
+            raise HTTPException(404, "Documento não encontrado.")
         filename = re.sub(r"[^A-Za-z0-9._-]", "-", document.filename)[:180]
         return Response(
             content=document.content,
@@ -3242,7 +3242,7 @@ def retry_document_delivery(
             DocumentDelivery.owner_id == owner_id,
         ))
         if delivery is None:
-            raise HTTPException(404, "Entrega de documentos nÃ£o encontrada.")
+            raise HTTPException(404, "Entrega de documentos não encontrada.")
         status = _send_document_delivery(db, delivery, user)
         db.refresh(delivery)
         return {
@@ -3252,7 +3252,7 @@ def retry_document_delivery(
             "message": delivery.last_error or (
                 "Os dois documentos foram enviados ao e-mail confirmado da conta."
                 if delivery.status == "SENT"
-                else "Os arquivos continuam disponÃ­veis na biblioteca."
+                else "Os arquivos continuam disponíveis na biblioteca."
             ),
         }
     finally:
@@ -3372,7 +3372,7 @@ def document_export_offer(application_id: int | None = None, user=Depends(authen
         "price": offer["price"],
         "checkout_url": offer["checkout_url"],
         "checkout_ready": offer.get("checkout_ready", False),
-        "message": "Download liberado." if offer["allowed"] else "A prÃ©via Ã© gratuita; o download completo estÃ¡ incluÃ­do no Start e no Pro, ou pode ser comprado Ã  parte.",
+        "message": "Download liberado." if offer["allowed"] else "A prévia é gratuita; o download completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
     }
 
 
@@ -3558,16 +3558,16 @@ def send_test_email(
 
     smtp_config = _email_transport_config()
     if smtp_config is None:
-        raise HTTPException(503, "O envio por e-mail estÃ¡ indisponÃ­vel no momento.")
+        raise HTTPException(503, "O envio por e-mail está indisponível no momento.")
 
     message = EmailMessage()
-    message["Subject"] = "Teste de entrega â€” Candidatura Certa"
+    message["Subject"] = "Teste de entrega — Candidatura Certa"
     message["From"] = str(smtp_config["sender"])
     message["To"] = recipient
     message.set_content(
-        "Este Ã© um teste de entrega da Candidatura Certa.\n\n"
-        "Seu e-mail confirmado foi aceito pelo sistema e esta mensagem nÃ£o contÃ©m dados sensÃ­veis.\n\n"
-        "Se vocÃª recebeu este e-mail, os avisos e comprovantes da plataforma poderÃ£o chegar nesta caixa.\n"
+        "Este é um teste de entrega da Candidatura Certa.\n\n"
+        "Seu e-mail confirmado foi aceito pelo sistema e esta mensagem não contém dados sensíveis.\n\n"
+        "Se você recebeu este e-mail, os avisos e comprovantes da plataforma poderão chegar nesta caixa.\n"
         "Candidatura Certa | contato@candidaturacerta.com.br"
     )
     try:
@@ -3579,7 +3579,7 @@ def send_test_email(
             str(getattr(exc, "smtp_stage", "unknown")),
             type(exc).__name__,
         )
-        raise HTTPException(502, "NÃ£o foi possÃ­vel enviar o teste agora. Tente novamente mais tarde.") from exc
+        raise HTTPException(502, "Não foi possível enviar o teste agora. Tente novamente mais tarde.") from exc
     return {
         "status": "sent",
         "transport": transport,
@@ -3614,16 +3614,16 @@ def _send_purchase_receipt(db, purchase: DocumentExportPurchase) -> str:
         return "skipped"
     sender = str(smtp_config["sender"])
     message = EmailMessage()
-    message["Subject"] = "Comprovante da exportaÃ§Ã£o â€” Candidatura Certa"
+    message["Subject"] = "Comprovante da exportação — Candidatura Certa"
     message["From"] = sender
     message["To"] = recipient
     amount = f"R$ {int(purchase.paid_amount or purchase.amount) / 100:.2f}".replace(".", ",")
     message.set_content(
         "Pagamento confirmado na Candidatura Certa.\n\n"
         f"Pedido: {purchase.order_nsu}\nValor: {amount}\n"
-        f"TransaÃ§Ã£o: {purchase.transaction_nsu or 'confirmada'}\n\n"
-        "O currÃ­culo e a carta ficarÃ£o disponÃ­veis na biblioteca assim que a geraÃ§Ã£o for concluÃ­da. "
-        "Se o envio por e-mail estiver configurado, vocÃª tambÃ©m receberÃ¡ os dois arquivos.\n\n"
+        f"Transação: {purchase.transaction_nsu or 'confirmada'}\n\n"
+        "O currículo e a carta ficarão disponíveis na biblioteca assim que a geração for concluída. "
+        "Se o envio por e-mail estiver configurado, você também receberá os dois arquivos.\n\n"
         "Precisa de ajuda? contato@candidaturacerta.com.br | WhatsApp: (71) 99182-4951."
     )
     # Persist the attempt and release the row lock before network I/O. The
@@ -3684,16 +3684,16 @@ def _ensure_generated_document(
 ) -> GeneratedDocument:
     """Persist one validated DOCX version as a private PostgreSQL blob."""
     if kind not in {"resume", "cover_letter"}:
-        raise ValueError("Tipo de documento invÃ¡lido.")
+        raise ValueError("Tipo de documento inválido.")
     try:
         resolved = resolve_document_path(path)
     except ValueError as exc:
-        raise HTTPException(500, "O documento nÃ£o estÃ¡ no armazenamento privado.") from exc
+        raise HTTPException(500, "O documento não está no armazenamento privado.") from exc
     if not resolved.is_file():
-        raise HTTPException(500, "O documento gerado nÃ£o estÃ¡ disponÃ­vel para arquivamento.")
+        raise HTTPException(500, "O documento gerado não está disponível para arquivamento.")
     content = resolved.read_bytes()
     if not content.startswith(b"PK"):
-        raise HTTPException(500, "O arquivo gerado nÃ£o Ã© um DOCX vÃ¡lido.")
+        raise HTTPException(500, "O arquivo gerado não é um DOCX válido.")
     if len(content) > MAX_DOCUMENT_FILE_BYTES:
         raise HTTPException(413, "O documento excede o limite seguro de armazenamento.")
 
@@ -3705,7 +3705,7 @@ def _ensure_generated_document(
     ).with_for_update())
     now = utc_now()
     title = str(application.job.title or "Oportunidade")[:200]
-    company = str(application.job.company or "Empresa nÃ£o informada")[:200]
+    company = str(application.job.company or "Empresa não informada")[:200]
     filename = "curriculo.docx" if kind == "resume" else "carta.docx"
     expires_at = now + timedelta(days=_generated_document_retention_days())
     if existing is not None:
@@ -3824,7 +3824,7 @@ def _archive_application_documents(
             )
         except (OSError, ValueError, HTTPException):
             # A stale legacy pointer must not break generating/downloading a new file.
-            logger.warning("Documento legado indisponÃ­vel ao arquivar app_id=%s tipo=%s", application.id, kind)
+            logger.warning("Documento legado indisponível ao arquivar app_id=%s tipo=%s", application.id, kind)
     resume = current.get("resume")
     letter = current.get("cover_letter")
     if resume is None or letter is None:
@@ -3934,17 +3934,17 @@ def _generate_and_archive_application_documents(
 def _purchase_generation_payload(purchase: DocumentExportPurchase) -> dict[str, Any]:
     status = str(purchase.document_generation_status or "WAITING").upper()
     messages = {
-        "WAITING": "Pagamento confirmado. Estamos preparando seu currÃ­culo e sua carta.",
-        "PROCESSING": "Pagamento confirmado. Estamos preparando seu currÃ­culo e sua carta.",
-        "RETRY": "A geraÃ§Ã£o estÃ¡ sendo repetida automaticamente. Seus documentos ficarÃ£o disponÃ­veis em breve.",
-        "READY": "CurrÃ­culo e carta prontos para baixar.",
-        "FAILED": "NÃ£o foi possÃ­vel concluir a geraÃ§Ã£o automaticamente. Tente gerar novamente; seu pagamento estÃ¡ preservado.",
+        "WAITING": "Pagamento confirmado. Estamos preparando seu currículo e sua carta.",
+        "PROCESSING": "Pagamento confirmado. Estamos preparando seu currículo e sua carta.",
+        "RETRY": "A geração está sendo repetida automaticamente. Seus documentos ficarão disponíveis em breve.",
+        "READY": "Currículo e carta prontos para baixar.",
+        "FAILED": "Não foi possível concluir a geração automaticamente. Tente gerar novamente; seu pagamento está preservado.",
     }
     return {
         "purchase_status": str(purchase.status or "PENDING").upper(),
         "generation_status": status,
         "attempts": int(purchase.document_generation_attempts or 0),
-        "message": messages.get(status, "Aguardando a confirmaÃ§Ã£o do pagamento."),
+        "message": messages.get(status, "Aguardando a confirmação do pagamento."),
         "application_id": purchase.application_id,
         "receipt_email_status": str(purchase.receipt_email_status or "PENDING").upper(),
         "receipt_email_sent_at": purchase.receipt_email_sent_at.isoformat() if purchase.receipt_email_sent_at else None,
@@ -4028,7 +4028,7 @@ def _claim_paid_document_purchase(
         attempts = int(purchase.document_generation_attempts or 0)
         if attempts >= DOCUMENT_GENERATION_MAX_ATTEMPTS and not allow_failed:
             purchase.document_generation_status = "FAILED"
-            purchase.document_generation_error = "GeraÃ§Ã£o nÃ£o concluÃ­da apÃ³s as tentativas automÃ¡ticas."
+            purchase.document_generation_error = "Geração não concluída após as tentativas automáticas."
             purchase.document_generation_next_attempt_at = None
             db.commit()
             return "failed", purchase.id
@@ -4098,26 +4098,26 @@ def _finish_paid_document_purchase(purchase_id: int) -> dict[str, Any]:
             "resume_url": f"/applications/{application.id}/document",
             "letter_url": f"/applications/{application.id}/cover-letter/document",
             "delivery_id": delivery.id,
-            "message": "CurrÃ­culo e carta prontos para baixar.",
+            "message": "Currículo e carta prontos para baixar.",
         }
         try:
             email_status = _send_document_delivery(db, delivery, user)
             db.refresh(delivery)
             generation_result["email_status"] = email_status
             generation_result["email_message"] = delivery.last_error or (
-                "CurrÃ­culo e carta enviados para o e-mail confirmado da conta."
+                "Currículo e carta enviados para o e-mail confirmado da conta."
                 if email_status == "sent"
-                else "CurrÃ­culo e carta estÃ£o disponÃ­veis na biblioteca de documentos."
+                else "Currículo e carta estão disponíveis na biblioteca de documentos."
             )
         except Exception as exc:
             db.rollback()
             logger.warning(
-                "Falha nÃ£o bloqueante ao enviar documentos da compra id=%s tipo=%s",
+                "Falha não bloqueante ao enviar documentos da compra id=%s tipo=%s",
                 purchase_id,
                 type(exc).__name__,
             )
             generation_result["email_status"] = "FAILED"
-            generation_result["email_message"] = "CurrÃ­culo e carta estÃ£o prontos na biblioteca; o envio por e-mail pode ser tentado novamente."
+            generation_result["email_message"] = "Currículo e carta estão prontos na biblioteca; o envio por e-mail pode ser tentado novamente."
         return generation_result
     except Exception as exc:
         db.rollback()
@@ -4130,11 +4130,11 @@ def _finish_paid_document_purchase(purchase_id: int) -> dict[str, Any]:
                 purchase.document_generation_next_attempt_at = utc_now() + timedelta(
                     seconds=DOCUMENT_GENERATION_BACKOFF_SECONDS[delay_index]
                 )
-                purchase.document_generation_error = "NÃ£o foi possÃ­vel gerar os documentos agora; haverÃ¡ nova tentativa automÃ¡tica."
+                purchase.document_generation_error = "Não foi possível gerar os documentos agora; haverá nova tentativa automática."
             else:
                 purchase.document_generation_status = "FAILED"
                 purchase.document_generation_next_attempt_at = None
-                purchase.document_generation_error = "GeraÃ§Ã£o nÃ£o concluÃ­da apÃ³s as tentativas automÃ¡ticas."
+                purchase.document_generation_error = "Geração não concluída após as tentativas automáticas."
             purchase.document_generation_started_at = None
             db.commit()
             logger.warning(
@@ -4145,7 +4145,7 @@ def _finish_paid_document_purchase(purchase_id: int) -> dict[str, Any]:
             )
             return _purchase_generation_payload(purchase)
         logger.warning("Falha ao reconciliar compra paga purchase_id=%s type=%s", purchase_id, type(exc).__name__)
-        return {"generation_status": "FAILED", "message": "NÃ£o foi possÃ­vel consultar esta geraÃ§Ã£o."}
+        return {"generation_status": "FAILED", "message": "Não foi possível consultar esta geração."}
     finally:
         db.close()
 
@@ -4221,7 +4221,7 @@ def _backfill_legacy_generated_document_pairs() -> int:
                     cover_letter_document=letter,
                 )
                 delivery.status = "SKIPPED"
-                delivery.last_error = "VersÃ£o anterior Ã  biblioteca; o envio por e-mail nÃ£o foi repetido automaticamente."
+                delivery.last_error = "Versão anterior à biblioteca; o envio por e-mail não foi repetido automaticamente."
         db.commit()
         return imported
     except Exception:
@@ -4236,7 +4236,7 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
     if delivery.status == "SENT":
         return "sent"
     if not _owner_id(user) or str(_owner_id(user)) != str(delivery.owner_id):
-        raise HTTPException(404, "Entrega de documentos nÃ£o encontrada.")
+        raise HTTPException(404, "Entrega de documentos não encontrada.")
 
     resume = db.get(GeneratedDocument, delivery.resume_document_id)
     letter = db.get(GeneratedDocument, delivery.cover_letter_document_id)
@@ -4265,7 +4265,7 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
     smtp_config = _email_transport_config()
     if smtp_config is None:
         delivery.status = "SKIPPED"
-        delivery.last_error = "Envio por e-mail indisponÃ­vel; os arquivos estÃ£o na biblioteca."
+        delivery.last_error = "Envio por e-mail indisponível; os arquivos estão na biblioteca."
         delivery.last_attempt_at = now
         db.commit()
         return "skipped"
@@ -4286,7 +4286,7 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
         .execution_options(populate_existing=True)
     )
     if locked is None:
-        raise HTTPException(404, "Entrega de documentos nÃ£o encontrada.")
+        raise HTTPException(404, "Entrega de documentos não encontrada.")
     if locked.status == "SENT":
         return "sent"
     if locked.status == "SENDING" and locked.last_attempt_at is not None:
@@ -4303,13 +4303,13 @@ def _send_document_delivery(db, delivery: DocumentDelivery, user: dict) -> str:
     db.commit()
 
     message = EmailMessage()
-    message["Subject"] = "Seu currÃ­culo e sua carta estÃ£o prontos"
+    message["Subject"] = "Seu currículo e sua carta estão prontos"
     message["From"] = sender
     message["To"] = recipient
     message.set_content(
-        "OlÃ¡! Seu currÃ­culo personalizado e sua carta de apresentaÃ§Ã£o foram gerados. "
-        "Os dois arquivos DOCX seguem anexos. VocÃª tambÃ©m pode baixÃ¡-los na aba "
-        "na biblioteca de documentos da Candidatura Certa enquanto estiverem dentro do prazo de retenÃ§Ã£o."
+        "Olá! Seu currículo personalizado e sua carta de apresentação foram gerados. "
+        "Os dois arquivos DOCX seguem anexos. Você também pode baixá-los na aba "
+        "na biblioteca de documentos da Candidatura Certa enquanto estiverem dentro do prazo de retenção."
     )
     message.add_attachment(
         resume.content,
@@ -4359,10 +4359,10 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
         raise HTTPException(409, "Entre na sua conta para iniciar uma assinatura.")
     _enforce_rate_limit(request, "billing-checkout", owner_id)
     if plan is None:
-        raise HTTPException(422, "Plano invÃ¡lido.")
+        raise HTTPException(422, "Plano inválido.")
     token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not token:
-        raise HTTPException(503, "O checkout mensal ainda nÃ£o estÃ¡ configurado.")
+        raise HTTPException(503, "O checkout mensal ainda não está configurado.")
 
     recovering = False
     async with _subscription_checkout_lock(owner_id):
@@ -4384,7 +4384,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
             )
             if existing and existing.status == "pending" and existing.checkout_url:
                 if existing.plan_code != req.plan_code:
-                    raise HTTPException(409, "VocÃª tem outro plano aguardando pagamento. Conclua ou cancele esse checkout antes de escolher outro.")
+                    raise HTTPException(409, "Você tem outro plano aguardando pagamento. Conclua ou cancele esse checkout antes de escolher outro.")
                 return {
                     "checkout_url": existing.checkout_url,
                     "external_reference": existing.external_reference,
@@ -4393,12 +4393,12 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                     "frequency": "monthly",
                 }
             if existing and existing.status == "duplicate_review":
-                raise HTTPException(409, "O checkout anterior precisa de conferÃªncia para evitar uma cobranÃ§a duplicada. Entre em contato pelo canal de suporte.")
+                raise HTTPException(409, "O checkout anterior precisa de conferência para evitar uma cobrança duplicada. Entre em contato pelo canal de suporte.")
             if existing and (existing.status in {"authorized", "pending", "paused"} or _subscription_is_entitled(existing)):
-                raise HTTPException(409, "VocÃª jÃ¡ tem um plano pago ativo ou uma assinatura em processamento. Consulte Plano e cobranÃ§a nas ConfiguraÃ§Ãµes.")
+                raise HTTPException(409, "Você já tem um plano pago ativo ou uma assinatura em processamento. Consulte Plano e cobrança nas Configurações.")
             if existing and existing.status in {"creating", "checkout_unknown", "recovering"}:
                 if existing.plan_code != req.plan_code:
-                    raise HTTPException(409, "HÃ¡ um checkout anterior deste outro plano aguardando confirmaÃ§Ã£o. Tente novamente em um minuto.")
+                    raise HTTPException(409, "Há um checkout anterior deste outro plano aguardando confirmação. Tente novamente em um minuto.")
                 updated_at = existing.updated_at
                 if updated_at.tzinfo is None:
                     updated_at = updated_at.replace(tzinfo=timezone.utc)
@@ -4438,15 +4438,15 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                     params={"q": external_reference},
                 )
         except httpx.HTTPError as exc:
-            raise HTTPException(503, "Ainda nÃ£o foi possÃ­vel confirmar o checkout anterior. Tente novamente em instantes.") from exc
+            raise HTTPException(503, "Ainda não foi possível confirmar o checkout anterior. Tente novamente em instantes.") from exc
         if search_response.status_code >= 400:
-            raise HTTPException(503, "Ainda nÃ£o foi possÃ­vel confirmar o checkout anterior. Tente novamente em instantes.")
+            raise HTTPException(503, "Ainda não foi possível confirmar o checkout anterior. Tente novamente em instantes.")
         try:
             search_body = search_response.json()
         except ValueError as exc:
-            raise HTTPException(503, "O Mercado Pago retornou uma resposta invÃ¡lida ao verificar o checkout anterior.") from exc
+            raise HTTPException(503, "O Mercado Pago retornou uma resposta inválida ao verificar o checkout anterior.") from exc
         if not isinstance(search_body, dict):
-            raise HTTPException(503, "O Mercado Pago retornou uma resposta invÃ¡lida ao verificar o checkout anterior.")
+            raise HTTPException(503, "O Mercado Pago retornou uma resposta inválida ao verificar o checkout anterior.")
         matches = [
             item for item in (search_body.get("results") or [])
             if isinstance(item, dict) and str(item.get("external_reference") or "") == external_reference
@@ -4461,13 +4461,13 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                     db.commit()
             finally:
                 db.close()
-            raise HTTPException(409, "O Mercado Pago retornou mais de uma assinatura para este checkout. O sistema bloqueou uma nova cobranÃ§a para evitar duplicidade.")
+            raise HTTPException(409, "O Mercado Pago retornou mais de uma assinatura para este checkout. O sistema bloqueou uma nova cobrança para evitar duplicidade.")
         if matches:
             provider = matches[0]
             provider_id = str(provider.get("id") or "").strip()
             checkout_url = str(provider.get("init_point") or "").strip()
             if not provider_id or not checkout_url:
-                raise HTTPException(503, "A assinatura foi encontrada, mas o Mercado Pago ainda nÃ£o retornou o link. Tente novamente em instantes.")
+                raise HTTPException(503, "A assinatura foi encontrada, mas o Mercado Pago ainda não retornou o link. Tente novamente em instantes.")
             recurring = provider.get("auto_recurring") if isinstance(provider.get("auto_recurring"), dict) else {}
             if not _monthly_recurring_matches(recurring, int(plan["amount"])):
                 db = SessionLocal()
@@ -4479,14 +4479,14 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                         db.commit()
                 finally:
                     db.close()
-                raise HTTPException(409, "A assinatura localizada nÃ£o corresponde ao preÃ§o mensal do plano. O sistema bloqueou um novo checkout para evitar cobranÃ§a incorreta.")
+                raise HTTPException(409, "A assinatura localizada não corresponde ao preço mensal do plano. O sistema bloqueou um novo checkout para evitar cobrança incorreta.")
             if not _is_valid_mercadopago_checkout_url(checkout_url):
-                raise HTTPException(502, "O Mercado Pago retornou um endereÃ§o de checkout invÃ¡lido.")
+                raise HTTPException(502, "O Mercado Pago retornou um endereço de checkout inválido.")
             db = SessionLocal()
             try:
                 current = db.get(BillingSubscription, subscription_id)
                 if current is None:
-                    raise HTTPException(500, "NÃ£o foi possÃ­vel recuperar os dados da assinatura.")
+                    raise HTTPException(500, "Não foi possível recuperar os dados da assinatura.")
                 current.mercadopago_preapproval_id = provider_id
                 current.checkout_url = checkout_url
                 current.status = str(provider.get("status") or "pending").casefold()
@@ -4514,7 +4514,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
         else "/dashboard?subscription=return"
     )
     payload = {
-        "reason": f"Candidatura Certa â€” Plano {plan['name']} mensal",
+        "reason": f"Candidatura Certa — Plano {plan['name']} mensal",
         "external_reference": external_reference,
         "payer_email": email,
         "auto_recurring": {
@@ -4534,7 +4534,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                 json=payload,
             )
     except httpx.HTTPError as exc:
-        logger.warning("Falha ambÃ­gua ao iniciar assinatura Mercado Pago external_reference=%s", external_reference)
+        logger.warning("Falha ambígua ao iniciar assinatura Mercado Pago external_reference=%s", external_reference)
         db = SessionLocal()
         try:
             current = db.get(BillingSubscription, subscription_id)
@@ -4544,7 +4544,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                 db.commit()
         finally:
             db.close()
-        raise HTTPException(502, "NÃ£o foi possÃ­vel confirmar se o Mercado Pago criou o checkout. Tente novamente em um minuto; vamos conferir antes de criar outro.") from exc
+        raise HTTPException(502, "Não foi possível confirmar se o Mercado Pago criou o checkout. Tente novamente em um minuto; vamos conferir antes de criar outro.") from exc
     if response.status_code >= 400:
         logger.warning("Mercado Pago recusou assinatura status=%s external_reference=%s", response.status_code, external_reference)
         db = SessionLocal()
@@ -4560,8 +4560,8 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
         finally:
             db.close()
         if response.status_code >= 500:
-            raise HTTPException(502, "O Mercado Pago nÃ£o confirmou se criou a assinatura. Aguarde um minuto para conferirmos antes de tentar novamente.")
-        raise HTTPException(502, "O Mercado Pago recusou a criaÃ§Ã£o da assinatura.")
+            raise HTTPException(502, "O Mercado Pago não confirmou se criou a assinatura. Aguarde um minuto para conferirmos antes de tentar novamente.")
+        raise HTTPException(502, "O Mercado Pago recusou a criação da assinatura.")
     try:
         provider = response.json()
     except ValueError as exc:
@@ -4574,7 +4574,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                 db.commit()
         finally:
             db.close()
-        raise HTTPException(502, "O Mercado Pago retornou uma resposta invÃ¡lida para a assinatura.") from exc
+        raise HTTPException(502, "O Mercado Pago retornou uma resposta inválida para a assinatura.") from exc
     provider_id = str(provider.get("id") or "").strip()
     checkout_url = str(provider.get("init_point") or "").strip()
     if not provider_id or not checkout_url:
@@ -4587,15 +4587,15 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
                 db.commit()
         finally:
             db.close()
-        raise HTTPException(502, "O Mercado Pago nÃ£o retornou o link da assinatura.")
+        raise HTTPException(502, "O Mercado Pago não retornou o link da assinatura.")
     if not _is_valid_mercadopago_checkout_url(checkout_url):
-        raise HTTPException(502, "O Mercado Pago retornou um endereÃ§o de checkout invÃ¡lido.")
+        raise HTTPException(502, "O Mercado Pago retornou um endereço de checkout inválido.")
 
     db = SessionLocal()
     try:
         current = db.get(BillingSubscription, subscription_id)
         if current is None:
-            raise HTTPException(500, "NÃ£o foi possÃ­vel salvar os dados da assinatura.")
+            raise HTTPException(500, "Não foi possível salvar os dados da assinatura.")
         current.mercadopago_preapproval_id = provider_id
         current.checkout_url = checkout_url
         current.status = str(provider.get("status") or "pending").casefold()
@@ -4617,7 +4617,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
 def get_current_subscription(user=Depends(authenticated_user)):
     owner_id = str(_owner_id(user) or "").strip()
     if not owner_id:
-        raise HTTPException(401, "Login necessÃ¡rio.")
+        raise HTTPException(401, "Login necessário.")
     db = SessionLocal()
     try:
         opportunity_usage = monthly_opportunity_usage(db, owner_id)
@@ -4673,21 +4673,21 @@ def download_generated_document_pdf(document_id: int, user=Depends(authenticated
             GeneratedDocument.owner_id == owner_id,
         ))
         if document is None:
-            raise HTTPException(404, "Documento nÃ£o encontrado.")
+            raise HTTPException(404, "Documento não encontrado.")
         if _document_expired(document):
             raise HTTPException(410, "Este documento expirou. Gere novamente para renovar o acesso.")
         if not document.content.startswith(b"PK"):
-            raise HTTPException(404, "Documento nÃ£o encontrado.")
+            raise HTTPException(404, "Documento não encontrado.")
         application = _application_for_user(db, document.application_id, user)
         if application is None:
-            raise HTTPException(404, "Documento nÃ£o encontrado.")
+            raise HTTPException(404, "Documento não encontrado.")
         _require_document_export(user, application.id)
         filename = re.sub(r"[^A-Za-z0-9._-]", "-", Path(document.filename).stem)[:150] + ".pdf"
         try:
             content = docx_to_pdf(document.content, title=document.title or filename)
         except Exception as exc:
             logger.exception("Falha ao converter documento para PDF document_id=%s", document.id)
-            raise HTTPException(500, "NÃ£o foi possÃ­vel preparar o PDF agora. Baixe a versÃ£o DOCX.") from exc
+            raise HTTPException(500, "Não foi possível preparar o PDF agora. Baixe a versão DOCX.") from exc
         return Response(
             content=content,
             media_type="application/pdf",
@@ -4731,7 +4731,7 @@ def _current_application_documents(db, application: Application, user: dict):
         raise HTTPException(401, "Entre na sua conta para preparar o envio.")
     delivery = _archive_application_documents(db, application, user)
     if delivery is None:
-        raise HTTPException(409, "Gere e libere o currÃ­culo e a carta desta vaga antes de enviar por e-mail.")
+        raise HTTPException(409, "Gere e libere o currículo e a carta desta vaga antes de enviar por e-mail.")
     documents = db.scalars(select(GeneratedDocument).where(
         GeneratedDocument.owner_id == owner_id,
         GeneratedDocument.application_id == application.id,
@@ -4747,14 +4747,14 @@ def _current_application_documents(db, application: Application, user: dict):
         or letter.version != application.cover_letter_version
         or _document_expired(resume) or _document_expired(letter)
     ):
-        raise HTTPException(409, "Os documentos atuais ainda nÃ£o estÃ£o prontos. Gere-os novamente e tente outra vez.")
+        raise HTTPException(409, "Os documentos atuais ainda não estão prontos. Gere-os novamente e tente outra vez.")
     return resume, letter
 
 
 def _application_email_body(application: Application, candidate: Candidate | None) -> str:
     letter = str(application.cover_letter_text or "").strip()
     if not letter:
-        raise HTTPException(409, "A carta desta candidatura ainda nÃ£o foi gerada.")
+        raise HTTPException(409, "A carta desta candidatura ainda não foi gerada.")
     name = str(candidate.name if candidate else "").strip()
     signature = f"\n\nAtenciosamente,\n{name}" if name else ""
     return letter + signature
@@ -4764,8 +4764,8 @@ def _application_email_payload(db, application: Application, user: dict, owner_i
     _require_document_export(user, application.id)
     candidate = _candidate_for_user(db, user)
     resume, letter = _current_application_documents(db, application, user)
-    resume_pdf = docx_to_pdf(resume.content, title=resume.title or "CurrÃ­culo")
-    letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentaÃ§Ã£o")
+    resume_pdf = docx_to_pdf(resume.content, title=resume.title or "Currículo")
+    letter_pdf = docx_to_pdf(letter.content, title=letter.title or "Carta de apresentação")
     if len(resume_pdf) + len(letter_pdf) > 7 * 1024 * 1024:
         raise HTTPException(413, "Os PDFs desta candidatura excedem o limite de anexos do e-mail.")
     recipients = _application_recipient_emails(
@@ -4808,7 +4808,7 @@ def preview_application_email_submission(
     try:
         application = _application_for_user(db, app_id, user)
         if application is None:
-            raise HTTPException(404, "Candidatura nÃ£o encontrada.")
+            raise HTTPException(404, "Candidatura não encontrada.")
         payload = _application_email_payload(db, application, user, owner_id)
         payload["submission_statuses"] = []
         for recipient in payload["recipients"]:
@@ -4832,9 +4832,9 @@ def preview_application_email_submission(
         raise
     except Exception as exc:
         db.rollback()
-        logger.exception("Falha ao preparar prÃ©via de candidatura por e-mail app_id=%s", app_id)
+        logger.exception("Falha ao preparar prévia de candidatura por e-mail app_id=%s", app_id)
         if isinstance(exc, ValueError):
-            raise HTTPException(409, "NÃ£o foi possÃ­vel converter os documentos desta candidatura para PDF.") from exc
+            raise HTTPException(409, "Não foi possível converter os documentos desta candidatura para PDF.") from exc
         raise
     finally:
         db.close()
@@ -4857,10 +4857,10 @@ def send_application_by_email(
         raise HTTPException(403, "Confirme o e-mail da sua conta antes de enviar candidaturas.")
     recipient = req.recipient.strip().casefold()
     if "\r" in recipient or "\n" in recipient or not _APPLICATION_EMAIL_PATTERN.fullmatch(recipient):
-        raise HTTPException(422, "O endereÃ§o de e-mail do recrutador Ã© invÃ¡lido.")
+        raise HTTPException(422, "O endereço de e-mail do recrutador é inválido.")
     smtp_config = _email_transport_config()
     if smtp_config is None:
-        raise HTTPException(503, "O envio por e-mail estÃ¡ indisponÃ­vel no momento. Baixe os PDFs pela biblioteca.")
+        raise HTTPException(503, "O envio por e-mail está indisponível no momento. Baixe os PDFs pela biblioteca.")
     body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", req.body).strip()
     if len(body) < 20 or len(body.encode("utf-8")) > 24000:
         raise HTTPException(422, "Revise o texto do e-mail antes de enviar.")
@@ -4869,12 +4869,12 @@ def send_application_by_email(
     try:
         application = _application_for_user(db, app_id, user)
         if application is None:
-            raise HTTPException(404, "Candidatura nÃ£o encontrada.")
+            raise HTTPException(404, "Candidatura não encontrada.")
         candidate = _candidate_for_user(db, user)
         if recipient not in _application_recipient_emails(
             application, user, candidate.email if candidate else ""
         ):
-            raise HTTPException(422, "Escolha um endereÃ§o que apareÃ§a no anÃºncio da vaga.")
+            raise HTTPException(422, "Escolha um endereço que apareça no anúncio da vaga.")
         _refresh_application_risk(application)
         _enforce_application_risk_gate(application, "CANDIDATURA_ENVIADA")
         preview = _application_email_payload(db, application, user, owner_id)
@@ -4882,7 +4882,7 @@ def send_application_by_email(
             req.resume_version != application.resume_version
             or req.cover_letter_version != application.cover_letter_version
         ):
-            raise HTTPException(409, "Os documentos mudaram desde a prÃ©via. Atualize e revise o envio novamente.")
+            raise HTTPException(409, "Os documentos mudaram desde a prévia. Atualize e revise o envio novamente.")
         resume, letter = _current_application_documents(db, application, user)
         resume_pdf = preview.pop("_resume_pdf")
         letter_pdf = preview.pop("_letter_pdf")
@@ -4911,7 +4911,7 @@ def send_application_by_email(
             EmailApplicationSubmission.recipient_hash == recipient_hash,
         ).with_for_update())
         if submission is not None and submission.status in {"SENT", "SENDING", "UNKNOWN"}:
-            raise HTTPException(409, "Este envio jÃ¡ foi iniciado. Confira o histÃ³rico antes de tentar novamente.")
+            raise HTTPException(409, "Este envio já foi iniciado. Confira o histórico antes de tentar novamente.")
         if submission is not None and submission.attempt_count >= 3:
             raise HTTPException(429, "O limite de tentativas para este destino foi atingido.")
         now = utc_now()
@@ -4932,7 +4932,7 @@ def send_application_by_email(
                 db.flush()
             except IntegrityError as exc:
                 db.rollback()
-                raise HTTPException(409, "Outro envio para este destino jÃ¡ foi iniciado.") from exc
+                raise HTTPException(409, "Outro envio para este destino já foi iniciado.") from exc
         else:
             submission.status = "SENDING"
             submission.attempt_count += 1
@@ -4953,21 +4953,21 @@ def send_application_by_email(
             if current is not None:
                 current.status = "UNKNOWN" if send_invoked else "FAILED"
                 current.last_error = (
-                    "O servidor nÃ£o confirmou se recebeu a mensagem; confira o e-mail enviado antes de agir."
-                    if send_invoked else "O servidor recusou a conexÃ£o antes do envio; vocÃª pode tentar novamente."
+                    "O servidor não confirmou se recebeu a mensagem; confira o e-mail enviado antes de agir."
+                    if send_invoked else "O servidor recusou a conexão antes do envio; você pode tentar novamente."
                 )
                 db.commit()
             return {
                 "status": "UNKNOWN" if send_invoked else "FAILED",
                 "message": (
-                    "O servidor nÃ£o confirmou o resultado. Confira a pasta de enviados antes de fazer qualquer novo envio."
-                    if send_invoked else "O serviÃ§o de e-mail recusou a conexÃ£o; nenhum envio foi confirmado. VocÃª pode tentar novamente."
+                    "O servidor não confirmou o resultado. Confira a pasta de enviados antes de fazer qualquer novo envio."
+                    if send_invoked else "O serviço de e-mail recusou a conexão; nenhum envio foi confirmado. Você pode tentar novamente."
                 ),
             }
 
         current = db.get(EmailApplicationSubmission, submission_id)
         if current is None:
-            raise HTTPException(500, "O e-mail foi enviado, mas o registro de confirmaÃ§Ã£o nÃ£o pÃ´de ser recuperado.")
+            raise HTTPException(500, "O e-mail foi enviado, mas o registro de confirmação não pôde ser recuperado.")
         current.status = "SENT"
         current.sent_at = utc_now()
         current.last_error = None
@@ -4975,18 +4975,18 @@ def send_application_by_email(
             db,
             application,
             "CANDIDATURA_ENVIADA",
-            "Candidatura enviada por e-mail apÃ³s revisÃ£o e autorizaÃ§Ã£o do candidato.",
+            "Candidatura enviada por e-mail após revisão e autorização do candidato.",
             channel="email",
         )
         db.commit()
-        return {"status": "SENT", "message": "Candidatura enviada. O envio foi registrado no histÃ³rico."}
+        return {"status": "SENT", "message": "Candidatura enviada. O envio foi registrado no histórico."}
     except HTTPException:
         db.rollback()
         raise
     except Exception:
         db.rollback()
         logger.exception("Falha ao enviar candidatura por e-mail app_id=%s", app_id)
-        raise HTTPException(500, "NÃ£o foi possÃ­vel concluir o envio por e-mail.")
+        raise HTTPException(500, "Não foi possível concluir o envio por e-mail.")
     finally:
         db.close()
 
@@ -5023,7 +5023,7 @@ def _current_consultation_credit(db, subscription: BillingSubscription, owner_id
 def get_consultation_session(user=Depends(authenticated_user)):
     owner_id = str(_owner_id(user) or "").strip()
     if not owner_id:
-        raise HTTPException(401, "Login necessÃ¡rio.")
+        raise HTTPException(401, "Login necessário.")
     db = SessionLocal()
     try:
         subscription = db.scalar(
@@ -5061,11 +5061,11 @@ def request_consultation_session(
 ):
     owner_id = str(_owner_id(user) or "").strip()
     if not owner_id:
-        raise HTTPException(401, "Login necessÃ¡rio.")
+        raise HTTPException(401, "Login necessário.")
     _enforce_rate_limit(request, "consultation-booking", owner_id)
     availability = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", req.availability)).strip()
     if len(availability) < 5:
-        raise HTTPException(422, "Informe alguns dias ou horÃ¡rios para o atendimento.")
+        raise HTTPException(422, "Informe alguns dias ou horários para o atendimento.")
     db = SessionLocal()
     try:
         subscription = db.scalar(
@@ -5075,12 +5075,12 @@ def request_consultation_session(
             .limit(1)
         )
         if subscription is None or subscription.plan_code != "consultoria":
-            raise HTTPException(403, "O agendamento mensal estÃ¡ incluÃ­do no plano Consultoria.")
+            raise HTTPException(403, "O agendamento mensal está incluído no plano Consultoria.")
         if not _subscription_is_entitled(subscription):
-            raise HTTPException(409, "A assinatura Consultoria nÃ£o tem um ciclo pago ativo.")
+            raise HTTPException(409, "A assinatura Consultoria não tem um ciclo pago ativo.")
         credit = _current_consultation_credit(db, subscription, owner_id)
         if credit is None:
-            raise HTTPException(409, "O Mercado Pago ainda nÃ£o confirmou o pagamento deste ciclo. Atualize esta pÃ¡gina em instantes.")
+            raise HTTPException(409, "O Mercado Pago ainda não confirmou o pagamento deste ciclo. Atualize esta página em instantes.")
         if credit.booking_status == "available":
             credit.booking_status = "requested"
             credit.booking_reference = f"CC-{uuid.uuid4().hex[:8].upper()}"
@@ -5089,12 +5089,12 @@ def request_consultation_session(
             db.commit()
         reference = credit.booking_reference
         if not reference:
-            raise HTTPException(409, "Este atendimento precisa de conferÃªncia. Fale com o suporte da Consultoria.")
+            raise HTTPException(409, "Este atendimento precisa de conferência. Fale com o suporte da Consultoria.")
         return {
             "state": "requested",
             "booking_reference": reference,
             "whatsapp_url": _consultation_whatsapp_url(reference, availability),
-            "message": "Sua solicitaÃ§Ã£o estÃ¡ pronta. Envie a mensagem no WhatsApp para combinar o horÃ¡rio.",
+            "message": "Sua solicitação está pronta. Envie a mensagem no WhatsApp para combinar o horário.",
         }
     finally:
         db.close()
@@ -5105,9 +5105,9 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
     owner_id = str(_owner_id(user) or "").strip()
     token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not owner_id:
-        raise HTTPException(401, "Login necessÃ¡rio.")
+        raise HTTPException(401, "Login necessário.")
     if not token:
-        raise HTTPException(503, "O gerenciamento de assinaturas estÃ¡ indisponÃ­vel.")
+        raise HTTPException(503, "O gerenciamento de assinaturas está indisponível.")
     db = SessionLocal()
     try:
         subscription = db.scalar(
@@ -5133,22 +5133,22 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
             )
     except httpx.HTTPError as exc:
         logger.warning("Falha ao cancelar assinatura Mercado Pago preapproval_id=%s", provider_id)
-        raise HTTPException(502, "NÃ£o foi possÃ­vel cancelar a renovaÃ§Ã£o agora. Tente novamente.") from exc
+        raise HTTPException(502, "Não foi possível cancelar a renovação agora. Tente novamente.") from exc
     if response.status_code >= 400:
         logger.warning("Mercado Pago recusou cancelamento status=%s preapproval_id=%s", response.status_code, provider_id)
-        raise HTTPException(502, "O Mercado Pago nÃ£o confirmou o cancelamento. Tente novamente.")
+        raise HTTPException(502, "O Mercado Pago não confirmou o cancelamento. Tente novamente.")
     try:
         provider = response.json()
     except ValueError as exc:
-        raise HTTPException(502, "O Mercado Pago nÃ£o confirmou o cancelamento. Tente novamente.") from exc
+        raise HTTPException(502, "O Mercado Pago não confirmou o cancelamento. Tente novamente.") from exc
     db = SessionLocal()
     try:
         subscription = db.get(BillingSubscription, subscription_id)
         if subscription is None:
-            raise HTTPException(404, "Assinatura nÃ£o encontrada.")
+            raise HTTPException(404, "Assinatura não encontrada.")
         remote_status = str(provider.get("status") or "").casefold()
         if remote_status not in {"canceled", "cancelled"}:
-            raise HTTPException(502, "O Mercado Pago ainda nÃ£o confirmou o cancelamento. Tente novamente.")
+            raise HTTPException(502, "O Mercado Pago ainda não confirmou o cancelamento. Tente novamente.")
         subscription.status = "canceled"
         if provider.get("next_payment_date"):
             subscription.next_payment_at = _mp_datetime(provider.get("next_payment_date"))
@@ -5159,7 +5159,7 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
             "canceled": True,
             "status": "canceled",
             "access_until": subscription.access_until.isoformat() if subscription.access_until else None,
-            "message": "RenovaÃ§Ã£o cancelada. O acesso continua atÃ© o fim do perÃ­odo jÃ¡ pago.",
+            "message": "Renovação cancelada. O acesso continua até o fim do período já pago.",
         }
     finally:
         db.close()
@@ -5168,7 +5168,7 @@ async def cancel_current_subscription(user=Depends(authenticated_user)):
 @app.get("/billing/ebook/preview", include_in_schema=False)
 def download_preview_ebook():
     if not PREVIEW_BOOK_PATH.is_file():
-        raise HTTPException(503, "O preview ainda nÃ£o estÃ¡ disponÃ­vel para download.")
+        raise HTTPException(503, "O preview ainda não está disponível para download.")
     return FileResponse(
         PREVIEW_BOOK_PATH,
         media_type="application/pdf",
@@ -5181,7 +5181,7 @@ def download_preview_ebook():
 def download_pro_ebook(user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
-        raise HTTPException(401, "Login necessÃ¡rio")
+        raise HTTPException(401, "Login necessário")
     db = SessionLocal()
     try:
         subscription = db.scalar(
@@ -5215,11 +5215,11 @@ def download_pro_ebook(user=Depends(authenticated_user)):
         name = "DISC-Hackeado.pdf"
         mime = "application/pdf"
     else:
-        raise HTTPException(403, "O e-book Hackeando o DISC estÃ¡ incluÃ­do nos planos Start+Ebook, Pro e Consultoria ativos, ou via compra avulsa.")
+        raise HTTPException(403, "O e-book Hackeando o DISC está incluído nos planos Start+Ebook, Pro e Consultoria ativos, ou via compra avulsa.")
 
     if not path.is_file():
-        logger.error(f"Arquivo do e-book nÃ£o estÃ¡ disponÃ­vel no deploy: {path}")
-        raise HTTPException(503, "O e-book ainda nÃ£o estÃ¡ disponÃ­vel para download. Tente novamente mais tarde.")
+        logger.error(f"Arquivo do e-book não está disponível no deploy: {path}")
+        raise HTTPException(503, "O e-book ainda não está disponível para download. Tente novamente mais tarde.")
 
     return FileResponse(
         path,
@@ -5233,11 +5233,11 @@ def download_pro_ebook(user=Depends(authenticated_user)):
 async def create_ebook_checkout(request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
-        raise HTTPException(409, "Login necessÃ¡rio para iniciar o pagamento.")
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
     mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not mercadopago_token:
-        raise HTTPException(503, "Checkout Mercado Pago ainda nÃ£o estÃ¡ configurado.")
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = 3490
     order_nsu = f"ebook-{uuid.uuid4().hex}"
     base_url = _public_base_url()
@@ -5282,11 +5282,11 @@ async def create_ebook_checkout(request: Request, user=Depends(authenticated_use
 async def create_combo_checkout(request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
-        raise HTTPException(409, "Login necessÃ¡rio para iniciar o pagamento.")
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
     mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not mercadopago_token:
-        raise HTTPException(503, "Checkout Mercado Pago ainda nÃ£o estÃ¡ configurado.")
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = 5000
     order_nsu = f"combo-{uuid.uuid4().hex}"
     base_url = _public_base_url()
@@ -5332,17 +5332,17 @@ async def create_combo_checkout(request: Request, user=Depends(authenticated_use
 async def create_document_export_checkout(req: DocumentExportCheckoutRequest, request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
     if not owner_id:
-        raise HTTPException(409, "Login necessÃ¡rio para iniciar o pagamento.")
+        raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
     mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
     if not mercadopago_token:
-        raise HTTPException(503, "Checkout Mercado Pago ainda nÃ£o estÃ¡ configurado.")
+        raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = _document_export_price_cents()
     order_nsu = f"export-{uuid.uuid4().hex}"
     base_url = _public_base_url()
     return_url = f"{base_url}/billing/mercadopago/success?application_id={req.application_id}&order_nsu={quote(order_nsu, safe='')}"
     payload = {
-        "items": [{"id": "document-export", "title": "ExportaÃ§Ã£o de currÃ­culo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "items": [{"id": "document-export", "title": "Exportação de currículo e carta personalizada", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
         "external_reference": order_nsu,
         "payer": {"email": str(user.get("email") or "")},
         "back_urls": {
@@ -5377,19 +5377,19 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, re
                 json=payload,
             )
     except httpx.HTTPError as exc:
-        logger.exception("Falha ao criar preferÃªncia Mercado Pago order_nsu=%s", order_nsu)
-        raise HTTPException(502, "NÃ£o foi possÃ­vel criar o checkout Mercado Pago.") from exc
+        logger.exception("Falha ao criar preferência Mercado Pago order_nsu=%s", order_nsu)
+        raise HTTPException(502, "Não foi possível criar o checkout Mercado Pago.") from exc
     if response.status_code >= 400:
         logger.warning("Mercado Pago recusou checkout status=%s order_nsu=%s body=%s", response.status_code, order_nsu, response.text[:2000])
-        raise HTTPException(502, "O Mercado Pago recusou a criaÃ§Ã£o do checkout.")
+        raise HTTPException(502, "O Mercado Pago recusou a criação do checkout.")
     try:
         data = response.json()
     except ValueError as exc:
-        raise HTTPException(502, "O Mercado Pago retornou uma resposta invÃ¡lida.") from exc
+        raise HTTPException(502, "O Mercado Pago retornou uma resposta inválida.") from exc
     checkout_url = data.get("init_point") or data.get("sandbox_init_point")
     preference_id = str(data.get("id") or "").strip()
     if not checkout_url or not preference_id:
-        raise HTTPException(502, "O Mercado Pago nÃ£o retornou um link de checkout.")
+        raise HTTPException(502, "O Mercado Pago não retornou um link de checkout.")
     db = SessionLocal()
     try:
         purchase = db.scalar(select(DocumentExportPurchase).where(DocumentExportPurchase.order_nsu == order_nsu))
@@ -5410,13 +5410,13 @@ async def mercadopago_webhook(request: Request):
         # A webhook without the server-to-server credential cannot be verified
         # safely. Surface the deployment/configuration error instead of
         # acknowledging the event as if it had been processed.
-        raise HTTPException(503, "IntegraÃ§Ã£o Mercado Pago indisponÃ­vel.")
+        raise HTTPException(503, "Integração Mercado Pago indisponível.")
     try:
         payload = await request.json()
     except Exception:
         payload = {}
     if not _mercadopago_signature_is_valid(request, payload):
-        raise HTTPException(401, "Webhook Mercado Pago nÃ£o autorizado.")
+        raise HTTPException(401, "Webhook Mercado Pago não autorizado.")
     payment_id = str((payload.get("data") or {}).get("id") or payload.get("id") or request.query_params.get("data.id") or "").strip()
     notification_type = str(payload.get("type") or payload.get("topic") or "").strip().casefold()
     if not payment_id:
@@ -5720,7 +5720,7 @@ def document_export_status(application_id: int, user=Depends(authenticated_user)
                 "generation_status": "NOT_APPLICABLE",
                 "entitlement_source": "plan" if offer.get("allowed") else "none",
                 "application_id": application_id,
-                "message": "ExportaÃ§Ã£o completa disponÃ­vel pelo seu plano." if offer.get("allowed") else "Nenhuma compra encontrada.",
+                "message": "Exportação completa disponível pelo seu plano." if offer.get("allowed") else "Nenhuma compra encontrada.",
             }
         payload = _purchase_generation_payload(purchase)
         payload["entitlement_source"] = "one_time_purchase"
@@ -5762,13 +5762,13 @@ def retry_document_export_receipt(
         if purchase is None:
             raise HTTPException(404, "Nenhum pagamento confirmado foi encontrado para esta candidatura.")
         if not purchase.payer_email_confirmed or str(purchase.payer_email or "").strip().casefold() != account_email:
-            raise HTTPException(403, "O comprovante sÃ³ pode ser enviado para o e-mail confirmado da conta.")
+            raise HTTPException(403, "O comprovante só pode ser enviado para o e-mail confirmado da conta.")
         result = _send_purchase_receipt(db, purchase)
         db.refresh(purchase)
         if purchase.receipt_email_status == "SENT":
             message = "Comprovante enviado para o e-mail confirmado da conta."
         elif purchase.receipt_email_status in {"SKIPPED", "FAILED"}:
-            message = "O comprovante continua disponÃ­vel no histÃ³rico; o envio por e-mail ainda nÃ£o foi concluÃ­do."
+            message = "O comprovante continua disponível no histórico; o envio por e-mail ainda não foi concluído."
         else:
             message = "O comprovante ficou na fila de envio. Tente novamente em instantes."
         return {
@@ -5836,7 +5836,7 @@ def update_app_status(app_id: int, req: ApplicationStatusRequest, user=Depends(a
 
 @app.post("/applications/{app_id}/risk-review")
 def review_application_risk(app_id: int, user=Depends(authenticated_user)):
-    """Registra revisÃ£o deliberada para anÃºncio de qualidade duvidosa ou suspeita."""
+    """Registra revisão deliberada para anúncio de qualidade duvidosa ou suspeita."""
     db = SessionLocal()
     try:
         app = _application_for_user(db, app_id, user)
@@ -5890,7 +5890,7 @@ def create_cover_letter(job_id: int, user=Depends(authenticated_user), request: 
         app.cover_letter_version = _content_version("carta", letter)
         db.commit(); db.refresh(app)
         export = _document_export_metadata(user, app.id)
-        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "PrÃ©via gratuita. A carta completa estÃ¡ incluÃ­da no Start e no Pro, ou pode ser comprada Ã  parte." if not export["allowed"] else "Carta completa liberada."}
+        return {"job_id": job.id, "application_id": app.id, "company": job.company, "job_title": job.title, "candidate": arts["profile"]["name"], "analysis_score": arts["analysis"]["score"], "personalization_score": arts["personalization"]["personalization_score"], "letter": letter if export["allowed"] else _cover_letter_preview(letter), "preview": not export["allowed"], "export": export, "notice": "Prévia gratuita. A carta completa está incluída no Start e no Pro, ou pode ser comprada à parte." if not export["allowed"] else "Carta completa liberada."}
     finally: db.close()
 
 @app.post("/jobs/{job_id}/cover-letter/document", response_class=FileResponse)
@@ -5943,7 +5943,7 @@ def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request
     db = SessionLocal()
     try:
         job = _job_for_user(db, job_id, user)
-        if job is None: raise HTTPException(404, "Vaga nÃ£o encontrada.")
+        if job is None: raise HTTPException(404, "Vaga não encontrada.")
         c = _candidate_for_user(db, user)
         arts = _build_application(job, c)
         app = _ensure_app(db, job, c)
@@ -5951,7 +5951,7 @@ def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request
             _save_analysis(app, arts["analysis"], c)
             app.personalization_score = arts["personalization"]["personalization_score"]
             if app.status == "IDENTIFICADA":
-                _add_event(db, app, "ANALISADA", "PrÃ©via gratuita gerada; exportaÃ§Ã£o bloqueada.")
+                _add_event(db, app, "ANALISADA", "Prévia gratuita gerada; exportação bloqueada.")
             db.commit()
             return {
                 "status": "PREVIA_GRATUITA",
@@ -5993,9 +5993,9 @@ def generate_document_studio(req: DocumentStudioRequest, background_tasks: Backg
         if req.application_id is not None:
             linked_application = _application_for_user(db, req.application_id, user)
             if linked_application is None:
-                raise HTTPException(404, "Vaga vinculada nÃ£o encontrada.")
+                raise HTTPException(404, "Vaga vinculada não encontrada.")
         title = req.title.strip()
-        company = req.company.strip() or "Empresa nÃ£o informada"
+        company = req.company.strip() or "Empresa não informada"
         description = req.details.strip()
         if linked_application is not None:
             # Reuse the captured opportunity so a document preview never creates
@@ -6065,14 +6065,14 @@ def generate_document_studio(req: DocumentStudioRequest, background_tasks: Backg
                 "summary": str(arts["profile"].get("summary") or "").strip(),
                 "skills": ", ".join(str(value).strip() for value in arts["profile"].get("skills", []) if str(value).strip()),
                 "experience": "\n\n".join(
-                    " Â· ".join(str(value).strip() for value in (
+                    " · ".join(str(value).strip() for value in (
                         item.get("role"), item.get("company"), item.get("period"), item.get("description")
                     ) if str(value or "").strip())
                     for item in arts["profile"].get("experiences", [])
                     if isinstance(item, dict)
                 ),
                 "education": "\n".join(
-                    " Â· ".join(str(value).strip() for value in (
+                    " · ".join(str(value).strip() for value in (
                         item.get("course") or item.get("title"), item.get("institution"), item.get("period")
                     ) if str(value or "").strip())
                     for item in arts["profile"].get("education", [])
@@ -6080,7 +6080,7 @@ def generate_document_studio(req: DocumentStudioRequest, background_tasks: Backg
                 ),
             },
             "export": export,
-            "notice": "PrÃ©via adaptada ao cargo. Os arquivos completos estÃ£o incluÃ­dos no Start e no Pro, ou podem ser comprados Ã  parte.",
+            "notice": "Prévia adaptada ao cargo. Os arquivos completos estão incluídos no Start e no Pro, ou podem ser comprados à parte.",
         }
     except HTTPException:
         db.rollback()
@@ -6088,7 +6088,7 @@ def generate_document_studio(req: DocumentStudioRequest, background_tasks: Backg
     except Exception:
         db.rollback()
         logger.exception("Falha ao gerar documentos no studio")
-        raise HTTPException(500, "NÃ£o foi possÃ­vel gerar os documentos agora.")
+        raise HTTPException(500, "Não foi possível gerar os documentos agora.")
     finally:
         db.close()
 
@@ -6130,14 +6130,14 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
                     "job_id": application.job_id,
                     "resume_url": f"/applications/{application.id}/document",
                     "letter_url": f"/applications/{application.id}/cover-letter/document",
-                    "message": "CurrÃ­culo e carta prontos para baixar.",
+                    "message": "Currículo e carta prontos para baixar.",
                 }
             else:
                 result = {
                     "generation_status": "PROCESSING" if claim_status in {"processing", "not_claimed"} else "WAITING",
                     "application_id": application.id,
                     "job_id": application.job_id,
-                    "message": "Pagamento confirmado. A geraÃ§Ã£o automÃ¡tica estÃ¡ em andamento.",
+                    "message": "Pagamento confirmado. A geração automática está em andamento.",
                 }
             if result.get("generation_status") == "READY":
                 result["status"] = "DOCUMENTOS_GERADOS"
@@ -6161,7 +6161,7 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
             email_status = _send_document_delivery(db, delivery, user)
             db.refresh(delivery)
         except Exception as exc:
-            logger.warning("Falha nÃ£o bloqueante ao enviar documentos da candidatura id=%s tipo=%s", application.id, type(exc).__name__)
+            logger.warning("Falha não bloqueante ao enviar documentos da candidatura id=%s tipo=%s", application.id, type(exc).__name__)
             email_status = "failed"
         return {
             "status": "DOCUMENTOS_GERADOS",
@@ -6172,11 +6172,11 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
             "delivery_id": delivery.id,
             "email_status": delivery.status,
             "email_message": delivery.last_error or (
-                "CurrÃ­culo e carta enviados para o e-mail confirmado da conta."
+                "Currículo e carta enviados para o e-mail confirmado da conta."
                 if email_status == "sent"
-                else "CurrÃ­culo e carta estÃ£o disponÃ­veis na biblioteca de documentos."
+                else "Currículo e carta estão disponíveis na biblioteca de documentos."
             ),
-            "message": "Pagamento confirmado. CurrÃ­culo e carta gerados e salvos na biblioteca.",
+            "message": "Pagamento confirmado. Currículo e carta gerados e salvos na biblioteca.",
         }
     except HTTPException:
         db.rollback()
@@ -6184,7 +6184,7 @@ def export_document_studio(req: DocumentStudioExportRequest, user=Depends(authen
     except Exception:
         db.rollback()
         logger.exception("Falha ao exportar documentos pagos no studio")
-        raise HTTPException(500, "NÃ£o foi possÃ­vel gerar os documentos agora.")
+        raise HTTPException(500, "Não foi possível gerar os documentos agora.")
     finally:
         db.close()
 
@@ -6199,8 +6199,8 @@ def generate_doc_standalone(req: ResumeRequest, user=Depends(authenticated_user)
     return {"status": "DOCUMENTO_GERADO", "candidate": r.get("candidate", {}).get("name", "Candidato"), "job_title": req.title, "file": path}
 
 
-# Compatibilidade para integraÃ§Ãµes locais que chamavam os nomes anteriores
-# diretamente. Os endpoints pÃºblicos continuam sendo os definidos acima.
+# Compatibilidade para integrações locais que chamavam os nomes anteriores
+# diretamente. Os endpoints públicos continuam sendo os definidos acima.
 analyze = analyze_job_endpoint
 analyze_saved_job = analyze_job_saved
 get_application = get_app
@@ -6239,7 +6239,7 @@ def check_linkedin_access(user=Depends(authenticated_user)):
 async def create_linkedin_rebranding_checkout(request: Request, user=Depends(authenticated_user)):
     owner_id = getattr(user, "uid", getattr(user, "id", None))
     if not owner_id:
-        raise HTTPException(401, "UsuÃ¡rio nÃ£o autenticado")
+        raise HTTPException(401, "Usuário não autenticado")
 
     email = getattr(user, "email", "") or ""
     order_nsu = f"linkedin-{uuid.uuid4().hex}"
@@ -6271,7 +6271,7 @@ async def create_linkedin_rebranding_checkout(request: Request, user=Depends(aut
 
         token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
         if not token:
-            raise HTTPException(503, "Mercado Pago nÃ£o configurado")
+            raise HTTPException(503, "Mercado Pago não configurado")
 
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -6296,7 +6296,7 @@ async def generate_linkedin_rebranding(
 ):
     owner_id = getattr(user, "uid", getattr(user, "id", None))
     if not owner_id:
-        raise HTTPException(401, "UsuÃ¡rio nÃ£o autenticado")
+        raise HTTPException(401, "Usuário não autenticado")
 
     # Access Verification
     plan = getattr(user, "plan_code", "gratis") or "gratis"
@@ -6319,7 +6319,7 @@ async def generate_linkedin_rebranding(
         raise HTTPException(403, "O acesso ao Rebranding de LinkedIn requer o plano Pro, Consultoria ou a compra avulsa.")
 
     if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(400, "O currÃ­culo deve ser em formato PDF.")
+        raise HTTPException(400, "O currículo deve ser em formato PDF.")
 
     import fitz  # PyMuPDF
     try:
@@ -6336,35 +6336,35 @@ async def generate_linkedin_rebranding(
     if not text_content.strip():
         raise HTTPException(400, "O arquivo PDF enviado parece estar vazio ou ser apenas uma imagem.")
 
-    system_prompt = """VocÃª Ã© um Consultor de Carreira de elite, focado em posicionamento profissional. 
-Seu objetivo Ã© analisar o currÃ­culo do usuÃ¡rio e gerar uma proposta de perfil completo para o LinkedIn, projetada para atrair recrutadores e gerar autoridade.
+    system_prompt = """Você é um Consultor de Carreira de elite, focado em posicionamento profissional. 
+Seu objetivo é analisar o currículo do usuário e gerar uma proposta de perfil completo para o LinkedIn, projetada para atrair recrutadores e gerar autoridade.
 
-Use o seguinte formato em Markdown para a sua resposta (nÃ£o adicione saudaÃ§Ãµes ou explicaÃ§Ãµes fora do markdown):
+Use o seguinte formato em Markdown para a sua resposta (não adicione saudações ou explicações fora do markdown):
 
-# ðŸš€ TÃ­tulo Profissional (Headline)
-Crie 3 opÃ§Ãµes de tÃ­tulos estratÃ©gicos (Headline). O tÃ­tulo deve conter Palavra-chave Principal | Palavra-chave SecundÃ¡ria | Impacto ou Especialidade.
-- OpÃ§Ã£o 1: ...
-- OpÃ§Ã£o 2: ...
-- OpÃ§Ã£o 3: ...
+# 🚀 Título Profissional (Headline)
+Crie 3 opções de títulos estratégicos (Headline). O título deve conter Palavra-chave Principal | Palavra-chave Secundária | Impacto ou Especialidade.
+- Opção 1: ...
+- Opção 2: ...
+- Opção 3: ...
 
-# ðŸ“– Resumo (Sobre)
-Crie um texto envolvente em primeira pessoa, estruturado em 3 ou 4 parÃ¡grafos pequenos.
-- ParÃ¡grafo 1: Quem Ã© o profissional e qual sua principal paixÃ£o/motivaÃ§Ã£o.
-- ParÃ¡grafo 2: Suas principais realizaÃ§Ãµes e resultados prÃ¡ticos (com base no currÃ­culo).
-- ParÃ¡grafo 3: Suas especialidades tÃ©cnicas (Hard Skills) e como ele atua no dia a dia.
-- ParÃ¡grafo 4 (Call to Action): Um convite para conexÃ£o e contato.
+# 📖 Resumo (Sobre)
+Crie um texto envolvente em primeira pessoa, estruturado em 3 ou 4 parágrafos pequenos.
+- Parágrafo 1: Quem é o profissional e qual sua principal paixão/motivação.
+- Parágrafo 2: Suas principais realizações e resultados práticos (com base no currículo).
+- Parágrafo 3: Suas especialidades técnicas (Hard Skills) e como ele atua no dia a dia.
+- Parágrafo 4 (Call to Action): Um convite para conexão e contato.
 
-# ðŸ’¼ ExperiÃªncia Profissional (Destaques)
-Para as experiÃªncias mais relevantes do currÃ­culo, rescreva o cargo e as descriÃ§Ãµes de atividades focando nÃ£o apenas nas tarefas, mas no impacto e nos resultados alcanÃ§ados (se possÃ­vel, quantifique).
+# 💼 Experiência Profissional (Destaques)
+Para as experiências mais relevantes do currículo, rescreva o cargo e as descrições de atividades focando não apenas nas tarefas, mas no impacto e nos resultados alcançados (se possível, quantifique).
 - **Cargo - Empresa**
   - O que fez: ...
-  - Resultado alcanÃ§ado / Impacto: ...
+  - Resultado alcançado / Impacto: ...
 
-# ðŸŽ¯ CompetÃªncias a destacar (Skills)
-Liste as 5 principais habilidades tÃ©cnicas e as 3 principais habilidades comportamentais (Soft Skills) que o usuÃ¡rio deve fixar em seu perfil.
+# 🎯 Competências a destacar (Skills)
+Liste as 5 principais habilidades técnicas e as 3 principais habilidades comportamentais (Soft Skills) que o usuário deve fixar em seu perfil.
 """
 
-    user_prompt = f"Aqui estÃ¡ o texto extraÃ­do do meu currÃ­culo:\n\n{text_content}\n\nCrie o meu Rebranding de LinkedIn com base neste perfil."
+    user_prompt = f"Aqui está o texto extraído do meu currículo:\n\n{text_content}\n\nCrie o meu Rebranding de LinkedIn com base neste perfil."
 
     try:
         result = _call_chat_completion([
@@ -6380,7 +6380,7 @@ Liste as 5 principais habilidades tÃ©cnicas e as 3 principais habilidades comp
 @app.get("/billing/ebook/preview", include_in_schema=False)
 @app.get("/ebook/download/preview", include_in_schema=False)
 async def download_ebook_preview():
-    """Serve a prÃ©via gratuita do e-book DISC em PDF."""
+    """Serve a prévia gratuita do e-book DISC em PDF."""
     pdf_candidates = [
         PREVIEW_BOOK_PATH,
         Path(__file__).parent.parent / "output_pdfs" / "Hackeando_DISC_Livro.pdf",
@@ -6393,13 +6393,13 @@ async def download_ebook_preview():
                 media_type="application/pdf",
                 filename="Preview_DISC_Hackeado.pdf",
             )
-    raise HTTPException(404, "Arquivo de prÃ©via do e-book nÃ£o encontrado.")
+    raise HTTPException(404, "Arquivo de prévia do e-book não encontrado.")
 
 
 @app.get("/chrome-extension/download", include_in_schema=False)
 @app.get("/extension/download", include_in_schema=False)
 async def download_chrome_extension_zip():
-    """Serve o arquivo ZIP da extensÃ£o do Chrome para instalaÃ§Ã£o manual."""
+    """Serve o arquivo ZIP da extensão do Chrome para instalação manual."""
     zip_path = (STATIC_DIR / "chrome-extension.zip").resolve()
     if zip_path.is_file():
         return FileResponse(
@@ -6407,7 +6407,8 @@ async def download_chrome_extension_zip():
             media_type="application/zip",
             filename="candidatura-certa-extensao.zip",
         )
-    raise HTTPException(404, "Arquivo de extensÃ£o nÃ£o encontrado.")
+    raise HTTPException(404, "Arquivo de extensão não encontrado.")
+
 
 
 # --- ADMIN ROUTES ---
@@ -6415,21 +6416,38 @@ class AdminGrantRequest(BaseModel):
     email: str
     plan: str
 
+@app.get("/admin/login")
+async def admin_login_page(request: Request):
+    from .auth import _resolve_session
+    user, _ = await _resolve_session(request)
+    if user:
+        return RedirectResponse("/admin", status_code=303)
+    return _page("admin_login.html")
+
 @app.get("/admin")
-async def admin_dashboard(request: Request, user: dict = Depends(authenticated_user)):
-    # Protect with a basic hardcoded email list or ENV, for now fallback to the known ones
+async def admin_dashboard(request: Request):
+    from .auth import _resolve_session
+    user, _ = await _resolve_session(request)
+    if not user:
+        return RedirectResponse("/admin/login", status_code=303)
+        
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
     return _page("admin.html")
 
 @app.get("/admin/metrics")
-async def admin_metrics(request: Request, user: dict = Depends(authenticated_user)):
-    session = SessionLocal()
+async def admin_metrics(request: Request):
+    from .auth import _resolve_session
+    user, _ = await _resolve_session(request)
+    if not user:
+        raise HTTPException(401, "Login necessario.")
+        
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
         
+    session = SessionLocal()
     total_users = session.scalar(select(func.count(Candidate.id))) or 0
     
     subs = session.execute(
@@ -6462,20 +6480,26 @@ async def admin_metrics(request: Request, user: dict = Depends(authenticated_use
     
     total_ebook = session.scalar(select(func.count(EbookPurchase.id))) or 0
     total_linkedin = session.scalar(select(func.count(LinkedinRebrandingPurchase.id))) or 0
+    session.close()
     
     return {
         "total_users": total_users,
         "active_plans": active_plans,
-        "mrr": float(mrr),
+        "mrr": float(mrr) / 100 if mrr > 10000 else float(mrr), # Convert cents to float if needed
         "total_ebook": total_ebook,
         "total_linkedin": total_linkedin
     }
 
 @app.post("/admin/grant")
-async def admin_grant(payload: AdminGrantRequest, request: Request, user: dict = Depends(authenticated_user)):
-    session = SessionLocal()
+async def admin_grant(payload: AdminGrantRequest, request: Request):
+    from .auth import _resolve_session
     import uuid
     from datetime import timedelta
+    
+    user, _ = await _resolve_session(request)
+    if not user:
+        raise HTTPException(401, "Login necessario.")
+        
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
@@ -6484,8 +6508,10 @@ async def admin_grant(payload: AdminGrantRequest, request: Request, user: dict =
     if plan not in ['start', 'pro', 'consultoria', 'essential']:
         raise HTTPException(400, "Plano invalido")
         
+    session = SessionLocal()
     candidate = session.scalar(select(Candidate).where(Candidate.email == payload.email))
     if not candidate or not candidate.owner_id:
+        session.close()
         raise HTTPException(404, "Usuario nao encontrado ou sem cadastro concluido.")
         
     if plan == 'essential':
@@ -6495,6 +6521,7 @@ async def admin_grant(payload: AdminGrantRequest, request: Request, user: dict =
             .values(status="canceled", access_until=datetime.utcnow())
         )
         session.commit()
+        session.close()
         return {"message": f"Acesso premium revogado. O usuario {payload.email} voltou para o plano Essencial."}
         
     sub = BillingSubscription(
@@ -6509,6 +6536,6 @@ async def admin_grant(payload: AdminGrantRequest, request: Request, user: dict =
     )
     session.add(sub)
     session.commit()
+    session.close()
     return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida para {payload.email}."}
-
 
