@@ -9,6 +9,11 @@ from io import StringIO
 import logging
 import math
 import os
+
+def is_admin(user: dict | None) -> bool:
+    if not user: return False
+    admin_emails = os.getenv('ADMIN_EMAILS', 'usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br').split(',')
+    return user.get('email') in admin_emails
 import re
 import smtplib
 import time
@@ -769,6 +774,7 @@ def _sync_subscription_from_provider(db, provider: dict[str, Any]) -> BillingSub
 
 
 def _document_export_metadata(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
+    if is_admin(user): return {'allowed': True, 'price': _document_export_price(), 'checkout_url': ''}
     """Return the server-side entitlement metadata for DOCX exports.
 
     Active local subscriptions are authoritative and time-bounded. Legacy
@@ -1737,7 +1743,7 @@ def voice_simulator_page():
 async def voice_interview_start(request: Request, user=Depends(authenticated_user)):
     """Inicia uma sessao de entrevista por voz e retorna a primeira pergunta da IA."""
     plan = getattr(user, "plan_code", "gratis") or "gratis"
-    if plan not in ("pro", "consultoria"):
+    if plan not in ("pro", "consultoria") and not is_admin(user):
         raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
@@ -1756,7 +1762,7 @@ async def voice_interview_start(request: Request, user=Depends(authenticated_use
 async def voice_interview_chat(request: Request, user=Depends(authenticated_user)):
     """Processa um turno da entrevista por voz e retorna a resposta da IA."""
     plan = getattr(user, "plan_code", "gratis") or "gratis"
-    if plan not in ("pro", "consultoria"):
+    if plan not in ("pro", "consultoria") and not is_admin(user):
         raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
@@ -5032,6 +5038,8 @@ def get_consultation_session(user=Depends(authenticated_user)):
             .order_by(BillingSubscription.updated_at.desc())
             .limit(1)
         )
+        if is_admin(user):
+            return {"eligible": True, "state": "scheduled", "period_end": (utc_now() + timedelta(days=30)).isoformat(), "booking_url": "https://cal.com/admin/teste"}
         if subscription is None or subscription.plan_code != "consultoria":
             return {"eligible": False, "state": "not_included"}
         if not _subscription_is_entitled(subscription):
@@ -5194,7 +5202,8 @@ def download_pro_ebook(user=Depends(authenticated_user)):
         has_access = subscription is not None and _subscription_is_entitled(subscription)
         plan = str(subscription.plan_code).casefold() if has_access and subscription.plan_code else "none"
 
-        if plan not in ["consultoria", "pro", "start_plus"]:
+        if is_admin(user): plan = "consultoria"
+        if plan not in ["consultoria", "pro", "start_plus"] and not is_admin(user):
             ebook_purchase = db.scalar(
                 select(EbookPurchase)
                 .where(EbookPurchase.owner_id == owner_id)
@@ -6214,6 +6223,7 @@ download_application_cover_letter = download_cover_letter
 
 @app.get("/api/linkedin/access-status", include_in_schema=False)
 def check_linkedin_access(user=Depends(authenticated_user)):
+    if is_admin(user): return {'has_access': True, 'reason': 'admin'}
     owner_id = getattr(user, "uid", getattr(user, "id", None))
     if not owner_id:
         return {"has_access": False, "reason": "unauthenticated"}
@@ -6300,7 +6310,7 @@ async def generate_linkedin_rebranding(
 
     # Access Verification
     plan = getattr(user, "plan_code", "gratis") or "gratis"
-    has_access = plan in ["pro", "consultoria"]
+    has_access = plan in ["pro", "consultoria"] or is_admin(user)
     
     if not has_access:
         db = SessionLocal()

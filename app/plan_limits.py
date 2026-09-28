@@ -48,6 +48,11 @@ def month_window(now: datetime | None = None) -> tuple[datetime, datetime]:
 
 
 def _effective_plan(session: Session, owner_id: str, now: datetime) -> str:
+    import os
+    from .models import Candidate
+    c = session.scalar(select(Candidate).where(Candidate.owner_id == owner_id))
+    if c and c.email and c.email in os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(","):
+        return "consultoria"
     subscription = session.scalar(
         select(BillingSubscription)
         .where(BillingSubscription.owner_id == owner_id)
@@ -120,6 +125,14 @@ def ensure_opportunity_capacity(
     # Preserve local/demo flows that have no authenticated account owner.
     if not normalized_owner or normalized_owner == "local_user":
         return None
+    
+    import os
+    from .models import Candidate
+    c = session.scalar(select(Candidate).where(Candidate.owner_id == normalized_owner))
+    if c and c.email and c.email in os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(","):
+        current_safe = now or utc_now()
+        period_start_safe, _ = month_window(current_safe)
+        return {"plan_code": "consultoria", "used": 0, "limit": 99999, "remaining": 99999, "period_start": period_start_safe, "resets_at": current_safe}
     current = _utc(now or utc_now())
     period_start, _ = month_window(current)
     if session.bind is not None and session.bind.dialect.name == "postgresql":
