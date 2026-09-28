@@ -6426,6 +6426,28 @@ class AdminGrantRequest(BaseModel):
     email: str
     plan: str
 
+
+@app.get("/admin/logout")
+async def admin_logout(request: Request):
+    from .auth import _clear_session_cookies
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Saindo...</title></head>
+    <body style="background: #0F172A; color: #E2E8F0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;">
+        <p>Encerrando sessão segura...</p>
+        <script>
+            localStorage.clear();
+            sessionStorage.clear();
+            setTimeout(() => { window.location.href = '/admin/login'; }, 100);
+        </script>
+    </body>
+    </html>
+    """
+    response = HTMLResponse(html)
+    _clear_session_cookies(response)
+    return response
+
 @app.get("/admin/login")
 async def admin_login_page(request: Request):
     from .auth import _resolve_session
@@ -6469,18 +6491,10 @@ async def admin_dashboard(request: Request):
                 <h1>Acesso Negado</h1>
                 <p>A conta <b>{user.get("email")}</b> não possui privilégios de administrador para acessar o Painel Master.</p>
                 <div class="actions">
-                    <button class="btn" onclick="logoutAdmin()">Trocar de Conta</button>
+                    <a href="/admin/logout" class="btn">Trocar de Conta</a>
                     <a href="/dashboard" class="btn btn-outline">Voltar ao Meu Painel</a>
                 </div>
             </div>
-            <script>
-                async function logoutAdmin() {{
-                    try {{
-                        await fetch('/auth/logout', {{ method: 'POST' }});
-                    }} catch (e) {{}}
-                    window.location.href = '/admin/login';
-                }}
-            </script>
         </body>
         </html>
         """
