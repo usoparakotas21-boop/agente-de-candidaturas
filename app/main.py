@@ -6443,7 +6443,34 @@ async def admin_dashboard(request: Request):
         
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
-        raise HTTPException(403, "Acesso negado.")
+        html_denied = f"""
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Acesso Negado - Candidatura Certa</title>
+            <style>
+                body {{ background-color: #0F172A; color: #E2E8F0; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                .card {{ background: #1E293B; border: 1px solid #334155; padding: 40px; border-radius: 16px; text-align: center; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
+                .icon {{ font-size: 4rem; color: #EF4444; margin-bottom: 20px; }}
+                h1 {{ color: #FFFFFF; font-size: 1.5rem; margin-top: 0; margin-bottom: 10px; }}
+                p {{ color: #94A3B8; margin-bottom: 30px; line-height: 1.5; }}
+                .btn {{ background: #3B82F6; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block; transition: background 0.2s; }}
+                .btn:hover {{ background: #2563EB; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="icon">🔒</div>
+                <h1>Acesso Negado</h1>
+                <p>A conta <b>{user.get("email")}</b> não possui privilégios de administrador para acessar o Painel Master.</p>
+                <a href="/dashboard" class="btn">Voltar ao Meu Painel</a>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(html_denied, status_code=403)
     return _page(STATIC_DIR / "admin.html")
 
 @app.get("/admin/metrics")
