@@ -53,7 +53,7 @@
     
     .result-section { display: none; margin-top: 40px; background: var(--surface); border-radius: 12px; padding: 30px; box-shadow: var(--sh); }
     .result-section h2 { margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 10px; }
-    .copy-btn { margin-top: 20px; background: var(--surface-3); color: var(--ink); border: 1px solid var(--border); }
+    .copy-btn { margin-top: 20px; background: var(--surface-3); color: var(--ink); border: 1px solid var(--border); display: block; margin: 20px auto 0; text-align: center; }
     .copy-btn:hover { background: var(--border-sub); }
   </style>
 </head>
@@ -123,6 +123,7 @@
           document.getElementById('paywall-state').style.display = 'flex';
           document.getElementById('upload-content').style.opacity = '0.2';
           document.getElementById('dropzone').onclick = null;
+          document.getElementById('upload-content').style.display = 'none';
         }
       } catch(e) {
         console.error(e);

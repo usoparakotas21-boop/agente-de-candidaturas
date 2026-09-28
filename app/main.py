@@ -6431,7 +6431,7 @@ async def admin_dashboard(request: Request):
     if not user:
         return RedirectResponse("/admin/login", status_code=303)
         
-    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
+    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
     return _page("admin.html")
@@ -6443,7 +6443,7 @@ async def admin_metrics(request: Request):
     if not user:
         raise HTTPException(401, "Login necessario.")
         
-    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
+    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
         
@@ -6500,7 +6500,7 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
     if not user:
         raise HTTPException(401, "Login necessario.")
         
-    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com").split(",")
+    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
         
@@ -6538,4 +6538,5 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
     session.commit()
     session.close()
     return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida para {payload.email}."}
+
 
