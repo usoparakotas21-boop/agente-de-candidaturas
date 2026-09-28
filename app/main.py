@@ -6432,7 +6432,7 @@ async def admin_login_page(request: Request):
     user, _ = await _resolve_session(request)
     if user:
         return RedirectResponse("/admin", status_code=303)
-    return _page("admin_login.html")
+    return _page(STATIC_DIR / "admin_login.html")
 
 @app.get("/admin")
 async def admin_dashboard(request: Request):
@@ -6444,7 +6444,7 @@ async def admin_dashboard(request: Request):
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
-    return _page("admin.html")
+    return _page(STATIC_DIR / "admin.html")
 
 @app.get("/admin/metrics")
 async def admin_metrics(request: Request):
@@ -6578,3 +6578,4 @@ async def auto_provision_admin():
 @app.on_event("startup")
 async def provision_admin_startup():
     asyncio.create_task(auto_provision_admin())
+
