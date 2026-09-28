@@ -8,53 +8,70 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
-    .container { max-width: 800px; margin: 40px auto; padding: 20px; }
+    /* REFACTORING CSS FOR DARK MODE LEGIBILITY */
+    body { background-color: #0F172A; color: #E2E8F0; font-family: sans-serif; }
+    .container { max-width: 800px; margin: 40px auto; padding: 20px; color: #E2E8F0; }
     .header { text-align: center; margin-bottom: 30px; }
-    .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .header h1 { font-size: 2.5rem; margin-bottom: 10px; color: #FFFFFF; font-weight: 800; }
+    p.muted { color: #94A3B8; }
     
-    .instructions { background: var(--surface-3); padding: 20px; border-radius: 12px; margin-bottom: 30px; }
-    .instructions h3 { margin-top: 0; margin-bottom: 10px; }
-    .instructions ol { margin-left: 20px; }
+    .instructions { background: #1E293B; padding: 25px; border-radius: 12px; margin-bottom: 30px; color: #E2E8F0; border: 1px solid #334155; }
+    .instructions h3 { margin-top: 0; margin-bottom: 15px; color: #FFFFFF; font-size: 1.25rem; }
+    .instructions ol { margin-left: 20px; color: #E2E8F0; }
+    .instructions li { margin-bottom: 10px; line-height: 1.5; }
+    .instructions strong { color: #FFFFFF; }
     
     .upload-card {
-      border: 2px dashed var(--border);
+      border: 2px dashed #475569;
       border-radius: 16px;
       padding: 40px 20px;
       text-align: center;
-      background: var(--surface);
+      background: #1E293B;
       cursor: pointer;
       position: relative;
       transition: all 0.3s ease;
       overflow: hidden;
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
-    .upload-card:hover { border-color: var(--blue); background: var(--surface-3); }
+    .upload-card:hover { border-color: #3B82F6; background: #243447; }
     
-    .upload-icon { font-size: 3rem; color: var(--blue); margin-bottom: 15px; }
-    .upload-title { margin-bottom: 0.5rem; }
-    .upload-subtitle { color: var(--ink-muted); font-size: 0.9rem; margin-bottom: 15px; }
+    .upload-icon { font-size: 3.5rem; color: #3B82F6; margin-bottom: 20px; }
+    .upload-title { margin-bottom: 0.5rem; color: #FFFFFF; font-size: 1.25rem; }
+    .upload-subtitle { color: #94A3B8; font-size: 0.95rem; margin-bottom: 20px; }
     
     .btn {
-      background: var(--blue); color: white; border: none; padding: 12px 24px;
-      border-radius: 8px; font-weight: 600; font-size: 1rem; display: inline-block;
+      background: #3B82F6; color: #FFFFFF; border: none; padding: 14px 28px;
+      border-radius: 8px; font-weight: 600; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background 0.2s;
     }
-    .btn:hover { background: var(--blue-dark); color: white; }
+    .btn:hover { background: #2563EB; }
     
-    .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .spinner { border: 4px solid var(--border-sub); border-top: 4px solid var(--blue); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; width: 100%; }
+    .spinner { border: 4px solid #334155; border-top: 4px solid #3B82F6; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
     .paywall-overlay {
       display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255, 255, 255, 0.95); flex-direction: column; align-items: center;
+      background: #1E293B; flex-direction: column; align-items: center;
       justify-content: center; text-align: center; padding: 2rem; z-index: 10;
     }
-    .paywall-icon { color: var(--blue); font-size: 3rem; margin-bottom: 1rem; }
-    .price-tag { font-size: 2rem; font-weight: 800; color: var(--ink); margin-bottom: 1.5rem; }
+    .paywall-icon { color: #F59E0B; font-size: 3.5rem; margin-bottom: 1rem; }
+    .paywall-overlay h3 { color: #FFFFFF; margin-bottom: 0.5rem; font-size: 1.5rem; }
+    .paywall-overlay p { color: #CBD5E1; }
+    .price-tag { font-size: 3rem; font-weight: 800; color: #10B981; margin-bottom: 1.5rem; margin-top: 1rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .paywall-overlay .btn { background: #10B981; font-size: 1.1rem; padding: 16px 32px; }
+    .paywall-overlay .btn:hover { background: #059669; }
     
-    .result-section { display: none; margin-top: 40px; background: var(--surface); border-radius: 12px; padding: 30px; box-shadow: var(--sh); }
-    .result-section h2 { margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 10px; }
-    .copy-btn { margin-top: 20px; background: var(--surface-3); color: var(--ink); border: 1px solid var(--border); display: block; margin: 20px auto 0; text-align: center; }
-    .copy-btn:hover { background: var(--border-sub); }
+    .result-section { display: none; margin-top: 40px; background: #1E293B; border-radius: 12px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); color: #E2E8F0; border: 1px solid #334155; }
+    .result-section h2 { margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; color: #FFFFFF; font-size: 1.5rem; }
+    .copy-btn { margin-top: 20px; background: #334155; color: #FFFFFF; border: 1px solid #475569; display: flex; margin: 20px auto 0; text-align: center; }
+    .copy-btn:hover { background: #475569; }
+
+    /* Hidden file input totally invisible */
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
   </style>
 </head>
 <body>
@@ -97,7 +114,7 @@
       </div>
     </div>
     
-    <input type="file" id="file-upload" accept="application/pdf" style="display: none;" onchange="handleFileSelect(event)">
+    <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" onchange="handleFileSelect(event)">
 
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
@@ -237,3 +254,5 @@
   </script>
 </body>
 </html>
+
+
