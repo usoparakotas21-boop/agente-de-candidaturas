@@ -81,7 +81,6 @@
   <style>
     .plan{display:flex;flex-direction:column}
     .plan>a{margin-top:auto}
-  </style>
     .section-head-center { text-align: center; max-width: 700px; margin: 0 auto 2rem; }
     .demo-video-box { display: flex; align-items: center; justify-content: center; background: #0b1930; border-radius: 18px; aspect-ratio: 16/9; max-width: 920px; margin: 0 auto; }
     .demo-video-content { text-align: center; color: #7CA8D6; padding: 2rem; }
@@ -150,13 +149,63 @@
 <article class="plan"><h3>Consultoria</h3><p>Acompanhamento individual recorrente</p><div class="price">R$ 197,00 <small>/mês</small></div><ul><li>1 atendimento individual por mês, com sessão online de até 60 min</li><li>Revisão humana do currículo e plano de recolocação</li><li>Simulação de entrevista</li><li>Estratégia para até 3 vagas prioritárias escolhidas por você</li><li>Até 500 preparações assistidas de formulário por mês</li><li>E-book digital Hackeando o DISC incluído enquanto o plano estiver ativo</li></ul><a href="#auth" data-plan-checkout="consultoria">Assinar Consultoria</a></article>
 </div><p class="billing-note">As vagas são contadas por mês-calendário; duplicadas não consomem o limite. O copiloto inclui até 30 preparações assistidas por mês no Essencial, 150 no Start e 500 no Pro e na Consultoria. Cada vez que você autoriza buscar seu perfil para preencher uma vaga, uma preparação é contabilizada, mesmo que a página não tenha campos compatíveis. Ambos os limites renovam no primeiro dia de cada mês. Start custa R$ 34,90 por mês e Pro R$ 99,00 por mês, com renovação automática pelo Mercado Pago até o cancelamento. Cancele em Configurações → Plano e cobrança; o acesso pago continua até o fim do período já quitado. A promoção do Combo inclui o pagamento único de R$ 50,00 por 30 dias do plano Start mais o acesso definitivo ao e-book Hackeando o DISC; após os 30 dias, caso deseje continuar, será necessário realizar uma nova assinatura do plano desejado. As formas de pagamento aparecem no checkout. A Consultoria custa R$ 197,00 por mês, com cobrança recorrente pelo Mercado Pago até o cancelamento. Cada ciclo pago inclui 1 atendimento individual online de até 60 minutos, agendado pelo canal liberado na sua área de cobrança após a confirmação do pagamento. O atendimento deve ser solicitado durante o ciclo pago e não acumula para os meses seguintes.</p></section>
     <section class="section" id="faq"><div class="section-head"><h2>Dúvidas rápidas</h2><p>Transparência para você decidir como começar.</p></div><div class="faq-list"><details><summary>A plataforma envia candidaturas automaticamente?</summary><p>Não. O copiloto pode preparar campos de texto reconhecidos em páginas da Gupy, Vagas.com, InfoJobs, Catho, Sólides e Empregos.com.br, somente depois da sua autorização e onde o portal permitir. Você revisa e clica em Enviar no próprio portal.</p></details><details><summary>O que o copiloto preenche?</summary><p>Ele pode preencher campos básicos vazios que correspondam ao perfil salvo, como nome, contato, resumo e experiências. Não responde perguntas abertas ou sensíveis, não resolve CAPTCHA e não anexa arquivos sem uma autorização específica. Quando você autoriza, ele pode colocar um currículo ou uma carta da sua biblioteca em um campo de PDF claramente identificado; você continua responsável pela revisão e pelo envio.</p></details><details><summary>Como funcionam os limites do copiloto?</summary><p>O Essencial inclui 30 preparações assistidas por mês, o Start 150, e o Pro e a Consultoria 500. Uma preparação é contabilizada quando você autoriza o complemento a buscar seu perfil para aquela vaga.</p></details><details><summary>Os currículos funcionam em plataformas como Gupy e Workday?</summary><p>As prévias são organizadas para leitura humana e compatibilidade com ATS. Confira sempre os campos finais da plataforma antes de enviar.</p></details><details><summary>Como funcionam a cobrança e o cancelamento?</summary><p>Start custa R$ 34,90 por mês e Pro custa R$ 99,00 por mês. A cobrança começa no checkout e se repete mensalmente pelo Mercado Pago até você cancelar em Configurações → Plano e cobrança. Depois do cancelamento, seu acesso permanece até o fim do período já pago. A Consultoria custa R$ 197,00 por mês, com cobrança recorrente pelo Mercado Pago até o cancelamento e 1 atendimento individual online de até 60 minutos em cada ciclo pago. O agendamento fica disponível em Configurações → Plano e cobrança após a confirmação do pagamento e não acumula para os meses seguintes.</p></details></div></section>
+    <!-- SEÇÃO: DEPOIMENTOS -->
+    <section class="section testimonials-section" id="depoimentos">
+      <div class="section-head section-head-center">
+        <h2>O que dizem sobre nós</h2>
+        <p>Veja como a Candidatura Certa está ajudando profissionais a conquistarem o emprego dos sonhos.</p>
+      </div>
+      <style>
+        .testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; max-width: 1200px; margin: 0 auto; }
+        .testimonial-card { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 4px 12px rgba(27,55,105,.04); }
+        .testimonial-text { font-size: 15px; color: var(--muted); line-height: 1.6; font-style: italic; margin-bottom: 20px; }
+        .testimonial-text::before { content: "“"; font-size: 24px; color: var(--blue); position: relative; top: 5px; margin-right: 2px; }
+        .testimonial-text::after { content: "”"; font-size: 24px; color: var(--blue); position: relative; top: 5px; margin-left: 2px; }
+        .testimonial-author { display: flex; align-items: center; gap: 12px; }
+        .testimonial-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--mint); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #16805a; }
+        .testimonial-info strong { display: block; font-size: 14px; color: var(--ink); }
+        .testimonial-info span { font-size: 12px; color: var(--muted); }
+      </style>
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <p class="testimonial-text">Eu perdia horas tentando adaptar meu currículo para cada vaga. Com a IA da Candidatura Certa, meu CV agora passa pelos filtros das empresas e já consegui três entrevistas em um mês!</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#eef2f8;color:var(--blue)">C</div>
+            <div class="testimonial-info">
+              <strong>Camila Souza</strong>
+              <span>Analista de Marketing</span>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <p class="testimonial-text">A organização do funil de vagas mudou minha rotina. O simulador de entrevistas me deu a confiança que faltava. Recebi a oferta que tanto queria na semana passada.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#fff3cd;color:#856404">R</div>
+            <div class="testimonial-info">
+              <strong>Rafael Almeida</strong>
+              <span>Desenvolvedor Front-end</span>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <p class="testimonial-text">O suporte e o Copiloto são fantásticos. Preencher os dados em cada portal era exaustivo, mas agora é muito mais fácil. A Consultoria também foi essencial para me guiar.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#f8d7da;color:#721c24">J</div>
+            <div class="testimonial-info">
+              <strong>Juliana Costa</strong>
+              <span>Coordenadora de RH</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <!-- SEÇÃO: CRIADOR / ROSTO HUMANO -->
     <section class="section creator-section" id="sobre-o-criador">
       <div class="creator-grid">
         <div class="creator-avatar-box">
           <!-- FOTO_PLACEHOLDER: Substitua pelo src da sua foto. Ex: src="/static/foto-criador.jpg" -->
           <div class="creator-avatar">👤</div>
-          <strong class="creator-name">Thiago Cruz</strong>
+          <strong class="creator-name">Paulo Oliveira</strong>
           <span class="creator-role">Criador da Candidatura Certa</span>
           <div class="creator-contact">
             <a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer" class="creator-wa-btn">💬 Falar no WhatsApp</a>

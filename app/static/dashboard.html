@@ -76,13 +76,15 @@
       min-width: 120px; padding: 11px 16px; border: 1px solid var(--line);
       border-radius: 12px; color: var(--navy); background: var(--paper); font-weight: 700;
       box-shadow: 0 4px 12px rgba(24,49,83,.05); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      white-space: nowrap;
     }
     .refresh:hover, .queue-action:hover { transform: translateY(-1px); border-color: #b7c8ed; box-shadow: 0 8px 18px rgba(24,49,83,.10); }
-    .hero-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; position: relative; }
+    .hero-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; position: relative; flex-wrap: wrap; }
     .new-job {
       min-width: 130px; padding: 11px 16px; border: 1px solid var(--blue);
       border-radius: 12px; color: white; background: var(--blue); font-weight: 800;
       box-shadow: 0 8px 20px rgba(47,111,237,.2); transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      white-space: nowrap;
     }
     .new-job:hover { transform: translateY(-1px); background: #255edb; box-shadow: 0 12px 24px rgba(47,111,237,.28); }
     .hero-actions a { text-decoration: none; text-align: center; }
