@@ -6456,8 +6456,11 @@ async def admin_dashboard(request: Request):
                 .icon {{ font-size: 4rem; color: #EF4444; margin-bottom: 20px; }}
                 h1 {{ color: #FFFFFF; font-size: 1.5rem; margin-top: 0; margin-bottom: 10px; }}
                 p {{ color: #94A3B8; margin-bottom: 30px; line-height: 1.5; }}
-                .btn {{ background: #3B82F6; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block; transition: background 0.2s; }}
+                .actions {{ display: flex; flex-direction: column; gap: 10px; }}
+                .btn {{ background: #3B82F6; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block; transition: background 0.2s; cursor: pointer; border: none; font-size: 1rem; width: 100%; box-sizing: border-box; }}
                 .btn:hover {{ background: #2563EB; }}
+                .btn-outline {{ background: transparent; border: 1px solid #475569; color: #CBD5E1; }}
+                .btn-outline:hover {{ background: #334155; }}
             </style>
         </head>
         <body>
@@ -6465,8 +6468,19 @@ async def admin_dashboard(request: Request):
                 <div class="icon">🔒</div>
                 <h1>Acesso Negado</h1>
                 <p>A conta <b>{user.get("email")}</b> não possui privilégios de administrador para acessar o Painel Master.</p>
-                <a href="/dashboard" class="btn">Voltar ao Meu Painel</a>
+                <div class="actions">
+                    <button class="btn" onclick="logoutAdmin()">Trocar de Conta</button>
+                    <a href="/dashboard" class="btn btn-outline">Voltar ao Meu Painel</a>
+                </div>
             </div>
+            <script>
+                async function logoutAdmin() {{
+                    try {{
+                        await fetch('/auth/logout', {{ method: 'POST' }});
+                    }} catch (e) {{}}
+                    window.location.href = '/admin/login';
+                }}
+            </script>
         </body>
         </html>
         """
