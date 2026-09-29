@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import exists, func, select, text
+from sqlalchemy import exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from .models import Application, BillingSubscription, Job, QueueItem, utc_now
