@@ -6674,36 +6674,46 @@ async def admin_metrics(request: Request):
         if total_users == 0:
             total_users = session.scalar(select(func.count(Candidate.id))) or 0
 
-    subs = session.execute(
-        select(BillingSubscription.owner_id, BillingSubscription.plan_code, BillingSubscription.access_until)
-        .where(BillingSubscription.status.in_(['authorized', 'paused', 'canceled']))
-        .order_by(BillingSubscription.updated_at.desc())
-    ).all()
+    try:
+        subs = session.execute(
+            select(BillingSubscription.owner_id, BillingSubscription.plan_code, BillingSubscription.access_until)
+            .where(BillingSubscription.status.in_(['authorized', 'paused', 'canceled']))
+            .order_by(BillingSubscription.updated_at.desc())
+        ).all()
     
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)
-    active_plans = {"essential": 0, "start": 0, "pro": 0, "consultoria": 0}
-    seen_owners = set()
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        active_plans = {"essential": 0, "start": 0, "pro": 0, "consultoria": 0}
+        seen_owners = set()
     
-    for sub in subs:
-        if sub.owner_id in seen_owners: continue
-        seen_owners.add(sub.owner_id)
-        if sub.access_until and sub.access_until.replace(tzinfo=timezone.utc) > now:
-            code = (sub.plan_code or "essential").lower()
-            if code in active_plans:
-                active_plans[code] += 1
-            else:
-                active_plans["essential"] += 1
+        for sub in subs:
+            if sub.owner_id in seen_owners: continue
+            seen_owners.add(sub.owner_id)
+            if sub.access_until and sub.access_until.replace(tzinfo=timezone.utc) > now:
+                code = (sub.plan_code or "essential").lower()
+                if code in active_plans:
+                    active_plans[code] += 1
+                else:
+                    active_plans["essential"] += 1
                 
-    active_plans["essential"] = max(0, total_users - active_plans["start"] - active_plans["pro"] - active_plans["consultoria"])
+        active_plans["essential"] = max(0, total_users - active_plans["start"] - active_plans["pro"] - active_plans["consultoria"])
     
-    mrr = session.scalar(
-        select(func.sum(BillingSubscription.monthly_amount))
-        .where(BillingSubscription.status == 'authorized')
-        .where(BillingSubscription.access_until >= now)
-    ) or 0
+        mrr = session.scalar(
+            select(func.sum(BillingSubscription.monthly_amount))
+            .where(BillingSubscription.status == 'authorized')
+            .where(BillingSubscription.access_until >= now)
+        ) or 0
     
-    total_ebook = session.scalar(select(func.count(EbookPurchase.id))) or 0
-    total_linkedin = session.scalar(select(func.count(LinkedinRebrandingPurchase.id))) or 0
+        total_ebook = session.scalar(select(func.count(EbookPurchase.id))) or 0
+        total_linkedin = session.scalar(select(func.count(LinkedinRebrandingPurchase.id))) or 0
+
+    except Exception as e:
+        print(f">>> ERRO NAS METRICAS SECUNDARIAS: {str(e)}", flush=True)
+        subs = []
+        active_plans = {"essential": total_users, "start": 0, "pro": 0, "consultoria": 0}
+        mrr = 0
+        total_ebook = 0
+        total_linkedin = 0
+        debug_info += f" | Erro Secundario: {str(e)}"
     session.close()
     
     formatted_plans = {
