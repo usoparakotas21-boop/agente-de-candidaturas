@@ -76,21 +76,23 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         user_email = str(getattr(user, "email", "") or "").strip().lower()
         owner_id = str(getattr(user, "uid", getattr(user, "id", "")) or "").strip()
 
-    # 1. Master Admin & Administrative Accounts Bypass
-    MASTER_EMAILS = {
+    # 1. Master Admin, Test Accounts & Bypass List
+    BYPASS_EMAILS = {
         "contato@candidaturacerta.com.br",
+        "henriqueoliveirarh93@gmail.com",
         "usoparakotas4@gmail.com",
         "usoparakotas21@gmail.com",
     }
-    if user_email in MASTER_EMAILS or is_admin(user):
-        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: CONSULTORIA (MASTER ADMIN BYPASS)", flush=True)
+    env_admins = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+    if user_email in BYPASS_EMAILS or user_email in env_admins or is_admin(user):
+        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: CONSULTORIA (BYPASS ADMIN/TESTE)", flush=True)
         return {
             "plan": "consultoria",
             "is_pro": True,
             "is_consultoria": True,
             "is_admin": True,
             "entitled": True,
-            "reason": "master_admin",
+            "reason": "bypass",
             "email": user_email,
         }
 

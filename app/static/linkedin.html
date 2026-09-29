@@ -208,9 +208,9 @@
       <p>O Rebranding de LinkedIn é exclusivo para assinantes <strong>PRO/Consultoria</strong> ou mediante compra avulsa.</p>
       <p style="color:#94A3B8;font-size:0.9rem">Acesso permanente ao resultado gerado para o seu perfil.</p>
       <div class="price-tag">R$ 19,90</div>
-      <button class="btn btn-green" id="buy-btn" onclick="buyRebranding(event)" type="button" style="display:inline-flex;align-items:center;gap:8px;">
+      <a href="https://mpago.la" target="_blank" rel="noopener" class="btn btn-green" id="buy-btn" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
         <i class="fa-solid fa-unlock"></i> Desbloquear Agora — R$ 19,90
-      </button>
+      </a>
       <p style="color:#64748b;font-size:0.85rem;margin-top:16px">
         Pagamento seguro pelo Mercado Pago
       </p>
@@ -232,7 +232,7 @@
     const MP_STABLE_LINK = 'https://mpago.la';
 
     let hasAccess = false;
-    const MASTER_EMAILS = ['contato@candidaturacerta.com.br', 'usoparakotas4@gmail.com', 'usoparakotas21@gmail.com'];
+    const MASTER_EMAILS = ['contato@candidaturacerta.com.br', 'henriqueoliveirarh93@gmail.com', 'usoparakotas4@gmail.com', 'usoparakotas21@gmail.com'];
 
     async function checkAccess() {
       try {

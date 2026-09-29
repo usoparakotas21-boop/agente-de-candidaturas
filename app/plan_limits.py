@@ -52,7 +52,14 @@ def _effective_plan(session: Session, owner_id: str, now: datetime) -> str:
     from .models import Candidate
     c = session.scalar(select(Candidate).where(Candidate.owner_id == owner_id))
     user_email = c.email.strip().lower() if (c and c.email) else ""
-    if user_email in os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",") or user_email == "contato@candidaturacerta.com.br":
+    BYPASS_EMAILS = {
+        "contato@candidaturacerta.com.br",
+        "henriqueoliveirarh93@gmail.com",
+        "usoparakotas4@gmail.com",
+        "usoparakotas21@gmail.com",
+    }
+    env_admins = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+    if user_email in BYPASS_EMAILS or user_email in env_admins:
         return "consultoria"
     
     clauses = [BillingSubscription.owner_id == owner_id]
