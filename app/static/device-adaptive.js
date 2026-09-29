@@ -21,9 +21,7 @@
     }
 
     // Registrar Service Worker do PWA se suportado
-    if ("serviceWorker" in navigator && !window.__ccSwRegistered) {
-      window.__ccSwRegistered = true;
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    );
     }
   }
 

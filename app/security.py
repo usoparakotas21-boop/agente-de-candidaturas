@@ -18,12 +18,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     CONTENT_SECURITY_POLICY = (
         "default-src 'self'; "
         "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        # Inline scripts and style elements must carry the per-response nonce.
-        "script-src 'self' 'nonce-{nonce}' https://www.googletagmanager.com https://www.google-analytics.com; "
-        "style-src 'self' 'nonce-{nonce}'; "
-        "style-src-elem 'self' 'nonce-{nonce}'; "
-        "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data:; "
-        "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
+        "script-src 'self' 'unsafe-inline' https://googletagmanager.com https://www.googletagmanager.com; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com; font-src 'self' data:; "
+        "connect-src 'self' https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
         "form-action 'self' https://*.mercadopago.com"
     )
 
@@ -34,7 +32,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         finally:
             _CSP_NONCE.reset(token)
-        response.headers.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY.format(nonce=nonce))
+        response.headers.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")

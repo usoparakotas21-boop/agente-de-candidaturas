@@ -417,12 +417,6 @@ async def pwa_manifest():
     return FileResponse(manifest_path, media_type="application/manifest+json")
 
 
-@app.get("/sw.js", include_in_schema=False)
-async def pwa_service_worker():
-    sw_path = (STATIC_DIR / "sw.js").resolve()
-    if not sw_path.is_file():
-        raise HTTPException(status_code=404, detail="Service Worker nao encontrado.")
-    return FileResponse(sw_path, media_type="application/javascript")
 
 
 @app.get("/static/{asset_path:path}", include_in_schema=False)
