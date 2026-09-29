@@ -19,11 +19,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
         # Inline scripts and style elements must carry the per-response nonce.
-        "script-src 'self' 'nonce-{nonce}'; "
+        "script-src 'self' 'nonce-{nonce}' https://www.googletagmanager.com https://www.google-analytics.com; "
         "style-src 'self' 'nonce-{nonce}'; "
         "style-src-elem 'self' 'nonce-{nonce}'; "
-        "img-src 'self' data: blob:; font-src 'self' data:; "
-        "connect-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
+        "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data:; "
+        "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
         "form-action 'self' https://*.mercadopago.com"
     )
 
