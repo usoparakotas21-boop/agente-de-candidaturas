@@ -6577,7 +6577,7 @@ async def admin_metrics(request: Request):
         raise HTTPException(403, "Acesso negado.")
         
     session = SessionLocal()
-    total_users = session.scalar(select(func.count(Candidate.id))) or 0
+    total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
     
     subs = session.execute(
         select(BillingSubscription.owner_id, BillingSubscription.plan_code, BillingSubscription.access_until)
