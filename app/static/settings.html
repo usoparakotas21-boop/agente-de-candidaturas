@@ -39,13 +39,96 @@
       <section class="card" id="documents"><h2>Documentos</h2><p>Importe seu currículo base no dashboard para gerar versões adaptadas a cada vaga.</p><a class="primary" href="/dashboard">Abrir meus currículos →</a></section>
       <section class="card" id="integrations"><h2>Integrações</h2><p>Conecte somente os serviços que você deseja usar.</p><div class="integration"><div><strong>Gmail</strong><span>Buscar alertas e mensagens relacionadas às suas candidaturas.</span></div><span class="badge" id="gmailStatus">Verificando...</span><a class="secondary" href="/auth/gmail/start">Conectar</a></div><div class="integration"><div><strong>Outlook / Hotmail</strong><span>Conecte sua conta Outlook para sincronizar mensagens.</span></div><span class="badge integration-disconnected">Não conectado</span></div></section>
       <section class="card" id="security"><h2>Segurança</h2><p>O acesso é protegido pelo Supabase Auth. Nunca compartilhe sua senha com integrações.</p><div class="notice">Para conectar uma caixa de entrada, usaremos autorização OAuth ou senha de aplicativo — nunca sua senha principal.</div><div class="actions"><a class="secondary" href="/dashboard">Gerenciar acesso pelo dashboard</a></div></section>
-      <section class="card" id="plan"><h2>Plano e cobrança</h2><p>Essencial inclui até 30 vagas/mês; Start, R$ 34,90/mês, inclui 150; Pro, R$ 99,00/mês, inclui 500. Start e Pro renovam pelo Mercado Pago até o cancelamento.</p><div class="plan-usage" id="opportunityUsage" role="status" aria-live="polite" aria-busy="true">Carregando o uso mensal de vagas…</div><div class="notice">O limite de novas oportunidades renova no primeiro dia de cada mês. Vagas já salvas continuam disponíveis. Para cancelar, use Configurações → Plano e cobrança; seu acesso pago permanece até o fim do período já pago. A promoção do Combo inclui o pagamento único de R$ 50,00 por 30 dias do plano Start mais o acesso definitivo ao e-book Hackeando o DISC.</div></section>
+      <section class="card" id="plan"><h2>Plano e cobrança</h2><p>Essencial inclui até 30 vagas/mês; Start, R$ 34,90/mês, inclui 150; Pro, R$ 99,00/mês, inclui 500. Start e Pro renovam pelo Mercado Pago até o cancelamento.</p><div id="currentPlanBadge" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#edf3ff;color:#1a3e82;font-weight:800;font-size:14px;margin-bottom:14px">Seu plano atual: <span id="currentPlanName" style="font-weight:900">Carregando...</span></div><div class="plan-usage" id="opportunityUsage" role="status" aria-live="polite" aria-busy="true">Carregando o uso mensal de vagas…</div><div id="planStatusMsg" style="margin:10px 0;font-size:13px;color:#735300;display:none"></div><div class="notice">O limite de novas oportunidades renova no primeiro dia de cada mês. Vagas já salvas continuam disponíveis. Para cancelar, seu acesso pago permanece até o fim do período já pago.</div><div class="actions" style="margin-top:16px;flex-wrap:wrap;gap:10px"><button class="primary" onclick="document.getElementById('modalPlanos').style.display='flex'">Ver Planos e fazer Upgrade</button><button class="secondary" id="btnCancelarPlano" style="display:none;border-color:#ef4444;color:#ef4444" onclick="cancelarAssinatura()">Cancelar renovação automática</button></div></section>
+<!-- Modal de Planos (sem redirect de login) -->
+<div id="modalPlanos" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+<div style="background:#fff;border-radius:20px;padding:32px;max-width:640px;width:100%;position:relative;max-height:90vh;overflow-y:auto">
+<button onclick="document.getElementById('modalPlanos').style.display='none'" style="position:absolute;top:16px;right:16px;border:0;background:none;font-size:24px;cursor:pointer;color:#64748b" aria-label="Fechar">×</button>
+<h2 style="margin:0 0 6px;font-size:20px">Escolha seu plano</h2>
+<p style="color:#64748b;font-size:13px;margin:0 0 20px">Pagamento recorrente pelo Mercado Pago. Cancele quando quiser.</p>
+<div style="display:grid;gap:14px">
+<div style="border:2px solid #dfe7f2;border-radius:14px;padding:18px"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Essencial</strong><span style="color:#64748b;font-size:13px">Grátis</span></div><p style="color:#64748b;font-size:13px;margin:4px 0 0">30 vagas/mês · Acesso básico à plataforma</p></div>
+<div style="border:2px solid #3568e8;border-radius:14px;padding:18px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:16px">Start</strong><span style="color:#3568e8;font-weight:800;font-size:16px">R$ 34,90/mês</span></div><p style="color:#64748b;font-size:13px;margin:4px 0 14px">150 vagas/mês · Currículos com IA · Análise avançada</p><button id="btnCheckoutStart" onclick="iniciarCheckout('start')" style="width:100%;padding:11px;background:#3568e8;color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px">Assinar Start</button></div>
+<div style="border:2px solid #7c3aed;border-radius:14px;padding:18px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:16px">Pro</strong><span style="color:#7c3aed;font-weight:800;font-size:16px">R$ 99,00/mês</span></div><p style="color:#64748b;font-size:13px;margin:4px 0 14px">500 vagas/mês · Tudo do Start com prioridade de processamento</p><button id="btnCheckoutPro" onclick="iniciarCheckout('pro')" style="width:100%;padding:11px;background:#7c3aed;color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px">Assinar Pro</button></div>
+</div>
+<div id="modalStatusMsg" style="margin-top:14px;font-size:13px;color:#735300;min-height:18px"></div>
+</div>
+</div>
       <section class="card" id="support"><h2>Suporte</h2><p>Precisa de ajuda com a sua conta ou documentos? Fale com a nossa equipe por e-mail ou WhatsApp. O atendimento individual de carreira é oferecido separadamente na Consultoria.</p><div class="contact-links"><a href="mailto:contato@candidaturacerta.com.br">contato@candidaturacerta.com.br</a><a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer">WhatsApp do suporte: (71) 99182-4951</a></div><a class="primary" href="/ajuda">Abrir Central de Ajuda →</a></section>
     </main>
   </div>
-  <script>
+<script>
 const $=id=>document.getElementById(id); const list=v=>(v||[]).join(', ');
-async function loadOpportunityUsage(){const target=$('opportunityUsage');try{const response=await fetch('/billing/subscription');if(!response.ok)throw Error();const plan=await response.json();const usage=plan.opportunities||{};const reset=usage.resets_at?new Date(usage.resets_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';const heading=document.createElement('strong');heading.textContent=plan.plan_name||'Essencial';target.replaceChildren(heading,document.createTextNode(Number(usage.used||0)+' de '+Number(usage.limit||30)+' oportunidades usadas neste mês · '+Number(usage.remaining||0)+' restantes'+(reset?' · renovação em '+reset:'')));target.setAttribute('aria-busy','false')}catch{target.textContent='Não foi possível carregar o uso mensal agora. Tente novamente mais tarde.';target.setAttribute('aria-busy','false')}}
+async function loadOpportunityUsage(){
+  const target=$('opportunityUsage');
+  try{
+    const response=await fetch('/billing/subscription');
+    if(!response.ok)throw Error();
+    const plan=await response.json();
+    const usage=plan.opportunities||{};
+    const reset=usage.resets_at?new Date(usage.resets_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
+    const heading=document.createElement('strong');
+    heading.textContent=plan.plan_name||'Essencial';
+    target.replaceChildren(heading,document.createTextNode(' · '+Number(usage.used||0)+' de '+Number(usage.limit||30)+' oportunidades usadas neste mês · '+Number(usage.remaining||0)+' restantes'+(reset?' · renovação em '+reset:'')));
+    target.setAttribute('aria-busy','false');
+    // Update badge
+    const nameEl=$('currentPlanName');
+    if(nameEl) nameEl.textContent=plan.plan_name||'Essencial';
+    // Show cancel button if applicable
+    const cancelBtn=$('btnCancelarPlano');
+    if(cancelBtn && plan.can_cancel) cancelBtn.style.display='';
+    // Show pending status without blocking the whole page
+    const statusEl=$('planStatusMsg');
+    if(statusEl && plan.status==='pending' && plan.checkout_url){
+      statusEl.style.display='';
+      statusEl.innerHTML='⏳ Pagamento pendente de confirmação pelo Mercado Pago. <a href="'+plan.checkout_url+'" target="_blank" style="color:#3568e8;font-weight:700">Concluir pagamento</a> ou aguarde a confirmação automática.';
+    } else if(statusEl){
+      statusEl.style.display='none';
+    }
+  }catch{
+    target.textContent='Não foi possível carregar o uso mensal agora. Tente novamente mais tarde.';
+    target.setAttribute('aria-busy','false');
+  }
+}
+async function iniciarCheckout(planCode){
+  const msgEl=$('modalStatusMsg');
+  const btn=document.getElementById('btnCheckout'+planCode.charAt(0).toUpperCase()+planCode.slice(1));
+  if(msgEl) msgEl.textContent='Gerando link de pagamento...';
+  if(btn){ btn.disabled=true; btn.textContent='Aguarde...'; }
+  try{
+    const res=await fetch('/billing/subscriptions/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_code:planCode})});
+    const data=await res.json();
+    if(res.ok && data.checkout_url){
+      if(msgEl) msgEl.textContent='Redirecionando para o Mercado Pago...';
+      window.location.href=data.checkout_url;
+    } else {
+      const msg=data.detail||'Erro ao gerar checkout. Tente novamente.';
+      if(msgEl) msgEl.textContent='⚠️ '+msg;
+      if(btn){ btn.disabled=false; btn.textContent='Assinar '+planCode.charAt(0).toUpperCase()+planCode.slice(1); }
+    }
+  }catch{
+    if(msgEl) msgEl.textContent='⚠️ Erro de conexão. Tente novamente.';
+    if(btn){ btn.disabled=false; btn.textContent='Assinar '+planCode.charAt(0).toUpperCase()+planCode.slice(1); }
+  }
+}
+async function cancelarAssinatura(){
+  if(!confirm('Cancelar a renovação automática? Seu acesso permanece até o fim do período já pago.')) return;
+  const msgEl=$('planStatusMsg');
+  if(msgEl){ msgEl.style.display=''; msgEl.textContent='Cancelando...'; }
+  try{
+    const res=await fetch('/billing/subscription/cancel',{method:'POST'});
+    const data=await res.json();
+    if(res.ok){
+      if(msgEl) msgEl.textContent='✅ Renovação cancelada. Acesso até: '+(data.access_until?new Date(data.access_until).toLocaleDateString('pt-BR'):'fim do período pago')+'.';
+      const cancelBtn=$('btnCancelarPlano');
+      if(cancelBtn) cancelBtn.style.display='none';
+    } else {
+      if(msgEl) msgEl.textContent='⚠️ '+(data.detail||'Não foi possível cancelar. Tente novamente.');
+    }
+  }catch{
+    if(msgEl) msgEl.textContent='⚠️ Erro de conexão. Tente novamente.';
+  }
+}
 async function load(){try{const [p,pr]=await Promise.all([fetch('/profile'),fetch('/preferences')]);if(!p.ok||!pr.ok)throw Error();const x=await p.json();const y=await pr.json();$('profileName').textContent=x.name||'Perfil ainda não configurado';$('profileEmail').textContent=x.email||'';$('avatar').textContent=(x.name||'?').slice(0,2).toUpperCase();$('roles').value=list(y.target_roles);$('locations').value=list(y.locations);$('modalities').value=list(y.modalities);$('required').value=list(y.required_keywords);$('excluded').value=list(y.excluded_companies);$('minimum').value=y.minimum_score;$('automatic').value=y.automatic_score}catch{$('profileName').textContent='Não foi possível carregar o perfil. Tente novamente.';$('preferencesStatus').textContent='Não foi possível carregar suas preferências. Tente novamente.'}}
 $('preferencesForm').addEventListener('submit',async e=>{e.preventDefault();$('preferencesStatus').textContent='Salvando...';const body={target_roles:$('roles').value,locations:$('locations').value,modalities:$('modalities').value,required_keywords:$('required').value,excluded_companies:$('excluded').value,minimum_score:Number($('minimum').value),automatic_score:Number($('automatic').value),excluded_keywords:[],allow_automatic:false,max_daily_applications:5};try{const r=await fetch('/preferences',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});$('preferencesStatus').textContent=r.ok?'Preferências salvas.':'Não foi possível salvar suas preferências. Tente novamente.'}catch{$('preferencesStatus').textContent='Não foi possível salvar suas preferências. Tente novamente.'}});document.querySelectorAll('[data-section]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.side-nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.section).scrollIntoView({behavior:'smooth',block:'start'})}));load();
 </script><script>loadOpportunityUsage();</script>

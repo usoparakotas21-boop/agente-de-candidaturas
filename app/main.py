@@ -4580,7 +4580,8 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
             db.close()
         raise HTTPException(502, "Não foi possível confirmar se o Mercado Pago criou o checkout. Tente novamente em um minuto; vamos conferir antes de criar outro.") from exc
     if response.status_code >= 400:
-        logger.warning("Mercado Pago recusou assinatura status=%s external_reference=%s", response.status_code, external_reference)
+        logger.warning("Mercado Pago recusou assinatura status=%s external_reference=%s body=%s", response.status_code, external_reference, response.text[:2000])
+        print(f">>> MP PREAPPROVAL ERRO status={response.status_code} ref={external_reference} body={response.text[:2000]}", flush=True)
         db = SessionLocal()
         try:
             current = db.get(BillingSubscription, subscription_id)
@@ -4680,6 +4681,7 @@ def get_current_subscription(user=Depends(authenticated_user)):
             "plan_name": plan.get("name", subscription.plan_code.title()),
             "status": subscription.status,
             "active": _subscription_is_entitled(subscription),
+            "checkout_url": subscription.checkout_url if subscription.status in {"pending", "creating"} else None,
             "monthly_amount": subscription.monthly_amount,
             "currency": subscription.currency,
             "next_payment_at": subscription.next_payment_at.isoformat() if subscription.next_payment_at else None,
