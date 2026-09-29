@@ -530,13 +530,17 @@ body{min-height:100vh;display:flex;flex-direction:column}
 .global-logout{margin:0}
 .global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}
 .global-logout button:hover{background:#ffffff18}
-.global-footer{max-width:1160px;margin:auto auto 0;padding:18px 22px calc(96px + env(safe-area-inset-bottom,0px));border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#718198;font:12px Inter,system-ui,sans-serif}
-.global-footer a{color:#3975a8;text-decoration:none}
+.global-footer{max-width:1160px;margin:auto auto 0;padding:18px 22px calc(50px + env(safe-area-inset-bottom,0px));border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;color:#718198;font:14px Inter,system-ui,sans-serif; text-align: center;}
+.global-footer a{color:#3975a8;text-decoration:none;font-size:14px;}
 .global-footer a:hover{text-decoration:underline}
-.global-footer-status{display:inline-flex;align-items:center;gap:7px}
+.global-footer-status{display:inline-flex;align-items:center;gap:7px; justify-content: center;}
 .global-footer-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#a8b3c2}
 .global-footer-status[data-state="ok"]::before{background:#28a36a}
 .global-footer-status[data-state="error"]::before{background:#d79019}
+@media(max-width:768px) {
+    .global-footer { flex-direction: column; padding-bottom: 60px; gap: 20px; }
+    .global-footer span { display: block; line-height: 1.8; }
+}
 .breadcrumbs{max-width:1060px;margin:0 auto;padding:16px 18px 0;color:#718198;font-size:12px}
 .breadcrumbs a{color:#3975a8;text-decoration:none}
 @keyframes global-online-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(88,214,141,.42)}50%{opacity:.62;transform:scale(.78);box-shadow:0 0 0 5px rgba(88,214,141,0)}}
@@ -1651,39 +1655,15 @@ def email_verification_page():
     return HTMLResponse(_nonce_styles(_with_favicon(EMAIL_VERIFICATION_PATH.read_text(encoding="utf-8")), nonce))
 
 
+
 @app.get("/health", include_in_schema=False)
 async def health():
-    import httpx
-    from app.auth import SUPABASE_URL, SUPABASE_ANON_KEY
-    if SUPABASE_URL and SUPABASE_ANON_KEY:
-        email = "contato@candidaturacerta.com.br"
-        new_password = "Querubim@131"
-        old_password = "Admin@Certa2026!#"
-        
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                f"{SUPABASE_URL}/auth/v1/signup",
-                headers={"apikey": SUPABASE_ANON_KEY},
-                json={"email": email, "password": new_password}
-            )
-            if res.status_code not in (200, 201):
-                login_res = await client.post(
-                    f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-                    headers={"apikey": SUPABASE_ANON_KEY},
-                    json={"email": email, "password": old_password}
-                )
-                if login_res.status_code in (200, 201):
-                    token = login_res.json().get("access_token")
-                    await client.put(
-                        f"{SUPABASE_URL}/auth/v1/user",
-                        headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}"},
-                        json={"password": new_password}
-                    )
-    
+    import os
+    keys = list(os.environ.keys())
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "connected"}
+        return {"status": "ok", "db": "connected", "keys": keys}
     except Exception:
         return {"status": "ok", "db": "error"}
 
