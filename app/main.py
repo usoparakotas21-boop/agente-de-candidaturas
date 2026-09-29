@@ -6575,8 +6575,8 @@ async def admin_dashboard(request: Request):
         </head>
         <body>
             <div class="card">
-                <div class="icon">🔒</div>
-                <h1>Acesso Negado</h1>
+                <div class="icon">⛔</div>
+                <h1>Acesso Restrito</h1>
                 <p>A conta <b>{user.get("email")}</b> não possui privilégios de administrador para acessar o Painel Master.</p>
                 <div class="actions">
                     <a href="/admin/logout" class="btn">Trocar de Conta</a>
@@ -6587,7 +6587,43 @@ async def admin_dashboard(request: Request):
         </html>
         """
         return HTMLResponse(html_denied, status_code=403)
-    return _page(STATIC_DIR / "admin.html")
+        
+    session = SessionLocal()
+    total_users = 0
+    try:
+        total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
+    except:
+        total_users = session.scalar(select(func.count(Candidate.id))) or 0
+        
+    mrr_estimado = 0
+    try:
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        mrr_val = session.scalar(
+            select(func.sum(BillingSubscription.monthly_amount))
+            .where(BillingSubscription.status == 'authorized')
+            .where(BillingSubscription.access_until >= now)
+        ) or 0
+        mrr_estimado = float(mrr_val) / 100 if mrr_val > 10000 else float(mrr_val)
+    except:
+        pass
+    session.close()
+
+    html = (STATIC_DIR / "admin.html").read_text(encoding="utf-8")
+    
+    # Simple template injection
+    html = html.replace('{{ total_users }}', str(total_users))
+    html = html.replace('{{ mrr_estimado }}', f"{mrr_estimado:.2f}")
+    
+    html = _with_favicon(html)
+    nonce = current_csp_nonce()
+    html = _nonce_styles(html, nonce)
+    html = re.sub(
+        r"<script(?![^>]* src=)([^>]*)>",
+        lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
+        html,
+        flags=re.I,
+    )
+    return HTMLResponse(html.replace("<body>", "<body>" + _style_nonce_bootstrap(nonce), 1))
 
 @app.get("/admin/metrics")
 

@@ -89,44 +89,30 @@ body { font-size: 1rem !important; }
         </div>
     </div>
     <script>
-        async function loadMetrics() {
-            const res = await fetch('/admin/metrics');
-            if (res.status === 403) { document.body.innerHTML = "<h1>Acesso Negado</h1>"; return; }
-            const data = await res.json();
-            document.getElementById('total_users').innerText = data.total_users;
-            document.getElementById('mrr').innerText = 'R$ ' + data.mrr.toFixed(2);
-            document.getElementById('sales_ebook').innerText = data.total_ebook;
-            document.getElementById('sales_linkedin').innerText = data.total_linkedin;
-            
-            const tbody = document.getElementById('plans_tbody');
-            tbody.innerHTML = '';
-            for (const [plan, count] of Object.entries(data.active_plans)) {
-                tbody.innerHTML += <tr><td>\</td><td>\</td></tr>;
-            }
+    console.log("Dados recebidos no HTML do Admin:", {
+        users: "{{ total_users }}",
+        mrr: "{{ mrr_estimado }}"
+    });
+    
+    document.getElementById('grantForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('userEmail').value;
+        const plan = document.getElementById('userPlan').value;
+        const msg = document.getElementById('msg');
+        msg.innerHTML = "Carregando...";
+        
+        const res = await fetch('/admin/grant', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, plan})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            msg.innerHTML = '<div class="success">Plano concedido com sucesso! Recarregue a página.</div>';
+        } else {
+            msg.innerHTML = <div class="error">Erro: </div>;
         }
-        
-        document.getElementById('grantForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('userEmail').value;
-            const plan = document.getElementById('userPlan').value;
-            const msg = document.getElementById('msg');
-            msg.innerHTML = "Carregando...";
-            
-            const res = await fetch('/admin/grant', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, plan})
-            });
-            const data = await res.json();
-            if (res.ok) {
-                msg.innerHTML = <div class="success">\</div>;
-                loadMetrics();
-            } else {
-                msg.innerHTML = <div class="error">Erro: \</div>;
-            }
-        };
-        
-        loadMetrics();
-    </script>
+    };
+</script>
 </body>
 </html>
