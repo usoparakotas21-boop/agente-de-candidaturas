@@ -1658,42 +1658,12 @@ def email_verification_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    import os, httpx
-    from sqlalchemy import text
-    url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    email = "contato@candidaturacerta.com.br"
-    password = "Querubim@131"
-    
-    status_msg = "no_keys"
-    if url and key:
-        try:
-            user_id = None
-            with engine.connect() as conn:
-                res = conn.execute(text("SELECT id FROM auth.users WHERE email = :e"), {"e": email}).fetchone()
-                if res:
-                    user_id = str(res[0])
-            
-            headers = {"apikey": key, "Authorization": f"Bearer {key}"}
-            
-            with httpx.Client() as client:
-                if user_id:
-                    # Update
-                    r = client.put(f"{url}/auth/v1/admin/users/{user_id}", headers=headers, json={"password": password, "email_confirm": True})
-                    status_msg = f"Updated: {r.status_code} {r.text}"
-                else:
-                    # Create
-                    r = client.post(f"{url}/auth/v1/admin/users", headers=headers, json={"email": email, "password": password, "email_confirm": True})
-                    status_msg = f"Created: {r.status_code} {r.text}"
-        except Exception as e:
-            status_msg = f"Error: {str(e)}"
-
     try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "connected", "admin": status_msg}
-    except Exception as e:
-        return {"status": "ok", "db": "error", "err": str(e)}
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception:
+        return {"status": "ok", "db": "error"}
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)
