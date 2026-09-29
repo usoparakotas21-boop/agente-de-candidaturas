@@ -5,9 +5,7 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function(registrations) {
       for(let registration of registrations) {
-        registration.unregister().then(function(boolean) {
-          if(boolean) console.log("Service Worker deletado com sucesso do cliente!");
-        });
+        registration.unregister();
       }
     });
   }
@@ -19,80 +17,147 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
-html { font-size: 16px !important; }
-body { font-size: 1rem !important; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { max-width: 100vw; overflow-x: hidden; }
+    body {
+      background-color: #0F172A;
+      color: #E2E8F0;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 0;
+    }
 
-    /* REFACTORING CSS FOR DARK MODE LEGIBILITY */
-    *, *::before, *::after { box-sizing: border-box; } html, body { max-width: 100vw; overflow-x: hidden; } body { background-color: #0F172A; color: #E2E8F0; font-family: system-ui, -apple-system, sans-serif; font-size: 16px; }
-    @media(max-width:600px){ .header h1 { font-size: 1.8rem; } .container { padding: 15px; margin: 15px auto; } .paywall-overlay { padding: 1rem; } .price-tag { font-size: 2.2rem; } }
-    .container { max-width: 800px; margin: 40px auto; padding: 20px; color: #E2E8F0; }
-    .header { text-align: center; margin-bottom: 30px; }
+    .container { max-width: 800px; margin: 40px auto; padding: 20px 24px; }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 32px; }
     .header h1 { font-size: 2.5rem; margin-bottom: 10px; color: #FFFFFF; font-weight: 800; }
-    p.muted { color: #94A3B8; }
-    
-    .instructions { background: #1E293B; padding: 25px; border-radius: 12px; margin-bottom: 30px; color: #E2E8F0; border: 1px solid #334155; }
-    .instructions h3 { margin-top: 0; margin-bottom: 15px; color: #FFFFFF; font-size: 1.25rem; }
-    .instructions ol { margin-left: 20px; color: #E2E8F0; }
-    .instructions li { margin-bottom: 10px; line-height: 1.5; }
+    .header p { color: #94A3B8; font-size: 1.1rem; margin: 0; }
+
+    /* ── Instructions ── */
+    .instructions {
+      background: #1E293B;
+      padding: 28px 32px;
+      border-radius: 14px;
+      margin-bottom: 30px;
+      border: 1px solid #334155;
+    }
+    .instructions h3 { margin-top: 0; margin-bottom: 16px; color: #FFFFFF; font-size: 1.25rem; }
+    .instructions ol { margin: 0 0 0 22px; padding: 0; }
+    .instructions li {
+      margin-bottom: 12px;
+      line-height: 1.7;
+      font-size: 1rem; /* 16px */
+      color: #CBD5E1;
+    }
+    .instructions li:last-child { margin-bottom: 0; }
     .instructions strong { color: #FFFFFF; }
-    
+
+    /* ── Upload Card (normal, for users with access) ── */
     .upload-card {
       border: 2px dashed #475569;
       border-radius: 16px;
-      padding: 40px 20px;
+      padding: 48px 24px;
       text-align: center;
       background: #1E293B;
       cursor: pointer;
-      position: relative;
-      transition: all 0.3s ease;
-      overflow: hidden;
-      min-height: 280px;
+      transition: border-color 0.2s, background 0.2s;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 14px;
     }
     .upload-card:hover { border-color: #3B82F6; background: #243447; }
-    
-    .upload-icon { font-size: 3.5rem; color: #3B82F6; margin-bottom: 20px; }
-    .upload-title { margin-bottom: 0.5rem; color: #FFFFFF; font-size: 1.25rem; }
-    .upload-subtitle { color: #94A3B8; font-size: 0.95rem; margin-bottom: 20px; }
-    
+    .upload-icon { font-size: 3.5rem; color: #3B82F6; }
+    .upload-title { margin: 0; color: #FFFFFF; font-size: 1.25rem; font-weight: 700; }
+    .upload-subtitle { color: #94A3B8; font-size: 1rem; margin: 0; }
+
+    /* ── Paywall Card (standalone, NOT inside upload-card) ── */
+    .paywall-card {
+      background: #1E293B;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+      display: none; /* shown via JS when no access */
+    }
+    .paywall-card.visible { display: block; }
+    .paywall-icon { color: #F59E0B; font-size: 3.5rem; margin-bottom: 16px; }
+    .paywall-card h3 { color: #FFFFFF; font-size: 1.6rem; margin: 0 0 10px; }
+    .paywall-card > p { color: #CBD5E1; font-size: 1rem; margin: 0 0 8px; line-height: 1.6; }
+    .price-tag {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: #10B981;
+      margin: 20px 0 24px;
+      text-shadow: 0 2px 8px rgba(16,185,129,0.25);
+    }
+
+    /* ── Loading overlay (inside upload-card, flex column) ── */
+    .loading-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 20px;
+    }
+    .spinner {
+      border: 4px solid #334155;
+      border-top: 4px solid #3B82F6;
+      border-radius: 50%;
+      width: 48px; height: 48px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    .loading-text { color: #E2E8F0; font-size: 1rem; font-weight: 600; }
+
+    /* ── Buttons ── */
     .btn {
-      background: #3B82F6; color: #FFFFFF; border: none; padding: 14px 28px;
-      border-radius: 8px; font-weight: 600; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background 0.2s;
+      background: #3B82F6; color: #FFFFFF; border: none;
+      padding: 14px 28px; border-radius: 10px;
+      font-weight: 700; font-size: 1rem;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
+      text-decoration: none;
     }
-    .btn:hover { background: #2563EB; }
-    
-    .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; width: 100%; }
-    .spinner { border: 4px solid #334155; border-top: 4px solid #3B82F6; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-bottom: 15px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    
-    .paywall-overlay {
-      display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      background: #1E293B; flex-direction: column; align-items: center;
-      justify-content: center; text-align: center; padding: 2rem; z-index: 10;
+    .btn:hover { background: #2563EB; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-green { background: #10B981; font-size: 1.15rem; padding: 16px 36px; }
+    .btn-green:hover { background: #059669; }
+    .btn-master { background: #7C3AED; font-size: 1.1rem; padding: 16px 32px; }
+    .btn-master:hover { background: #6D28D9; }
+
+    /* ── Result ── */
+    .result-section {
+      display: none; margin-top: 40px;
+      background: #1E293B; border-radius: 14px;
+      padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border: 1px solid #334155;
     }
-    .paywall-icon { color: #F59E0B; font-size: 3.5rem; margin-bottom: 1rem; }
-    .paywall-overlay h3 { color: #FFFFFF; margin-bottom: 0.5rem; font-size: 1.5rem; }
-    .paywall-overlay p { color: #CBD5E1; }
-    .price-tag { font-size: 3rem; font-weight: 800; color: #10B981; margin-bottom: 1.5rem; margin-top: 1rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-    .paywall-overlay .btn { background: #10B981; font-size: 1.1rem; padding: 16px 32px; }
-    .paywall-overlay .btn:hover { background: #059669; }
-    
-    .result-section { display: none; margin-top: 40px; background: #1E293B; border-radius: 12px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); color: #E2E8F0; border: 1px solid #334155; }
     .result-section h2 { margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; color: #FFFFFF; font-size: 1.5rem; }
-    .copy-btn { margin-top: 20px; background: #334155; color: #FFFFFF; border: 1px solid #475569; display: flex; margin: 20px auto 0; text-align: center; }
+    .copy-btn { margin: 20px auto 0; background: #334155; color: #FFFFFF; border: 1px solid #475569; display: flex; }
     .copy-btn:hover { background: #475569; }
 
-    /* Hidden file input totally invisible */
+    /* ── Hidden input ── */
     .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+    /* ── Mobile ── */
+    @media(max-width: 600px) {
+      .container { padding: 16px; margin: 16px auto; }
+      .header h1 { font-size: 1.9rem; }
+      .price-tag { font-size: 2.5rem; }
+      .paywall-card { padding: 28px 20px; }
+      .instructions { padding: 20px; }
+    }
   </style>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-SREZS8R26E"></script>
 <script>
-  console.log("Tag do Google Carregada!");
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
@@ -104,7 +169,7 @@ body { font-size: 1rem !important; }
   <div class="container">
     <div class="header">
       <h1>Rebranding de LinkedIn</h1>
-      <p class="muted">Transforme seu perfil num ímã de recrutadores com palavras-chave estratégicas e copywriting persuasivo.</p>
+      <p>Transforme seu perfil num ímã de recrutadores com palavras-chave estratégicas e copywriting persuasivo.</p>
     </div>
 
     <div class="instructions">
@@ -117,40 +182,57 @@ body { font-size: 1rem !important; }
       </ol>
     </div>
 
+    <!-- UPLOAD CARD: shown for users WITH access (including master) -->
     <div class="upload-card" id="dropzone" onclick="document.getElementById('file-upload').click()">
-      <div id="upload-content">
+      <div id="upload-content" style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">
         <i class="fa-solid fa-file-pdf upload-icon"></i>
         <h3 class="upload-title">Clique para enviar seu PDF</h3>
         <p class="upload-subtitle">Ou arraste e solte o arquivo aqui</p>
-        <button class="btn">Selecionar Arquivo</button>
+        <button class="btn" id="select-btn" type="button">
+          <i class="fa-solid fa-upload"></i> Selecionar Arquivo
+        </button>
       </div>
 
       <div class="loading-overlay" id="loading-state">
         <div class="spinner"></div>
         <div class="loading-text">Analisando seu perfil com IA...</div>
-        <p class="muted" style="font-size: 0.85rem; margin-top: 0.5rem;">Isso pode levar até 30 segundos.</p>
-      </div>
-
-      <div class="paywall-overlay" id="paywall-state">
-        <i class="fa-solid fa-lock paywall-icon"></i>
-        <h3>Recurso Premium</h3>
-        <p class="muted">O Rebranding de LinkedIn é exclusivo para assinantes PRO/Consultoria ou mediante compra avulsa.</p>
-        <div class="price-tag">R$ 19,90</div>
-        <button class="btn" onclick="buyRebranding(event)">Desbloquear Agora</button>
+        <p style="color:#94A3B8;font-size:0.9rem;margin:0">Isso pode levar até 30 segundos.</p>
       </div>
     </div>
-    
+
+    <!-- PAYWALL CARD: shown OUTSIDE upload-card, for users WITHOUT access -->
+    <!-- Uses height:auto naturally, content never clipped -->
+    <div class="paywall-card" id="paywall-card">
+      <div class="paywall-icon"><i class="fa-solid fa-lock"></i></div>
+      <h3>Recurso Premium</h3>
+      <p>O Rebranding de LinkedIn é exclusivo para assinantes <strong>PRO/Consultoria</strong> ou mediante compra avulsa.</p>
+      <p style="color:#94A3B8;font-size:0.9rem">Acesso permanente ao resultado gerado para o seu perfil.</p>
+      <div class="price-tag">R$ 19,90</div>
+      <a href="https://mpago.la" target="_blank" class="btn btn-green" id="buy-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-unlock"></i> Desbloquear Agora — R$ 19,90
+      </a>
+      <p style="color:#64748b;font-size:0.85rem;margin-top:16px">
+        Pagamento seguro pelo Mercado Pago
+      </p>
+    </div>
+
     <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" onchange="handleFileSelect(event)">
 
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
       <div class="markdown-body" id="result-content"></div>
-      <button class="btn copy-btn" onclick="copyResult()"><i class="fa-regular fa-copy"></i> Copiar Texto</button>
+      <button class="btn copy-btn" onclick="copyResult()" type="button">
+        <i class="fa-regular fa-copy"></i> Copiar Texto
+      </button>
     </div>
   </div>
 
   <script>
+    // Stable Mercado Pago direct link
+    const MP_STABLE_LINK = 'https://mpago.la';
+
     let hasAccess = false;
+    const MASTER_EMAILS = ['contato@candidaturacerta.com.br', 'usoparakotas4@gmail.com', 'usoparakotas21@gmail.com'];
 
     async function checkAccess() {
       try {
@@ -160,31 +242,44 @@ body { font-size: 1rem !important; }
           return;
         }
         const data = await res.json();
-        hasAccess = data.has_access;
+        hasAccess = !!data.has_access;
+        const userEmail = (data.email || '').toLowerCase().trim();
 
-        if (!hasAccess) {
-          document.getElementById('paywall-state').style.display = 'flex';
-          document.getElementById('upload-content').style.opacity = '0.2';
-          document.getElementById('dropzone').onclick = null;
-          document.getElementById('upload-content').style.display = 'none';
+        const isMaster = MASTER_EMAILS.includes(userEmail) || hasAccess;
+
+        if (isMaster) {
+          hasAccess = true;
+          // Full access: show upload card, hide paywall
+          document.getElementById('paywall-card').style.display = 'none';
+          document.getElementById('dropzone').style.display = 'flex';
+          const btn = document.getElementById('select-btn');
+          if (btn) {
+            btn.className = 'btn btn-master';
+            btn.innerHTML = '<i class="fa-solid fa-upload"></i> Analisar Perfil do LinkedIn';
+          }
+        } else {
+          // No access: hide upload card, show paywall
+          document.getElementById('dropzone').style.display = 'none';
+          document.getElementById('paywall-card').classList.add('visible');
         }
       } catch(e) {
-        console.error(e);
+        console.error('checkAccess error:', e);
+        // On error, show paywall
+        document.getElementById('dropzone').style.display = 'none';
+        document.getElementById('paywall-card').classList.add('visible');
       }
     }
 
-    document.addEventListener("DOMContentLoaded", checkAccess);
+    document.addEventListener('DOMContentLoaded', checkAccess);
 
     async function handleFileSelect(event) {
       if (!hasAccess) return;
       const file = event.target.files[0];
       if (!file) return;
-
       if (file.type !== 'application/pdf') {
         alert('Por favor, envie um arquivo PDF.');
         return;
       }
-
       await uploadAndProcess(file);
     }
 
@@ -192,6 +287,7 @@ body { font-size: 1rem !important; }
       document.getElementById('upload-content').style.display = 'none';
       document.getElementById('loading-state').style.display = 'flex';
       document.getElementById('result-section').style.display = 'none';
+      document.getElementById('dropzone').onclick = null;
 
       const formData = new FormData();
       formData.append('file', file);
@@ -205,46 +301,48 @@ body { font-size: 1rem !important; }
         if (res.status === 403) {
           hasAccess = false;
           document.getElementById('loading-state').style.display = 'none';
-          document.getElementById('paywall-state').style.display = 'flex';
+          document.getElementById('dropzone').style.display = 'none';
+          document.getElementById('paywall-card').classList.add('visible');
           return;
         }
 
         if (!res.ok) {
-          throw new Error('Falha ao gerar rebranding');
+          throw new Error('Falha ao gerar rebranding. Tente novamente.');
         }
 
         const data = await res.json();
-        
         document.getElementById('result-content').innerHTML = marked.parse(data.markdown);
         document.getElementById('result-section').style.display = 'block';
 
       } catch (e) {
         alert(e.message);
       } finally {
-        document.getElementById('upload-content').style.display = 'block';
+        document.getElementById('upload-content').style.display = 'flex';
         document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('dropzone').onclick = () => document.getElementById('file-upload').click();
         document.getElementById('file-upload').value = '';
       }
     }
 
     async function buyRebranding(event) {
       event.stopPropagation();
-      const btn = event.target;
-      const originalText = btn.innerText;
-      btn.innerText = 'Redirecionando...';
+      const btn = event.currentTarget;
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Redirecionando...';
       btn.disabled = true;
 
       try {
-        const res = await fetch('/billing/linkedin-rebranding/checkout', {
-          method: 'POST'
-        });
-        if (!res.ok) throw new Error('Erro ao gerar checkout');
+        const res = await fetch('/billing/linkedin-rebranding/checkout', { method: 'POST' });
+        if (!res.ok) throw new Error('api_error');
         const data = await res.json();
-        window.location.href = data.checkout_url;
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          throw new Error('no_url');
+        }
       } catch (err) {
-        alert(err.message);
-        btn.innerText = originalText;
-        btn.disabled = false;
+        // Fallback to stable direct MP link — never leaves user stuck
+        window.location.href = MP_STABLE_LINK;
       }
     }
 
@@ -255,30 +353,26 @@ body { font-size: 1rem !important; }
       });
     }
 
+    // Drag & drop
     const dropzone = document.getElementById('dropzone');
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      if(hasAccess) dropzone.style.borderColor = 'var(--blue)';
+      if (hasAccess) dropzone.style.borderColor = '#3B82F6';
     });
-    dropzone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropzone.style.borderColor = 'var(--border)';
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.borderColor = '#475569';
     });
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropzone.style.borderColor = 'var(--border)';
+      dropzone.style.borderColor = '#475569';
       if (!hasAccess) return;
-      if (e.dataTransfer.files.length) {
-        const file = e.dataTransfer.files[0];
-        if (file.type === 'application/pdf') {
-          uploadAndProcess(file);
-        } else {
-          alert('Por favor, envie um arquivo PDF.');
-        }
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') {
+        uploadAndProcess(file);
+      } else {
+        alert('Por favor, envie um arquivo PDF.');
       }
     });
   </script>
 </body>
 </html>
-
-

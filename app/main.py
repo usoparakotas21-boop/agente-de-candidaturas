@@ -10,10 +10,22 @@ import logging
 import math
 import os
 
-def is_admin(user: dict | None) -> bool:
+def is_admin(user: Any | None) -> bool:
     if not user: return False
-    admin_emails = os.getenv('ADMIN_EMAILS', 'usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br').split(',')
-    return user.get('email') in admin_emails
+    email = ""
+    if isinstance(user, dict):
+        email = str(user.get("email") or "").strip().lower()
+    else:
+        email = str(getattr(user, "email", "") or "").strip().lower()
+    admin_emails = {
+        "contato@candidaturacerta.com.br",
+        "usoparakotas4@gmail.com",
+        "usoparakotas21@gmail.com",
+    }
+    env_admins = os.getenv("ADMIN_EMAILS", "")
+    if env_admins:
+        admin_emails.update(e.strip().lower() for e in env_admins.split(",") if e.strip())
+    return email in admin_emails
 import re
 import smtplib
 import time
@@ -4662,6 +4674,25 @@ def get_current_subscription(user=Depends(authenticated_user)):
             .order_by(BillingSubscription.updated_at.desc())
             .limit(1)
         )
+        if is_admin(user):
+            return {
+                "plan_code": "pro",
+                "plan_name": "Pro (Master / Admin)",
+                "status": "authorized",
+                "active": True,
+                "checkout_url": None,
+                "monthly_amount": 0,
+                "currency": "BRL",
+                "next_payment_at": None,
+                "access_until": None,
+                "can_cancel": False,
+                "opportunities": {
+                    "used": opportunity_usage["used"],
+                    "limit": 999999,
+                    "remaining": 999999,
+                    "resets_at": opportunity_usage["resets_at"].isoformat(),
+                },
+            }
         if subscription is None:
             return {
                 "plan_code": "essential",
@@ -6253,25 +6284,39 @@ download_application_cover_letter = download_cover_letter
 
 @app.get("/api/linkedin/access-status", include_in_schema=False)
 def check_linkedin_access(user=Depends(authenticated_user)):
-    if is_admin(user): return {'has_access': True, 'reason': 'admin'}
+    user_email = str(user.get("email") or "").strip().lower()
+    MASTER_EMAILS = {"contato@candidaturacerta.com.br", "usoparakotas4@gmail.com", "usoparakotas21@gmail.com"}
+    if is_admin(user) or user_email in MASTER_EMAILS:
+        return {"has_access": True, "reason": "admin", "email": user_email}
     owner_id = getattr(user, "uid", getattr(user, "id", None))
     if not owner_id:
-        return {"has_access": False, "reason": "unauthenticated"}
+        return {"has_access": False, "reason": "unauthenticated", "email": user_email}
 
     plan = getattr(user, "plan_code", "gratis") or "gratis"
     if plan in ["pro", "consultoria"]:
-        return {"has_access": True, "reason": "plan"}
+        return {"has_access": True, "reason": "plan", "email": user_email}
 
     db = SessionLocal()
     try:
+        # Also check active billing subscription for pro/consultoria
+        sub = db.scalar(
+            select(BillingSubscription)
+            .where(BillingSubscription.owner_id == owner_id)
+            .where(BillingSubscription.status == "authorized")
+            .order_by(BillingSubscription.updated_at.desc())
+            .limit(1)
+        )
+        if sub and sub.plan_code in ("pro", "consultoria") and _subscription_is_entitled(sub):
+            return {"has_access": True, "reason": "plan", "email": user_email}
+
         purchase = db.scalar(
             select(LinkedinRebrandingPurchase)
             .where(LinkedinRebrandingPurchase.owner_id == owner_id)
             .where(LinkedinRebrandingPurchase.status == "PAID")
         )
         if purchase:
-            return {"has_access": True, "reason": "purchase"}
-        return {"has_access": False, "reason": "no_purchase"}
+            return {"has_access": True, "reason": "purchase", "email": user_email}
+        return {"has_access": False, "reason": "no_purchase", "email": user_email}
     finally:
         db.close()
 
