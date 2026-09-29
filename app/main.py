@@ -75,13 +75,14 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         user_email = str(getattr(user, "email", "") or "").strip().lower()
         owner_id = str(getattr(user, "uid", getattr(user, "id", "")) or "").strip()
 
-    # Master Admin & Administrative Accounts Bypass
+    # 1. Master Admin & Administrative Accounts Bypass
     MASTER_EMAILS = {
         "contato@candidaturacerta.com.br",
         "usoparakotas4@gmail.com",
         "usoparakotas21@gmail.com",
     }
     if user_email in MASTER_EMAILS or is_admin(user):
+        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: CONSULTORIA (MASTER ADMIN BYPASS)", flush=True)
         return {
             "plan": "consultoria",
             "is_pro": True,
@@ -94,15 +95,18 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
 
     db = SessionLocal()
     try:
-        # Resolve owner_id from Candidate if not provided in token
-        if not owner_id and user_email:
+        candidate_owner_id = None
+        if user_email:
             cand = db.scalar(select(Candidate).where(func.lower(Candidate.email) == user_email).limit(1))
             if cand and cand.owner_id:
-                owner_id = cand.owner_id
+                candidate_owner_id = cand.owner_id
 
+        # Build resilient dual-lookup clauses
         clauses = []
         if owner_id:
             clauses.append(BillingSubscription.owner_id == owner_id)
+        if candidate_owner_id and candidate_owner_id != owner_id:
+            clauses.append(BillingSubscription.owner_id == candidate_owner_id)
         if user_email:
             clauses.append(func.lower(BillingSubscription.payer_email) == user_email)
 
@@ -151,6 +155,7 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
 
             if has_access and plan_code != "essential":
                 is_pro_tier = plan_code in ("pro", "consultoria", "start_plus") or (is_courtesy and plan_code in ("pro", "consultoria"))
+                print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: {plan_code.upper()} (CORTESIA/ASSINATURA ATIVA)", flush=True)
                 return {
                     "plan": plan_code,
                     "is_pro": is_pro_tier,
@@ -161,6 +166,7 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
                     "email": user_email,
                 }
 
+        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: ESSENTIAL", flush=True)
         return {
             "plan": "essential",
             "is_pro": False,
@@ -172,6 +178,7 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         }
     except Exception as e:
         logger.exception("Error checking dynamic user plan: %s", e)
+        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: ERRO ({str(e)})", flush=True)
         return {"plan": "essential", "is_pro": False, "is_consultoria": False, "is_admin": False, "entitled": False, "reason": "db_error", "email": user_email}
     finally:
         db.close()
@@ -4824,6 +4831,7 @@ def get_current_subscription(user=Depends(authenticated_user)):
     owner_id = str(_owner_id(user) or "").strip()
     if not owner_id:
         raise HTTPException(401, "Login necessário.")
+    entitlement = _get_user_plan_and_entitlement(user)
     db = SessionLocal()
     try:
         opportunity_usage = monthly_opportunity_usage(db, owner_id)

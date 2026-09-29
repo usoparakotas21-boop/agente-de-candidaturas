@@ -51,19 +51,39 @@ def _effective_plan(session: Session, owner_id: str, now: datetime) -> str:
     import os
     from .models import Candidate
     c = session.scalar(select(Candidate).where(Candidate.owner_id == owner_id))
-    if c and c.email and c.email in os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(","):
+    user_email = c.email.strip().lower() if (c and c.email) else ""
+    if user_email in os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",") or user_email == "contato@candidaturacerta.com.br":
         return "consultoria"
+    
+    clauses = [BillingSubscription.owner_id == owner_id]
+    if user_email:
+        clauses.append(func.lower(BillingSubscription.payer_email) == user_email)
+
     subscription = session.scalar(
         select(BillingSubscription)
-        .where(BillingSubscription.owner_id == owner_id)
-        .order_by(BillingSubscription.updated_at.desc())
+        .where(or_(*clauses))
+        .where(
+            or_(
+                BillingSubscription.status.in_(["authorized", "active"]),
+                BillingSubscription.external_reference.ilike("%cortesia%"),
+                BillingSubscription.access_until > now,
+            )
+        )
+        .order_by(BillingSubscription.id.desc())
         .limit(1)
     )
-    if subscription is None or str(subscription.plan_code or "").casefold() not in {"start", "pro"}:
+    if not subscription:
+        subscription = session.scalar(
+            select(BillingSubscription)
+            .where(or_(*clauses))
+            .order_by(BillingSubscription.id.desc())
+            .limit(1)
+        )
+    if subscription is None or str(subscription.plan_code or "").casefold() not in {"start", "pro", "consultoria"}:
         return "essential"
-    if str(subscription.status or "").casefold() not in {"authorized", "paused", "canceled"}:
+    if str(subscription.status or "").casefold() not in {"authorized", "active", "paused", "canceled"} and "cortesia" not in str(subscription.external_reference or "").casefold():
         return "essential"
-    if subscription.access_until is None or _utc(subscription.access_until) <= now:
+    if subscription.access_until and _utc(subscription.access_until) <= now:
         return "essential"
     return str(subscription.plan_code).casefold()
 
