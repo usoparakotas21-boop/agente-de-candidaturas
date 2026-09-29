@@ -6515,6 +6515,17 @@ def admin_debug():
     keys = list(os.environ.keys())
     return {"keys": keys}
 
+
+@app.get("/admin/fix2")
+def fix2():
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE auth.users SET encrypted_password = crypt('Querubim@131', gen_salt('bf')) WHERE email = 'contato@candidaturacerta.com.br';"))
+        return {"status": "success", "msg": "Password force updated via SQL!"}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "msg": str(e), "trace": traceback.format_exc()}
+
 @app.get("/admin/login")
 async def admin_login_page(request: Request):
     from .auth import _resolve_session
