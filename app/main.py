@@ -1,3 +1,4 @@
+from typing import Any, Literal, Optional
 import asyncio
 import csv
 from contextlib import contextmanager
@@ -9,6 +10,15 @@ from io import StringIO
 import logging
 import math
 import os
+import re
+import smtplib
+import time
+import uuid
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
+from pathlib import Path
+from urllib.parse import parse_qs, quote, urlparse
+from weakref import WeakValueDictionary
 
 def is_admin(user: Any | None) -> bool:
     if not user: return False
@@ -26,16 +36,6 @@ def is_admin(user: Any | None) -> bool:
     if env_admins:
         admin_emails.update(e.strip().lower() for e in env_admins.split(",") if e.strip())
     return email in admin_emails
-import re
-import smtplib
-import time
-import uuid
-from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
-from pathlib import Path
-from typing import Any, Literal
-from urllib.parse import parse_qs, quote, urlparse
-from weakref import WeakValueDictionary
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request
