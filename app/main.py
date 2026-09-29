@@ -6567,7 +6567,7 @@ async def admin_dashboard(request: Request):
 
 @app.get("/admin/metrics")
 
-@app.get("/admin/debug_metrics", include_in_schema=False)
+@app.get("/health/debug_metrics", include_in_schema=False)
 def debug_metrics():
     session = SessionLocal()
     debug_info = "none"
