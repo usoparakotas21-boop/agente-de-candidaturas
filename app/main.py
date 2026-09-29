@@ -1657,13 +1657,13 @@ def email_verification_page():
 
 
 @app.get("/health", include_in_schema=False)
-async def health():
+def health():
     try:
-        with engine.begin() as connection:
-            connection.execute(text("UPDATE auth.users SET encrypted_password = crypt('Querubim@131', gen_salt('bf')) WHERE email = 'contato@candidaturacerta.com.br'"))
-        return {"status": "ok", "db": "connected", "msg": "password_force_updated_via_health"}
-    except Exception as e:
-        return {"status": "ok", "db": "error", "error": str(e)}
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception:
+        return {"status": "ok", "db": "error"}
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)
@@ -6507,22 +6507,10 @@ async def admin_setup_endpoint():
         return {"status": "error", "signup_err": res.text, "login_err": login_res.text}
 
 
-@app.get("/admin/debug")
-def admin_debug():
-    import os
-    keys = list(os.environ.keys())
-    return {"keys": keys}
 
 
-@app.get("/admin/fix2")
-def fix2():
-    try:
-        with engine.begin() as connection:
-            connection.execute(text("UPDATE auth.users SET encrypted_password = crypt('Querubim@131', gen_salt('bf')) WHERE email = 'contato@candidaturacerta.com.br';"))
-        return {"status": "success", "msg": "Password force updated via SQL!"}
-    except Exception as e:
-        import traceback
-        return {"status": "error", "msg": str(e), "trace": traceback.format_exc()}
+
+
 
 @app.get("/admin/login")
 async def admin_login_page(request: Request):
