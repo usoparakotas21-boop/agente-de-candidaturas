@@ -1659,12 +1659,35 @@ def email_verification_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
+    session = SessionLocal()
+    debug_info = "none"
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "connected"}
-    except Exception:
-        return {"status": "ok", "db": "error"}
+        total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
+        debug_info = "auth.users query successful"
+    except Exception as e:
+        debug_info = f"Error SQL: {str(e)}"
+        
+        url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        total_users = 0
+        if url and key:
+            try:
+                import httpx
+                headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+                r = httpx.get(f"{url}/auth/v1/admin/users?per_page=1000", headers=headers)
+                if r.status_code == 200:
+                    users_data = r.json()
+                    total_users = len(users_data.get("users", []))
+                    debug_info += " | API admin users list successful"
+                else:
+                    debug_info += f" | API error: {r.status_code} {r.text}"
+            except Exception as ex:
+                debug_info += f" | API Exception: {str(ex)}"
+        
+        if total_users == 0:
+            total_users = session.scalar(select(func.count(Candidate.id))) or 0
+
+    return {"status": "ok", "db": "connected", "total_users": total_users, "debug_info": debug_info}
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)

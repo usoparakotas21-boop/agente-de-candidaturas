@@ -1,4 +1,15 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ajuda | Candidatura Certa</title><style>
+<!doctype html><html lang="pt-BR"><head>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister().then(function(boolean) {
+          if(boolean) console.log("Service Worker deletado com sucesso do cliente!");
+        });
+      }
+    });
+  }
+</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ajuda | Candidatura Certa</title><style>
 :root{--ink:#10213d;--muted:#64748b;--line:#dfe7f2;--bg:#f6f9fd;--paper:#fff;--blue:#3568e8;--soft:#edf3ff;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg)}a{color:var(--blue);font-weight:750;text-decoration:none}a:hover{text-decoration:underline}.wrap{width:min(920px,calc(100% - 36px));margin:0 auto;padding:38px 0 72px}.intro{margin-bottom:24px}.intro h1{margin:0 0 7px;font-size:36px;letter-spacing:-.04em}.intro p{max-width:680px;margin:0;color:var(--muted);font-size:14px}.help-grid{display:grid;gap:14px}.help-card{border:1px solid var(--line);border-radius:16px;background:var(--paper);box-shadow:0 8px 24px rgba(24,49,83,.05)}.help-card summary{cursor:pointer;padding:18px 20px;font-size:15px;font-weight:800;list-style:none}.help-card summary::-webkit-details-marker{display:none}.help-card summary::after{content:"+";float:right;color:var(--blue);font-size:20px;line-height:1}.help-card[open] summary::after{content:"−"}.help-card p{margin:0;padding:0 20px 19px;color:var(--muted);font-size:13px;line-height:1.65}.help-card ul{margin:0;padding:0 20px 19px 38px;color:var(--muted);font-size:13px;line-height:1.65}.help-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;padding:16px;border:1px solid #cbd9f7;border-radius:13px;background:var(--soft);color:#31558b;font-size:13px}@media(max-width:700px){.wrap{padding-top:25px}.intro h1{font-size:31px}}
 </style>
 <!-- Google tag (gtag.js) -->

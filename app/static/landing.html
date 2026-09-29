@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister().then(function(boolean) {
+          if(boolean) console.log("Service Worker deletado com sucesso do cliente!");
+        });
+      }
+    });
+  }
+</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Candidatura Certa | Organize sua busca de emprego com IA</title>

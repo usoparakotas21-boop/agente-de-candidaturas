@@ -1226,12 +1226,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/openapi.json",
         "/redoc",
         "/manifest.json",
-        "/sw.js",
-    }
+            }
 
     async def dispatch(self, request: Request, call_next):
         req_path = request.url.path
-        if req_path in {"/manifest.json", "/sw.js"} or req_path.rstrip("/") in {"/manifest.json", "/sw.js"} or req_path.startswith("/static/"):
+        if req_path in {"/manifest.json"} or req_path.rstrip("/") in {"/manifest.json"} or req_path.startswith("/static/"):
             return await call_next(request)
 
         extension_document_path = (
