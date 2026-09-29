@@ -6553,40 +6553,7 @@ async def admin_dashboard(request: Request):
         
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
     if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
-        html_denied = f"""
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Acesso Negado - Candidatura Certa</title>
-            <style>
-                body {{ background-color: #0F172A; color: #E2E8F0; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
-                .card {{ background: #1E293B; border: 1px solid #334155; padding: 40px; border-radius: 16px; text-align: center; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
-                .icon {{ font-size: 4rem; color: #EF4444; margin-bottom: 20px; }}
-                h1 {{ color: #FFFFFF; font-size: 1.5rem; margin-top: 0; margin-bottom: 10px; }}
-                p {{ color: #94A3B8; margin-bottom: 30px; line-height: 1.5; }}
-                .actions {{ display: flex; flex-direction: column; gap: 10px; }}
-                .btn {{ background: #3B82F6; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block; transition: background 0.2s; cursor: pointer; border: none; font-size: 1rem; width: 100%; box-sizing: border-box; }}
-                .btn:hover {{ background: #2563EB; }}
-                .btn-outline {{ background: transparent; border: 1px solid #475569; color: #CBD5E1; }}
-                .btn-outline:hover {{ background: #334155; }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <div class="icon">⛔</div>
-                <h1>Acesso Restrito</h1>
-                <p>A conta <b>{user.get("email")}</b> não possui privilégios de administrador para acessar o Painel Master.</p>
-                <div class="actions">
-                    <a href="/admin/logout" class="btn">Trocar de Conta</a>
-                    <a href="/dashboard" class="btn btn-outline">Voltar ao Meu Painel</a>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        return HTMLResponse(html_denied, status_code=403)
+        return HTMLResponse("Acesso Negado", status_code=403)
         
     session = SessionLocal()
     total_users = 0
@@ -6596,23 +6563,63 @@ async def admin_dashboard(request: Request):
         total_users = session.scalar(select(func.count(Candidate.id))) or 0
         
     mrr_estimado = 0
+    total_ebook = 0
+    total_linkedin = 0
+    active_plans = {"essential": total_users, "start": 0, "pro": 0, "consultoria": 0}
+    
     try:
         now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        subs = session.execute(
+            select(BillingSubscription.owner_id, BillingSubscription.plan_code, BillingSubscription.access_until)
+            .where(BillingSubscription.status.in_(['authorized', 'paused', 'canceled']))
+            .order_by(BillingSubscription.updated_at.desc())
+        ).all()
+        
+        seen_owners = set()
+        plans_temp = {"essential": 0, "start": 0, "pro": 0, "consultoria": 0}
+        for sub in subs:
+            if sub.owner_id in seen_owners: continue
+            seen_owners.add(sub.owner_id)
+            if sub.access_until and sub.access_until.replace(tzinfo=timezone.utc) > now:
+                code_plan = (sub.plan_code or "essential").lower()
+                if code_plan in plans_temp:
+                    plans_temp[code_plan] += 1
+                else:
+                    plans_temp["essential"] += 1
+        plans_temp["essential"] = max(0, total_users - plans_temp["start"] - plans_temp["pro"] - plans_temp["consultoria"])
+        active_plans = plans_temp
+        
         mrr_val = session.scalar(
             select(func.sum(BillingSubscription.monthly_amount))
             .where(BillingSubscription.status == 'authorized')
             .where(BillingSubscription.access_until >= now)
         ) or 0
         mrr_estimado = float(mrr_val) / 100 if mrr_val > 10000 else float(mrr_val)
-    except:
+        
+        total_ebook = session.scalar(select(func.count(EbookPurchase.id))) or 0
+        total_linkedin = session.scalar(select(func.count(LinkedinRebrandingPurchase.id))) or 0
+    except Exception as e:
         pass
     session.close()
 
     html = (STATIC_DIR / "admin.html").read_text(encoding="utf-8")
     
-    # Simple template injection
     html = html.replace('{{ total_users }}', str(total_users))
     html = html.replace('{{ mrr_estimado }}', f"{mrr_estimado:.2f}")
+    html = html.replace('{{ total_ebook }}', str(total_ebook))
+    html = html.replace('{{ total_linkedin }}', str(total_linkedin))
+    
+    formatted_plans = {
+        "Essencial (Gratis)": active_plans.get("essential", 0),
+        "Start": active_plans.get("start", 0),
+        "Pro": active_plans.get("pro", 0),
+        "Consultoria": active_plans.get("consultoria", 0)
+    }
+    
+    plans_html = ""
+    for plan_name, count in formatted_plans.items():
+        plans_html += f"<tr><td>{plan_name}</td><td>{count}</td></tr>"
+    html = html.replace('<tbody id="plans_tbody"></tbody>', f'<tbody id="plans_tbody">{plans_html}</tbody>')
     
     html = _with_favicon(html)
     nonce = current_csp_nonce()
