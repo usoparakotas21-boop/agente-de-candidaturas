@@ -585,17 +585,993 @@ body{min-height:100vh;display:flex;flex-direction:column}
         html,
         flags=re.I,
     )
-rendered = html.replace(
+    rendered = html.replace("<body>", "<body>" + _style_nonce_bootstrap(nonce) + nav + crumb, 1)
+    rendered = _nonce_styles(rendered, nonce)
+    return HTMLResponse(rendered)
+
+def _owner_id(user): return user.get("id") if isinstance(user, dict) else None
+
+
+def _job_deadline_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    # SQLite returns timezone-aware DateTime values as naive; these were
+    # normalized to UTC when extracted from Schema.org metadata.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
+def _document_export_price() -> str:
+    configured = os.getenv("DOCUMENT_EXPORT_PRICE", "").strip()
+    if configured:
+        return configured
+    raw_cents = os.getenv("DOCUMENT_EXPORT_PRICE_CENTS", "").strip()
+    try:
+        cents = int(raw_cents)
+    except (TypeError, ValueError):
+        return ""
+    return f"R$ {cents / 100:.2f}".replace(".", ",") if cents > 0 else ""
+
+
+SUBSCRIPTION_PLANS: dict[str, dict[str, Any]] = {
+    "start": {"name": "Start", "amount": 3490, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
+    "start_plus": {"name": "Start + E-book", "amount": 5000, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["start"]},
+    "pro": {"name": "Pro", "amount": 9900, "monthly_opportunities": MONTHLY_OPPORTUNITY_LIMITS["pro"]},
+    "consultoria": {"name": "Consultoria", "amount": 19700},
+}
+CONSULTATION_WHATSAPP_NUMBER = re.sub(
+    r"\D", "", os.getenv("CONSULTATION_WHATSAPP_NUMBER", "5571993494443")
+)
+_SUBSCRIPTION_CHECKOUT_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+
+
+def _subscription_checkout_lock(owner_id: str) -> asyncio.Lock:
+    lock = _SUBSCRIPTION_CHECKOUT_LOCKS.get(owner_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _SUBSCRIPTION_CHECKOUT_LOCKS[owner_id] = lock
+    return lock
+
+
+def _subscription_access_until(subscription: BillingSubscription | None) -> datetime | None:
+    if subscription is None:
+        return None
+    status = str(subscription.status or "").casefold()
+    if status in {"authorized", "paused", "canceled"}:
+        return subscription.access_until
+    return None
+
+
+def _subscription_is_entitled(subscription: BillingSubscription | None) -> bool:
+    access_until = _subscription_access_until(subscription)
+    if subscription is None or access_until is None:
+        return False
+    now = utc_now()
+    # SQLite may return a naive datetime even when timezone=True.
+    if access_until.tzinfo is None:
+        access_until = access_until.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    # A provider authorization is not proof of a paid period. Entitlement
+    # always ends at the latest confirmed access_until timestamp.
+    return access_until > now
+
+
+def _mp_datetime(value: Any) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _monthly_recurring_matches(value: Any, expected_amount: int) -> bool:
+    recurring = value if isinstance(value, dict) else {}
+    try:
+        amount = int(round(float(recurring.get("transaction_amount") or 0) * 100))
+        frequency = int(recurring.get("frequency") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return (
+        amount == int(expected_amount)
+        and str(recurring.get("currency_id") or "").upper() == "BRL"
+        and frequency == 1
+        and str(recurring.get("frequency_type") or "").casefold() == "months"
+    )
+
+
+def _ensure_consultation_credit(
+    db,
+    subscription: BillingSubscription,
+    payment_id: str,
+    period_start: datetime,
+    period_end: datetime,
+) -> ConsultationCredit | None:
+    """Create at most one monthly consultation credit for a verified payment."""
+    if subscription.plan_code != "consultoria" or not payment_id or period_end <= period_start:
+        return None
+    existing = db.scalar(
+        select(ConsultationCredit).where(ConsultationCredit.payment_id == payment_id)
+    )
+    if existing is not None:
+        return existing
+    credit = ConsultationCredit(
+        subscription_id=subscription.id,
+        owner_id=subscription.owner_id,
+        payment_id=payment_id,
+        period_start=period_start,
+        period_end=period_end,
+        booking_status="available",
+    )
+    try:
+        # A unique payment id makes webhook retries and concurrent delivery safe.
+        with db.begin_nested():
+            db.add(credit)
+            db.flush()
+    except IntegrityError:
+        return db.scalar(
+            select(ConsultationCredit).where(ConsultationCredit.payment_id == payment_id)
+        )
+    return credit
+
+
+def _consultation_whatsapp_url(reference: str, availability: str = "") -> str:
+    message = (
+        "Olá! Quero agendar o atendimento mensal da minha Consultoria Candidatura Certa. "
+        f"Código do atendimento: {reference}."
+    )
+    if availability:
+        message += f" Minha disponibilidade: {availability}"
+    return f"https://wa.me/{CONSULTATION_WHATSAPP_NUMBER}?text={quote(message, safe='')}"
+
+
+def _is_valid_mercadopago_checkout_url(value: Any) -> bool:
+    try:
+        target = httpx.URL(str(value or "").strip())
+    except (TypeError, ValueError, httpx.InvalidURL):
+        return False
+    return target.scheme == "https" and target.host in {"mercadopago.com.br", "www.mercadopago.com.br"}
+
+
+def _sync_subscription_from_provider(db, provider: dict[str, Any]) -> BillingSubscription | None:
+    external_reference = str(provider.get("external_reference") or "").strip()
+    provider_id = str(provider.get("id") or "").strip()
+    if not external_reference or not provider_id:
+        return None
+    subscription = db.scalar(
+        select(BillingSubscription).where(
+            BillingSubscription.external_reference == external_reference
+        )
+    )
+    if subscription is None or subscription.mercadopago_preapproval_id != provider_id:
+        return None
+    recurring = provider.get("auto_recurring") if isinstance(provider.get("auto_recurring"), dict) else {}
+    expected_plan = SUBSCRIPTION_PLANS.get(subscription.plan_code)
+    valid_recurring = (
+        expected_plan is not None
+        and subscription.monthly_amount == expected_plan["amount"]
+        and _monthly_recurring_matches(recurring, expected_plan["amount"])
+    )
+    if not valid_recurring:
+        logger.warning(
+            "Assinatura Mercado Pago diverge do plano local external_reference=%s",
+            external_reference,
+        )
+        return None
+    status = str(provider.get("status") or "").strip().casefold()
+    if status == "cancelled":
+        status = "canceled"
+    if status not in {"authorized", "pending", "paused", "canceled", "rejected"}:
+        return None
+    next_payment_at = _mp_datetime(provider.get("next_payment_date"))
+    subscription.status = status
+    if next_payment_at is not None:
+        subscription.next_payment_at = next_payment_at
+    subscription.updated_at = utc_now()
+    db.commit()
+    db.refresh(subscription)
+    return subscription
+
+
+def _document_export_metadata(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
+    if is_admin(user): return {'allowed': True, 'price': _document_export_price(), 'checkout_url': ''}
+    """Return the server-side entitlement metadata for DOCX exports.
+
+    Active local subscriptions are authoritative and time-bounded. Legacy
+    app_metadata grants are honored only for accounts with no local subscription.
+    """
+    # Direct calls from internal compatibility helpers/tests do not represent a
+    # browser request and keep the historical behavior of returning a file.
+    if not isinstance(user, dict):
+        return {"allowed": True, "price": _document_export_price(), "checkout_url": ""}
+
+    app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
+    plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or "").strip().casefold()
+    paid_flag = app_metadata.get("document_export_paid") or app_metadata.get("document_export_access")
+    paid_flag = str(paid_flag).strip().casefold() in {"1", "true", "yes", "paid", "pro"}
+    allowed_emails = {
+        item.strip().casefold()
+        for item in os.getenv("DOCUMENT_EXPORT_ALLOWED_EMAILS", "").split(",")
+        if item.strip()
+    }
+    email = str(user.get("email") or "").strip().casefold()
+    local_paid = False
+    local_subscription = None
+    owner_id = str(user.get("id") or "").strip()
+    if owner_id:
+        db = SessionLocal()
+        try:
+            local_paid = db.scalar(
+                select(DocumentExportPurchase.id).where(
+                    DocumentExportPurchase.owner_id == owner_id,
+                    DocumentExportPurchase.status == "PAID",
+                    *([DocumentExportPurchase.application_id == application_id] if application_id is not None else []),
+                ).limit(1)
+            ) is not None
+            local_subscription = db.scalar(
+                select(BillingSubscription)
+                .where(BillingSubscription.owner_id == owner_id)
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
+        except Exception:
+            # Bases antigas podem ainda não ter recebido a tabela nova.
+            local_paid = False
+            local_subscription = None
+        finally:
+            db.close()
+    local_plan = (
+        str(local_subscription.plan_code or "").casefold()
+        if _subscription_is_entitled(local_subscription)
+        else ""
+    )
+    legacy_plan_access = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} and local_subscription is None
+    allowed = legacy_plan_access or local_plan in {"start", "pro"} or paid_flag or email in allowed_emails or local_paid
+    return {
+        "allowed": allowed,
+        "price": _document_export_price(),
+        "checkout_url": "",
+        "checkout_ready": bool(os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()),
+        "plan": local_plan or ("pro" if legacy_plan_access else "essential"),
+    }
+
+
+def _require_document_export(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
+    offer = _document_export_metadata(user, application_id)
+    if offer["allowed"]:
+        return offer
+    detail = {
+        "code": "DOCUMENT_EXPORT_PAYMENT_REQUIRED",
+        "message": "A prévia é gratuita. O download completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
+        "price": offer["price"],
+        "checkout_url": offer["checkout_url"],
+    }
+    raise HTTPException(status_code=402, detail=detail)
+
+
+def _cover_letter_preview(text_value: str | None, limit: int = 560) -> str:
+    """Keep the free preview useful without exposing the complete letter."""
+    text_value = str(text_value or "").strip()
+    if len(text_value) <= limit:
+        return text_value
+    cut = text_value[:limit]
+    boundary = max(cut.rfind("\n\n"), cut.rfind(". "))
+    if boundary >= int(limit * 0.55):
+        cut = cut[: boundary + (2 if text_value[boundary:boundary + 2] == ". " else 0)]
+    return cut.rstrip() + "…"
+
+
+def _masked_name(name: str | None) -> str:
+    parts = [part for part in str(name or "Candidato").split() if part]
+    if len(parts) <= 1:
+        return parts[0] if parts else "Candidato"
+    return f"{parts[0]} " + " ".join(f"{part[0]}." for part in parts[1:])
+
+
+def _masked_email(email: str | None) -> str:
+    value = str(email or "").strip()
+    if "@" not in value:
+        return "contato oculto"
+    local, domain = value.split("@", 1)
+    return f"{local[:1]}•••@•••{domain[domain.rfind('.'):]}" if "." in domain else f"{local[:1]}•••@•••"
+
+
+def _resume_preview(arts: dict[str, Any]) -> dict[str, Any]:
+    resume = arts["resume"]
+    summary = str(resume.get("summary") or "")
+    candidate = resume.get("candidate") or {}
+    contact = candidate
+    return {
+        "name": _masked_name(candidate.get("name", "Candidato")),
+        "target": resume.get("target", ""),
+        "headline": resume.get("headline", ""),
+        "summary": summary[:420] + ("…" if len(summary) > 420 else ""),
+        "skills": list(resume.get("skills") or [])[:8],
+        "contact": {
+            "email": _masked_email(contact.get("email")),
+            "phone": "telefone oculto",
+            "location": contact.get("location") or "Localização oculta",
+        },
+        "experiences": [
+            {
+                "company": "Empresa confidencial",
+                "role": item.get("role", ""),
+                "period": item.get("period", ""),
+            }
+            for item in (resume.get("experiences") or [])[:3]
+        ],
+        "personalization_score": arts["personalization"].get("personalization_score", 0),
+        "notice": "Prévia gratuita. O arquivo completo está incluído no Start e no Pro, ou pode ser comprado à parte.",
+    }
+
+
+def _candidate_for_user(db, user):
+    q = select(Candidate).order_by(Candidate.id)
+    oid = _owner_id(user)
+    if oid: q = q.where(Candidate.owner_id == oid)
+    c = db.scalar(q)
+    if oid and c is None: raise HTTPException(409, "Perfil do candidato nao configurado.")
+    return c
+def _job_for_user(db, job_id, user):
+    q = select(Job).where(Job.id == job_id)
+    oid = _owner_id(user)
+    if oid: q = q.where(Job.owner_id == oid)
+    return db.scalar(q)
+def _application_for_user(db, app_id, user):
+    q = select(Application).join(Application.job).where(Application.id == app_id)
+    oid = _owner_id(user)
+    if oid: q = q.where(Job.owner_id == oid)
+    return db.scalar(q)
+
+class JobRequest(BaseModel): title: str; description: str
+class JobCreateRequest(BaseModel):
+    source: str = "manual"
+    external_id: str
+    company: str
+    title: str
+    location: str = ""
+    modality: str = ""
+    contract_type: str = ""
+    modality_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary_confidence: int | None = Field(default=None, ge=0, le=100)
+    contract_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary: str = ""
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    valid_through: datetime | None = None
+    url: str = ""
+    description: str
+class JobIntakeRequest(BaseModel): raw_text: str; source: str = "texto"; auto_analyze: bool = True; reprocess_existing: bool = False
+class JobIntakeConfirmRequest(BaseModel):
+    external_id: str
+    source: str = "print"
+    company: str
+    title: str
+    location: str = ""
+    modality: str = ""
+    contract_type: str = ""
+    modality_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary_confidence: int | None = Field(default=None, ge=0, le=100)
+    contract_confidence: int | None = Field(default=None, ge=0, le=100)
+    salary: str = ""
+    salary_min: int | None = Field(default=None, ge=0)
+    salary_max: int | None = Field(default=None, ge=0)
+    valid_through: datetime | None = None
+    url: str = ""
+    description: str
+    auto_analyze: bool = True
+class ResumeRequest(BaseModel): title: str; resume: dict
+class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
+class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "start_plus", "pro", "consultoria"]
+class ConsultationBookingRequest(BaseModel): availability: str = Field(min_length=5, max_length=800)
+class DocumentStudioExportRequest(BaseModel): application_id: int = Field(gt=0)
+class EmailApplicationSubmissionRequest(BaseModel):
+    recipient: str = Field(min_length=5, max_length=320)
+    body: str = Field(min_length=20, max_length=12000)
+    resume_version: str = Field(min_length=3, max_length=32)
+    cover_letter_version: str = Field(min_length=3, max_length=32)
+    consent: bool = False
+class DocumentStudioRequest(BaseModel):
+    application_id: int | None = Field(default=None, gt=0)
+    title: str = Field(min_length=2, max_length=200)
+    company: str = Field(default="", max_length=200)
+    details: str = Field(min_length=20, max_length=16000)
+    location: str = Field(default="", max_length=300)
+    url: str = Field(default="", max_length=1000)
+class ApplicationStatusRequest(BaseModel):
+    status: Literal["IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA"]
+    note: str = Field(default="", max_length=2000)
+    channel: Literal["", "manual", "gmail", "linkedin", "gupy", "indeed", "site_empresa", "indicacao", "outro"] = ""
+    external_result: Literal["", "SEM_RETORNO", "CONTATO_RECRUTADOR", "ENTREVISTA", "RECUSADO", "PROPOSTA"] = ""
+class CandidatePreferencesRequest(BaseModel): target_roles: list[str] = []; locations: list[str] = []; modalities: list[str] = []; contract_types: list[str] = []; schedules: list[str] = []; industries: list[str] = []; excluded_companies: list[str] = []; required_keywords: list[str] = []; excluded_keywords: list[str] = []; salary_min: int | None = None; salary_max: int | None = None; minimum_score: int = 65; automatic_score: int = 85; allow_automatic: bool = False; max_daily_applications: int = 5; notification_frequency: Literal["daily", "immediate", "weekly", "none"] = "daily"; notify_interviews: bool = False; notify_interviews_consent: bool = False; notify_expiring: bool = False; notify_expiring_consent: bool = False; notify_followups: bool = False
+class ProfileUpdateRequest(BaseModel): name: str; headline: str = ""; summary: str = ""; location: str = ""; phone: str = ""; linkedin: str = ""; website: str = ""; industry: str = ""; target_roles: list[str] = []; profile_data: dict[str, Any] = Field(default_factory=dict)
+class CopilotPrepareRequest(BaseModel):
+    request_id: str = Field(min_length=36, max_length=36)
+    portal_host: str = Field(min_length=3, max_length=255)
+    portal_allowed: bool = False
+    analysis_only: bool = False
+    consent_data_processing: bool = False
+    consent_gemini_processing: bool = False
+    job_title: str = Field(default="", max_length=200)
+    job_company: str = Field(default="", max_length=200)
+    job_location: str = Field(default="", max_length=200)
+    job_description: str = Field(default="", max_length=12000)
+
+class CopilotCompleteRequest(BaseModel):
+    request_id: str = Field(min_length=36, max_length=36)
+    filled_count: int = Field(ge=0, le=100)
+class ProfileExperienceRequest(BaseModel):
+    role: str = Field(min_length=1, max_length=200)
+    company: str = Field(default="", max_length=200)
+    start_date: str = Field(default="", max_length=50)
+    end_date: str = Field(default="", max_length=50)
+    description: str = Field(default="", max_length=5000)
+
+class ProfileEducationRequest(BaseModel):
+    course: str = Field(min_length=1, max_length=200)
+    institution: str = Field(default="", max_length=200)
+    period: str = Field(default="", max_length=100)
+
+PROFILE_EXTRACTED_SECTIONS = frozenset({"experiences", "skills", "education", "languages"})
+
+class ExtractedProfileUpdateRequest(BaseModel):
+    experiences: list[ProfileExperienceRequest] = Field(default_factory=list, max_length=50)
+    skills: list[str] = Field(default_factory=list, max_length=100)
+    education: list[ProfileEducationRequest] = Field(default_factory=list, max_length=50)
+    languages: list[str] = Field(default_factory=list, max_length=30)
+    manual_sections: list[Literal["experiences", "skills", "education", "languages"]] = Field(default_factory=list, max_length=4)
+class InterviewAnswerRequest(BaseModel): question: str = Field(min_length=3, max_length=500); answer: str = Field(min_length=5, max_length=12000); context: str = Field(default="", max_length=4000)
+
+@app.post("/api/interviews/evaluate")
+async def evaluate_interview(req: InterviewAnswerRequest, user=Depends(authenticated_user), request: Request = None):
+    if _document_export_metadata(user).get("plan") != "pro":
+        raise HTTPException(
+            402,
+            detail={
+                "code": "PRO_PLAN_REQUIRED",
+                "message": "A avaliação de entrevista com IA está incluída no plano Pro.",
+                "plans_url": "/#planos",
+            },
+        )
+    if request is not None:
+        _enforce_rate_limit(request, "ai-interview-evaluation", str(_owner_id(user) or ""))
+    try:
+        return await evaluate_interview_answer(req.question, req.answer, req.context)
+    except AIProviderError as exc:
+        logger.warning("Provedor de IA indisponivel na avaliacao de entrevista: %s", exc)
+        raise HTTPException(503, "A analise nao esta disponivel agora. Tente novamente em instantes.") from exc
+
+
+@app.get("/api/interviews/prep/{app_id}")
+def interview_prep(app_id: int, user=Depends(authenticated_user)):
+    """Monta um roteiro inicial de entrevista com base nos gaps da candidatura."""
+    db = SessionLocal()
+    try:
+        application = _application_for_user(db, app_id, user)
+        if application is None:
+            raise HTTPException(404, "Candidatura nao encontrada.")
+        analysis: dict[str, Any] = {}
+        if application.analysis_data:
+            try:
+                analysis = json.loads(application.analysis_data)
+            except (TypeError, ValueError):
+                analysis = {}
+        if not isinstance(analysis, dict):
+            analysis = {}
+
+        def bounded_items(key: str) -> list[str]:
+            values = analysis.get(key)
+            if not isinstance(values, list):
+                return []
+            result: list[str] = []
+            for value in values:
+                if not isinstance(value, str):
+                    continue
+                cleaned = value.strip()[:300]
+                if cleaned:
+                    result.append(cleaned)
+                if len(result) >= 6:
+                    break
+            return result
+
+        gaps = bounded_items("gaps")
+        strengths = bounded_items("strengths")
+        questions = [
+            f"Conte uma situação em que você aplicou {gap} e qual foi o resultado."
+            for gap in gaps
+        ]
+        if not questions:
+            questions = [
+                "Conte uma realização profissional relevante para esta vaga.",
+                "Descreva uma situação difícil que você resolveu e o que aprendeu.",
+                "Como você mede a qualidade do seu trabalho nesta área?",
+            ]
+        return {
+            "application_id": application.id,
+            "job_title": application.job.title,
+            "company": application.job.company,
+            "analysis_score": _score_percent(application.analysis_score),
+            "gaps": gaps,
+            "strengths": strengths,
+            "questions": questions,
+            "answer_framework": "Use contexto, ação e resultado; não invente experiências para preencher um gap.",
+        }
+    finally:
+        db.close()
+
+def _split_target_roles(s): return [x.strip() for x in s.split(",") if x.strip()]
+def _fallback_profile():
+    exps = [{"company": e["company"], "role": e["role"], "description": " ".join(e["bullets"])} for e in MASTER_PROFILE["experiences"]]
+    return {"name": MASTER_PROFILE["name"], "summary": MASTER_PROFILE["summary"], "target_roles": ["Analista de RH", "Analista de DP", "Supervisor de RH", "Supervisor de DP", "Coordenador de RH", "Coordenador de DP", "Gerente de RH", "Gerente de DP"], "experience_texts": [e["description"] for e in exps], "experiences": exps, "skills": list(MASTER_PROFILE["skills"]), "location": MASTER_PROFILE["location"], "contact": {"phone": MASTER_PROFILE["phone"], "email": MASTER_PROFILE["email"], "linkedin": MASTER_PROFILE["linkedin"], "location": MASTER_PROFILE["location"]}}
+def _candidate_profile(cand):
+    if cand is None: return _fallback_profile()
+    pd = {}
+    if cand.profile_data:
+        try: pd = json.loads(cand.profile_data)
+        except: pass
+    exps = [{"company": e.company, "role": e.role, "description": e.description, "start_date": e.start_date, "end_date": e.end_date, "period": " - ".join([v for v in (e.start_date, e.end_date) if v]), "bullets": [l.strip() for l in e.description.splitlines() if l.strip()]} for e in cand.experiences]
+    return {"name": cand.name, "summary": cand.summary, "target_roles": _split_target_roles(cand.target_roles), "experience_texts": [e["description"] for e in exps], "experiences": exps, "skills": [s.name for s in cand.skills], "headline": pd.get("headline", ""), "education": pd.get("education", []), "languages": pd.get("languages", []), "location": cand.location, "contact": {"phone": cand.phone, "email": cand.email, "linkedin": cand.linkedin, "location": cand.location}}
+def _job_text(j): return "\n".join([j.title or "", j.company or "", j.location or "", j.modality or "", j.salary or "", j.description or ""])
+def _build_application(job, cand):
+    p = _candidate_profile(cand)
+    a = analyze_job(_job_text(job), p)
+    pers = personalize_resume(job.title, job.description, p)
+    rc = {"name": p["name"], "contact": p["contact"], "target": job.title, "headline": p.get("headline", ""), "skills": p.get("skills", []), "education": p.get("education", []), "languages": p.get("languages", [])}
+    r = generate_resume(rc, pers)
+    r["target"] = job.title
+    return {"profile": p, "analysis": a, "personalization": pers, "resume": r}
+def _content_version(prefix: str, value: Any) -> str:
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}-{digest}"
+
+
+def _add_event(db, app, status, note="", channel="", external_result=""):
+    app.status = status
+    event = ApplicationEvent(
+        application_id=app.id,
+        status=status,
+        note=note or None,
+        channel=channel or None,
+        external_result=external_result or None,
+        resume_version=app.resume_version,
+        cover_letter_version=app.cover_letter_version,
+    )
+    db.add(event)
+    return event
+def _ensure_app(db, job, cand):
+    a = db.scalar(select(Application).where(Application.job_id == job.id))
+    if a: return a
+    a = Application(job_id=job.id, candidate_id=cand.id if cand else None, status="IDENTIFICADA")
+    db.add(a); db.flush()
+    _add_event(db, a, "IDENTIFICADA", "Vaga adicionada.")
+    return a
+def _advance_app(db, app, status, note=""):
+    if APPLICATION_STATUSES.index(status) > APPLICATION_STATUSES.index(app.status):
+        _add_event(db, app, status, note)
+
+
+def _enforce_application_risk_gate(app, target_status: str):
+    """Keep risky opportunities from being marked as submitted without review."""
+    submission_statuses = {"CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO"}
+    if target_status not in submission_statuses:
+        return
+    if app.fraud_suspected:
+        raise HTTPException(
+            409,
+            "Esta oportunidade foi bloqueada por sinais de fraude e nao pode avancar.",
+        )
+    if (app.health_band or "").strip().upper() in {"DUVIDOSA", "SUSPEITA"} and not app.risk_reviewed_at:
+        raise HTTPException(
+            409,
+            "Revise os sinais de risco antes de registrar o envio da candidatura.",
+        )
+
+
+def _serialize_app(a, include_document_paths: bool = True, include_cover_letter_text: bool = False):
+    an = None
+    if a.analysis_data:
+        try: an = json.loads(a.analysis_data)
+        except: pass
+    raw_score = a.analysis_score
+    if raw_score is None and isinstance(an, dict):
+        raw_score = an.get("score")
+    score = _score_percent(raw_score)
+    if isinstance(an, dict) and an.get("score") is not None:
+        an["score"] = score
+    try: dr = json.loads(a.decision_reasons or "[]")
+    except: dr = []
+    try: fc = json.loads(a.field_confidence or "{}")
+    except: fc = {}
+    return {"id": a.id, "job_id": a.job_id, "candidate_id": a.candidate_id, "company": a.job.company, "job_title": a.job.title, "job_url": a.job.url, "status": a.status, "analysis_score": score, "personalization_score": a.personalization_score, "recommendation": a.recommendation, "queue_decision": a.queue_decision or "REVISAR", "decision_reasons": dr, "capture_confidence": a.capture_confidence, "field_confidence": fc, "analysis": an, "document_path": a.document_path if include_document_paths else None, "cover_letter_text": a.cover_letter_text if include_cover_letter_text else _cover_letter_preview(a.cover_letter_text), "cover_letter_path": a.cover_letter_path if include_document_paths else None, "resume_version": a.resume_version, "cover_letter_version": a.cover_letter_version, "health_score": a.health_score, "health_band": a.health_band, "health_signals": a.health_signals or [], "fraud_suspected": a.fraud_suspected, "risk_reviewed_at": a.risk_reviewed_at.isoformat() if a.risk_reviewed_at else None, "created_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(), "events": [{"id": e.id, "status": e.status, "note": e.note, "channel": e.channel, "external_result": e.external_result, "resume_version": e.resume_version, "cover_letter_version": e.cover_letter_version, "created_at": e.created_at.isoformat()} for e in a.events]}
+
+
+def _score_percent(value):
+    if value is None:
+        return None
+    try:
+        score = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(score):
+        return None
+    return round(max(0.0, min(100.0, score)))
+def _cand_prefs(cand):
+    s = {}
+    if cand and cand.preferences_data:
+        try: s = json.loads(cand.preferences_data)
+        except: pass
+    preferences = normalize_preferences(s, target_roles=cand.target_roles if cand else "", location=cand.location if cand else "")
+    expiry_preferences, _ = _parse_expiration_preferences(cand, utc_now())
+    preferences["notify_expiring"] = expiry_preferences["notify_expiring"]
+    preferences["notify_expiring_consent_at"] = expiry_preferences["notify_expiring_consent_at"]
+    preferences["lifecycle_email_configured"] = select_email_transport(smtp_settings()) is not None
+    return preferences
+def _apply_decision(app, cand, analysis):
+    r = decide_opportunity({"title": app.job.title, "company": app.job.company, "location": app.job.location, "modality": app.job.modality, "description": app.job.description, "salary": app.job.salary, "salary_min": app.job.salary_min, "salary_max": app.job.salary_max, "contract_type": app.job.contract_type}, analysis, _cand_prefs(cand), capture_confidence=app.capture_confidence)
+    reasons = list(r["reasons"])
+    health_band = (app.health_band or "").strip().upper()
+    if app.fraud_suspected:
+        r["decision"] = "DESCARTAR"
+        reasons.extend(reason for reason in ("SAUDE_SUSPEITA", "FRAUDE_SUSPEITA") if reason not in reasons)
+    elif health_band in {"DUVIDOSA", "SUSPEITA"}:
+        r["decision"] = "REVISAR"
+        health_reason = "SAUDE_SUSPEITA" if health_band == "SUSPEITA" else "SAUDE_DUVIDOSA"
+        if health_reason not in reasons:
+            reasons.append(health_reason)
+    app.queue_decision = r["decision"]
+    app.decision_reasons = json.dumps(reasons, ensure_ascii=False)
+
+
+def _save_quality(app, q):
+    previous_risk = (
+        app.health_score,
+        (app.health_band or "").strip().upper(),
+        bool(app.fraud_suspected),
+        json.dumps(app.health_signals or [], ensure_ascii=False, sort_keys=True),
+    )
+    app.capture_confidence = int(q["confidence"])
+    app.field_confidence = json.dumps(q["field_confidence"], ensure_ascii=False)
+    health = q.get("health")
+    if isinstance(health, dict):
+        app.health_score = health.get("score")
+        app.health_band = health.get("band")
+        app.health_signals = health.get("signals") or []
+        app.fraud_suspected = bool(health.get("fraud_suspected", False))
+        current_risk = (
+            app.health_score,
+            (app.health_band or "").strip().upper(),
+            bool(app.fraud_suspected),
+            json.dumps(app.health_signals or [], ensure_ascii=False, sort_keys=True),
+        )
+        if app.risk_reviewed_at and previous_risk != current_risk:
+            app.risk_reviewed_at = None
+
+
+def _refresh_application_risk(app):
+    """Reassess stored job content before review or submission to cover legacy records."""
+    job = app.job
+    quality = assess_job_capture(_job_quality_payload(job))
+    _save_quality(app, quality)
+    _apply_decision(app, None, None)
+
+
+def _job_quality_payload(job):
+    return {
+        "source": job.source or "",
+        "title": job.title or "",
+        "company": job.company or "",
+        "location": job.location or "",
+        "modality": job.modality or "",
+        "contract_type": job.contract_type or "",
+        "salary": job.salary or "",
+        "url": job.url or "",
+        "description": job.description or "",
+    }
+
+
+def _job_risk_content_signature(job):
+    payload = _job_quality_payload(job)
+    return tuple(str(payload.get(key) or "").strip() for key in (
+        "source", "title", "company", "location", "modality",
+        "contract_type", "salary", "url", "description",
+    ))
+
+
+def _save_analysis(app, analysis, cand):
+    app.analysis_score = analysis["score"]
+    app.recommendation = analysis["recommendation"]
+    app.analysis_data = json.dumps(analysis, ensure_ascii=False)
+    _apply_decision(app, cand, analysis)
+
+@app.on_event("startup")
+def startup():
+    global _retention_task
+    db = SessionLocal()
+    try:
+        # PostgreSQL system-catalog reflection can exceed Supabase's statement
+        # timeout as the schema grows. Its native idempotent DDL is cheaper and
+        # avoids blocking a Render deployment on SQLAlchemy inspection.
+        if engine.dialect.name == "postgresql":
+            # Serialize bootstrap work across rolling deploys.  The lock is
+            # transaction-scoped and remains held until the schema transaction
+            # below commits, so a second instance cannot run the same DDL while
+            # the first one is changing the catalog.
+            db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
+                {"lock_name": _POSTGRES_SCHEMA_LOCK_NAME},
+            )
+            Base.metadata.create_all(bind=db.connection())
+            for table in ("generated_documents", "document_deliveries", "followup_email_outbox", "email_application_submissions", "copilot_preparations"):
+                policy = f"{table}_owner"
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+                db.execute(text(f"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_policies
+                            WHERE schemaname = current_schema()
+                              AND tablename = '{table}'
+                              AND policyname = '{policy}'
+                        ) THEN
+                            CREATE POLICY {policy}
+                                ON {table}
+                                FOR ALL TO authenticated
+                                USING (owner_id = auth.uid()::text)
+                                WITH CHECK (owner_id = auth.uid()::text);
+                        END IF;
+                    END $$;
+                """))
+            # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
+            for table in ("interview_email_outbox", "expiring_job_email_outbox", "job_ingestion_tasks"):
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("REVOKE ALL ON TABLE job_ingestion_tasks FROM anon, authenticated"))
+            if not _postgres_rls_enabled(db, "job_ingestion_runs"):
+                db.execute(text("ALTER TABLE job_ingestion_runs ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("REVOKE ALL ON TABLE job_ingestion_runs FROM anon, authenticated"))
+            for table in ("billing_subscriptions", "consultation_credits"):
+                if not _postgres_rls_enabled(db, table):
+                    db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            # Shared ingestion records are client-readable only while active;
+            # writes stay on the server/service-role path and have no client policy.
+            if not _postgres_rls_enabled(db, "job_listings"):
+                db.execute(text("ALTER TABLE job_listings ENABLE ROW LEVEL SECURITY"))
+            db.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = current_schema()
+                          AND tablename = 'job_listings'
+                          AND policyname = 'job_listings_active_read'
+                    ) THEN
+                        CREATE POLICY job_listings_active_read
+                            ON job_listings
+                            FOR SELECT TO anon, authenticated
+                            USING (status = 'active');
+                    END IF;
+                END $$;
+            """))
+            db.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_policies
+                        WHERE schemaname = current_schema()
+                          AND tablename = 'billing_subscriptions'
+                          AND policyname = 'billing_subscriptions_owner'
+                    ) THEN
+                        CREATE POLICY billing_subscriptions_owner
+                            ON billing_subscriptions
+                            FOR ALL TO authenticated
+                            USING (owner_id = auth.uid()::text)
+                            WITH CHECK (owner_id = auth.uid()::text);
+                    END IF;
+                END $$;
+            """))
+            migrations = {
+                "candidates": {
+                    "owner_id": "VARCHAR(36)", "profile_data": "TEXT", "resume_filename": "TEXT", "preferences_data": "TEXT",
+                },
+                "jobs": {
+                    "owner_id": "VARCHAR(36)", "contract_type": "VARCHAR(50) DEFAULT ''", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER", "valid_through": "TIMESTAMP WITH TIME ZONE",
+                },
+                "queue_items": {
+                    "contract_type": "VARCHAR(50)", "salary": "VARCHAR(200)", "modality_confidence": "INTEGER", "salary_confidence": "INTEGER", "contract_confidence": "INTEGER", "salary_min": "INTEGER", "salary_max": "INTEGER",
+                },
+                "document_export_purchases": {
+                    "application_id": "INTEGER", "payer_email": "VARCHAR(320)", "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL", "receipt_email_started_at": "TIMESTAMP WITH TIME ZONE", "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+                    "document_generation_status": "VARCHAR(20) DEFAULT 'WAITING' NOT NULL", "document_generation_attempts": "INTEGER DEFAULT 0 NOT NULL", "document_generation_started_at": "TIMESTAMP WITH TIME ZONE", "document_generation_next_attempt_at": "TIMESTAMP WITH TIME ZONE", "document_generation_completed_at": "TIMESTAMP WITH TIME ZONE", "document_generation_error": "VARCHAR(240)", "payer_email_confirmed": "BOOLEAN DEFAULT FALSE NOT NULL",
+                },
+                "applications": {
+                    "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER", "followup_notified_at": "TIMESTAMP WITH TIME ZONE", "followup_notification_outbox_id": "INTEGER",
+                },
+                "application_events": {
+                    "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
+                },
+            }
+            for table, columns in migrations.items():
+                existing_columns = _postgres_table_columns(db, table)
+                for column, ddl in columns.items():
+                    if column not in existing_columns:
+                        db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+                        existing_columns.add(column)
+            for statement in (
+                "CREATE INDEX IF NOT EXISTS idx_applications_status ON applications (status)",
+                "CREATE INDEX IF NOT EXISTS idx_applications_updated_at ON applications (updated_at)",
+                "CREATE INDEX IF NOT EXISTS idx_applications_queue_decision ON applications (queue_decision)",
+                "CREATE INDEX IF NOT EXISTS ix_applications_followup_notification_outbox_id ON applications (followup_notification_outbox_id)",
+                "CREATE INDEX IF NOT EXISTS idx_candidates_owner_id ON candidates (owner_id)",
+                "CREATE INDEX IF NOT EXISTS idx_jobs_owner_id ON jobs (owner_id)",
+                "CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)",
+            ):
+                db.execute(text(statement))
+            db.commit()
+            cleanup_expired_documents()
+            _cleanup_generated_document_records()
+            _backfill_legacy_generated_document_pairs()
+            _cleanup_raw_intake_data()
+            _cleanup_followup_email_outbox()
+            _cleanup_interview_email_outbox()
+            _cleanup_expiration_email_outbox()
+            if _retention_task is None or _retention_task.done():
+                _retention_task = asyncio.create_task(_document_retention_loop())
+            _start_purchase_generation_worker()
+            _start_lifecycle_email_worker()
+            start_monitor()
+            start_outlook_monitor()
+            return
+        Base.metadata.create_all(bind=engine)
+        for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
+            if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
+                db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
+        if "owner_id" not in {c["name"] for c in inspect(engine).get_columns("jobs")}:
+            db.execute(text("ALTER TABLE jobs ADD COLUMN owner_id VARCHAR(36)"))
+        job_columns = {c["name"] for c in inspect(engine).get_columns("jobs")}
+        for col, ddl in {
+            "contract_type": "VARCHAR(50) DEFAULT ''",
+            "modality_confidence": "INTEGER",
+            "salary_confidence": "INTEGER",
+            "contract_confidence": "INTEGER",
+            "salary_min": "INTEGER",
+            "salary_max": "INTEGER",
+            "valid_through": "TIMESTAMP WITH TIME ZONE",
+        }.items():
+            if col not in job_columns:
+                db.execute(text(f"ALTER TABLE jobs ADD COLUMN {col} {ddl}"))
+        queue_columns = {c["name"] for c in inspect(engine).get_columns("queue_items")}
+        for col, ddl in {
+            "contract_type": "VARCHAR(50)",
+            "salary": "VARCHAR(200)",
+            "modality_confidence": "INTEGER",
+            "salary_confidence": "INTEGER",
+            "contract_confidence": "INTEGER",
+            "salary_min": "INTEGER",
+            "salary_max": "INTEGER",
+        }.items():
+            if col not in queue_columns:
+                db.execute(text(f"ALTER TABLE queue_items ADD COLUMN {col} {ddl}"))
+        purchase_columns = {c["name"] for c in inspect(engine).get_columns("document_export_purchases")}
+        for col, ddl in {
+            "application_id": "INTEGER",
+            "payer_email": "VARCHAR(320)",
+            "receipt_email_status": "VARCHAR(20) DEFAULT 'PENDING' NOT NULL",
+            "receipt_email_started_at": "TIMESTAMP WITH TIME ZONE",
+            "receipt_email_sent_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_status": "VARCHAR(20) DEFAULT 'WAITING' NOT NULL",
+            "document_generation_attempts": "INTEGER DEFAULT 0 NOT NULL",
+            "document_generation_started_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_next_attempt_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_completed_at": "TIMESTAMP WITH TIME ZONE",
+            "document_generation_error": "VARCHAR(240)",
+            "payer_email_confirmed": "BOOLEAN DEFAULT FALSE NOT NULL",
+        }.items():
+            if col not in purchase_columns:
+                db.execute(text(f"ALTER TABLE document_export_purchases ADD COLUMN {col} {ddl}"))
+        application_columns = {c["name"] for c in inspect(engine).get_columns("applications")}
+        for col in ["cover_letter_text", "cover_letter_path", "analysis_data", "decision_reasons", "field_confidence"]:
+            if col not in application_columns:
+                db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} TEXT"))
+        for col in ["resume_version", "cover_letter_version"]:
+            if col not in application_columns:
+                db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} VARCHAR(32)"))
+        for col, ddl in {
+            "health_score": "INTEGER",
+            "health_band": "VARCHAR(20)",
+            "health_signals": "JSON",
+            "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL",
+            "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE",
+            "followup_notified_at": "TIMESTAMP WITH TIME ZONE",
+            "followup_notification_outbox_id": "INTEGER",
+        }.items():
+            if col not in application_columns:
+                db.execute(text(f"ALTER TABLE applications ADD COLUMN {col} {ddl}"))
+        if "queue_decision" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
+            db.execute(text("ALTER TABLE applications ADD COLUMN queue_decision VARCHAR(20) DEFAULT 'REVISAR' NOT NULL"))
+        if "capture_confidence" not in {c["name"] for c in inspect(engine).get_columns("applications")}:
+            db.execute(text("ALTER TABLE applications ADD COLUMN capture_confidence INTEGER"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_applications_followup_notification_outbox_id ON applications (followup_notification_outbox_id)"))
+        event_columns = {c["name"] for c in inspect(engine).get_columns("application_events")}
+        for col in ["channel", "external_result"]:
+            if col not in event_columns:
+                db.execute(text(f"ALTER TABLE application_events ADD COLUMN {col} VARCHAR(50)"))
+        for col in ["resume_version", "cover_letter_version"]:
+            if col not in event_columns:
+                db.execute(text(f"ALTER TABLE application_events ADD COLUMN {col} VARCHAR(32)"))
+        for idx in ["idx_applications_status", "idx_applications_updated_at", "idx_applications_queue_decision", "idx_candidates_owner_id", "idx_jobs_owner_id"]:
+            db.execute(text(f"CREATE INDEX IF NOT EXISTS {idx} ON {'applications' if 'applications' in idx else 'candidates' if 'candidates' in idx else 'jobs'} ({'status' if 'status' in idx else 'updated_at' if 'updated' in idx else 'queue_decision' if 'queue' in idx else 'owner_id'})"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)"))
+        for job in db.scalars(select(Job)).all():
+            cand = db.scalar(select(Candidate).where(Candidate.owner_id == job.owner_id).order_by(Candidate.id))
+            _ensure_app(db, job, cand)
+        db.commit()
+    finally:
+        db.close()
+    cleanup_expired_documents()
+    _cleanup_generated_document_records()
+    _backfill_legacy_generated_document_pairs()
+    _cleanup_raw_intake_data()
+    _cleanup_followup_email_outbox()
+    _cleanup_interview_email_outbox()
+    _cleanup_expiration_email_outbox()
+    _cleanup_copilot_preparations()
+    if _retention_task is None or _retention_task.done():
+        _retention_task = asyncio.create_task(_document_retention_loop())
+    _start_purchase_generation_worker()
+    _start_lifecycle_email_worker()
+    start_monitor()
+    start_outlook_monitor()
+
+@app.on_event("shutdown")
+async def shutdown():
+    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task
+    if _retention_task is not None:
+        _retention_task.cancel()
+        try:
+            await _retention_task
+        except asyncio.CancelledError:
+            pass
+        _retention_task = None
+    if _purchase_generation_task is not None:
+        _purchase_generation_task.cancel()
+        try:
+            await _purchase_generation_task
+        except asyncio.CancelledError:
+            pass
+        _purchase_generation_task = None
+        _purchase_generation_wakeup = None
+    if _lifecycle_email_task is not None:
+        _lifecycle_email_task.cancel()
+        try:
+            await _lifecycle_email_task
+        except asyncio.CancelledError:
+            pass
+        _lifecycle_email_task = None
+    await stop_monitor()
+    await stop_outlook_monitor()
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def root():
+    if not LANDING_PATH.is_file():
+        return {"agente": "Candidatura Certa", "status": "online", "version": "0.24.0", "dashboard": "/dashboard"}
+    html = LANDING_PATH.read_text(encoding="utf-8")
+    html = html.replace("<!-- CANDIDATURA_CERTA_DEMO_VIDEO -->", _landing_demo_video(), 1)
+    html = _with_favicon(html)
+    auth_script = (Path(__file__).parent / "static" / "landing-auth.js").read_text(encoding="utf-8")
+    nonce = current_csp_nonce()
+    html = _nonce_styles(html, nonce)
+    rendered = html.replace(
         "</body>",
         _style_nonce_bootstrap(nonce)
         + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=7" defer></script></body>',
         1,
-    )
-    rendered = re.sub(
-        r"<script(?![^>]*src=)([^>]*)>",
-        lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
-        rendered,
-        flags=re.I,
     )
     return HTMLResponse(rendered)
 
@@ -682,35 +1658,12 @@ def email_verification_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    session = SessionLocal()
-    debug_info = "none"
     try:
-        total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
-        debug_info = "auth.users query successful"
-    except Exception as e:
-        debug_info = f"Error SQL: {str(e)}"
-        
-        url = os.getenv("SUPABASE_URL", "").rstrip("/")
-        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-        total_users = 0
-        if url and key:
-            try:
-                import httpx
-                headers = {"apikey": key, "Authorization": f"Bearer {key}"}
-                r = httpx.get(f"{url}/auth/v1/admin/users?per_page=1000", headers=headers)
-                if r.status_code == 200:
-                    users_data = r.json()
-                    total_users = len(users_data.get("users", []))
-                    debug_info += " | API admin users list successful"
-                else:
-                    debug_info += f" | API error: {r.status_code} {r.text}"
-            except Exception as ex:
-                debug_info += f" | API Exception: {str(ex)}"
-        
-        if total_users == 0:
-            total_users = session.scalar(select(func.count(Candidate.id))) or 0
-
-    return {"status": "ok", "db": "connected", "total_users": total_users, "debug_info": debug_info}
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception:
+        return {"status": "ok", "db": "error"}
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)
