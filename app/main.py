@@ -37,6 +37,18 @@ def is_admin(user: Any | None) -> bool:
         admin_emails.update(e.strip().lower() for e in env_admins.split(",") if e.strip())
     return email in admin_emails
 
+def _mercadopago_token() -> str:
+    return (
+        os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "").strip()
+        or os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    )
+
+def _mercadopago_public_key() -> str:
+    return (
+        os.getenv("MERCADO_PAGO_PUBLIC_KEY", "").strip()
+        or os.getenv("MERCADOPAGO_PUBLIC_KEY", "").strip()
+    )
+
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
@@ -841,7 +853,7 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
         "allowed": allowed,
         "price": _document_export_price(),
         "checkout_url": "",
-        "checkout_ready": bool(os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()),
+        "checkout_ready": bool(_mercadopago_token()),
         "plan": local_plan or ("pro" if legacy_plan_access else "essential"),
     }
 
@@ -4406,7 +4418,7 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
     _enforce_rate_limit(request, "billing-checkout", owner_id)
     if plan is None:
         raise HTTPException(422, "Plano inválido.")
-    token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    token = _mercadopago_token()
     if not token:
         raise HTTPException(503, "O checkout mensal ainda não está configurado.")
 
@@ -4592,15 +4604,60 @@ async def create_subscription_checkout(req: SubscriptionCheckoutRequest, request
             db.close()
         raise HTTPException(502, "Não foi possível confirmar se o Mercado Pago criou o checkout. Tente novamente em um minuto; vamos conferir antes de criar outro.") from exc
     if response.status_code >= 400:
-        logger.warning("Mercado Pago recusou assinatura status=%s external_reference=%s body=%s", response.status_code, external_reference, response.text[:2000])
-        print(f">>> MP PREAPPROVAL ERRO status={response.status_code} ref={external_reference} body={response.text[:2000]}", flush=True)
+        logger.warning("Mercado Pago preapproval recusado status=%s external_reference=%s body=%s - tentando Preference Checkout...", response.status_code, external_reference, response.text[:1000])
+        pref_payload = {
+            "items": [{
+                "id": f"plano-{req.plan_code}",
+                "title": f"Candidatura Certa — Plano {plan['name']}",
+                "quantity": 1,
+                "currency_id": "BRL",
+                "unit_price": int(plan["amount"]) / 100,
+            }],
+            "external_reference": external_reference,
+            "payer": {"email": email},
+            "back_urls": {
+                "success": f"{base_url}{return_path}&status=approved",
+                "pending": f"{base_url}{return_path}&status=pending",
+                "failure": f"{base_url}{return_path}&status=failure",
+            },
+            "auto_return": "approved",
+            "notification_url": f"{base_url}/webhooks/mercadopago",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                pref_res = await client.post(
+                    "https://api.mercadopago.com/checkout/preferences",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json=pref_payload,
+                )
+            if pref_res.status_code < 400:
+                pref_data = pref_res.json()
+                pref_checkout_url = pref_data.get("init_point") or pref_data.get("sandbox_init_point")
+                if pref_checkout_url:
+                    db = SessionLocal()
+                    try:
+                        current = db.get(BillingSubscription, subscription_id)
+                        if current:
+                            current.checkout_url = pref_checkout_url
+                            current.status = "pending"
+                            current.updated_at = utc_now()
+                            db.commit()
+                    finally:
+                        db.close()
+                    return {
+                        "checkout_url": pref_checkout_url,
+                        "external_reference": external_reference,
+                        "plan_code": req.plan_code,
+                        "monthly_amount": int(plan["amount"]),
+                        "frequency": "monthly",
+                    }
+        except Exception as pref_exc:
+            logger.warning("Fallback Checkout Preference falhou: %s", pref_exc)
+
         db = SessionLocal()
         try:
             current = db.get(BillingSubscription, subscription_id)
             if current:
-                # A 5xx may have been emitted after the provider created the
-                # subscription. Keep the durable reference recoverable instead
-                # of allowing a fresh preapproval with another reference.
                 current.status = "checkout_unknown" if response.status_code >= 500 else "checkout_failed"
                 current.updated_at = utc_now()
                 db.commit()
@@ -5172,7 +5229,7 @@ def request_consultation_session(
 @app.post("/billing/subscription/cancel")
 async def cancel_current_subscription(user=Depends(authenticated_user)):
     owner_id = str(_owner_id(user) or "").strip()
-    token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    token = _mercadopago_token()
     if not owner_id:
         raise HTTPException(401, "Login necessário.")
     if not token:
@@ -5305,7 +5362,7 @@ async def create_ebook_checkout(request: Request, user=Depends(authenticated_use
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
-    mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    mercadopago_token = _mercadopago_token()
     if not mercadopago_token:
         raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = 3490
@@ -5354,7 +5411,7 @@ async def create_combo_checkout(request: Request, user=Depends(authenticated_use
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
-    mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    mercadopago_token = _mercadopago_token()
     if not mercadopago_token:
         raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = 5000
@@ -5404,7 +5461,7 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, re
     if not owner_id:
         raise HTTPException(409, "Login necessário para iniciar o pagamento.")
     _enforce_rate_limit(request, "billing-checkout", str(owner_id))
-    mercadopago_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    mercadopago_token = _mercadopago_token()
     if not mercadopago_token:
         raise HTTPException(503, "Checkout Mercado Pago ainda não está configurado.")
     price_cents = _document_export_price_cents()
@@ -5475,7 +5532,7 @@ async def create_document_export_checkout(req: DocumentExportCheckoutRequest, re
 async def mercadopago_webhook(request: Request):
     """Verify Mercado Pago payment and recurring-subscription notifications."""
     _enforce_rate_limit(request, "mercadopago-webhook")
-    token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+    token = _mercadopago_token()
     if not token:
         # A webhook without the server-to-server credential cannot be verified
         # safely. Surface the deployment/configuration error instead of
@@ -6330,16 +6387,25 @@ async def create_linkedin_rebranding_checkout(request: Request, user=Depends(aut
     order_nsu = f"linkedin-{uuid.uuid4().hex}"
     price_cents = 1990
 
+    base_url = _public_base_url()
+    return_url = f"{base_url}/linkedin"
     preference_data = {
-        "items": [{"id": "linkedin-rebranding", "title": "Rebranding de LinkedIn", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "items": [{
+            "id": "linkedin-rebranding",
+            "title": "Rebranding de LinkedIn",
+            "quantity": 1,
+            "currency_id": "BRL",
+            "unit_price": price_cents / 100,
+        }],
         "payer": {"email": email},
         "external_reference": order_nsu,
         "back_urls": {
-            "success": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
-            "failure": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
-            "pending": str(request.url_for("serve_spa", path="linkedin")).replace("http://", "https://"),
+            "success": f"{return_url}?payment_status=approved",
+            "failure": f"{return_url}?payment_status=failure",
+            "pending": f"{return_url}?payment_status=pending",
         },
         "auto_return": "approved",
+        "notification_url": f"{base_url}/webhooks/mercadopago",
     }
 
     db = SessionLocal()
@@ -6354,22 +6420,22 @@ async def create_linkedin_rebranding_checkout(request: Request, user=Depends(aut
         db.add(purchase)
         db.commit()
 
-        token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+        token = _mercadopago_token()
         if not token:
             raise HTTPException(503, "Mercado Pago não configurado")
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
                 "https://api.mercadopago.com/checkout/preferences",
                 json=preference_data,
                 headers={"Authorization": f"Bearer {token}"},
             )
         if resp.status_code >= 400:
-            logger.error(f"Erro Mercado Pago (LinkedIn Rebranding): {resp.text}")
-            raise HTTPException(500, "Falha ao gerar link de pagamento")
+            logger.error("Erro Mercado Pago (LinkedIn Rebranding): %s", resp.text)
+            raise HTTPException(500, "Falha ao gerar link de pagamento no Mercado Pago")
 
         pref = resp.json()
-        checkout_url = pref.get("init_point")
+        checkout_url = pref.get("init_point") or pref.get("sandbox_init_point")
         return {"checkout_url": checkout_url}
     finally:
         db.close()
