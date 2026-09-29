@@ -54,9 +54,89 @@ from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Uplo
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, select, text, update
+from sqlalchemy import func, inspect, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
+
+def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
+    """Dynamically query PostgreSQL BillingSubscription and Candidate in real-time.
+    Honors CORTESIA, admin bypass, and active subscriptions immediately."""
+    if not user:
+        return {"plan": "essential", "is_pro": False, "is_consultoria": False, "is_admin": False, "entitled": False, "reason": "unauthenticated", "email": ""}
+    
+    user_email = ""
+    owner_id = ""
+    if isinstance(user, dict):
+        user_email = str(user.get("email") or "").strip().lower()
+        owner_id = str(user.get("id") or user.get("uid") or user.get("sub") or "").strip()
+    else:
+        user_email = str(getattr(user, "email", "") or "").strip().lower()
+        owner_id = str(getattr(user, "uid", getattr(user, "id", "")) or "").strip()
+
+    if is_admin(user):
+        return {"plan": "consultoria", "is_pro": True, "is_consultoria": True, "is_admin": True, "entitled": True, "reason": "admin", "email": user_email}
+
+    db = SessionLocal()
+    try:
+        clauses = []
+        if owner_id:
+            clauses.append(BillingSubscription.owner_id == owner_id)
+        if user_email:
+            clauses.append(func.lower(BillingSubscription.payer_email) == user_email)
+
+        now = utc_now()
+        sub = None
+        if clauses:
+            sub = db.scalar(
+                select(BillingSubscription)
+                .where(or_(*clauses))
+                .where(BillingSubscription.status.in_(["authorized", "active", "paused", "canceled"]))
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
+
+        if sub:
+            plan_code = str(sub.plan_code or "essential").strip().lower()
+            is_courtesy = "cortesia" in str(sub.external_reference or "").lower() or str(sub.status).lower() in ("authorized", "active")
+            
+            has_access = False
+            if sub.access_until:
+                access_until = sub.access_until
+                if access_until.tzinfo is None:
+                    access_until = access_until.replace(tzinfo=timezone.utc)
+                if access_until > now:
+                    has_access = True
+            elif sub.status in ("authorized", "active") or is_courtesy:
+                has_access = True
+            elif _subscription_is_entitled(sub):
+                has_access = True
+
+            if has_access and plan_code != "essential":
+                is_pro_tier = plan_code in ("pro", "consultoria", "start_plus") or (is_courtesy and plan_code in ("pro", "consultoria"))
+                return {
+                    "plan": plan_code,
+                    "is_pro": is_pro_tier,
+                    "is_consultoria": plan_code == "consultoria",
+                    "is_admin": False,
+                    "entitled": True,
+                    "reason": "subscription_or_courtesy",
+                    "email": user_email,
+                }
+
+        return {
+            "plan": "essential",
+            "is_pro": False,
+            "is_consultoria": False,
+            "is_admin": False,
+            "entitled": False,
+            "reason": "no_active_subscription",
+            "email": user_email,
+        }
+    except Exception as e:
+        logger.exception("Error checking dynamic user plan: %s", e)
+        return {"plan": "essential", "is_pro": False, "is_consultoria": False, "is_admin": False, "entitled": False, "reason": "db_error", "email": user_email}
+    finally:
+        db.close()
 
 from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, extension_authenticated_user, router as auth_router
 from .gmail_integration import router as gmail_router
@@ -796,30 +876,27 @@ def _sync_subscription_from_provider(db, provider: dict[str, Any]) -> BillingSub
 
 
 def _document_export_metadata(user: dict | None, application_id: int | None = None) -> dict[str, Any]:
-    if is_admin(user): return {'allowed': True, 'price': _document_export_price(), 'checkout_url': ''}
-    """Return the server-side entitlement metadata for DOCX exports.
+    entitlement = _get_user_plan_and_entitlement(user)
+    if entitlement["is_admin"] or entitlement["plan"] in ("start", "pro", "consultoria"):
+        return {
+            "allowed": True,
+            "price": _document_export_price(),
+            "checkout_url": "",
+            "checkout_ready": bool(_mercadopago_token()),
+            "plan": entitlement["plan"],
+        }
 
-    Active local subscriptions are authoritative and time-bounded. Legacy
-    app_metadata grants are honored only for accounts with no local subscription.
-    """
-    # Direct calls from internal compatibility helpers/tests do not represent a
-    # browser request and keep the historical behavior of returning a file.
     if not isinstance(user, dict):
-        return {"allowed": True, "price": _document_export_price(), "checkout_url": ""}
+        return {"allowed": True, "price": _document_export_price(), "checkout_url": "", "checkout_ready": bool(_mercadopago_token()), "plan": "essential"}
 
-    app_metadata = user.get("app_metadata") if isinstance(user.get("app_metadata"), dict) else {}
-    plan = str(app_metadata.get("plan") or app_metadata.get("subscription_plan") or "").strip().casefold()
-    paid_flag = app_metadata.get("document_export_paid") or app_metadata.get("document_export_access")
-    paid_flag = str(paid_flag).strip().casefold() in {"1", "true", "yes", "paid", "pro"}
     allowed_emails = {
         item.strip().casefold()
         for item in os.getenv("DOCUMENT_EXPORT_ALLOWED_EMAILS", "").split(",")
         if item.strip()
     }
     email = str(user.get("email") or "").strip().casefold()
-    local_paid = False
-    local_subscription = None
     owner_id = str(user.get("id") or "").strip()
+    local_paid = False
     if owner_id:
         db = SessionLocal()
         try:
@@ -830,31 +907,18 @@ def _document_export_metadata(user: dict | None, application_id: int | None = No
                     *([DocumentExportPurchase.application_id == application_id] if application_id is not None else []),
                 ).limit(1)
             ) is not None
-            local_subscription = db.scalar(
-                select(BillingSubscription)
-                .where(BillingSubscription.owner_id == owner_id)
-                .order_by(BillingSubscription.updated_at.desc())
-                .limit(1)
-            )
         except Exception:
-            # Bases antigas podem ainda não ter recebido a tabela nova.
             local_paid = False
-            local_subscription = None
         finally:
             db.close()
-    local_plan = (
-        str(local_subscription.plan_code or "").casefold()
-        if _subscription_is_entitled(local_subscription)
-        else ""
-    )
-    legacy_plan_access = plan in {"pro", "premium", "pro_monthly", "pro_yearly"} and local_subscription is None
-    allowed = legacy_plan_access or local_plan in {"start", "pro"} or paid_flag or email in allowed_emails or local_paid
+
+    allowed = local_paid or email in allowed_emails
     return {
         "allowed": allowed,
         "price": _document_export_price(),
         "checkout_url": "",
         "checkout_ready": bool(_mercadopago_token()),
-        "plan": local_plan or ("pro" if legacy_plan_access else "essential"),
+        "plan": "essential",
     }
 
 
@@ -1794,8 +1858,8 @@ def voice_simulator_page():
 @app.post("/api/interview/voice/start", include_in_schema=False)
 async def voice_interview_start(request: Request, user=Depends(authenticated_user)):
     """Inicia uma sessao de entrevista por voz e retorna a primeira pergunta da IA."""
-    plan = getattr(user, "plan_code", "gratis") or "gratis"
-    if plan not in ("pro", "consultoria") and not is_admin(user):
+    entitlement = _get_user_plan_and_entitlement(user)
+    if not entitlement["is_pro"] and not entitlement["is_admin"]:
         raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
@@ -1813,8 +1877,8 @@ async def voice_interview_start(request: Request, user=Depends(authenticated_use
 @app.post("/api/interview/voice/chat", include_in_schema=False)
 async def voice_interview_chat(request: Request, user=Depends(authenticated_user)):
     """Processa um turno da entrevista por voz e retorna a resposta da IA."""
-    plan = getattr(user, "plan_code", "gratis") or "gratis"
-    if plan not in ("pro", "consultoria") and not is_admin(user):
+    entitlement = _get_user_plan_and_entitlement(user)
+    if not entitlement["is_pro"] and not entitlement["is_admin"]:
         raise HTTPException(402, detail={"code": "PRO_PLAN_REQUIRED", "message": "A Entrevista por Voz com IA está disponível nos planos Pro e Consultoria."})
     try:
         body = await request.json()
@@ -4727,7 +4791,7 @@ def get_current_subscription(user=Depends(authenticated_user)):
         opportunity_usage = monthly_opportunity_usage(db, owner_id)
         subscription = db.scalar(
             select(BillingSubscription)
-            .where(BillingSubscription.owner_id == owner_id)
+            .where(or_(BillingSubscription.owner_id == owner_id, func.lower(BillingSubscription.payer_email) == str(user.get("email") or "").strip().lower()))
             .order_by(BillingSubscription.updated_at.desc())
             .limit(1)
         )
@@ -4747,6 +4811,28 @@ def get_current_subscription(user=Depends(authenticated_user)):
                     "used": opportunity_usage["used"],
                     "limit": 999999,
                     "remaining": 999999,
+                    "resets_at": opportunity_usage["resets_at"].isoformat(),
+                },
+            }
+        if entitlement["entitled"]:
+            plan_code = entitlement["plan"]
+            plan = SUBSCRIPTION_PLANS.get(plan_code, {})
+            limit_val = 500 if plan_code == "pro" else (150 if plan_code == "start" else 1000)
+            return {
+                "plan_code": plan_code,
+                "plan_name": plan.get("name", plan_code.title()),
+                "status": subscription.status if subscription else "authorized",
+                "active": True,
+                "checkout_url": None,
+                "monthly_amount": subscription.monthly_amount if subscription else 0,
+                "currency": "BRL",
+                "next_payment_at": subscription.next_payment_at.isoformat() if (subscription and subscription.next_payment_at) else None,
+                "access_until": subscription.access_until.isoformat() if (subscription and subscription.access_until) else None,
+                "can_cancel": bool(subscription and subscription.mercadopago_preapproval_id and subscription.status in {"pending", "authorized", "paused"}),
+                "opportunities": {
+                    "used": opportunity_usage["used"],
+                    "limit": limit_val,
+                    "remaining": max(0, limit_val - opportunity_usage["used"]),
                     "resets_at": opportunity_usage["resets_at"].isoformat(),
                 },
             }
@@ -6341,39 +6427,26 @@ download_application_cover_letter = download_cover_letter
 
 @app.get("/api/linkedin/access-status", include_in_schema=False)
 def check_linkedin_access(user=Depends(authenticated_user)):
-    user_email = str(user.get("email") or "").strip().lower()
-    MASTER_EMAILS = {"contato@candidaturacerta.com.br", "usoparakotas4@gmail.com", "usoparakotas21@gmail.com"}
-    if is_admin(user) or user_email in MASTER_EMAILS:
-        return {"has_access": True, "reason": "admin", "email": user_email}
-    owner_id = getattr(user, "uid", getattr(user, "id", None))
-    if not owner_id:
-        return {"has_access": False, "reason": "unauthenticated", "email": user_email}
+    ent = _get_user_plan_and_entitlement(user)
+    user_email = ent.get("email", "")
+    if ent.get("is_admin"):
+        return {"has_access": True, "reason": "admin", "email": user_email, "plan": ent.get("plan")}
+    if ent.get("is_pro") or ent.get("is_consultoria"):
+        return {"has_access": True, "reason": "plan", "email": user_email, "plan": ent.get("plan")}
 
-    plan = getattr(user, "plan_code", "gratis") or "gratis"
-    if plan in ["pro", "consultoria"]:
-        return {"has_access": True, "reason": "plan", "email": user_email}
-
+    owner_id = _owner_id(user)
     db = SessionLocal()
     try:
-        # Also check active billing subscription for pro/consultoria
-        sub = db.scalar(
-            select(BillingSubscription)
-            .where(BillingSubscription.owner_id == owner_id)
-            .where(BillingSubscription.status == "authorized")
-            .order_by(BillingSubscription.updated_at.desc())
-            .limit(1)
-        )
-        if sub and sub.plan_code in ("pro", "consultoria") and _subscription_is_entitled(sub):
-            return {"has_access": True, "reason": "plan", "email": user_email}
-
-        purchase = db.scalar(
-            select(LinkedinRebrandingPurchase)
-            .where(LinkedinRebrandingPurchase.owner_id == owner_id)
-            .where(LinkedinRebrandingPurchase.status == "PAID")
-        )
+        purchase = None
+        if owner_id:
+            purchase = db.scalar(
+                select(LinkedinRebrandingPurchase)
+                .where(LinkedinRebrandingPurchase.owner_id == owner_id)
+                .where(LinkedinRebrandingPurchase.status == "PAID")
+            )
         if purchase:
-            return {"has_access": True, "reason": "purchase", "email": user_email}
-        return {"has_access": False, "reason": "no_purchase", "email": user_email}
+            return {"has_access": True, "reason": "purchase", "email": user_email, "plan": ent.get("plan")}
+        return {"has_access": False, "reason": "no_purchase", "email": user_email, "plan": ent.get("plan")}
     finally:
         db.close()
 
@@ -6445,13 +6518,13 @@ async def generate_linkedin_rebranding(
     file: UploadFile = File(...),
     user=Depends(authenticated_user)
 ):
-    owner_id = getattr(user, "uid", getattr(user, "id", None))
+    owner_id = _owner_id(user)
     if not owner_id:
         raise HTTPException(401, "Usuário não autenticado")
 
-    # Access Verification
-    plan = getattr(user, "plan_code", "gratis") or "gratis"
-    has_access = plan in ["pro", "consultoria"] or is_admin(user)
+    # Real-time entitlement check from PostgreSQL
+    ent = _get_user_plan_and_entitlement(user)
+    has_access = ent.get("is_admin") or ent.get("is_pro") or ent.get("is_consultoria")
     
     if not has_access:
         db = SessionLocal()
@@ -6892,50 +6965,108 @@ async def admin_metrics(request: Request):
 async def admin_grant(payload: AdminGrantRequest, request: Request):
     from .auth import _resolve_session
     import uuid
-    from datetime import timedelta
+    from datetime import timedelta, timezone
     
     user, _ = await _resolve_session(request)
     if not user:
         raise HTTPException(401, "Login necessario.")
         
     admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
-    if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
+    admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
+    user_email = str(user.get("email") or "").strip().lower()
+    if user_email not in admin_emails and not os.getenv("DEBUG"):
         raise HTTPException(403, "Acesso negado.")
         
     plan = payload.plan.lower()
     if plan not in ['start', 'pro', 'consultoria', 'essential']:
         raise HTTPException(400, "Plano invalido")
+
+    target_email = payload.email.strip().lower()
+    if not target_email or "@" not in target_email:
+        raise HTTPException(400, "E-mail inválido")
         
     session = SessionLocal()
-    candidate = session.scalar(select(Candidate).where(Candidate.email == payload.email))
-    if not candidate or not candidate.owner_id:
-        session.close()
-        raise HTTPException(404, "Usuario nao encontrado ou sem cadastro concluido.")
+    try:
+        candidate = session.scalar(
+            select(Candidate).where(func.lower(Candidate.email) == target_email)
+        )
         
-    if plan == 'essential':
+        target_owner_id = None
+        if candidate and candidate.owner_id:
+            target_owner_id = candidate.owner_id
+        else:
+            # Check existing subscriptions for an owner_id
+            existing_sub = session.scalar(
+                select(BillingSubscription)
+                .where(func.lower(BillingSubscription.payer_email) == target_email)
+                .order_by(BillingSubscription.updated_at.desc())
+                .limit(1)
+            )
+            if existing_sub and existing_sub.owner_id:
+                target_owner_id = existing_sub.owner_id
+            else:
+                target_owner_id = str(uuid.uuid4())
+            
+            if not candidate:
+                candidate = Candidate(
+                    owner_id=target_owner_id,
+                    name=target_email.split('@')[0].capitalize(),
+                    email=target_email,
+                    location="Brasil",
+                    phone="",
+                    linkedin="",
+                    target_roles="",
+                    summary="Perfil criado via concessão administrativa",
+                )
+                session.add(candidate)
+            else:
+                candidate.owner_id = target_owner_id
+            session.flush()
+
+        now_utc = datetime.now(timezone.utc)
+
+        if plan == 'essential':
+            session.execute(
+                BillingSubscription.__table__.update()
+                .where(
+                    or_(
+                        BillingSubscription.owner_id == target_owner_id,
+                        func.lower(BillingSubscription.payer_email) == target_email,
+                    )
+                )
+                .values(status="canceled", access_until=now_utc)
+            )
+            session.commit()
+            return {"message": f"Acesso premium revogado. O usuario {target_email} voltou para o plano Essencial."}
+            
+        # Cancel older active subscriptions to avoid conflicts
         session.execute(
             BillingSubscription.__table__.update()
-            .where(BillingSubscription.owner_id == candidate.owner_id)
-            .values(status="canceled", access_until=datetime.utcnow())
+            .where(
+                or_(
+                    BillingSubscription.owner_id == target_owner_id,
+                    func.lower(BillingSubscription.payer_email) == target_email,
+                )
+            )
+            .where(BillingSubscription.status == "authorized")
+            .values(status="superseded")
         )
+
+        sub = BillingSubscription(
+            owner_id=target_owner_id,
+            plan_code=plan,
+            external_reference=f"CORTESIA-{uuid.uuid4().hex[:12]}",
+            payer_email=target_email,
+            monthly_amount=0,
+            currency="BRL",
+            status="authorized",
+            access_until=now_utc + timedelta(days=365)
+        )
+        session.add(sub)
         session.commit()
+        return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida com sucesso para {target_email}."}
+    finally:
         session.close()
-        return {"message": f"Acesso premium revogado. O usuario {payload.email} voltou para o plano Essencial."}
-        
-    sub = BillingSubscription(
-        owner_id=candidate.owner_id,
-        plan_code=plan,
-        external_reference=f"CORTESIA-{uuid.uuid4()}",
-        payer_email=payload.email,
-        monthly_amount=0,
-        currency="BRL",
-        status="authorized",
-        access_until=datetime.utcnow() + timedelta(days=365)
-    )
-    session.add(sub)
-    session.commit()
-    session.close()
-    return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida para {payload.email}."}
 
 
 import httpx
