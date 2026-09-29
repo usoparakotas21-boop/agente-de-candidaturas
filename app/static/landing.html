@@ -111,6 +111,55 @@
       .creator-avatar-box { order: -1; }
     }
   </style>
+
+<style>
+/* GLOBAL RESTORE & TYPOGRAPHY */
+html { font-size: 16px !important; }
+body { font-size: 1rem !important; background: var(--bg) !important; color: var(--ink) !important; }
+
+/* FIX TINY TAGS BUT KEEP THEM RELATIVE */
+.eyebrow, .pill, .step-num, .tag, .proof, footer, .mock-top, .job small, .mini-card span, .billing-note {
+    font-size: 0.9rem !important; 
+}
+.proof strong, .mini-card strong, .job div b { font-size: 1.1rem !important; }
+.hero-copy { font-size: 1.25rem !important; line-height: 1.7 !important; }
+.step p, .feature p, .plan p { font-size: 1.05rem !important; line-height: 1.6 !important; }
+
+/* HEADINGS IMPACT */
+h1 { font-size: clamp(48px, 6vw, 84px) !important; line-height: 1.1 !important; margin-bottom: 24px !important; }
+h2 { font-size: clamp(32px, 4vw, 52px) !important; }
+h3 { font-size: 1.5rem !important; margin-bottom: 12px !important; }
+
+/* CARDS AND PRICING SCALE */
+.steps, .features { gap: 32px !important; }
+.step, .feature, .plan { padding: 40px !important; border-radius: 24px !important; }
+.feature-icon { font-size: 40px !important; margin-bottom: 20px !important; }
+.price { font-size: 3.5rem !important; margin: 24px 0 20px !important; font-weight: 900 !important; }
+.price small { font-size: 1.1rem !important; }
+.plan ul { font-size: 1.1rem !important; line-height: 2 !important; margin-bottom: 32px !important; }
+.plan.highlight { padding: 40px !important; border-width: 3px !important; transform: scale(1.03); }
+
+/* BUTTONS AND CTAS */
+.nav-cta, .hero-cta, .plan a, .cta .ghost, .btn { font-size: 1.15rem !important; padding: 16px 28px !important; border-radius: 14px !important; font-weight: 800 !important; }
+
+/* HEADER RESPONSIVENESS AND ALIGNMENT */
+.nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; max-width: 1400px; margin: auto; padding: 20px 24px !important; }
+.nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 32px; }
+.nav-links a { font-size: 1.05rem !important; font-weight: 700 !important; }
+.brand { font-size: 1.5rem !important; }
+
+/* DESKTOP LAYOUT FILL */
+.hero { gap: 80px !important; margin-bottom: 120px !important; }
+.section { padding-bottom: 120px !important; }
+
+@media(max-width:800px) {
+    .plan.highlight { transform: none; }
+    h1 { font-size: 2.8rem !important; }
+    .hero-copy { font-size: 1.1rem !important; }
+    .price { font-size: 2.8rem !important; }
+}
+</style>
+
 </head>
 <body>
   <nav class="nav"><a class="brand" href="/"><img class="brand-logo" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><div class="nav-links"><details class="tools-menu"><summary>Ferramentas</summary><div class="tools-popover"><strong>Nossas ferramentas</strong><small>Clique para conhecer cada etapa</small><a href="#recursos">⚡ Candidatura inteligente<small>Organize e priorize suas oportunidades</small></a><a href="#recursos">◎ Banco de vagas<small>Encontre oportunidades relevantes</small></a><a href="#recursos">▤ Currículos profissionais<small>Versões adaptadas para cada vaga</small></a><a href="#recursos">▱ Simulação de entrevista<small>Pratique antes da conversa real</small></a><a href="#planos">♧ Consultoria<small>Acompanhamento humano</small></a></div></details><a href="#planos">Planos</a><a href="#auth" data-auth-mode="login" class="nav-cta">Entrar no painel</a></div></nav>

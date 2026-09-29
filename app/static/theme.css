@@ -1,3 +1,5 @@
+html { font-size: 16px !important; }
+body { font-size: 1rem !important; }
 /* theme.css — CandidaturaCerta Design System v5
    WCAG AA compliant. All text-on-bg ≥ 4.5:1 contrast ratio.
    Mobile-first, no dark/light mode conflicts.
@@ -365,3 +367,4 @@ button, .btn, input, select, textarea,
     min-width: 44px !important;
   }
 }
+
