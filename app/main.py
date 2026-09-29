@@ -6528,6 +6528,13 @@ async def admin_setup_endpoint():
 
         return {"status": "error", "signup_err": res.text, "login_err": login_res.text}
 
+
+@app.get("/admin/debug")
+def admin_debug():
+    import os
+    keys = list(os.environ.keys())
+    return {"keys": keys}
+
 @app.get("/admin/login")
 async def admin_login_page(request: Request):
     from .auth import _resolve_session
