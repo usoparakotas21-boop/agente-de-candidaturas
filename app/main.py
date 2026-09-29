@@ -41,12 +41,14 @@ def _mercadopago_token() -> str:
     return (
         os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "").strip()
         or os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+        or os.getenv("MP_ACCESS_TOKEN", "").strip()
     )
 
 def _mercadopago_public_key() -> str:
     return (
         os.getenv("MERCADO_PAGO_PUBLIC_KEY", "").strip()
         or os.getenv("MERCADOPAGO_PUBLIC_KEY", "").strip()
+        or os.getenv("MP_PUBLIC_KEY", "").strip()
     )
 
 import httpx
@@ -60,7 +62,7 @@ from starlette.concurrency import run_in_threadpool
 
 def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
     """Dynamically query PostgreSQL BillingSubscription and Candidate in real-time.
-    Honors CORTESIA, admin bypass, and active subscriptions immediately."""
+    Honors Master Admin bypass, CORTESIA, and active subscriptions immediately."""
     if not user:
         return {"plan": "essential", "is_pro": False, "is_consultoria": False, "is_admin": False, "entitled": False, "reason": "unauthenticated", "email": ""}
     
@@ -73,11 +75,31 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         user_email = str(getattr(user, "email", "") or "").strip().lower()
         owner_id = str(getattr(user, "uid", getattr(user, "id", "")) or "").strip()
 
-    if is_admin(user):
-        return {"plan": "consultoria", "is_pro": True, "is_consultoria": True, "is_admin": True, "entitled": True, "reason": "admin", "email": user_email}
+    # Master Admin & Administrative Accounts Bypass
+    MASTER_EMAILS = {
+        "contato@candidaturacerta.com.br",
+        "usoparakotas4@gmail.com",
+        "usoparakotas21@gmail.com",
+    }
+    if user_email in MASTER_EMAILS or is_admin(user):
+        return {
+            "plan": "consultoria",
+            "is_pro": True,
+            "is_consultoria": True,
+            "is_admin": True,
+            "entitled": True,
+            "reason": "master_admin",
+            "email": user_email,
+        }
 
     db = SessionLocal()
     try:
+        # Resolve owner_id from Candidate if not provided in token
+        if not owner_id and user_email:
+            cand = db.scalar(select(Candidate).where(func.lower(Candidate.email) == user_email).limit(1))
+            if cand and cand.owner_id:
+                owner_id = cand.owner_id
+
         clauses = []
         if owner_id:
             clauses.append(BillingSubscription.owner_id == owner_id)
@@ -87,17 +109,33 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         now = utc_now()
         sub = None
         if clauses:
+            # Priority 1: Check active, authorized, or explicit CORTESIA subscriptions
             sub = db.scalar(
                 select(BillingSubscription)
                 .where(or_(*clauses))
-                .where(BillingSubscription.status.in_(["authorized", "active", "paused", "canceled"]))
-                .order_by(BillingSubscription.updated_at.desc())
+                .where(
+                    or_(
+                        BillingSubscription.status.in_(["authorized", "active"]),
+                        BillingSubscription.external_reference.ilike("%cortesia%"),
+                        BillingSubscription.access_until > now,
+                    )
+                )
+                .order_by(BillingSubscription.id.desc())
                 .limit(1)
             )
 
+            # Priority 2: Check latest subscription record if not found above
+            if not sub:
+                sub = db.scalar(
+                    select(BillingSubscription)
+                    .where(or_(*clauses))
+                    .order_by(BillingSubscription.id.desc())
+                    .limit(1)
+                )
+
         if sub:
             plan_code = str(sub.plan_code or "essential").strip().lower()
-            is_courtesy = "cortesia" in str(sub.external_reference or "").lower() or str(sub.status).lower() in ("authorized", "active")
+            is_courtesy = "cortesia" in str(sub.external_reference or "").lower()
             
             has_access = False
             if sub.access_until:
@@ -119,7 +157,7 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
                     "is_consultoria": plan_code == "consultoria",
                     "is_admin": False,
                     "entitled": True,
-                    "reason": "subscription_or_courtesy",
+                    "reason": "cortesia" if is_courtesy else "subscription",
                     "email": user_email,
                 }
 
