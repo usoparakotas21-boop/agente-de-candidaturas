@@ -6577,8 +6577,37 @@ async def admin_metrics(request: Request):
         raise HTTPException(403, "Acesso negado.")
         
     session = SessionLocal()
-    total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
-    
+    debug_info = "none"
+    try:
+        total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
+        debug_info = "auth.users query successful"
+        print(f"DADOS DO BANCO: total_users={total_users}", flush=True)
+    except Exception as e:
+        debug_info = f"Error SQL: {str(e)}"
+        print(f"ERRO AO CONSULTAR AUTH.USERS: {debug_info}", flush=True)
+        # Tenta usar a API Admin do Supabase
+        url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        total_users = 0
+        if url and key:
+            try:
+                import httpx
+                headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+                # Paginacao nao retorna count diretamente facilmente, mas podemos tentar pegar a lista
+                r = httpx.get(f"{url}/auth/v1/admin/users?per_page=1000", headers=headers)
+                if r.status_code == 200:
+                    users_data = r.json()
+                    total_users = len(users_data.get("users", []))
+                    debug_info = "API admin users list successful"
+                    print(f"DADOS DA API: total_users={total_users}", flush=True)
+                else:
+                    debug_info = f"API error: {r.status_code} {r.text}"
+            except Exception as ex:
+                debug_info += f" | API Exception: {str(ex)}"
+        
+        if total_users == 0:
+            total_users = session.scalar(select(func.count(Candidate.id))) or 0
+
     subs = session.execute(
         select(BillingSubscription.owner_id, BillingSubscription.plan_code, BillingSubscription.access_until)
         .where(BillingSubscription.status.in_(['authorized', 'paused', 'canceled']))
@@ -6611,12 +6640,20 @@ async def admin_metrics(request: Request):
     total_linkedin = session.scalar(select(func.count(LinkedinRebrandingPurchase.id))) or 0
     session.close()
     
+    formatted_plans = {
+        "Essencial (Gratis)": active_plans.get("essential", 0),
+        "Start": active_plans.get("start", 0),
+        "Pro": active_plans.get("pro", 0),
+        "Consultoria": active_plans.get("consultoria", 0)
+    }
+    
     return {
         "total_users": total_users,
-        "active_plans": active_plans,
+        "active_plans": formatted_plans,
         "mrr": float(mrr) / 100 if mrr > 10000 else float(mrr), # Convert cents to float if needed
         "total_ebook": total_ebook,
-        "total_linkedin": total_linkedin
+        "total_linkedin": total_linkedin,
+        "debug_info": debug_info
     }
 
 @app.post("/admin/grant")
