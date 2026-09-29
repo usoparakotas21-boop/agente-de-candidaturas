@@ -53,14 +53,14 @@ body { font-size: 1rem !important; }
         <div class="grid">
             <div class="card">
                 <h3>Métricas de Conversão</h3>
-                <div class="metric" id="total_users">-</div>
+                <div class="metric" id="total_users">{{ total_users }}</div>
                 <small>Total de contas criadas</small>
             </div>
             <div class="card">
                 <h3>Financeiro / Vendas</h3>
-                <div>MRR Estimado: <strong id="mrr">-</strong></div>
-                <div>Vendas E-book: <strong id="sales_ebook">-</strong></div>
-                <div>Vendas LinkedIn: <strong id="sales_linkedin">-</strong></div>
+                <div>MRR Estimado: <strong id="mrr">R$ {{ mrr_estimado }}</strong></div>
+                <div>Vendas E-book: <strong id="sales_ebook">{{ total_ebook }}</strong></div>
+                <div>Vendas LinkedIn: <strong id="sales_linkedin">{{ total_linkedin }}</strong></div>
             </div>
             <div class="card" style="grid-column: 1 / -1;">
                 <h3>Distribuição por Planos</h3>
