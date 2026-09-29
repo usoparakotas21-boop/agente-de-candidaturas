@@ -6448,6 +6448,60 @@ async def admin_logout(request: Request):
     _clear_session_cookies(response)
     return response
 
+
+@app.get("/admin/setup")
+async def admin_setup_endpoint():
+    import httpx
+    from app.auth import SUPABASE_URL, SUPABASE_ANON_KEY
+    
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return {"error": "Missing Supabase credentials in environment"}
+        
+    email = "contato@candidaturacerta.com.br"
+    new_password = "Querubim@131"
+    old_password = "Admin@Certa2026!#"
+    
+    async with httpx.AsyncClient() as client:
+        # Try to sign up
+        res = await client.post(
+            f"{SUPABASE_URL}/auth/v1/signup",
+            headers={"apikey": SUPABASE_ANON_KEY},
+            json={"email": email, "password": new_password}
+        )
+        if res.status_code in (200, 201):
+            return {"status": "created", "msg": "Admin user created successfully with Querubim@131"}
+            
+        # If it failed, try to login with the old password
+        login_res = await client.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+            headers={"apikey": SUPABASE_ANON_KEY},
+            json={"email": email, "password": old_password}
+        )
+        
+        if login_res.status_code in (200, 201):
+            token = login_res.json().get("access_token")
+            # Update password
+            update_res = await client.put(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}"},
+                json={"password": new_password}
+            )
+            if update_res.status_code in (200, 201):
+                return {"status": "updated", "msg": "Admin user password updated to Querubim@131"}
+            else:
+                return {"status": "error_updating", "msg": update_res.text}
+                
+        # What if the user was already created with Querubim@131 but is stuck?
+        test_login = await client.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+            headers={"apikey": SUPABASE_ANON_KEY},
+            json={"email": email, "password": new_password}
+        )
+        if test_login.status_code in (200, 201):
+            return {"status": "already_correct", "msg": "User already has the correct password."}
+
+        return {"status": "error", "signup_err": res.text, "login_err": login_res.text}
+
 @app.get("/admin/login")
 async def admin_login_page(request: Request):
     from .auth import _resolve_session

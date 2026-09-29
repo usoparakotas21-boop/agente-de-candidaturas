@@ -1202,11 +1202,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/admin",
         "/admin/login",
         "/admin/logout",
+        "/admin/setup",
         "/admin/metrics",
         "/admin/grant",
         "/admin",
         "/admin/login",
         "/admin/logout",
+        "/admin/setup",
 
         "/webhooks/mercadopago",
         "/billing/mercadopago/success",
