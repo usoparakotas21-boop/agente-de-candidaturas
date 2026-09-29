@@ -1573,6 +1573,13 @@ def root():
         + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=7" defer></script></body>',
         1,
     )
+    import re
+    rendered = re.sub(
+        r"<script(?![^>]*\src=)([^>]*)>",
+        lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
+        rendered,
+        flags=re.I,
+    )
     return HTMLResponse(rendered)
 
 @app.head("/", include_in_schema=False)
@@ -6623,7 +6630,7 @@ async def admin_metrics(request: Request):
     try:
         total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
         debug_info = "auth.users query successful"
-        print(f"DADOS DO BANCO: total_users={total_users}", flush=True)
+        print(f">>> DADOS BRUTOS DO SUPABASE: total_users={total_users}", flush=True)
     except Exception as e:
         debug_info = f"Error SQL: {str(e)}"
         print(f"ERRO AO CONSULTAR AUTH.USERS: {debug_info}", flush=True)
@@ -6641,7 +6648,7 @@ async def admin_metrics(request: Request):
                     users_data = r.json()
                     total_users = len(users_data.get("users", []))
                     debug_info = "API admin users list successful"
-                    print(f"DADOS DA API: total_users={total_users}", flush=True)
+                    print(f">>> DADOS BRUTOS DO SUPABASE: total_users={total_users}", flush=True)
                 else:
                     debug_info = f"API error: {r.status_code} {r.text}"
             except Exception as ex:
