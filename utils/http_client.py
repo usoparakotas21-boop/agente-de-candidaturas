@@ -8,13 +8,14 @@ import gzip
 import html as html_lib
 import json
 import logging
+import os
 import re
 import random
 import time
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -98,6 +99,53 @@ def parse_datetime(value: Any) -> datetime | None:
             except ValueError:
                 continue
         return None
+
+
+async def fetch_via_scraperapi(
+    url: str,
+    render_js: bool = False,
+    country: str = "br",
+    *,
+    client: SafeHttpClient | None = None,
+) -> str:
+    """Fetch a public URL through ScraperAPI when configured.
+
+    The helper keeps the direct request path as the default so sources that do
+    not need a proxy do not consume ScraperAPI credits. A caller may provide
+    the shared ``SafeHttpClient`` to preserve pacing and retry behaviour.
+    """
+
+    parsed_url = urlsplit(url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise ValueError("A URL pública válida é obrigatória para o ScraperAPI.")
+    api_key = os.getenv("SCRAPERAPI_KEY", "").strip()
+    target_url = url
+    if api_key:
+        country_code = re.sub(r"[^A-Za-z]", "", country or "br").lower() or "br"
+        target_url = (
+            "https://api.scraperapi.com/?"
+            f"api_key={quote(api_key, safe='')}"
+            f"&url={quote(url, safe='')}"
+            f"&country_code={quote(country_code, safe='')}"
+        )
+        if render_js:
+            target_url += "&render=true"
+        logger.info(
+            "[ScraperAPI] proxy habilitado fonte=%s render_js=%s country=%s",
+            parsed_url.netloc,
+            render_js,
+            country_code,
+        )
+    else:
+        logger.debug("[ScraperAPI] SCRAPERAPI_KEY ausente; usando acesso direto fonte=%s", parsed_url.netloc)
+
+    own_client = client is None
+    http = client or SafeHttpClient()
+    try:
+        return await http.get_text(target_url)
+    finally:
+        if own_client:
+            await http.aclose()
 
 
 def _jsonld_nodes(value: Any) -> Iterable[dict[str, Any]]:

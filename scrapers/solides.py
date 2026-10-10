@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import re
 import logging
 from urllib.parse import quote
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "solides"
@@ -35,14 +36,21 @@ async def collect(
         if location.strip():
             requested_url += f"&locations={quote(location.strip())}"
         logger.info("[Sólides] requisitando url=%s", requested_url)
-        payload = await http.get_json(PUBLIC_ENDPOINT, params=params)
+        try:
+            payload = json.loads(await fetch_via_scraperapi(requested_url, render_js=True, client=http))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
             raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado objeto com data[]")
         items = [item for item in payload["data"] if isinstance(item, dict)]
         if not items and location.strip():
             fallback_params = {"page": 1, "take": min(max(limit, 1), 50), "title": normalized}
             logger.info("[Sólides] localização sem resultados; repetindo busca por título")
-            fallback_payload = await http.get_json(PUBLIC_ENDPOINT, params=fallback_params)
+            fallback_url = f"{PUBLIC_ENDPOINT}?page=1&take={fallback_params['take']}&title={quote(normalized)}"
+            try:
+                fallback_payload = json.loads(await fetch_via_scraperapi(fallback_url, render_js=True, client=http))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{SOURCE}: resposta de fallback não é JSON válido: {exc}") from exc
             if isinstance(fallback_payload, dict) and isinstance(fallback_payload.get("data"), list):
                 items = [item for item in fallback_payload["data"] if isinstance(item, dict)]
         logger.info("[Sólides] url=%s itens_brutos=%d total=%s", requested_url, len(items), payload.get("count"))

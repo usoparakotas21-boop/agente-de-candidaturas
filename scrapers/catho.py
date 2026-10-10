@@ -6,7 +6,7 @@ import re
 from urllib.parse import quote
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, jobs_from_jsonld
+from utils.http_client import SafeHttpClient, fetch_via_scraperapi, jobs_from_jsonld
 
 
 SOURCE = "catho"
@@ -28,7 +28,8 @@ async def collect(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        return jobs_from_jsonld(await http.get_text(url), source=SOURCE, page_url=url, query=f"{query} {location}".strip(), limit=limit)
+        html = await fetch_via_scraperapi(url, client=http)
+        return jobs_from_jsonld(html, source=SOURCE, page_url=url, query=f"{query} {location}".strip(), limit=limit)
     finally:
         if own_client:
             await http.aclose()

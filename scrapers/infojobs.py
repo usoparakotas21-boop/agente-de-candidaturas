@@ -8,7 +8,7 @@ from urllib.parse import quote, urljoin
 
 from bs4 import BeautifulSoup
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "infojobs"
@@ -31,7 +31,7 @@ async def collect(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        html = await http.get_text(url)
+        html = await fetch_via_scraperapi(url, client=http)
         soup = BeautifulSoup(html, "html.parser")
         cards = soup.select(".js_vacanciesGridFragment .js_rowCard[data-href]")
         if not cards:
