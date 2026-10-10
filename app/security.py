@@ -15,15 +15,18 @@ def current_csp_nonce() -> str:
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Apply browser security headers to successful and error responses."""
 
-    CONTENT_SECURITY_POLICY = (
-        "default-src 'self'; "
-        "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        "script-src 'self' 'unsafe-inline' https://googletagmanager.com https://www.googletagmanager.com; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com; font-src 'self' data:; "
-        "connect-src 'self' https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
-        "form-action 'self' https://*.mercadopago.com"
-    )
+    @staticmethod
+    def content_security_policy(nonce: str) -> str:
+        return (
+            "default-src 'self'; "
+            "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
+            f"script-src 'self' 'nonce-{nonce}' https://googletagmanager.com https://www.googletagmanager.com; "
+            f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline'; "
+            f"style-src-elem 'self' 'nonce-{nonce}'; "
+            "img-src 'self' data: https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com; font-src 'self' data:; "
+            "connect-src 'self' https://google-analytics.com https://www.google-analytics.com https://googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; "
+            "form-action 'self' https://*.mercadopago.com"
+        )
 
     async def dispatch(self, request: Request, call_next):
         nonce = secrets.token_urlsafe(18)
@@ -32,7 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         finally:
             _CSP_NONCE.reset(token)
-        response.headers.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
+        response.headers.setdefault("Content-Security-Policy", self.content_security_policy(nonce))
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
