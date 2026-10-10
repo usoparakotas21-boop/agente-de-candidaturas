@@ -15,6 +15,7 @@ MONTHLY_OPPORTUNITY_LIMITS = {
     "essential": 50,
     "start": 250,
     "pro": 1000,
+    "consultoria": 1000,
 }
 BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
 
