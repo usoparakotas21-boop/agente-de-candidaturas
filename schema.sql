@@ -59,3 +59,8 @@ CREATE INDEX IF NOT EXISTS idx_historico_alertas_vaga
     ON historico_alertas (vaga_id);
 CREATE INDEX IF NOT EXISTS idx_historico_alertas_status
     ON historico_alertas (status);
+
+-- These tables are server-managed; keep them protected from the public Data API.
+ALTER TABLE IF EXISTS vagas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS candidatos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS historico_alertas ENABLE ROW LEVEL SECURITY;
