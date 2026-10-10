@@ -68,6 +68,14 @@
     .setup-card textarea { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
                             border-radius: 10px; color: var(--text); padding: 0.9rem; font-size: 0.95rem; resize: vertical; min-height: 90px; }
     .setup-card textarea:focus { outline: none; border-color: var(--hl); }
+    .voice-settings { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.08); display: grid; gap: .65rem; }
+    .voice-settings label { display: block; color: var(--muted); font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .voice-settings select, .voice-settings input[type="range"] { width: 100%; accent-color: var(--hl); }
+    .voice-settings select { background: #182332; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; color: var(--text); padding: .7rem; }
+    .voice-row { display: grid; grid-template-columns: 1fr auto; gap: .7rem; align-items: center; }
+    .voice-test { background: transparent; color: var(--hl); border: 1px solid rgba(124,255,107,.45); border-radius: 8px; padding: .55rem .75rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .voice-test:hover { background: rgba(124,255,107,.08); }
+    .voice-hint { color: var(--muted); font-size: .78rem; line-height: 1.4; }
     .browser-warning { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); border-radius: 10px;
                         padding: 0.8rem 1rem; font-size: 0.85rem; color: #ffc1c1; margin-bottom: 1rem; display: none; }
     .btn-start { width: 100%; padding: 1.1rem; font-size: 1.1rem; font-weight: 800; border-radius: 12px;
@@ -176,6 +184,13 @@
     <div class="setup-card">
       <label>Contexto da Vaga (opcional)</label>
       <textarea id="job-context" placeholder="Cole aqui o título e descrição da vaga para que a IA personalize as perguntas..."></textarea>
+      <div class="voice-settings" aria-label="Configuração da voz">
+        <label for="voice-select">Voz da entrevistadora</label>
+        <div class="voice-row"><select id="voice-select"><option value="">Voz padrão do sistema</option></select><button class="voice-test" id="voice-test" type="button">Ouvir teste</button></div>
+        <label for="voice-rate">Velocidade <span id="voice-rate-value">0,95×</span></label>
+        <input id="voice-rate" type="range" min="0.8" max="1.1" step="0.05" value="0.95">
+        <span class="voice-hint">O navegador oferece vozes diferentes. No Edge, prefira uma voz Microsoft em português do Brasil para um som mais natural.</span>
+      </div>
     </div>
     <div id="browser-warning" class="browser-warning">
       ⚠️ Seu navegador não suporta reconhecimento de voz. Use o Chrome ou Edge para a experiência completa. Você ainda pode digitar suas respostas.
@@ -269,6 +284,10 @@
   const transcriptText= document.getElementById('transcript-text');
   const progressLabel = document.getElementById('progress-label');
   const helperText    = document.getElementById('helper-text');
+  const voiceSelect   = document.getElementById('voice-select');
+  const voiceRate     = document.getElementById('voice-rate');
+  const voiceRateValue= document.getElementById('voice-rate-value');
+  let availableVoices = [];
 
   // ───── INIT ─────
   async function init() {
@@ -334,15 +353,42 @@
   }
 
   // ───── TEXT TO SPEECH ─────
-  function speak(text) {
+  function loadVoices() {
+    if (!window.speechSynthesis || !voiceSelect) return;
+    availableVoices = window.speechSynthesis.getVoices().filter(voice => /^pt[-_]BR$/i.test(voice.lang) || /^pt[-_]PT$/i.test(voice.lang));
+    const current = voiceSelect.value;
+    voiceSelect.replaceChildren();
+    if (!availableVoices.length) {
+      voiceSelect.add(new Option('Voz padrão do sistema', ''));
+      return;
+    }
+    availableVoices.sort((a, b) => {
+      const score = voice => /microsoft|google|francisca|antonio|heloisa|maria/i.test(voice.name) ? 0 : 1;
+      return score(a) - score(b) || a.name.localeCompare(b.name);
+    });
+    availableVoices.forEach(voice => voiceSelect.add(new Option(`${voice.name} (${voice.lang})`, voice.name)));
+    if ([...voiceSelect.options].some(option => option.value === current)) voiceSelect.value = current;
+  }
+  if (window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+  }
+  voiceRate.addEventListener('input', () => { voiceRateValue.textContent = `${Number(voiceRate.value).toFixed(2).replace('.', ',')}×`; });
+  document.getElementById('voice-test').addEventListener('click', () => speak('Olá! Esta é a voz que vou usar durante a sua entrevista.', false));
+
+  function speak(text, allowMic = true) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'pt-BR';
-    utt.rate = 1.05;
+    const selected = availableVoices.find(voice => voice.name === voiceSelect.value);
+    if (selected) utt.voice = selected;
+    utt.rate = Number(voiceRate.value || 0.95);
+    utt.pitch = 1;
+    utt.volume = 1;
     utt.onstart = () => { aiAvatar.classList.add('speaking'); aiStatus.textContent = 'Entrevistadora falando...'; };
-    utt.onend = () => { aiAvatar.classList.remove('speaking'); aiStatus.textContent = 'Sua vez de responder'; enableMic(); };
-    utt.onerror = () => { aiAvatar.classList.remove('speaking'); enableMic(); };
+    utt.onend = () => { aiAvatar.classList.remove('speaking'); if (allowMic) { aiStatus.textContent = 'Sua vez de responder'; enableMic(); } else { aiStatus.textContent = 'Pronto para começar'; } };
+    utt.onerror = () => { aiAvatar.classList.remove('speaking'); if (allowMic) enableMic(); };
     speechSynthesis.speak(utt);
   }
 

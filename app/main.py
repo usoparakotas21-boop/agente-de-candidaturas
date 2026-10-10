@@ -5422,7 +5422,12 @@ def download_pro_ebook(user=Depends(authenticated_user)):
     try:
         subscription = db.scalar(
             select(BillingSubscription)
-            .where(BillingSubscription.owner_id == owner_id)
+            .where(
+                or_(
+                    BillingSubscription.owner_id == owner_id,
+                    func.lower(BillingSubscription.payer_email) == str(user.get("email") or "").strip().lower(),
+                )
+            )
             .where(BillingSubscription.status.in_(["authorized", "active", "pending", "paused"]))
             .order_by(BillingSubscription.updated_at.desc())
             .limit(1)
