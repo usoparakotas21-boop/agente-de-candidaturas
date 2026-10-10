@@ -147,6 +147,19 @@ def _search_pairs(roles: list[str], locations: list[str]) -> list[tuple[str, str
     return [("emprego", "")]
 
 
+def _sources_for_search(locations: list[str], requested: list[str]) -> list[str] | None:
+    """Avoid irrelevant global feeds for a location-bound Brazilian search."""
+
+    if requested:
+        return requested
+    if locations:
+        # These sources expose Brazilian listings and native locality filters.
+        # International feeds remain available through the explicit ``fontes``
+        # payload for users who want a global/remote search.
+        return ["gupy", "vagas_com", "solides", "infojobs"]
+    return None
+
+
 def _diagnostic_fallback_enabled(request: CapturaVagasRequest) -> bool:
     if request.usar_fallback_diagnostico is not None:
         return request.usar_fallback_diagnostico
@@ -268,6 +281,7 @@ async def capturar_vagas(
         logger.warning("[EmailSync] captura manual com avisos: %s", email_sync["erros"])
     queries = _queries(roles, locations)
     search_pairs = _search_pairs(roles, locations)
+    selected_sources = _sources_for_search(locations, request.fontes)
     logger.info(
         "[Captura] inicio usuario=%s cargos=%s localizacoes=%s modalidades=%s consultas=%s pares=%s fontes=%s",
         _owner_id(user) or "local_user",
@@ -276,7 +290,7 @@ async def capturar_vagas(
         modalities,
         queries,
         search_pairs,
-        request.fontes or list(COLLECTORS),
+        selected_sources or list(COLLECTORS),
     )
     collected: dict[str, Any] = {}
     source_errors: dict[str, str] = {}
@@ -287,7 +301,7 @@ async def capturar_vagas(
             report = await collect_report(
                 query,
                 location=location,
-                sources=request.fontes or None,
+                sources=selected_sources,
                 limit_per_source=request.limite_por_fonte,
                 concurrency=4,
             )
@@ -408,6 +422,7 @@ async def capturar_vagas(
         "consultas": queries,
         "consultas_executadas": [{"termo": query, "localizacao": location} for query, location in search_pairs],
         "preferencias": {"cargos": roles, "localizacoes": locations, "modalidades": modalities},
+        "fontes_consultadas": selected_sources or list(COLLECTORS),
         "sincronizacao_emails": email_sync,
         "capturadas": len(vagas) + email_captured,
         "total_encontradas": len(vagas) + email_captured,
