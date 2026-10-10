@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import create_engine
@@ -68,7 +69,9 @@ class PlanLimitTests(unittest.TestCase):
         with self.assertRaises(PlanLimitReachedError):
             ensure_opportunity_capacity(self.db, "free-user", self.now)
 
-    def test_queue_limit_blocks_new_items_but_does_not_consume_duplicates(self):
+    @patch("app.plan_limits.utc_now")
+    def test_queue_limit_blocks_new_items_but_does_not_consume_duplicates(self, clock):
+        clock.return_value = self.now
         for index in range(50):
             self._queue_item("queue-user", index)
         self.db.commit()
@@ -113,6 +116,13 @@ class PlanLimitTests(unittest.TestCase):
         october_start, _ = month_window(after_midnight)
         self.assertEqual(september_end, october_start)
         self.assertEqual(october_start, after_midnight)
+
+    def test_consultoria_can_sync_and_has_the_pro_opportunity_allowance(self):
+        self._subscription("consultoria-user", "consultoria")
+        self._queue_item("consultoria-user", 1)
+        self.db.commit()
+        usage = ensure_opportunity_capacity(self.db, "consultoria-user", self.now)
+        self.assertEqual((usage["plan_code"], usage["used"], usage["limit"]), ("consultoria", 1, 1000))
 
     def test_direct_job_and_captured_queue_are_counted_once(self):
         job = Job(
