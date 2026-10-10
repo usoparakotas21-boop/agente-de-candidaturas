@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Meu e-book DISC · Candidatura Certa</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#10213d;background:#f7faff}main{width:min(880px,calc(100% - 32px));margin:42px auto 80px}.card{background:#fff;border:1px solid #dce5f1;border-radius:22px;padding:clamp(24px,5vw,48px);box-shadow:0 14px 42px #1b376910}.eyebrow{margin:0 0 8px;color:#3568e8;font-size:12px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}.card h1{margin:0 0 12px;font-size:clamp(30px,5vw,48px);line-height:1.05}.card p{color:#61708a;line-height:1.65}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border-radius:11px;border:1px solid #d5dfeb;background:#fff;color:#3568e8;font-weight:800;text-decoration:none}.button.primary{color:#fff;border-color:#3568e8;background:#3568e8}.button[hidden]{display:none}.status{margin-top:20px;padding:13px 15px;border-radius:12px;background:#f1f5f9;color:#334155;font-size:14px}.status.success{background:#ecfdf5;color:#166534}.status.warning{background:#fff7ed;color:#9a3412}.status.error{background:#fef2f2;color:#991b1b}.hint{font-size:13px}</style>
+</head>
+<body>
+<main>
+  <section class="card" aria-labelledby="ebook-title">
+    <p class="eyebrow">Biblioteca</p>
+    <h1 id="ebook-title">Hackeando o DISC</h1>
+    <p>O livro completo fica aqui, em um único lugar. O acesso é liberado automaticamente para os planos Start + E-book, Pro e Consultoria, ou para quem comprou o e-book avulso.</p>
+    <div class="status" id="ebookStatus" role="status" aria-live="polite">Verificando seu acesso…</div>
+    <div class="actions">
+      <a class="button primary" id="fullBook" href="/billing/ebook/hackeando-disc" hidden>Baixar livro completo</a>
+      <a class="button" href="/billing/ebook/preview" target="_blank" rel="noopener">Abrir prévia gratuita</a>
+      <a class="button" id="plans" href="/configuracoes#plan" hidden>Ver como liberar o livro</a>
+    </div>
+    <p class="hint">O plano Consultoria recebe o pacote completo. Se o botão estiver indisponível, atualize a página depois da confirmação do Mercado Pago.</p>
+  </section>
+</main>
+<script>
+(() => {
+  const status = document.getElementById('ebookStatus');
+  const fullBook = document.getElementById('fullBook');
+  const plans = document.getElementById('plans');
+  const allowed = new Set(['pro','consultoria','start_plus','ebook_standalone']);
+  fetch('/billing/subscription', {credentials:'same-origin'}).then(async response => {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || 'Entre na sua conta para consultar o acesso.');
+    const code = String(data.plan_code || '').toLowerCase();
+    if (data.active && allowed.has(code)) {
+      status.className = 'status success';
+      status.textContent = `Acesso liberado pelo plano ${data.plan_name || code}.`;
+      fullBook.hidden = false;
+      return;
+    }
+    status.className = 'status warning';
+    status.textContent = 'Você está no plano Essencial ou ainda sem uma compra confirmada. A prévia continua gratuita.';
+    plans.hidden = false;
+  }).catch(error => {
+    status.className = 'status error';
+    status.textContent = error.message;
+    plans.hidden = false;
+  });
+})();
+</script>
+</body>
+</html>

@@ -554,6 +554,7 @@ APPLICATIONS_PAGE_PATH = Path(__file__).parent / "static" / "candidaturas.html"
 INTERVIEWS_PAGE_PATH = Path(__file__).parent / "static" / "entrevistas.html"
 SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
+EBOOK_PAGE_PATH = Path(__file__).parent / "static" / "ebook.html"
 HELP_PAGE_PATH = Path(__file__).parent / "static" / "ajuda.html"
 TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
@@ -659,7 +660,7 @@ def _style_nonce_bootstrap(nonce: str) -> str:
 def _page(path: Path) -> HTMLResponse:
     html = path.read_text(encoding="utf-8")
     html = _with_favicon(html)
-    html = html.replace("</body>", '<script src="/static/support-chat.js?v=7" defer></script><script src="/static/device-adaptive.js" defer></script></body>', 1)
+    html = html.replace("</body>", '<script src="/static/support-chat.js?v=7" defer></script><script src="/static/device-adaptive.js" defer></script><script src="/static/plan-status.js?v=1" defer></script></body>', 1)
     if path.name == "settings.html":
         html = html.replace("Integração OAuth em preparação.", "Conecte sua conta Outlook para sincronizar mensagens.")
         html = html.replace(">Em breve<", ">Não conectado<")
@@ -684,6 +685,9 @@ body{min-height:100vh;display:flex;flex-direction:column}
 .global-footer-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#a8b3c2}
 .global-footer-status[data-state="ok"]::before{background:#28a36a}
 .global-footer-status[data-state="error"]::before{background:#d79019}
+.global-plan-badge{display:inline-flex;align-items:center;max-width:190px;padding:5px 9px;border:1px solid #ffffff45;border-radius:999px;color:#fff;background:#ffffff12;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.global-plan-badge[data-state="warning"]{color:#ffefb0;border-color:#f4c95d66;background:#f4c95d1c}
+.global-plan-badge[data-state="danger"]{color:#fecaca;border-color:#fca5a566;background:#ef44441c}
 @media(max-width:768px) {
     .global-footer { flex-direction: column; padding-bottom: 60px; gap: 20px; }
     .global-footer span { display: block; line-height: 1.8; }
@@ -692,9 +696,9 @@ body{min-height:100vh;display:flex;flex-direction:column}
 .breadcrumbs a{color:#3975a8;text-decoration:none}
 @keyframes global-online-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(88,214,141,.42)}50%{opacity:.62;transform:scale(.78);box-shadow:0 0 0 5px rgba(88,214,141,0)}}
 @media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
-@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-logout button{padding:5px 7px}}
+@media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-plan-badge{max-width:125px}.global-logout button{padding:5px 7px}}
 </style>
-<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/billing/ebook/preview" target="_blank" style="color:#86efac;font-weight:800;">📘 E-Book DISC Grátis</a><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/meu-ebook" style="color:#86efac;font-weight:800;">📘 Meu e-book DISC</a><span class="global-plan-badge" id="globalPlanBadge" data-state="loading">Plano…</span><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
         # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.
@@ -1813,6 +1817,11 @@ def serve_linkedin():
 def dashboard():
     if not DASHBOARD_PATH.is_file(): raise HTTPException(500, "Dashboard nao encontrado.")
     return _page(DASHBOARD_PATH)
+
+@app.get("/meu-ebook", response_class=HTMLResponse, include_in_schema=False)
+def ebook_page():
+    if not EBOOK_PAGE_PATH.is_file(): raise HTTPException(500, "Pagina do e-book nao encontrada.")
+    return _page(EBOOK_PAGE_PATH)
 
 @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
 def settings_page():
