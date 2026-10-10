@@ -24,6 +24,7 @@ async def collect(
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
     if not query.strip():
+        logger.info("[%s] consulta vazia; nenhum resultado a coletar", SOURCE)
         return []
     slug = re.sub(r"[^a-z0-9]+", "-", query.casefold()).strip("-")
     search_slug = re.sub(r"[^a-z0-9]+", "-", f"{query} {location}".casefold()).strip("-")

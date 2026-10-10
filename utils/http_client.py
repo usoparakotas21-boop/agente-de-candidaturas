@@ -207,7 +207,11 @@ async def fetch_via_scraperapi(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        return await http.get_text(target_url)
+        # ScraperAPI can take longer than a direct public request while it
+        # queues a proxy fetch. Keep the shared client/pacing but give this
+        # provider its explicit 45-second response budget.
+        request_options = {"timeout": 45.0} if api_key else {}
+        return await http.get_text(target_url, **request_options)
     finally:
         if own_client:
             await http.aclose()
@@ -256,7 +260,8 @@ def jobs_from_jsonld(
     jobs: list[VagaPadronizada] = []
     scripts = soup.select('script[type="application/ld+json"]')
     if not scripts:
-        raise ValueError(f"{source}: resposta sem script JSON-LD; parser de vagas não encontrou dados estruturados")
+        logger.info("[JobParser] fonte=%s sem script JSON-LD; consulta sem resultados estruturados", source)
+        return []
     raw_count = 0
     for script in scripts:
         try:
@@ -315,7 +320,7 @@ def jobs_from_jsonld(
                 return jobs
     logger.info("[JobParser] fonte=%s itens_brutos_jsonld=%d itens_filtrados=%d", source, raw_count, len(jobs))
     if not jobs:
-        raise ValueError(f"{source}: JSON-LD encontrado, mas nenhum JobPosting correspondeu à consulta {query!r}")
+        logger.info("[JobParser] fonte=%s nenhum JobPosting correspondeu à consulta %r", source, query)
     return jobs
 
 
@@ -391,6 +396,9 @@ class SafeHttpClient:
         response = await self.request("GET", url, **kwargs)
         content = self._decoded_content(response).decode(response.encoding or "utf-8", errors="replace")
         normalized = content.lstrip("\ufeff \r\n\t")
+        if not normalized:
+            logger.info("[HTTP] resposta JSON vazia url=%s", url)
+            return []
         try:
             return json.loads(normalized)
         except json.JSONDecodeError as first_error:
@@ -407,11 +415,8 @@ class SafeHttpClient:
                     except json.JSONDecodeError:
                         pass
             preview = re.sub(r"\s+", " ", normalized[:160])
-            raise json.JSONDecodeError(
-                f"resposta não é JSON (início={preview!r})",
-                normalized,
-                first_error.pos,
-            ) from first_error
+            logger.info("[HTTP] resposta sem JSON válido url=%s início=%r", url, preview)
+            return []
 
     @staticmethod
     def _decoded_content(response: httpx.Response) -> bytes:

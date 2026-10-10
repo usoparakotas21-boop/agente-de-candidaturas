@@ -54,10 +54,10 @@ async def collect(
                             requested_url = fallback_url
                         except Exception as fallback_exc:  # noqa: BLE001 - proxy is the final fallback
                             logger.warning("[Sólides] consulta sem localização falhou (%s); tentando ScraperAPI", fallback_exc)
-                            body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
+                            body = await fetch_via_scraperapi(requested_url, client=http)
                     else:
                         logger.warning("[Sólides] tentando ScraperAPI após falha direta")
-                        body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
+                        body = await fetch_via_scraperapi(requested_url, client=http)
                 payload = json.loads(body)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc

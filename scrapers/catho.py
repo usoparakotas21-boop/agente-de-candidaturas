@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from urllib.parse import quote
 
@@ -11,6 +12,7 @@ from utils.http_client import SafeHttpClient, fetch_via_scraperapi, jobs_from_js
 
 SOURCE = "catho"
 BASE_URL = "https://www.catho.com.br/vagas/"
+logger = logging.getLogger(__name__)
 
 
 async def collect(
@@ -21,6 +23,7 @@ async def collect(
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
     if not query.strip():
+        logger.info("[%s] consulta vazia; nenhum resultado a coletar", SOURCE)
         return []
     slug = re.sub(r"[^a-z0-9]+", "-", query.casefold()).strip("-")
     search_slug = re.sub(r"[^a-z0-9]+", "-", f"{query} {location}".casefold()).strip("-")
@@ -29,7 +32,9 @@ async def collect(
     http = client or SafeHttpClient()
     try:
         html = await fetch_via_scraperapi(url, client=http)
-        return jobs_from_jsonld(html, source=SOURCE, page_url=url, query=f"{query} {location}".strip(), limit=limit)
+        jobs = jobs_from_jsonld(html, source=SOURCE, page_url=url, query=f"{query} {location}".strip(), limit=limit)
+        logger.info("[%s] consulta=%r resultados=%d", SOURCE, query, len(jobs))
+        return jobs
     finally:
         if own_client:
             await http.aclose()
