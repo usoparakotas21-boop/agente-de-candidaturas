@@ -8,7 +8,7 @@ import logging
 from urllib.parse import quote
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, is_generic_search, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "solides"
@@ -20,7 +20,7 @@ async def collect(
     query: str = "",
     *,
     location: str = "",
-    limit: int = 25,
+    limit: int = 30,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
     if not query.strip():
@@ -29,31 +29,42 @@ async def collect(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        params = {"page": 1, "take": min(max(limit, 1), 50), "title": normalized}
-        if location.strip():
-            params["locations"] = location.strip()
-        requested_url = f"{PUBLIC_ENDPOINT}?page=1&take={params['take']}&title={quote(normalized)}"
-        if location.strip():
-            requested_url += f"&locations={quote(location.strip())}"
-        logger.info("[Sólides] requisitando url=%s", requested_url)
-        try:
-            payload = json.loads(await fetch_via_scraperapi(requested_url, render_js=True, client=http))
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
-        if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
-            raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado objeto com data[]")
-        items = [item for item in payload["data"] if isinstance(item, dict)]
-        if not items and location.strip():
-            fallback_params = {"page": 1, "take": min(max(limit, 1), 50), "title": normalized}
-            logger.info("[Sólides] localização sem resultados; repetindo busca por título")
-            fallback_url = f"{PUBLIC_ENDPOINT}?page=1&take={fallback_params['take']}&title={quote(normalized)}"
+        take = min(max(limit, 1), 50)
+        page_numbers = (1, 2) if is_generic_search(normalized) else (1,)
+
+        async def fetch_page(page: int, with_location: bool = True) -> tuple[str, dict, list[dict]]:
+            requested_url = f"{PUBLIC_ENDPOINT}?page={page}&take={take}&title={quote(normalized)}"
+            if with_location and location.strip():
+                requested_url += f"&locations={quote(location.strip())}"
+            logger.info("[Sólides] requisitando url=%s", requested_url)
             try:
-                fallback_payload = json.loads(await fetch_via_scraperapi(fallback_url, render_js=True, client=http))
+                payload = json.loads(await fetch_via_scraperapi(requested_url, render_js=True, client=http))
             except json.JSONDecodeError as exc:
-                raise ValueError(f"{SOURCE}: resposta de fallback não é JSON válido: {exc}") from exc
-            if isinstance(fallback_payload, dict) and isinstance(fallback_payload.get("data"), list):
-                items = [item for item in fallback_payload["data"] if isinstance(item, dict)]
-        logger.info("[Sólides] url=%s itens_brutos=%d total=%s", requested_url, len(items), payload.get("count"))
+                raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
+            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado objeto com data[]")
+            items = [item for item in payload["data"] if isinstance(item, dict)]
+            logger.info("[Sólides] url=%s itens_brutos=%d total=%s", requested_url, len(items), payload.get("count"))
+            return requested_url, payload, items
+
+        items: list[dict] = []
+        seen_items: set[str] = set()
+        for page in page_numbers:
+            requested_url, payload, page_items = await fetch_page(page)
+            if not page_items and page == 1 and location.strip():
+                logger.info("[Sólides] localização sem resultados; repetindo busca por título")
+                requested_url, payload, page_items = await fetch_page(page, with_location=False)
+            for item in page_items:
+                marker = clean_text(item.get("id") or item.get("slug") or json.dumps(item, sort_keys=True))
+                if marker and marker in seen_items:
+                    continue
+                if marker:
+                    seen_items.add(marker)
+                items.append(item)
+            if len(items) >= take and not is_generic_search(normalized):
+                break
+        if not items:
+            raise ValueError(f"{SOURCE}: API retornou zero itens para a consulta {query!r}")
         jobs: list[VagaPadronizada] = []
         for item in items:
             title = clean_text(item.get("title"))

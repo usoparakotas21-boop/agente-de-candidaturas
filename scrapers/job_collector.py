@@ -42,7 +42,7 @@ async def collect_report(
     *,
     location: str = "",
     sources: list[str] | None = None,
-    limit_per_source: int = 25,
+    limit_per_source: int = 30,
     concurrency: int = 4,
     policy: AntiBanPolicy | None = None,
 ) -> CollectionReport:
@@ -125,7 +125,7 @@ async def collect_all(
     *,
     location: str = "",
     sources: list[str] | None = None,
-    limit_per_source: int = 25,
+    limit_per_source: int = 30,
     concurrency: int = 4,
     policy: AntiBanPolicy | None = None,
 ) -> list[VagaPadronizada]:
@@ -145,7 +145,7 @@ async def coletar_todas_as_fontes(
     termo: str = "",
     *,
     localizacao: str = "",
-    limite_por_fonte: int = 25,
+    limite_por_fonte: int = 30,
     concorrencia: int = 4,
     fontes: list[str] | None = None,
     policy: AntiBanPolicy | None = None,

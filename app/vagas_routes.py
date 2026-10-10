@@ -30,9 +30,11 @@ class CapturaVagasRequest(BaseModel):
 
     termos: list[str] = Field(default_factory=list, max_length=12)
     localizacoes: list[str] = Field(default_factory=list, max_length=12)
+    termo: str | None = Field(default=None, max_length=180)
+    localidade: str | None = Field(default=None, max_length=180)
     modalidades: list[str] = Field(default_factory=list, max_length=8)
     fontes: list[str] = Field(default_factory=list, max_length=8)
-    limite_por_fonte: int = Field(default=25, ge=1, le=100)
+    limite_por_fonte: int = Field(default=30, ge=1, le=100)
     usar_fallback_diagnostico: bool | None = None
 
 
@@ -227,8 +229,12 @@ async def capturar_vagas(
     finally:
         db.close()
 
-    roles = _split_values(request.termos) or saved_roles
-    locations = _split_values(request.localizacoes) or saved_locations
+    # The ad-hoc search fields from the screen have priority over both the
+    # legacy list fields and the saved profile preferences.
+    roles = _split_values(request.termo) if request.termo is not None else _split_values(request.termos)
+    locations = _split_values(request.localidade) if request.localidade is not None else _split_values(request.localizacoes)
+    roles = roles or saved_roles
+    locations = locations or saved_locations
     modalities = [item.casefold() for item in (_split_values(request.modalidades) or saved_modalities)]
     queries = _queries(roles, locations)
     search_pairs = _search_pairs(roles, locations)
@@ -393,6 +399,7 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
 @router.get("")
 async def listar_vagas(
     termo: str | None = Query(default=None, max_length=180),
+    busca: str | None = Query(default=None, max_length=180),
     modalidade: str | None = Query(default=None, max_length=80),
     origem: str | None = Query(default=None, max_length=80),
     limite: int = Query(default=20, ge=1, le=100),
@@ -401,8 +408,9 @@ async def listar_vagas(
 ):
     """Lista o banco normalizado com paginação e filtros do frontend."""
 
+    search_term = (busca or "").strip() or (termo or "").strip() or None
     try:
-        rows = await consultar_vagas(termo, modalidade, limite, offset, origem=origem)
+        rows = await consultar_vagas(search_term, modalidade, limite, offset, origem=origem)
         total = int(rows[0].get("total_count") or 0) if rows else 0
         return {"items": [_serialize_row(row) for row in rows], "total": total, "limite": limite, "offset": offset, "source": "vagas"}
     except Exception as exc:  # noqa: BLE001 - legacy DB keeps the UI available
@@ -423,7 +431,7 @@ async def listar_vagas(
         queue_rows = db.scalars(queue_query).all()
         result: list[dict[str, Any]] = []
         for item in queue_rows:
-            if termo and termo.casefold() not in f"{item.title} {item.company} {item.location}".casefold():
+            if search_term and search_term.casefold() not in f"{item.title} {item.company} {item.location}".casefold():
                 continue
             result.append({"id": item.id, "source": item.source, "external_id": item.source_ref, "title": item.title, "company": item.company, "location": item.location, "modality": item.modality, "contract_type": item.contract_type, "url": item.url, "record_type": "queue", "queue_status": item.status, "description": item.description})
         jobs_query = select(Job).order_by(Job.id.desc())
@@ -432,7 +440,7 @@ async def listar_vagas(
         for job in db.scalars(jobs_query).all():
             if (origem and job.source != origem) or (modalidade and job.modality != modalidade):
                 continue
-            if termo and termo.casefold() not in f"{job.title} {job.company} {job.location}".casefold():
+            if search_term and search_term.casefold() not in f"{job.title} {job.company} {job.location}".casefold():
                 continue
             result.append({"id": job.id, "source": job.source, "external_id": job.external_id, "title": job.title, "company": job.company, "location": job.location, "modality": job.modality, "contract_type": job.contract_type, "url": job.url, "record_type": "job", "description": job.description, "application_id": job.application.id if job.application else None, "application_status": job.application.status if job.application else None})
         total = len(result)

@@ -2235,7 +2235,7 @@
         const response = await fetch("/api/vagas/capturar", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({}),
+          body: JSON.stringify((document.querySelector("#queueSearchInput")?.value || "").trim() ? {termo: document.querySelector("#queueSearchInput").value.trim()} : {}),
         });
         if (!response.ok) throw new Error(await responseError(response, "Não foi possível captar vagas agora."));
         const result = await response.json();

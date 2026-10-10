@@ -39,6 +39,18 @@ SEARCH_STOP_WORDS = {
     "na", "nas", "no", "nos", "o", "os", "para", "por", "um", "uma", "uns", "umas",
 }
 
+GENERIC_SEARCH_TERMS = {
+    "analista", "desenvolvedor", "desenvolvedora", "programador", "programadora",
+    "assistente", "atendente", "comercial", "estagio", "estágio", "recepcionista",
+}
+
+
+def is_generic_search(value: str) -> bool:
+    """Return whether a query is broad enough to justify a second page."""
+
+    tokens = list(dict.fromkeys(_search_tokens(value)))
+    return len(tokens) <= 2 and any(token in GENERIC_SEARCH_TERMS for token in tokens)
+
 
 class RetryableHttpStatus(httpx.HTTPStatusError):
     """Marker used to retry transient HTTP responses."""

@@ -31,12 +31,15 @@ TERMOS_MONITORADOS = [
 scheduler = AsyncIOScheduler()
 
 
-def _termos_das_preferencias() -> list[str]:
-    """Build collection terms from every configured candidate profile."""
+_NATIONAL_LOCATIONS = {"br", "brasil", "nacional", "todo brasil", "todo o brasil"}
+
+
+def _preferencias_de_coleta() -> list[tuple[str, str]]:
+    """Read current profile preferences on every cycle (there is no stale cache)."""
 
     db = SessionLocal()
     try:
-        terms: list[str] = []
+        terms: list[tuple[str, str]] = []
         candidates = db.scalars(select(Candidate)).all()
         for candidate in candidates:
             try:
@@ -54,17 +57,25 @@ def _termos_das_preferencias() -> list[str]:
             roles = [str(item).strip() for item in roles if str(item).strip()]
             locations = [str(item).strip() for item in locations if str(item).strip()]
             terms.extend(
-                f"{role} {location}" if location else role
+                (role, "" if location.casefold() in _NATIONAL_LOCATIONS else location)
                 for role in roles[:8]
                 for location in (locations[:8] or [""])
             )
-        unique: list[str] = []
+        unique: list[tuple[str, str]] = []
         for term in terms:
-            if term.casefold() not in {item.casefold() for item in unique}:
+            if tuple(part.casefold() for part in term) not in {
+                tuple(part.casefold() for part in item) for item in unique
+            }:
                 unique.append(term)
-        return unique[:24] or list(TERMOS_MONITORADOS)
+        return unique[:24] or [(term, "") for term in TERMOS_MONITORADOS]
     finally:
         db.close()
+
+
+def _termos_das_preferencias() -> list[str]:
+    """Compatibility view used by diagnostics and older callers."""
+
+    return [f"{term} {location}".strip() for term, location in _preferencias_de_coleta()]
 
 
 async def executar_rotina_alertas() -> None:
@@ -82,14 +93,17 @@ async def executar_rotina_varredura() -> None:
     """Collect monitored terms, upsert jobs and process their pending alerts."""
     print("[Scheduler] Iniciando coleta geral de vagas...")
     total = 0
-    termos = _termos_das_preferencias()
-    print(f"[Scheduler] Termos derivados das preferências: {', '.join(termos)}")
-    for termo in termos:
+    preferencias = _preferencias_de_coleta()
+    print(
+        "[Scheduler] Preferências lidas do banco neste ciclo: "
+        + ", ".join(f"{term} {location}".strip() for term, location in preferencias)
+    )
+    for termo, localizacao in preferencias:
         try:
-            vagas = await coletar_todas_as_fontes(termo)
+            vagas = await coletar_todas_as_fontes(termo, localizacao=localizacao, limite_por_fonte=30)
             total += await salvar_vagas_em_lote(vagas)
         except Exception as exc:  # noqa: BLE001 - one term must not stop the cycle
-            print(f"[Scheduler] Erro no termo '{termo}': {exc}")
+            print(f"[Scheduler] Erro no termo '{termo}' localidade='{localizacao}': {exc}")
     try:
         await executar_rotina_alertas()
     except Exception as exc:  # noqa: BLE001 - collection result remains useful
