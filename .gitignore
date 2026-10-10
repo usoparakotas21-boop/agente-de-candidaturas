@@ -32,3 +32,7 @@ Imagem do Codex *.png
 *.log
 scratch/
 audit_mobile.py
+
+# Remotion: dependências e prévias locais; o vídeo final é um artefato distribuível
+motion-video/node_modules/
+motion-video/candidatura_certa_preview.mp4

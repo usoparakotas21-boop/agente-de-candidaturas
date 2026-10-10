@@ -8,6 +8,7 @@
     "build-video:preview": "remotion render src/index.ts CandidaturaCerta candidatura_certa_preview.mp4 --frames=0-450 --codec=h264"
   },
   "dependencies": {
+    "@remotion/cli": "^4.0.238",
     "@remotion/media": "^4.0.238",
     "@remotion/tailwind": "^4.0.238",
     "react": "^18.3.1",
