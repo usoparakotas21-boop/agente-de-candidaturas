@@ -48,6 +48,14 @@ COLLECTORS: dict[str, Collector] = {
     "infojobs": infojobs.collect,
 }
 
+# Keep one slow provider from holding the manual capture request open until
+# the Railway/Cloudflare gateway returns an HTML timeout page. LinkedIn runs a
+# browser Actor and therefore receives a longer, explicit budget.
+SOURCE_TIMEOUTS_SECONDS = {
+    "solides": 55.0,
+    "linkedin": 95.0,
+}
+
 
 @dataclass(slots=True)
 class CollectionReport:
@@ -80,12 +88,14 @@ async def collect_report(
             async with semaphore:
                 try:
                     source_query = f"{query} {location}".strip() if source in {"remoteok", "weworkremotely"} else query
-                    jobs = await COLLECTORS[source](
+                    collect_call = COLLECTORS[source](
                         source_query,
                         location=location,
                         limit=limit_per_source,
                         client=client,
                     )
+                    timeout = SOURCE_TIMEOUTS_SECONDS.get(source, 45.0)
+                    jobs = await asyncio.wait_for(collect_call, timeout=timeout)
                     logger.info(
                         "[JobCollector] fonte=%s consulta=%r resultados_filtrados=%d limite=%d",
                         source,

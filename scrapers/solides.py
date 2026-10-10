@@ -84,7 +84,8 @@ async def collect(
             if len(items) >= take and not is_generic_search(normalized):
                 break
         if not items:
-            raise ValueError(f"{SOURCE}: API retornou zero itens para a consulta {query!r}")
+            logger.info("[%s] API retornou zero itens para a consulta %r", SOURCE, query)
+            return []
         jobs: list[VagaPadronizada] = []
         for item in items:
             title = clean_text(item.get("title"))

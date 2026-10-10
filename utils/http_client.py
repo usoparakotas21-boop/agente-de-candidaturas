@@ -209,8 +209,10 @@ async def fetch_via_scraperapi(
     try:
         # ScraperAPI can take longer than a direct public request while it
         # queues a proxy fetch. Keep the shared client/pacing but give this
-        # provider its explicit 45-second response budget.
-        request_options = {"timeout": 45.0} if api_key else {}
+        # provider its explicit 45-second response budget. Proxy failures are
+        # not retried by the shared client: a retry would multiply a single
+        # provider timeout into a request that outlives the Railway gateway.
+        request_options = {"timeout": 45.0, "_retry_attempts": 1} if api_key else {}
         return await http.get_text(target_url, **request_options)
     finally:
         if own_client:
@@ -360,6 +362,7 @@ class SafeHttpClient:
 
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         self.policy.validate_url(url)
+        retry_attempts = kwargs.pop("_retry_attempts", self.policy.max_retries + 1)
         host = self._host_key(url)
         lock = self._host_locks.setdefault(host, asyncio.Lock())
         request_kwargs = {"headers": self.policy.headers, **kwargs}
@@ -384,7 +387,7 @@ class SafeHttpClient:
 
         return await run_with_retries(
             operation,
-            policy=RetryPolicy(attempts=self.policy.max_retries + 1),
+            policy=RetryPolicy(attempts=max(1, int(retry_attempts))),
             retry_if=retry_if,
         )
 
