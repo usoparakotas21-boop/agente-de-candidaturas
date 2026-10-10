@@ -1218,6 +1218,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/billing/mercadopago/success",
         "/auth/verification-required",
         "/ajuda",
+        "/sobre",
+        "/para-empresas",
+        "/feedback",
+        "/api/feedback/public",
         # Documentos legais precisam ser legíveis antes do cadastro e do
         # consentimento; não podem cair no bloqueio de sessão.
         "/termos",
