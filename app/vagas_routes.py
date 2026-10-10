@@ -90,7 +90,7 @@ def _queries(roles: list[str], locations: list[str]) -> list[str]:
 def _diagnostic_fallback_enabled(request: CapturaVagasRequest) -> bool:
     if request.usar_fallback_diagnostico is not None:
         return request.usar_fallback_diagnostico
-    return os.getenv("JOB_CAPTURE_DIAGNOSTIC_FALLBACK", "true").strip().casefold() in {
+    return os.getenv("JOB_CAPTURE_DIAGNOSTIC_FALLBACK", "false").strip().casefold() in {
         "1",
         "true",
         "yes",

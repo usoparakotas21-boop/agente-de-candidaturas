@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import html as html_lib
 import json
+import logging
 import re
 import random
 import time
@@ -30,6 +31,12 @@ from .resilience import RetryPolicy, run_with_retries
 
 
 RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+logger = logging.getLogger(__name__)
+
+SEARCH_STOP_WORDS = {
+    "a", "as", "ao", "aos", "com", "da", "das", "de", "do", "dos", "e", "em",
+    "na", "nas", "no", "nos", "o", "os", "para", "por", "um", "uma", "uns", "umas",
+}
 
 
 class RetryableHttpStatus(httpx.HTTPStatusError):
@@ -43,6 +50,33 @@ def clean_text(value: Any) -> str:
         value = json.dumps(value, ensure_ascii=False)
     text = BeautifulSoup(html_lib.unescape(str(value)), "html.parser").get_text(" ", strip=True)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _search_tokens(value: str) -> list[str]:
+    normalized = clean_text(value).casefold()
+    return [
+        token
+        for token in re.findall(r"[\wÀ-ÿ]+", normalized, flags=re.UNICODE)
+        if len(token) > 1 and token not in SEARCH_STOP_WORDS
+    ]
+
+
+def matches_search_query(query: str, *values: Any) -> bool:
+    """Match meaningful query terms without requiring one verbatim phrase."""
+
+    query_text = clean_text(query).casefold()
+    if not query_text:
+        return True
+    searchable = clean_text(" ".join(clean_text(value) for value in values)).casefold()
+    if query_text in searchable:
+        return True
+    tokens = _search_tokens(query_text)
+    if not tokens:
+        return True
+    unique_tokens = list(dict.fromkeys(tokens))
+    matched = sum(token in searchable for token in unique_tokens)
+    required = max(1, (len(unique_tokens) + 1) // 2)
+    return matched >= required
 
 
 def stable_external_id(source: str, value: Any) -> str:
@@ -91,12 +125,22 @@ def _location_text(value: Any) -> str:
     return clean_text(value)
 
 
-def jobs_from_jsonld(html: str, *, source: str, page_url: str, limit: int = 50) -> list[VagaPadronizada]:
+def jobs_from_jsonld(
+    html: str,
+    *,
+    source: str,
+    page_url: str,
+    query: str = "",
+    limit: int = 50,
+) -> list[VagaPadronizada]:
     """Extract only explicit Schema.org JobPosting objects from public HTML."""
 
     soup = BeautifulSoup(html, "html.parser")
     jobs: list[VagaPadronizada] = []
-    for script in soup.select('script[type="application/ld+json"]'):
+    scripts = soup.select('script[type="application/ld+json"]')
+    if not scripts:
+        raise ValueError(f"{source}: resposta sem script JSON-LD; parser de vagas não encontrou dados estruturados")
+    for script in scripts:
         try:
             payload = json.loads(script.string or script.get_text())
         except (TypeError, json.JSONDecodeError):
@@ -108,8 +152,12 @@ def jobs_from_jsonld(html: str, *, source: str, page_url: str, limit: int = 50) 
             title = clean_text(item.get("title"))
             if not title:
                 continue
+            location_text = _location_text(item.get("jobLocation")) or "Não informado"
+            description = clean_text(item.get("description"))
             company_value = item.get("hiringOrganization")
             company = clean_text(company_value.get("name") if isinstance(company_value, dict) else company_value)
+            if query and not matches_search_query(query, title, company, location_text, description):
+                continue
             url = urljoin(page_url, clean_text(item.get("url")) or page_url)
             modality = " ".join(
                 filter(
@@ -131,11 +179,11 @@ def jobs_from_jsonld(html: str, *, source: str, page_url: str, limit: int = 50) 
                         origem=source,
                         titulo=title,
                         empresa=company or "Não informado",
-                        localidade=_location_text(item.get("jobLocation")) or "Não informado",
+                        localidade=location_text,
                         tipo_modalidade=modality,
                         url_candidatura=url,
                         url_origem=page_url,
-                        descricao=clean_text(item.get("description")),
+                        descricao=description,
                         tipo_contrato=clean_text(item.get("employmentType")) or None,
                         data_publicacao=parse_datetime(item.get("datePosted")),
                         metadados={"parser": "schema.org/JobPosting"},
@@ -145,6 +193,8 @@ def jobs_from_jsonld(html: str, *, source: str, page_url: str, limit: int = 50) 
                 continue
             if len(jobs) >= limit:
                 return jobs
+    if not jobs:
+        raise ValueError(f"{source}: JSON-LD encontrado, mas nenhum JobPosting correspondeu à consulta {query!r}")
     return jobs
 
 

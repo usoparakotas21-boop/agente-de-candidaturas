@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from schemas import TipoModalidade, VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "remoteok"
@@ -21,7 +21,7 @@ async def collect(
     try:
         payload = await http.get_json(PUBLIC_ENDPOINT)
         if not isinstance(payload, list):
-            return []
+            raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado lista, recebido {type(payload).__name__}")
         query_lower = query.casefold().strip()
         jobs: list[VagaPadronizada] = []
         for item in payload:
@@ -30,8 +30,7 @@ async def collect(
             title = clean_text(item.get("position"))
             company = clean_text(item.get("company")) or "Não informado"
             tags = [clean_text(tag) for tag in item.get("tags", []) if clean_text(tag)]
-            searchable = f"{title} {company} {' '.join(tags)}".casefold()
-            if query_lower and query_lower not in searchable:
+            if query_lower and not matches_search_query(query, title, company, *tags):
                 continue
             url = clean_text(item.get("url"))
             if not url:

@@ -7,7 +7,7 @@ from typing import Any
 import xmltodict
 
 from schemas import TipoModalidade, VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "weworkremotely"
@@ -16,6 +16,8 @@ PUBLIC_ENDPOINT = "https://weworkremotely.com/remote-jobs.rss"
 
 def _items(payload: Any) -> list[dict[str, Any]]:
     channel = payload.get("rss", {}).get("channel", {}) if isinstance(payload, dict) else {}
+    if not isinstance(channel, dict):
+        raise ValueError(f"{SOURCE}: RSS sem rss.channel")
     raw = channel.get("item", []) if isinstance(channel, dict) else []
     return raw if isinstance(raw, list) else [raw] if isinstance(raw, dict) else []
 
@@ -37,7 +39,7 @@ async def collect(
             if not title:
                 continue
             description = clean_text(item.get("description"))
-            if query_lower and query_lower not in f"{title} {description}".casefold():
+            if query_lower and not matches_search_query(query, title, description):
                 continue
             url = clean_text(item.get("link")) or PUBLIC_ENDPOINT
             jobs.append(
