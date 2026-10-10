@@ -23,7 +23,13 @@ async def collect(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        payload = await http.get_json(PUBLIC_ENDPOINT)
+        # Remote OK occasionally serves a brotli/zstd-like body to generic
+        # clients. Ask for an uncompressed JSON response so httpx does not
+        # hand the parser opaque bytes from an unsupported codec.
+        payload = await http.get_json(
+            PUBLIC_ENDPOINT,
+            headers={"Accept-Encoding": "identity"},
+        )
         if not isinstance(payload, list):
             raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado lista, recebido {type(payload).__name__}")
         logger.info("[RemoteOK] url=%s itens_brutos=%d", PUBLIC_ENDPOINT, len(payload))
