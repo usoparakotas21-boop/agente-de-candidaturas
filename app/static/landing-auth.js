@@ -8,7 +8,6 @@
   const pendingPlanKey="ac_pending_plan_checkout";
   function readPendingPlan(){try{const value=JSON.parse(localStorage.getItem(pendingPlanKey)||"null");if(!value||!['start','pro','consultoria','combo'].includes(value.plan)||Number(value.expires_at)<Date.now()){localStorage.removeItem(pendingPlanKey);return ""}return value.plan}catch(_){localStorage.removeItem(pendingPlanKey);return ""}}
   async function createPlanCheckout(plan){
-    try {
       const url=plan==="combo"?"/billing/combo/checkout":"/billing/subscriptions/checkout";
       const body=plan==="combo"?null:JSON.stringify({plan_code:plan});
       const response=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body});
@@ -18,13 +17,10 @@
         location.assign(payload.checkout_url);
         return true;
       }
-    } catch(_) {}
-    localStorage.removeItem(pendingPlanKey);
-    location.assign("https://mpago.la");
-    return true;
+      throw Error(payload.detail||"Não foi possível abrir o checkout. Tente novamente em instantes.");
   }
-  async function continuePendingPlan(){const plan=readPendingPlan();if(!plan)return false;try{await createPlanCheckout(plan);return true}catch(error){localStorage.removeItem(pendingPlanKey);loginError.textContent=error.message;return false}}
-  document.querySelectorAll("[data-plan-checkout]").forEach(button=>button.addEventListener("click",async event=>{event.preventDefault();const plan=button.dataset.planCheckout;if(!['start','pro','consultoria','combo'].includes(plan))return;button.setAttribute("aria-busy","true");button.textContent="Preparando checkout…";try{const session=await fetch("/auth/me");if(session.ok){await createPlanCheckout(plan);return}localStorage.setItem(pendingPlanKey,JSON.stringify({plan,expires_at:Date.now()+7*24*60*60*1000}));open("signup");signupStatus.textContent="Depois de confirmar seu e-mail, entre novamente neste navegador; o checkout será aberto automaticamente."}catch(error){loginError.textContent=error.message;open("login")}finally{button.removeAttribute("aria-busy");button.textContent=plan==="consultoria"?"Assinar Consultoria":plan==="start"?"Assinar Start":plan==="combo"?"Comprar Combo":"Assinar Pro"}}));
+  async function continuePendingPlan(){const plan=readPendingPlan();if(!plan)return false;await createPlanCheckout(plan);return true}
+  document.querySelectorAll("[data-plan-checkout]").forEach(button=>button.addEventListener("click",async event=>{event.preventDefault();const plan=button.dataset.planCheckout;if(!['start','pro','consultoria','combo'].includes(plan))return;button.setAttribute("aria-busy","true");button.textContent="Preparando checkout…";try{const session=await fetch("/auth/me");if(session.ok){await createPlanCheckout(plan);return}localStorage.setItem(pendingPlanKey,JSON.stringify({plan,expires_at:Date.now()+7*24*60*60*1000}));open("signup");signupStatus.textContent="Depois de confirmar seu e-mail, entre novamente neste navegador; o checkout será aberto automaticamente."}catch(error){open("login");loginError.textContent=error.message}finally{button.removeAttribute("aria-busy");button.textContent=plan==="consultoria"?"Assinar Consultoria":plan==="start"?"Assinar Start":plan==="combo"?"Comprar Combo":"Assinar Pro"}}));
   document.querySelectorAll('[data-auth-mode]').forEach(el=>el.addEventListener("click",e=>{e.preventDefault();open(el.dataset.authMode||"login")}));
   document.getElementById("landingCloseAuth").addEventListener("click",()=>dialog.close());
   loginTab.addEventListener("click",()=>mode(false));signupTab.addEventListener("click",()=>mode(true));

@@ -267,8 +267,6 @@ async def enforce_canonical_host(request: Request, call_next):
         url = request.url.replace(scheme="https", netloc="candidaturacerta.com.br")
         return RedirectResponse(url=str(url), status_code=301)
     return await call_next(request)
-
-
 @app.exception_handler(RequestValidationError)
 async def request_validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(
@@ -1740,7 +1738,7 @@ def robots_txt():
         "Disallow: /billing/\n"
         "Disallow: /webhooks/\n"
         "\n"
-        "Sitemap: https://www.candidaturacerta.com.br/sitemap.xml\n"
+        "Sitemap: https://candidaturacerta.com.br/sitemap.xml\n"
     )
 
 
@@ -1749,7 +1747,7 @@ def sitemap_xml():
     """XML sitemap for public pages."""
     from datetime import date
     today = date.today().isoformat()
-    base = "https://www.candidaturacerta.com.br"
+    base = "https://candidaturacerta.com.br"
     urls = [
         {"loc": base + "/", "priority": "1.0", "changefreq": "weekly"},
         {"loc": base + "/termos", "priority": "0.3", "changefreq": "monthly"},
@@ -1795,35 +1793,12 @@ def email_verification_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    session = SessionLocal()
-    debug_info = "none"
     try:
-        total_users = session.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
-        debug_info = "auth.users query successful"
-    except Exception as e:
-        debug_info = f"Error SQL: {str(e)}"
-        
-        url = os.getenv("SUPABASE_URL", "").rstrip("/")
-        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-        total_users = 0
-        if url and key:
-            try:
-                import httpx
-                headers = {"apikey": key, "Authorization": f"Bearer {key}"}
-                r = httpx.get(f"{url}/auth/v1/admin/users?per_page=1000", headers=headers)
-                if r.status_code == 200:
-                    users_data = r.json()
-                    total_users = len(users_data.get("users", []))
-                    debug_info += " | API admin users list successful"
-                else:
-                    debug_info += f" | API error: {r.status_code} {r.text}"
-            except Exception as ex:
-                debug_info += f" | API Exception: {str(ex)}"
-        
-        if total_users == 0:
-            total_users = session.scalar(select(func.count(Candidate.id))) or 0
-
-    return {"status": "ok", "db": "connected", "total_users": total_users, "debug_info": debug_info}
+        with SessionLocal() as session:
+            session.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "error", "db": "unavailable"})
+    return {"status": "ok", "db": "connected"}
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)
@@ -7116,34 +7091,3 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
         return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida com sucesso para {target_email}."}
     finally:
         session.close()
-
-
-import httpx
-import os
-import asyncio
-
-async def auto_provision_admin():
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    anon_key = os.getenv("SUPABASE_ANON_KEY", "")
-    
-    if not supabase_url or not anon_key:
-        return
-        
-    email = "contato@candidaturacerta.com.br"
-    password = "Querubim@131"
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(
-                f"{supabase_url}/auth/v1/signup",
-                headers={"apikey": anon_key},
-                json={"email": email, "password": password}
-            )
-            # We don't print anything to avoid leaking password in logs
-        except Exception:
-            pass
-
-@app.on_event("startup")
-async def provision_admin_startup():
-    asyncio.create_task(auto_provision_admin())
-
