@@ -41,7 +41,15 @@ MFA_PENDING_FACTOR_COOKIE_NAME = "agente_mfa_pending_factor"
 MFA_PENDING_CHALLENGE_COOKIE_NAME = "agente_mfa_pending_challenge"
 MFA_PENDING_MAX_AGE = 5 * 60
 APP_BASE_URL = _app_base_url()
-PWNED_PASSWORD_CHECK = os.getenv("PWNED_PASSWORD_CHECK", "false").lower() == "true"
+# Production deployments fail closed against known leaked passwords.  Local
+# development keeps the opt-in default so an offline HIBP service never makes
+# a developer unable to create a test account; Railway can still override this
+# explicitly with PWNED_PASSWORD_CHECK=true.
+_pwned_default = "true" if (
+    os.getenv("RAILWAY_ENVIRONMENT", "").strip()
+    or os.getenv("ENVIRONMENT", "").strip().lower() in {"production", "prod"}
+) else "false"
+PWNED_PASSWORD_CHECK = os.getenv("PWNED_PASSWORD_CHECK", _pwned_default).lower() == "true"
 PWNED_PASSWORD_TIMEOUT = 4.0
 # Keep the legal text versioned so each signup records exactly what the user
 # accepted.  A future policy change can bump these values without changing the

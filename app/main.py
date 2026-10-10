@@ -54,7 +54,7 @@ def _mercadopago_public_key() -> str:
     )
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
@@ -1024,6 +1024,51 @@ def _require_document_export(user: dict | None, application_id: int | None = Non
     raise HTTPException(status_code=402, detail=detail)
 
 
+def _require_ai_entitlement(user: dict | None) -> dict[str, Any]:
+    """Require a paid plan before running the costly AI document flows.
+
+    Keeping this check in one place makes the HTTP response predictable for
+    the web client and prevents a free account from accidentally invoking a
+    provider-backed generation route.
+    """
+    entitlement = _get_user_plan_and_entitlement(user)
+    plan = str(entitlement.get("plan") or "essential").strip().lower()
+    paid = bool(entitlement.get("is_admin") or entitlement.get("entitled")) and plan != "essential"
+    if not paid:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "UPGRADE_REQUIRED",
+                "message": "A adaptação por IA está disponível nos planos Start, Pro e Consultoria.",
+                "plan": plan,
+                "required_plans": ["start", "start_plus", "pro", "consultoria"],
+                "upgrade_url": "/planos",
+            },
+        )
+    return entitlement
+
+
+async def _build_application_with_timeout(job, candidate, timeout: float | None = None):
+    """Run the synchronous analysis/generation without blocking the event loop."""
+    # Materialize relationships while the request's SQLAlchemy session is on
+    # its owning thread.  The generator itself is pure Python, so the worker
+    # thread must never trigger a lazy query on an ORM-bound object.
+    if candidate is not None:
+        list(candidate.experiences)
+        list(candidate.skills)
+    configured = timeout
+    if configured is None:
+        try:
+            configured = float(os.getenv("AI_REQUEST_TIMEOUT", "30"))
+        except (TypeError, ValueError):
+            configured = 30.0
+    configured = max(5.0, min(configured, 90.0))
+    return await asyncio.wait_for(
+        asyncio.to_thread(_build_application, job, candidate),
+        timeout=configured,
+    )
+
+
 def _cover_letter_preview(text_value: str | None, limit: int = 560) -> str:
     """Keep the free preview useful without exposing the complete letter."""
     text_value = str(text_value or "").strip()
@@ -1136,6 +1181,19 @@ class JobIntakeConfirmRequest(BaseModel):
     description: str
     auto_analyze: bool = True
 class ResumeRequest(BaseModel): title: str; resume: dict
+class AIJobRequest(BaseModel):
+    """Input shared by the paid AI document endpoints."""
+    vaga_id: int = Field(gt=0)
+
+
+class AIRebrandingRequest(BaseModel):
+    """Optional JSON form for clients that already have profile text."""
+    cargo_alvo: str = Field(default="", max_length=200)
+    headline: str = Field(default="", max_length=500)
+    resumo: str = Field(default="", max_length=6000)
+    experiencias: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class DocumentExportCheckoutRequest(BaseModel): application_id: int = Field(gt=0)
 class SubscriptionCheckoutRequest(BaseModel): plan_code: Literal["start", "start_plus", "pro", "consultoria"]
 class ConsultationBookingRequest(BaseModel): availability: str = Field(min_length=5, max_length=800)
@@ -3250,6 +3308,7 @@ def privacy_export(user=Depends(authenticated_user)):
         notification_query = select(FollowupEmailOutbox).order_by(FollowupEmailOutbox.created_at.asc())
         expiration_notification_query = select(ExpiringJobEmailOutbox).order_by(ExpiringJobEmailOutbox.created_at.asc())
         copilot_query = select(CopilotPreparation).order_by(CopilotPreparation.created_at.asc())
+        integration_query = select(EmailIntegration).order_by(EmailIntegration.id.asc())
         if oid:
             candidate_query = candidate_query.where(Candidate.owner_id == oid)
             jobs_query = jobs_query.where(Job.owner_id == oid)
@@ -3257,6 +3316,7 @@ def privacy_export(user=Depends(authenticated_user)):
             notification_query = notification_query.where(FollowupEmailOutbox.owner_id == oid)
             expiration_notification_query = expiration_notification_query.where(ExpiringJobEmailOutbox.owner_id == oid)
             copilot_query = copilot_query.where(CopilotPreparation.owner_id == oid)
+            integration_query = integration_query.where(EmailIntegration.owner_id == oid)
         candidate = db.scalar(candidate_query)
         jobs = db.scalars(jobs_query).all()
         applications = [job.application for job in jobs if job.application is not None]
@@ -3264,6 +3324,7 @@ def privacy_export(user=Depends(authenticated_user)):
         notifications = db.scalars(notification_query).all()
         expiration_notifications = db.scalars(expiration_notification_query).all()
         copilot_preparations = db.scalars(copilot_query).all()
+        integrations = db.scalars(integration_query).all()
 
         def iso(value):
             return value.isoformat() if value else None
@@ -3294,9 +3355,17 @@ def privacy_export(user=Depends(authenticated_user)):
             "followup_email_notifications": [{"frequency": item.frequency, "status": item.status, "application_count": len(item.application_ids or []), "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in notifications],
             "expiring_job_email_notifications": [{"job_id": item.job_id, "deadline": item.deadline_key, "frequency": item.frequency, "status": item.status, "scheduled_at": iso(item.scheduled_at), "sent_at": iso(item.sent_at)} for item in expiration_notifications],
             "copilot_preparations": [{"portal_host": item.portal_host, "status": item.status, "filled_count": item.filled_count, "consented_at": iso(item.consented_at), "created_at": iso(item.created_at), "completed_at": iso(item.completed_at)} for item in copilot_preparations],
+            # Export connection metadata without ever exposing refresh tokens.
+            "email_integrations": [{"provider": item.provider, "email": item.email, "scopes": item.scopes, "sync_status": item.sync_status, "connected_at": iso(item.connected_at), "updated_at": iso(item.updated_at)} for item in integrations],
         }, headers={"Content-Disposition": 'attachment; filename="agente-candidaturas-dados.json"'})
     finally:
         db.close()
+
+
+@app.get("/api/usuario/exportar-dados")
+def export_user_data_lgpd(user=Depends(authenticated_user)):
+    """LGPD portability alias used by the account settings screen."""
+    return privacy_export(user)
 
 
 class AccountDeletionRequest(BaseModel):
@@ -3607,6 +3676,16 @@ async def delete_account(
     response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
     response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
     return response
+
+
+@app.delete("/api/usuario/me")
+async def delete_user_lgpd(
+    payload: AccountDeletionRequest = Body(...),
+    request: Request = None,
+    user=Depends(authenticated_user),
+):
+    """LGPD right-to-erasure alias; it shares the atomic purge implementation."""
+    return await delete_account(payload, request, user)
 
 @app.get("/applications/{app_id}")
 def get_app(app_id: int, user=Depends(authenticated_user)):
@@ -5580,6 +5659,91 @@ def download_pro_ebook(user=Depends(authenticated_user)):
     )
 
 
+def _ebook_fallback_pdf() -> bytes:
+    """Small valid PDF used only if a product asset was omitted from a deploy."""
+    stream = (
+        b"BT /F1 20 Tf 72 720 Td (Candidatura Certa - E-book DISC) Tj "
+        b"/F1 11 Tf 0 -28 Td (Material temporario de recuperacao.) Tj ET\n"
+    )
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>stream\n" + stream + b"endstream",
+    ]
+    document = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(document))
+        document.extend(f"{number} 0 obj\n".encode("ascii"))
+        document.extend(body)
+        document.extend(b"\nendobj\n")
+    xref_offset = len(document)
+    document.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    document.extend(b"0000000000 65535 f \n")
+    document.extend(b"".join(f"{offset:010d} 00000 n \n".encode("ascii") for offset in offsets[1:]))
+    document.extend(f"trailer\n<< /Root 1 0 R /Size {len(objects) + 1} >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
+    return bytes(document)
+
+
+@app.get("/api/ebook/download")
+def download_ebook_api(user=Depends(authenticated_user)):
+    """Download the complete e-book for an entitled plan or paid purchase."""
+    owner_id = _owner_id(user)
+    if not owner_id:
+        raise HTTPException(401, "Login necessário.")
+    entitlement = _get_user_plan_and_entitlement(user)
+    plan = str(entitlement.get("plan") or "essential").strip().lower()
+    allowed_plans = {"pro", "consultoria", "start_plus", "combo"}
+    has_access = bool(entitlement.get("is_admin") or plan in allowed_plans)
+    if not has_access:
+        db = SessionLocal()
+        try:
+            purchase = db.scalar(
+                select(EbookPurchase.id).where(
+                    EbookPurchase.owner_id == owner_id,
+                    EbookPurchase.status == "PAID",
+                ).limit(1)
+            )
+            has_access = purchase is not None
+        finally:
+            db.close()
+    if not has_access:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "EBOOK_UPGRADE_REQUIRED",
+                "message": "O livro completo está disponível nos planos Pro, Consultoria e Combo, ou por compra avulsa.",
+                "required_plans": ["pro", "consultoria", "combo"],
+                "upgrade_url": "/planos",
+            },
+        )
+
+    # Consultoria may receive the package ZIP in the existing billing route;
+    # this API consistently returns the book PDF so mobile and web clients can
+    # open the same endpoint.
+    candidates = [NORMAL_BOOK_PATH, Path(__file__).parent / "private_products" / "DISC_Hackeado_Edicao_Completa.pdf", PREVIEW_BOOK_PATH]
+    for path in candidates:
+        if path.is_file():
+            return FileResponse(
+                path,
+                media_type="application/pdf",
+                filename="DISC-Hackeado.pdf",
+                headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+            )
+    logger.error("Nenhum asset do e-book está presente no deploy; entregando fallback seguro")
+    return Response(
+        content=_ebook_fallback_pdf(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="DISC-Hackeado.pdf"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @app.post("/billing/ebook/checkout", include_in_schema=False)
 async def create_ebook_checkout(request: Request, user=Depends(authenticated_user)):
     owner_id = _owner_id(user)
@@ -6327,6 +6491,86 @@ def generate_doc(job_id: int, user=Depends(authenticated_user), request: Request
         return FileResponse(path=path, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=path.name, headers={"X-Application-Id": str(app.id), "X-Application-Status": app.status, "X-Analysis-Score": str(arts["analysis"]["score"]), "X-Personalization-Score": str(arts["personalization"]["personalization_score"])})
     finally: db.close()
 
+
+@app.post("/api/ai/curriculo/adaptar")
+async def ai_adapt_resume(payload: AIJobRequest, user=Depends(authenticated_user)):
+    """Return the tailored resume sections for one captured opportunity."""
+    entitlement = _require_ai_entitlement(user)
+    db = SessionLocal()
+    try:
+        job = _job_for_user(db, payload.vaga_id, user)
+        if job is None:
+            raise HTTPException(404, "Vaga não encontrada.")
+        candidate = _candidate_for_user(db, user)
+        try:
+            arts = await _build_application_with_timeout(job, candidate)
+        except asyncio.TimeoutError as exc:
+            logger.warning("AI curriculum timeout owner=%s job=%s", _owner_id(user), job.id)
+            raise HTTPException(504, "A adaptação do currículo demorou mais que o esperado. Tente novamente.") from exc
+        except Exception as exc:
+            logger.exception("AI curriculum failed owner=%s job=%s", _owner_id(user), job.id)
+            raise HTTPException(502, "Não foi possível adaptar o currículo agora. Tente novamente.") from exc
+
+        application = _ensure_app(db, job, candidate)
+        _save_analysis(application, arts["analysis"], candidate)
+        application.personalization_score = arts["personalization"].get("personalization_score")
+        db.commit()
+        return {
+            "status": "ok",
+            "vaga_id": job.id,
+            "plano": entitlement.get("plan"),
+            "curriculo": arts["resume"],
+            "analise": arts["analysis"],
+            "personalizacao": arts["personalization"],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/ai/carta/gerar")
+async def ai_generate_cover_letter(payload: AIJobRequest, user=Depends(authenticated_user)):
+    """Generate a complete, paid-plan cover letter for a captured opportunity."""
+    entitlement = _require_ai_entitlement(user)
+    db = SessionLocal()
+    try:
+        job = _job_for_user(db, payload.vaga_id, user)
+        if job is None:
+            raise HTTPException(404, "Vaga não encontrada.")
+        candidate = _candidate_for_user(db, user)
+        try:
+            arts = await _build_application_with_timeout(job, candidate)
+            letter = await asyncio.wait_for(
+                asyncio.to_thread(
+                    generate_cover_letter,
+                    job_title=job.title,
+                    company=job.company,
+                    profile=arts["profile"],
+                    analysis=arts["analysis"],
+                    personalization=arts["personalization"],
+                ),
+                timeout=max(5.0, min(float(os.getenv("AI_REQUEST_TIMEOUT", "30")), 90.0)),
+            )
+        except asyncio.TimeoutError as exc:
+            logger.warning("AI cover-letter timeout owner=%s job=%s", _owner_id(user), job.id)
+            raise HTTPException(504, "A carta demorou mais que o esperado. Tente novamente.") from exc
+        except Exception as exc:
+            logger.exception("AI cover-letter failed owner=%s job=%s", _owner_id(user), job.id)
+            raise HTTPException(502, "Não foi possível gerar a carta agora. Tente novamente.") from exc
+
+        application = _ensure_app(db, job, candidate)
+        _save_analysis(application, arts["analysis"], candidate)
+        application.cover_letter_text = letter
+        application.cover_letter_version = _content_version("carta", letter)
+        db.commit()
+        return {
+            "status": "ok",
+            "vaga_id": job.id,
+            "plano": entitlement.get("plan"),
+            "carta": letter,
+        }
+    finally:
+        db.close()
+
 @app.post("/document-studio/generate")
 def generate_document_studio(req: DocumentStudioRequest, background_tasks: BackgroundTasks, user=Depends(authenticated_user), request: Request = None):
     """Create a tailored resume and cover letter from a role pasted by the user.
@@ -6762,6 +7006,7 @@ async def create_linkedin_rebranding_checkout(request: Request, user=Depends(aut
         db.close()
 
 @app.post("/api/linkedin/generate", include_in_schema=False)
+@app.post("/api/ai/linkedin/rebranding", include_in_schema=False)
 async def generate_linkedin_rebranding(
     file: UploadFile = File(...),
     user=Depends(authenticated_user)
