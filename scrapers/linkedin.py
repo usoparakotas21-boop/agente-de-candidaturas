@@ -54,59 +54,74 @@ async def collect(
         f"keywords={quote(query.strip())}&location={quote(location.strip())}"
     )
     run_url = f"{APIFY_RUN_URL}?token={quote(apify_token, safe='')}"
-    payload = {"urls": [search_url], "maxItems": 15}
+    payload = {
+        "urls": [search_url],
+        "maxItems": 15,
+        "scrapeCompanyDetails": False,
+    }
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        logger.info("[%s] iniciando Actor Apify url=%s maxItems=%d", SOURCE, search_url, payload["maxItems"])
-        response = await http.request(
-            "POST",
-            run_url,
-            json=payload,
-            timeout=90.0,
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
+        logger.info(
+            "[%s] iniciando Actor Apify url=%s maxItems=%d scrapeCompanyDetails=%s",
+            SOURCE,
+            search_url,
+            payload["maxItems"],
+            payload["scrapeCompanyDetails"],
         )
         try:
-            actor_payload = response.json()
-        except ValueError:
-            logger.info("[%s] Actor retornou corpo sem JSON válido", SOURCE)
-            return []
-
-        items = _items(actor_payload)
-        logger.info("[%s] Actor retornou itens_brutos=%d", SOURCE, len(items))
-        jobs: list[VagaPadronizada] = []
-        max_items = min(max(limit, 1), 15)
-        for item in items:
-            title = clean_text(item.get("title"))
-            if not title:
-                continue
-            company = clean_text(item.get("companyName") or item.get("company")) or "Não informado"
-            location_text = clean_text(item.get("location")) or "Não informado"
-            job_url = clean_text(item.get("jobUrl") or item.get("link"))
-            if not job_url:
-                continue
-            date_value = item.get("publishedAt") or item.get("publishedDate") or item.get("date") or item.get("createdAt")
-            tags_value = item.get("skills") or item.get("tags") or []
-            tags = [clean_text(tag) for tag in tags_value if clean_text(tag)] if isinstance(tags_value, list) else []
-            jobs.append(
-                VagaPadronizada(
-                    id_externo=stable_external_id(SOURCE, item.get("id") or item.get("jobId") or job_url),
-                    origem=SOURCE,
-                    titulo=title,
-                    empresa=company,
-                    localidade=location_text,
-                    url_candidatura=job_url,
-                    url_origem=search_url,
-                    descricao=clean_text(item.get("description") or item.get("snippet")),
-                    palavras_chave=tags,
-                    data_publicacao=parse_datetime(date_value),
-                    metadados={"raw_source": SOURCE, "parser": "apify/curious_coder~linkedin-jobs-scraper"},
-                )
+            response = await http.request(
+                "POST",
+                run_url,
+                json=payload,
+                timeout=45.0,
+                _retry_attempts=1,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
             )
-            if len(jobs) >= max_items:
-                break
-        logger.info("[%s] consulta=%r resultados=%d", SOURCE, query, len(jobs))
-        return jobs
+            try:
+                actor_payload = response.json()
+            except ValueError:
+                logger.info("[%s] Actor retornou corpo sem JSON válido", SOURCE)
+                return []
+
+            items = _items(actor_payload)
+            logger.info("[%s] Actor retornou itens_brutos=%d", SOURCE, len(items))
+            jobs: list[VagaPadronizada] = []
+            max_items = min(max(limit, 1), 15)
+            for item in items:
+                title = clean_text(item.get("title"))
+                if not title:
+                    continue
+                company = clean_text(item.get("companyName") or item.get("company")) or "Não informado"
+                location_text = clean_text(item.get("location")) or "Não informado"
+                job_url = clean_text(item.get("jobUrl") or item.get("link"))
+                if not job_url:
+                    continue
+                date_value = item.get("publishedAt") or item.get("publishedDate") or item.get("date") or item.get("createdAt")
+                tags_value = item.get("skills") or item.get("tags") or []
+                tags = [clean_text(tag) for tag in tags_value if clean_text(tag)] if isinstance(tags_value, list) else []
+                jobs.append(
+                    VagaPadronizada(
+                        id_externo=stable_external_id(SOURCE, item.get("id") or item.get("jobId") or job_url),
+                        origem=SOURCE,
+                        titulo=title,
+                        empresa=company,
+                        localidade=location_text,
+                        url_candidatura=job_url,
+                        url_origem=search_url,
+                        descricao=clean_text(item.get("description") or item.get("snippet")),
+                        palavras_chave=tags,
+                        data_publicacao=parse_datetime(date_value),
+                        metadados={"raw_source": SOURCE, "parser": "apify/curious_coder~linkedin-jobs-scraper"},
+                    )
+                )
+                if len(jobs) >= max_items:
+                    break
+            logger.info("[%s] consulta=%r resultados=%d", SOURCE, query, len(jobs))
+            return jobs
+        except Exception as err:  # noqa: BLE001 - Apify must not block other sources
+            logger.exception("[%s] Actor Apify falhou: %s: %s", SOURCE, type(err).__name__, err)
+            return []
     finally:
         if own_client:
             await http.aclose()
