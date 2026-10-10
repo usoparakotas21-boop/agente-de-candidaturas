@@ -8102,6 +8102,26 @@ async def admin_conceder_cortesia(user_id: str, payload: AdminCourtesyRequest, r
         candidate = db.scalar(select(Candidate).where(Candidate.owner_id == user_id).order_by(Candidate.id.desc()).limit(1))
         if candidate is None and user_id.isdigit():
             candidate = db.get(Candidate, int(user_id))
+        if candidate is None:
+            existing_subscription = db.scalar(
+                select(BillingSubscription)
+                .where(BillingSubscription.owner_id == user_id)
+                .order_by(BillingSubscription.updated_at.desc(), BillingSubscription.id.desc())
+                .limit(1)
+            )
+            if existing_subscription is not None:
+                candidate = Candidate(
+                    owner_id=user_id,
+                    name=(existing_subscription.payer_email or user_id).split("@", 1)[0],
+                    location="",
+                    email=existing_subscription.payer_email or "",
+                    phone="",
+                    linkedin="",
+                    target_roles="",
+                    summary="Perfil recuperado pelo painel administrativo",
+                )
+                db.add(candidate)
+                db.flush()
         if candidate is None or not candidate.owner_id:
             raise HTTPException(404, "Usuário não encontrado.")
         owner_id = str(candidate.owner_id)
