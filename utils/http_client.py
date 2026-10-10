@@ -15,7 +15,6 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlsplit
-from urllib.robotparser import RobotFileParser
 
 import httpx
 from bs4 import BeautifulSoup
@@ -216,8 +215,6 @@ class SafeHttpClient:
         self._owns_client = client is None
         self._host_locks: dict[str, asyncio.Lock] = {}
         self._last_request: dict[str, float] = {}
-        self._robots_cache: dict[str, bool] = {}
-        self._robots_locks: dict[str, asyncio.Lock] = {}
 
     async def __aenter__(self) -> "SafeHttpClient":
         return self
@@ -233,33 +230,6 @@ class SafeHttpClient:
     def _host_key(url: str) -> str:
         parsed = urlsplit(url)
         return f"{parsed.scheme}://{parsed.netloc}".casefold()
-
-    async def _allowed_by_robots(self, url: str) -> bool:
-        if not self.policy.respect_robots_txt:
-            return True
-        host = self._host_key(url)
-        if host in self._robots_cache:
-            return self._robots_cache[host]
-        lock = self._robots_locks.setdefault(host, asyncio.Lock())
-        async with lock:
-            if host in self._robots_cache:
-                return self._robots_cache[host]
-            robots_url = f"{host}/robots.txt"
-            parser = RobotFileParser()
-            parser.set_url(robots_url)
-            try:
-                response = await self._client.get(robots_url, timeout=self.policy.request_timeout_seconds)
-                if response.status_code in {404, 410}:
-                    allowed = True
-                elif response.is_success:
-                    parser.parse(response.text.splitlines())
-                    allowed = parser.can_fetch(self.policy.user_agent, url)
-                else:
-                    allowed = False
-            except (httpx.HTTPError, OSError):
-                allowed = False
-            self._robots_cache[host] = allowed
-            return allowed
 
     async def _wait_for_host(self, host: str) -> None:
         previous = self._last_request.get(host)
