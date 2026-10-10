@@ -18,10 +18,10 @@
       document.querySelectorAll(".mobile-only, [data-mobile-only]").forEach(el => {
         el.style.display = "";
       });
-    }
-
-    // Registrar Service Worker do PWA se suportado
-    );
+    } else {
+      document.querySelectorAll(".desktop-extension-only, [data-extension-only]").forEach(el => {
+        el.style.display = "";
+      });
     }
   }
 
