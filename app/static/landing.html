@@ -215,7 +215,8 @@ footer a { font-size: 1rem !important; }
     .creator-section { padding-bottom: 60px; }
     .creator-grid { max-width: 860px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 3rem; align-items: center; border: 1px solid var(--line, #dce5f1); border-radius: 22px; padding: 2.5rem; background: var(--paper, #fff); box-shadow: 0 8px 24px rgba(27,55,105,.06); }
     .creator-avatar-box { text-align: center; }
-    .creator-avatar { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 1rem; background: linear-gradient(135deg,#0e3157,#3568e8); display: flex; align-items: center; justify-content: center; font-size: 3.5rem; color: white; box-shadow: 0 8px 24px rgba(53,104,232,.3); }
+    .creator-avatar { width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 1rem; background: linear-gradient(135deg,#0e3157,#3568e8); display: flex; align-items: center; justify-content: center; font-size: 3.5rem; color: white; box-shadow: 0 8px 24px rgba(53,104,232,.3); overflow: hidden; }
+    .creator-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 28%; }
     .creator-name { display: block; font-size: 1.1rem; color: var(--ink, #132944); }
     .creator-role { color: var(--muted, #718198); font-size: 0.85rem; }
     .creator-contact { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
@@ -411,10 +412,9 @@ footer a { font-size: 1rem !important; }
     <section class="section creator-section" id="sobre-o-criador">
       <div class="creator-grid">
         <div class="creator-avatar-box">
-          <!-- FOTO_PLACEHOLDER: Substitua pelo src da sua foto. Ex: src="/static/foto-criador.jpg" -->
-          <div class="creator-avatar">👤</div>
-          <strong class="creator-name">Equipe Candidatura Certa</strong>
-          <span class="creator-role">Construída com quem está buscando trabalho</span>
+          <div class="creator-avatar"><img src="/static/foto-criador.png" alt="Paulo Henrique Santos Oliveira, criador da Candidatura Certa" loading="lazy"></div>
+          <strong class="creator-name">Paulo Henrique Santos Oliveira</strong>
+          <span class="creator-role">Criador da Candidatura Certa</span>
           <div class="creator-contact">
             <a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer" class="creator-wa-btn">💬 Falar no WhatsApp</a>
           </div>
@@ -443,5 +443,3 @@ footer a { font-size: 1rem !important; }
   <footer class="cc-support-safe-footer"><div><span>© 2026 Candidatura Certa</span><span>Feito para uma busca mais humana e estratégica.</span><span><a href="/sobre">Sobre</a> · <a href="/para-empresas">Para empresas</a> · <a href="/feedback">Feedback</a> · <a href="mailto:contato@candidaturacerta.com.br">contato@candidaturacerta.com.br</a> · <a href="https://wa.me/5571991824951" target="_blank" rel="noopener noreferrer">WhatsApp (71) 99182-4951</a></span></div></footer>
 </body>
 </html>
-
-
