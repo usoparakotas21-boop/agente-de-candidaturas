@@ -309,7 +309,9 @@
         }
 
         if (!res.ok) {
-          throw new Error('Falha ao gerar rebranding. Tente novamente.');
+          const payload = await res.json().catch(() => ({}));
+          const detail = typeof payload.detail === 'string' ? payload.detail : '';
+          throw new Error(detail || 'Falha ao gerar rebranding. Tente novamente.');
         }
 
         const data = await res.json();
