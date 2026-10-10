@@ -1184,6 +1184,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/dashboard",
         "/health",
         "/robots.txt",
+        "/sitemap.xml",
         "/api/support-chat",
         # Browser-extension endpoints validate a separate, explicit bearer
         # session with extension_authenticated_user rather than site cookies.
