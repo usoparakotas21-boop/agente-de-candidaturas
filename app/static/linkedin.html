@@ -72,6 +72,8 @@
     .upload-icon { font-size: 3.5rem; color: #3B82F6; }
     .upload-title { margin: 0; color: #FFFFFF; font-size: 1.25rem; font-weight: 700; }
     .upload-subtitle { color: #94A3B8; font-size: 1rem; margin: 0; }
+    .upload-status { min-height: 1.3em; margin: 0; color: #CBD5E1; font-size: 0.92rem; text-align: center; }
+    .upload-status.error { color: #FCA5A5; }
 
     /* ── Paywall Card (standalone, NOT inside upload-card) ── */
     .paywall-card {
@@ -190,6 +192,7 @@
         <label class="btn" id="select-btn" for="file-upload" role="button" tabindex="0">
           <i class="fa-solid fa-upload"></i> Selecionar Arquivo
         </label>
+        <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
       </div>
 
       <div class="loading-overlay" id="loading-state">
@@ -215,7 +218,7 @@
       </p>
     </div>
 
-    <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" aria-label="Selecionar PDF do LinkedIn" onchange="handleFileSelect(event)">
+    <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" aria-label="Selecionar PDF do LinkedIn">
 
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
@@ -234,10 +237,13 @@
   <script>
 
     let hasAccess = false;
+    let accessReady = false;
+    let accessCheckPromise = null;
     const MASTER_EMAILS = ['contato@candidaturacerta.com.br', 'henriqueoliveirarh93@gmail.com', 'usoparakotas4@gmail.com', 'usoparakotas21@gmail.com'];
 
     async function checkAccess() {
-      try {
+      if (accessCheckPromise) return accessCheckPromise;
+      accessCheckPromise = (async () => { try {
         const res = await fetch('/api/linkedin/access-status');
         if (res.status === 401) {
           window.location.href = '/auth/verification-required';
@@ -269,7 +275,17 @@
         // On error, show paywall
         document.getElementById('dropzone').style.display = 'none';
         document.getElementById('paywall-card').classList.add('visible');
-      }
+      } finally {
+        accessReady = true;
+      } })();
+      return accessCheckPromise;
+    }
+
+    function setUploadStatus(message, isError = false) {
+      const status = document.getElementById('upload-status');
+      if (!status) return;
+      status.textContent = message || '';
+      status.classList.toggle('error', Boolean(isError));
     }
 
     document.addEventListener('DOMContentLoaded', checkAccess);
@@ -288,14 +304,22 @@
       }
     });
 
+    document.getElementById('file-upload').addEventListener('change', handleFileSelect);
+
     async function handleFileSelect(event) {
-      if (!hasAccess) return;
       const file = event.target.files[0];
       if (!file) return;
-      if (file.type !== 'application/pdf') {
-        alert('Por favor, envie um arquivo PDF.');
+      if (!accessReady) await checkAccess();
+      if (!hasAccess) {
+        setUploadStatus('Este recurso requer Pro, Consultoria ou compra avulsa.', true);
         return;
       }
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      if (!isPdf) {
+        setUploadStatus('Por favor, selecione um arquivo PDF.', true);
+        return;
+      }
+      setUploadStatus('Enviando PDF para análise…');
       await uploadAndProcess(file);
     }
 
@@ -303,7 +327,6 @@
       document.getElementById('upload-content').style.display = 'none';
       document.getElementById('loading-state').style.display = 'flex';
       document.getElementById('result-section').style.display = 'none';
-      document.getElementById('dropzone').onclick = null;
 
       const formData = new FormData();
       formData.append('file', file);
@@ -333,10 +356,13 @@
         document.getElementById('result-section').style.display = 'block';
 
       } catch (e) {
-        alert(e.message);
+        setUploadStatus(e.message || 'Não foi possível gerar o rebranding.', true);
       } finally {
         document.getElementById('upload-content').style.display = 'flex';
         document.getElementById('loading-state').style.display = 'none';
+        if (document.getElementById('result-section').style.display !== 'block' && !document.getElementById('upload-status').textContent) {
+          setUploadStatus('Selecione o PDF novamente para tentar outra vez.', true);
+        }
         document.getElementById('file-upload').value = '';
       }
     }
