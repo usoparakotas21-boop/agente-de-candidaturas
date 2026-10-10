@@ -188,7 +188,7 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         db.close()
 
 from .auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthMiddleware, _enforce_rate_limit, authenticated_user, extension_authenticated_user, router as auth_router
-from .gmail_integration import router as gmail_router
+from .gmail_integration import integrations_router as gmail_integrations_router, router as gmail_router
 from .outlook_integration import router as outlook_router
 from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
 from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_monitor
@@ -323,6 +323,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth_router)
 app.include_router(gmail_router)
+app.include_router(gmail_integrations_router)
 app.include_router(outlook_router)
 app.include_router(outlook_monitor_router)
 app.include_router(gmail_monitor_router)

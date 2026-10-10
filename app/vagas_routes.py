@@ -429,11 +429,12 @@ async def capturar_vagas(
     finally:
         db.close()
 
-    # E-mail alerts are persisted directly into the user's queue by their
-    # synchronizers. Include them in the manual-capture summary so the UI does
-    # not say "0 vagas" when Gmail or Outlook just imported opportunities.
+    # E-mail alerts are persisted in the user's queue and, when possible, in
+    # the normalized vacancy bank. Include both counts so the UI does not say
+    # "0 vagas" when Gmail or Outlook just imported opportunities.
     email_captured = sum(
         int((email_sync.get(provider) or {}).get("captured", 0) or 0)
+        + int((email_sync.get(provider) or {}).get("normalized", 0) or 0)
         for provider in ("gmail", "outlook")
         if isinstance(email_sync.get(provider), dict)
     )

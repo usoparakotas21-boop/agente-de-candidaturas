@@ -22,6 +22,7 @@ from .oauth_urls import public_callback_url
 
 
 router = APIRouter(prefix="/auth/gmail", tags=["gmail"])
+integrations_router = APIRouter(prefix="/api/integracoes/gmail", tags=["gmail"])
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -277,3 +278,17 @@ async def gmail_connection_status(
         }
     finally:
         db.close()
+
+
+@integrations_router.post("/sincronizar")
+async def synchronize_gmail_integration(
+    user: dict = Depends(authenticated_user),
+):
+    """Run Gmail ingestion independently from web vacancy collection."""
+
+    owner_id = _owner_id(user)
+    # Import lazily to avoid the integration/monitor module cycle during app
+    # startup. The existing /auth/gmail/sync route remains supported.
+    from .gmail_monitor import sync_owner
+
+    return await sync_owner(owner_id)

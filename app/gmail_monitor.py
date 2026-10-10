@@ -17,6 +17,7 @@ from sqlalchemy import select
 from .auth import authenticated_user
 from .decision_engine import HEURISTICS_VERSION
 from .database import SessionLocal
+from .database import salvar_vagas_em_lote
 from .gmail_integration import (
     GOOGLE_TOKEN_URL,
     _cipher,
@@ -45,7 +46,10 @@ GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
 # Search a broad recent window first and let _looks_like_job classify the
 # message. Restricting Gmail's query to a fixed list of senders caused alerts
 # from new companies and manual test messages to be silently skipped.
-DEFAULT_QUERY = "newer_than:7d"
+DEFAULT_QUERY = (
+    'newer_than:30d (vaga OR vagas OR "oportunidade" OR "processo seletivo" '
+    'OR from:linkedin OR from:gupy OR from:catho OR from:infojobs OR from:vagas.com.br)'
+)
 KNOWN_SOURCES = {
     "linkedin": "linkedin",
     "indeed": "indeed",
@@ -280,6 +284,47 @@ def _message_source_ref(source_name: str, message_id: str) -> str:
     return f"{source_name}:{message_id}"[:200]
 
 
+def _normalized_gmail_vaga(
+    parsed_job: dict[str, Any],
+    quality: dict[str, Any],
+    *,
+    message_id: str,
+    block_index: int,
+    channel: str = "gmail",
+) -> dict[str, Any]:
+    """Build the normalized catalog record, including review-only emails.
+
+    The queue remains the workflow for approval, while this record makes every
+    non-fraudulent Gmail opportunity visible in the normalized vacancy bank.
+    """
+
+    url = str(parsed_job.get("url") or "").strip()
+    if not url:
+        # Keep a usable provenance link when the email contains no job URL;
+        # quality marks it for review with the reason ``sem link detectado``.
+        url = f"https://mail.google.com/mail/u/0/#all/{message_id}"
+    title = str(parsed_job.get("title") or "Oportunidade profissional").strip()
+    company = str(parsed_job.get("company") or "Empresa não identificada").strip()
+    location = str(parsed_job.get("location") or "Não informado").strip()
+    channel = channel.casefold().strip() or "gmail"
+    tags = [channel, "email"]
+    if quality.get("decision") == "REVISAR":
+        tags.append("revisar")
+    return {
+        "id_externo": f"{channel}:{message_id}:{block_index}:{parsed_job.get('external_id') or title}"[:250],
+        "origem": channel,
+        "titulo": title,
+        "empresa": company,
+        "localidade": location,
+        "tipo_modalidade": parsed_job.get("modality") or "nao_informado",
+        "tipo_contrato": parsed_job.get("contract_type") or None,
+        "url_candidatura": url,
+        "descricao": parsed_job.get("description") or "",
+        "tags": tags,
+        "data_publicacao": None,
+    }
+
+
 def _looks_like_job(subject: str, sender: str, content: str) -> bool:
     subject_lower = subject.casefold()
     searchable = f"{subject}\n{sender}\n{content[:12000]}".casefold()
@@ -327,6 +372,7 @@ async def _access_token(integration: EmailIntegration) -> str:
 
 async def _list_message_ids(access_token: str) -> list[str]:
     query = os.getenv("GMAIL_JOB_QUERY", DEFAULT_QUERY).strip() or DEFAULT_QUERY
+    logger.info("[GmailSync] Query executada: %s", query)
     # A caixa de entrada costuma misturar alertas de vagas com mensagens
     # financeiras, notícias e promoções. Buscar só 25 mensagens fazia com
     # que vagas recentes ficassem fora da primeira página do Gmail.
@@ -339,11 +385,13 @@ async def _list_message_ids(access_token: str) -> list[str]:
         )
     if response.status_code != 200:
         raise GmailSyncError("Nao foi possivel pesquisar mensagens no Gmail.")
-    return [
+    message_ids = [
         str(item["id"])
         for item in response.json().get("messages", [])
         if item.get("id")
     ]
+    logger.info("[GmailSync] Mensagens encontradas: %d", len(message_ids))
+    return message_ids
 
 
 async def _get_message(access_token: str, message_id: str) -> dict[str, Any]:
@@ -420,6 +468,7 @@ async def sync_integration(
     list_message_ids = list_message_ids or _list_message_ids
     get_message = get_message or _get_message
     message_ids = await list_message_ids(access_token)
+    logger.info("[GmailSync] Mensagens encontradas: %d", len(message_ids))
     processed = _already_processed(integration.id, message_ids)
     counters = {
         "found": len(message_ids),
@@ -432,7 +481,9 @@ async def sync_integration(
         "errors": 0,
         "queue": 0,
         "limit_reached": 0,
+        "normalized": 0,
     }
+    normalized_records: list[dict[str, Any]] = []
 
     unprocessed = [message_id for message_id in message_ids if message_id not in processed]
     if unprocessed:
@@ -469,6 +520,12 @@ async def sync_integration(
                     "IGNORED",
                 )
                 counters["ignored"] += 1
+                logger.info(
+                    "[GmailSync] Assunto: %s | De: %s | Vagas extraídas: 0 | "
+                    "Decisão: DESCARTAR | Motivo: mensagem não parece alerta de vaga",
+                    subject or "(sem assunto)",
+                    sender or "(remetente desconhecido)",
+                )
                 continue
 
             source = _source_for(sender, content)
@@ -484,6 +541,12 @@ async def sync_integration(
                     error="Alerta agrupado sem vagas individuais identificáveis.",
                 )
                 counters["ignored"] += 1
+                logger.info(
+                    "[GmailSync] Assunto: %s | De: %s | Vagas extraídas: 0 | "
+                    "Decisão: DESCARTAR | Motivo: alerta agrupado sem vagas individuais identificáveis",
+                    subject or "(sem assunto)",
+                    sender or "(remetente desconhecido)",
+                )
                 continue
             counters["candidates"] += len(blocks)
             outcomes: list[str] = []
@@ -494,14 +557,36 @@ async def sync_integration(
             message_reviews = 0
             message_ignored = 0
             message_queued = 0
+            message_normalized = 0
+            message_reasons: list[str] = []
+            message_decisions: list[str] = []
 
             for index, raw_text in enumerate(blocks, start=1):
                 try:
                     # Parsear a vaga
                     parsed_job = parse_job_text(raw_text, source)
+                    parsed_job["capture_channel"] = source_name
                     
                     # Avaliar qualidade
                     quality = assess_job_capture(parsed_job)
+
+                    quality_reasons = [str(reason) for reason in (quality.get("reasons") or [])]
+                    if not parsed_job.get("url"):
+                        quality_reasons.append("sem link detectado")
+                    quality["reasons"] = list(dict.fromkeys(quality_reasons))
+                    message_reasons.extend(quality_reasons)
+                    message_decisions.append(str(quality.get("decision") or "REVISAR"))
+                    if quality.get("decision") in {"REVISAR", "CAPTURAR", "AUTOMATICA"}:
+                        normalized_records.append(
+                            _normalized_gmail_vaga(
+                                parsed_job,
+                                quality,
+                                message_id=message_id,
+                                block_index=index,
+                                channel=source_name,
+                            )
+                        )
+                        message_normalized += 1
                     
                     # Preparar dados para a fila
                     captured_data = {
@@ -540,6 +625,8 @@ async def sync_integration(
                     
                 except ValueError as exc:
                     message_ignored += 1
+                    message_decisions.append("DESCARTAR")
+                    message_reasons.append(str(exc))
                     outcomes.append(f"vaga {index}: DESCARTAR ({exc})")
                     continue
 
@@ -579,6 +666,8 @@ async def sync_integration(
                     db.rollback()
                     logger.error("Erro ao enfileirar vaga: %s", exc)
                     message_ignored += 1
+                    message_decisions.append("DESCARTAR")
+                    message_reasons.append(str(exc))
                     outcomes.append(f"vaga {index}: ERRO ({exc})")
                 finally:
                     db.close()
@@ -594,6 +683,21 @@ async def sync_integration(
             counters["review"] += message_reviews
             counters["ignored"] += message_ignored
             counters["queue"] += message_queued
+            message_decision = (
+                "REVISAR" if "REVISAR" in message_decisions else
+                "AUTOMATICA" if any(item in {"CAPTURAR", "AUTOMATICA"} for item in message_decisions)
+                else "DESCARTAR"
+            )
+            if message_normalized:
+                message_reasons.append(f"{message_normalized} vaga(s) preservada(s) no banco para consulta")
+            logger.info(
+                "[GmailSync] Assunto: %s | De: %s | Vagas extraídas: %d | Decisão: %s | Motivo: %s",
+                subject or "(sem assunto)",
+                sender or "(remetente desconhecido)",
+                message_normalized,
+                message_decision,
+                "; ".join(dict.fromkeys(message_reasons)) or "campos essenciais validados",
+            )
 
             if message_captured and (message_reviews or message_ignored):
                 status = "CAPTURED_PARTIAL"
@@ -627,15 +731,32 @@ async def sync_integration(
                 error=str(getattr(exc, "detail", exc)),
             )
             counters["errors"] += 1
+            logger.info(
+                "[GmailSync] Assunto: %s | De: %s | Vagas extraídas: 0 | "
+                "Decisão: DESCARTAR | Motivo: erro ao processar mensagem (%s)",
+                subject or "(sem assunto)",
+                sender or "(remetente desconhecido)",
+                str(exc)[:300],
+            )
+    if normalized_records:
+        try:
+            counters["normalized"] = await salvar_vagas_em_lote(normalized_records)
+            logger.info(
+                "[GmailSync] Vagas preservadas no banco normalizado: %d",
+                counters["normalized"],
+            )
+        except Exception as exc:  # noqa: BLE001 - queue ingestion remains available
+            logger.warning("[GmailSync] Banco normalizado indisponível; fila mantida: %s", exc)
     logger.info(
         "Sincronizacao %s concluida para integracao=%s: emails_lidos=%d novos=%d candidatos=%d "
-        "vagas_capturadas=%d fila=%d duplicados=%d descartados=%d erros=%d",
+        "vagas_capturadas=%d vagas_normalizadas=%d fila=%d duplicados=%d descartados=%d erros=%d",
         provider_label,
         integration.id,
         counters["found"],
         counters["new"],
         counters["candidates"],
         counters["captured"],
+        counters["normalized"],
         counters["queue"],
         counters["duplicate"],
         counters["ignored"],
@@ -678,13 +799,13 @@ async def sync_all_integrations() -> dict[str, int]:
             db.expunge(integration)
     finally:
         db.close()
-    totals = {"found": 0, "captured": 0, "queue": 0, "duplicate": 0, "ignored": 0, "errors": 0, "integrations": 0, "reconnect": 0}
+    totals = {"found": 0, "captured": 0, "normalized": 0, "queue": 0, "duplicate": 0, "ignored": 0, "errors": 0, "integrations": 0, "reconnect": 0}
     async with _sync_lock:
         for integration in integrations:
             try:
                 result = await sync_integration(integration)
                 totals["integrations"] += 1
-                for key in ("found", "captured", "queue", "duplicate", "ignored", "errors"):
+                for key in ("found", "captured", "normalized", "queue", "duplicate", "ignored", "errors"):
                     totals[key] += result.get(key, 0)
             except Exception as exc:
                 if _requires_reconnect(exc):

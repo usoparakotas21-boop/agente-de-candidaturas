@@ -429,12 +429,22 @@ def assess_job_capture(parsed: dict[str, Any], history: dict[str, Any] | None = 
     else:
         decision = "CAPTURAR"
 
+    # Alertas de Gmail/Outlook devem permanecer consultáveis mesmo quando a
+    # mensagem tem campos incompletos. A revisão humana continua indicada;
+    # somente sinais de fraude (tratados acima) podem descartar a oportunidade.
+    capture_channel = _normalized(str(parsed.get("capture_channel", "")))
+    if capture_channel in {"gmail", "outlook"} and decision == "DESCARTAR":
+        decision = "REVISAR"
+        reasons.append("captura por e-mail preservada para revisão")
+
     # ========== RESULTADO ==========
     result = {
         "confidence": confidence,
         "field_confidence": field_confidence,
         "decision": decision,
         "reasons": reasons,
+        "persist_in_catalog": capture_channel in {"gmail", "outlook"},
+        "capture_channel": capture_channel or None,
         "heuristics_version": HEURISTICS_VERSION,
         "health": {
             "score": health_result.score,
