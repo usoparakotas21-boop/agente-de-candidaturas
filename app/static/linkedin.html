@@ -208,9 +208,9 @@
       <p>O Rebranding de LinkedIn é exclusivo para assinantes <strong>PRO/Consultoria</strong> ou mediante compra avulsa.</p>
       <p style="color:#94A3B8;font-size:0.9rem">Acesso permanente ao resultado gerado para o seu perfil.</p>
       <div class="price-tag">R$ 19,90</div>
-      <a href="https://mpago.la" target="_blank" rel="noopener" class="btn btn-green" id="buy-btn" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+      <button type="button" onclick="buyRebranding(event)" class="btn btn-green" id="buy-btn" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
         <i class="fa-solid fa-unlock"></i> Desbloquear Agora — R$ 19,90
-      </a>
+      </button>
       <p style="color:#64748b;font-size:0.85rem;margin-top:16px">
         Pagamento seguro pelo Mercado Pago
       </p>
@@ -228,8 +228,6 @@
   </div>
 
   <script>
-    // Stable Mercado Pago direct link
-    const MP_STABLE_LINK = 'https://mpago.la';
 
     let hasAccess = false;
     const MASTER_EMAILS = ['contato@candidaturacerta.com.br', 'henriqueoliveirarh93@gmail.com', 'usoparakotas4@gmail.com', 'usoparakotas21@gmail.com'];
@@ -325,6 +323,7 @@
     }
 
     async function buyRebranding(event) {
+      event.preventDefault();
       event.stopPropagation();
       const btn = event.currentTarget;
       const originalHTML = btn.innerHTML;
@@ -341,8 +340,9 @@
           throw new Error('no_url');
         }
       } catch (err) {
-        // Fallback to stable direct MP link — never leaves user stuck
-        window.location.href = MP_STABLE_LINK;
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+        alert('Não foi possível abrir o checkout. Tente novamente em instantes.');
       }
     }
 
