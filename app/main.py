@@ -259,6 +259,11 @@ def send_interview_questions_email(job_title: str, job_description: str, to_emai
         logger.error(f"Erro ao enviar dicas de entrevista para {to_email}: {exc}")
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
+from services.scheduler import (
+    executar_rotina_varredura,
+    iniciar_agendador,
+    scheduler as vagas_scheduler,
+)
 
 PORT = int(os.getenv("PORT", "8000") or "8000")
 
@@ -266,13 +271,19 @@ PORT = int(os.getenv("PORT", "8000") or "8000")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Initialize and stop the ingestion, notification and retention workers."""
+    global _job_collection_task
     startup()
+    iniciar_agendador()
+    _job_collection_task = asyncio.create_task(executar_rotina_varredura())
     try:
         yield
     finally:
+        if vagas_scheduler.running:
+            vagas_scheduler.shutdown(wait=False)
         await shutdown()
         if async_engine is not None:
             await async_engine.dispose()
+        engine.dispose()
 
 
 app = FastAPI(title="Candidatura Certa", version="0.24.0", lifespan=lifespan)
@@ -331,6 +342,7 @@ _retention_task: asyncio.Task | None = None
 _purchase_generation_task: asyncio.Task | None = None
 _purchase_generation_wakeup: asyncio.Event | None = None
 _lifecycle_email_task: asyncio.Task | None = None
+_job_collection_task: asyncio.Task | None = None
 DOCUMENT_GENERATION_POLL_SECONDS = 15
 DOCUMENT_GENERATION_MAX_ATTEMPTS = 5
 DOCUMENT_GENERATION_STALE_AFTER = timedelta(minutes=15)
@@ -1682,7 +1694,16 @@ def startup():
     start_outlook_monitor()
 
 async def shutdown():
-    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task
+    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task, _job_collection_task
+    if _job_collection_task is not None:
+        _job_collection_task.cancel()
+        try:
+            await _job_collection_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Falha na primeira varredura de vagas")
+        _job_collection_task = None
     if _retention_task is not None:
         _retention_task.cancel()
         try:
