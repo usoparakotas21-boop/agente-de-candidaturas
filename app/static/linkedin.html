@@ -182,14 +182,14 @@
     </div>
 
     <!-- UPLOAD CARD: shown for users WITH access (including master) -->
-    <div class="upload-card" id="dropzone" onclick="document.getElementById('file-upload').click()">
+    <div class="upload-card" id="dropzone">
       <div id="upload-content" style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">
         <i class="fa-solid fa-file-pdf upload-icon"></i>
         <h3 class="upload-title">Clique para enviar seu PDF</h3>
         <p class="upload-subtitle">Ou arraste e solte o arquivo aqui</p>
-        <button class="btn" id="select-btn" type="button">
+        <label class="btn" id="select-btn" for="file-upload" role="button" tabindex="0">
           <i class="fa-solid fa-upload"></i> Selecionar Arquivo
-        </button>
+        </label>
       </div>
 
       <div class="loading-overlay" id="loading-state">
@@ -215,7 +215,7 @@
       </p>
     </div>
 
-    <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" onchange="handleFileSelect(event)">
+    <input type="file" id="file-upload" accept="application/pdf" class="visually-hidden" aria-label="Selecionar PDF do LinkedIn" onchange="handleFileSelect(event)">
 
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
@@ -274,6 +274,20 @@
 
     document.addEventListener('DOMContentLoaded', checkAccess);
 
+    // The dropzone remains clickable, while the visible control uses a real
+    // label so browsers consistently open the native file picker.
+    document.getElementById('dropzone').addEventListener('click', (event) => {
+      if (event.target.closest('label, input')) return;
+      document.getElementById('file-upload').click();
+    });
+
+    document.getElementById('select-btn').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        document.getElementById('file-upload').click();
+      }
+    });
+
     async function handleFileSelect(event) {
       if (!hasAccess) return;
       const file = event.target.files[0];
@@ -323,7 +337,6 @@
       } finally {
         document.getElementById('upload-content').style.display = 'flex';
         document.getElementById('loading-state').style.display = 'none';
-        document.getElementById('dropzone').onclick = () => document.getElementById('file-upload').click();
         document.getElementById('file-upload').value = '';
       }
     }
