@@ -1703,7 +1703,7 @@ def root():
     )
     import re
     rendered = re.sub(
-        r"<script(?![^>]*\src=)([^>]*)>",
+        r"<script(?![^>]*\ssrc=)(?![^>]*\snonce=)([^>]*)>",
         lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
         rendered,
         flags=re.I,
@@ -7033,3 +7033,4 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
         return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida com sucesso para {target_email}."}
     finally:
         session.close()
+
