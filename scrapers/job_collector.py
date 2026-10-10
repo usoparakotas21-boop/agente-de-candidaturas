@@ -27,6 +27,12 @@ def _is_expected_no_result(error: Exception) -> bool:
         "nenhum jobposting correspondeu",
         "itens brutos=0",
         "cartões encontrados, mas nenhum",
+        # Dynamic portals often omit structured data from the anonymous HTML
+        # shell. This is a source-level no-result, not a transport failure;
+        # keep the exact parser detail in the log without inflating the user
+        # alert's failure count.
+        "página pública sem __next_data__",
+        "resposta sem script json-ld",
     )
     return isinstance(error, ValueError) and any(marker in message for marker in markers)
 
