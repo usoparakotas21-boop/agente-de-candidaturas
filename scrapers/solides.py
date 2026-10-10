@@ -44,9 +44,20 @@ async def collect(
                 # proxy timeouts for normal captures.
                 try:
                     body = await http.get_text(requested_url)
-                except Exception as direct_exc:  # noqa: BLE001 - proxy is the fallback
-                    logger.warning("[Sólides] acesso direto falhou (%s); tentando ScraperAPI", direct_exc)
-                    body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
+                except Exception as direct_exc:  # noqa: BLE001 - retry without locality before proxy
+                    logger.warning("[Sólides] acesso direto falhou (%s)", direct_exc)
+                    if with_location and location.strip():
+                        fallback_url = f"{PUBLIC_ENDPOINT}?page={page}&take={take}&title={quote(normalized)}"
+                        logger.info("[Sólides] repetindo sem localização url=%s", fallback_url)
+                        try:
+                            body = await http.get_text(fallback_url)
+                            requested_url = fallback_url
+                        except Exception as fallback_exc:  # noqa: BLE001 - proxy is the final fallback
+                            logger.warning("[Sólides] consulta sem localização falhou (%s); tentando ScraperAPI", fallback_exc)
+                            body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
+                    else:
+                        logger.warning("[Sólides] tentando ScraperAPI após falha direta")
+                        body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
                 payload = json.loads(body)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
