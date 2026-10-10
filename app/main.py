@@ -3,7 +3,7 @@ from sqlalchemy import or_, and_, func, select, text, update, inspect
 import asyncio
 import csv
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 import json
 import base64
 import hashlib
@@ -260,7 +260,20 @@ def send_interview_questions_email(job_title: str, job_description: str, to_emai
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 
-app = FastAPI(title="Candidatura Certa", version="0.24.0")
+PORT = int(os.getenv("PORT", "8000") or "8000")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Initialize and stop the ingestion, notification and retention workers."""
+    startup()
+    try:
+        yield
+    finally:
+        await shutdown()
+
+
+app = FastAPI(title="Candidatura Certa", version="0.24.0", lifespan=lifespan)
 logger = logging.getLogger(__name__)
 
 @app.middleware("http")
@@ -1427,7 +1440,6 @@ def _save_analysis(app, analysis, cand):
     app.analysis_data = json.dumps(analysis, ensure_ascii=False)
     _apply_decision(app, cand, analysis)
 
-@app.on_event("startup")
 def startup():
     global _retention_task
     db = SessionLocal()
@@ -1667,7 +1679,6 @@ def startup():
     start_monitor()
     start_outlook_monitor()
 
-@app.on_event("shutdown")
 async def shutdown():
     global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task
     if _retention_task is not None:
@@ -7596,4 +7607,10 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
         raise
     finally:
         session.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=PORT)
 
