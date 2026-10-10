@@ -61,6 +61,8 @@ async def queue_summary(
 async def list_queue_items(
     decision: Optional[str] = None,
     status: Optional[str] = None,
+    modalidade: Optional[str] = None,
+    origem: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
     user: dict = Depends(authenticated_user),
@@ -77,7 +79,9 @@ async def list_queue_items(
         decision=decision,
         status=status,
         limit=min(limit, 100),
-        offset=offset
+        offset=offset,
+        modality=modalidade,
+        source=origem,
     )
     
     # Traduzir motivos para texto legivel

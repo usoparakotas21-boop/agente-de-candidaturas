@@ -193,6 +193,7 @@ from .outlook_integration import router as outlook_router
 from .outlook_monitor import router as outlook_monitor_router, start_monitor as start_outlook_monitor, stop_monitor as stop_outlook_monitor
 from .gmail_monitor import router as gmail_monitor_router, start_monitor, stop_monitor
 from .queue_routes import router as queue_router
+from .vagas_routes import router as vagas_router
 from .analyzer import analyze_job
 from .cover_letter import generate_cover_letter, generate_cover_letter_docx
 from .decision_engine import HEURISTICS_VERSION, decide_opportunity, normalize_preferences
@@ -324,6 +325,7 @@ app.include_router(outlook_router)
 app.include_router(outlook_monitor_router)
 app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
+app.include_router(vagas_router)
 app.include_router(support_chat_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")

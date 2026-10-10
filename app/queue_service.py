@@ -358,7 +358,9 @@ def list_items(
     decision: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    modality: Optional[str] = None,
+    source: Optional[str] = None,
 ) -> tuple[list[QueueItem], int]:
     """
     Listagem paginada e filtrável.
@@ -373,6 +375,12 @@ def list_items(
     
     if status:
         query = query.filter(QueueItem.status == status)
+
+    if modality:
+        query = query.filter(QueueItem.modality == modality)
+
+    if source:
+        query = query.filter(QueueItem.source == source)
 
     total = query.count()
     items = query.order_by(QueueItem.captured_at.desc()).offset(offset).limit(limit).all()

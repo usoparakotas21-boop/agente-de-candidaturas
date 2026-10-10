@@ -237,8 +237,9 @@ async def consultar_vagas(
     limite: int = 50,
     offset: int = 0,
     session: AsyncSession | None = None,
+    origem: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Search jobs by text and modality with bounded pagination."""
+    """Search normalized jobs with text, modality and source filters."""
     limite = max(1, min(int(limite), 200))
     offset = max(0, int(offset))
     conditions = ["1 = 1"]
@@ -254,11 +255,15 @@ async def consultar_vagas(
     if modalidade and modalidade.strip():
         conditions.append("tipo_modalidade = :modalidade")
         params["modalidade"] = modalidade.strip()
+    if origem and origem.strip():
+        conditions.append("origem = :origem")
+        params["origem"] = origem.strip()
     statement = text(
         f"""
         SELECT id, id_externo, origem, titulo, empresa, localidade,
                tipo_modalidade, tipo_contrato, url_candidatura,
-               data_publicacao, tags, created_at, updated_at
+               data_publicacao, tags, created_at, updated_at,
+               COUNT(*) OVER() AS total_count
         FROM vagas
         WHERE {' AND '.join(conditions)}
         ORDER BY updated_at DESC, id DESC

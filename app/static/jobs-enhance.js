@@ -16,6 +16,6 @@
   }
   ['search','source'].forEach(id=>document.querySelector('#'+id)?.addEventListener('input',()=>localStorage.setItem('jobsFilters',JSON.stringify({search:document.querySelector('#search').value,source:document.querySelector('#source').value,sort:sort.value}))));
   sort.addEventListener('change',()=>{localStorage.setItem('jobsFilters',JSON.stringify({search:document.querySelector('#search').value,source:document.querySelector('#source').value,sort:sort.value}));enhance()});
-  fetch('/jobs').then(r=>r.json()).then(d=>{state.jobs=d.jobs||[];enhance()}).catch(()=>{});
+  fetch('/api/vagas?limite=100').then(r=>r.json()).then(d=>{state.jobs=d.items||d.jobs||[];enhance()}).catch(()=>{});
   new MutationObserver(()=>{if(!enhancing)enhance()}).observe(list,{childList:true});
 })();
