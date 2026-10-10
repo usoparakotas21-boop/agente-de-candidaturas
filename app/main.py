@@ -6812,21 +6812,59 @@ async def admin_overview(request: Request):
         candidates = db.scalars(select(Candidate).order_by(Candidate.id.desc())).all()
         subscriptions = db.scalars(select(BillingSubscription).order_by(BillingSubscription.updated_at.desc(), BillingSubscription.id.desc())).all()
         latest_by_owner = {}
+        latest_by_email = {}
         for sub in subscriptions:
             latest_by_owner.setdefault(sub.owner_id, sub)
+            latest_by_email.setdefault((sub.payer_email or "").casefold(), sub)
+        auth_users = []
+        supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+        if supabase_url and service_key:
+            try:
+                async with httpx.AsyncClient(timeout=8) as client:
+                    response = await client.get(
+                        f"{supabase_url}/auth/v1/admin/users?per_page=1000",
+                        headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+                    )
+                if response.is_success:
+                    auth_users = response.json().get("users", [])
+            except Exception:
+                logger.info("Não foi possível carregar a lista de contas do provedor para o console.")
         users = []
         seen = set()
+        seen_emails = set()
         for candidate in candidates:
             key = candidate.owner_id or candidate.email.casefold()
             if key in seen:
                 continue
             seen.add(key)
+            if candidate.email:
+                seen_emails.add(candidate.email.casefold())
             sub = latest_by_owner.get(candidate.owner_id)
             active = bool(sub and sub.access_until and (sub.access_until.replace(tzinfo=timezone.utc) if sub.access_until.tzinfo is None else sub.access_until) > utc_now() and sub.status in {"authorized", "active", "paused"})
             users.append({
                 "email": candidate.email or "",
                 "name": candidate.name or "",
                 "owner_id": candidate.owner_id or "",
+                "plan": (sub.plan_code if sub and active else "essential"),
+                "status": ("suspenso" if sub and sub.status == "suspended" else ("ativo" if active else "inativo")),
+                "access_until": sub.access_until.isoformat() if sub and sub.access_until else None,
+                "courtesy": bool(sub and "CORTESIA-" in (sub.external_reference or "").upper() and active),
+                "subscription_status": sub.status if sub else None,
+            })
+        for auth_user in auth_users:
+            email = str(auth_user.get("email") or "").strip().casefold()
+            if not email or email in seen_emails:
+                continue
+            seen.add(email)
+            seen_emails.add(email)
+            owner_id = str(auth_user.get("id") or "")
+            sub = latest_by_owner.get(owner_id) or latest_by_email.get(email)
+            active = bool(sub and sub.access_until and (sub.access_until.replace(tzinfo=timezone.utc) if sub.access_until.tzinfo is None else sub.access_until) > utc_now() and sub.status in {"authorized", "active", "paused"})
+            users.append({
+                "email": email,
+                "name": str((auth_user.get("user_metadata") or {}).get("name") or email.split("@", 1)[0]),
+                "owner_id": owner_id,
                 "plan": (sub.plan_code if sub and active else "essential"),
                 "status": ("suspenso" if sub and sub.status == "suspended" else ("ativo" if active else "inativo")),
                 "access_until": sub.access_until.isoformat() if sub and sub.access_until else None,
