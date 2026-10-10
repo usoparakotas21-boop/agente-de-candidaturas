@@ -200,7 +200,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import AdminAudit, Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -6660,9 +6660,213 @@ async def download_chrome_extension_zip():
 
 
 # --- ADMIN ROUTES ---
+ADMIN_PLANS = {"essential", "start", "start_plus", "pro", "consultoria"}
+
+
 class AdminGrantRequest(BaseModel):
     email: str
     plan: str
+    duration_days: int = Field(default=365, ge=1, le=730)
+    reason: str = Field(default="", max_length=500)
+
+
+class AdminActionRequest(BaseModel):
+    email: str
+    action: Literal["grant_courtesy", "change_plan", "revoke_access", "suspend"]
+    plan: str = "pro"
+    duration_days: int = Field(default=365, ge=1, le=730)
+    reason: str = Field(default="", max_length=500)
+
+
+def _admin_actor(user: dict | None) -> str:
+    return str((user or {}).get("email") or "").strip().casefold()
+
+
+def _admin_allowed(user: dict | None) -> bool:
+    email = _admin_actor(user)
+    configured = {
+        item.strip().casefold()
+        for item in os.getenv(
+            "ADMIN_EMAILS",
+            "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br",
+        ).split(",")
+        if item.strip()
+    }
+    return bool(email and (email in configured or is_admin(user)))
+
+
+async def _require_admin(request: Request) -> dict:
+    from .auth import _resolve_session
+
+    user, _ = await _resolve_session(request)
+    if not user:
+        raise HTTPException(401, "Login necessário.")
+    if not _admin_allowed(user) and not os.getenv("DEBUG"):
+        raise HTTPException(403, "Acesso restrito ao time de desenvolvimento.")
+    return user
+
+
+def _admin_find_target(db, email: str) -> tuple[Candidate, str]:
+    target_email = email.strip().casefold()
+    candidate = db.scalar(
+        select(Candidate).where(func.lower(Candidate.email) == target_email).order_by(Candidate.id.desc()).limit(1)
+    )
+    owner_id = candidate.owner_id if candidate and candidate.owner_id else None
+    if not owner_id:
+        existing = db.scalar(
+            select(BillingSubscription)
+            .where(func.lower(BillingSubscription.payer_email) == target_email)
+            .order_by(BillingSubscription.updated_at.desc(), BillingSubscription.id.desc())
+            .limit(1)
+        )
+        owner_id = existing.owner_id if existing else str(uuid.uuid4())
+    if not candidate:
+        candidate = Candidate(
+            owner_id=owner_id,
+            name=target_email.split("@", 1)[0].replace(".", " ").title(),
+            location="Brasil",
+            email=target_email,
+            phone="",
+            linkedin="",
+            target_roles="",
+            summary="Perfil criado via painel administrativo",
+        )
+        db.add(candidate)
+        db.flush()
+    elif not candidate.owner_id:
+        candidate.owner_id = owner_id
+    return candidate, owner_id
+
+
+def _admin_write_audit(db, actor: str, action: str, target_email: str, owner_id: str, reason: str, **details):
+    db.add(
+        AdminAudit(
+            actor_email=actor,
+            action=action,
+            target_email=target_email,
+            target_owner_id=owner_id,
+            reason=reason.strip(),
+            details=details or None,
+        )
+    )
+
+
+def _admin_apply_action(db, actor: str, payload: AdminActionRequest) -> dict:
+    target_email = payload.email.strip().casefold()
+    if not target_email or "@" not in target_email:
+        raise HTTPException(400, "Informe um e-mail válido.")
+    plan = payload.plan.strip().casefold()
+    if plan not in ADMIN_PLANS:
+        raise HTTPException(400, "Plano inválido.")
+    candidate, owner_id = _admin_find_target(db, target_email)
+    now = utc_now()
+    target_filter = or_(BillingSubscription.owner_id == owner_id, func.lower(BillingSubscription.payer_email) == target_email)
+
+    if payload.action in {"revoke_access", "suspend"}:
+        status = "suspended" if payload.action == "suspend" else "canceled"
+        db.execute(
+            BillingSubscription.__table__.update().where(target_filter).values(status=status, access_until=now, updated_at=now)
+        )
+        message = "Acesso suspenso." if payload.action == "suspend" else "Acesso pago e cortesias revogados."
+        _admin_write_audit(db, actor, payload.action, target_email, owner_id, payload.reason, plan=plan)
+        return {"message": f"{message} Usuário: {target_email}."}
+
+    # A courtesy is an explicit administrative entitlement, separate from billing.
+    db.execute(
+        BillingSubscription.__table__.update()
+        .where(target_filter)
+        .where(BillingSubscription.external_reference.ilike("CORTESIA-%"))
+        .where(BillingSubscription.status.in_(["authorized", "active", "paused"]))
+        .values(status="superseded", updated_at=now)
+    )
+    sub = BillingSubscription(
+        owner_id=owner_id,
+        plan_code=plan,
+        external_reference=f"CORTESIA-{uuid.uuid4().hex[:12]}",
+        payer_email=target_email,
+        monthly_amount=0,
+        currency="BRL",
+        status="authorized",
+        access_until=now + timedelta(days=payload.duration_days),
+    )
+    db.add(sub)
+    _admin_write_audit(
+        db,
+        actor,
+        payload.action,
+        target_email,
+        owner_id,
+        payload.reason,
+        plan=plan,
+        duration_days=payload.duration_days,
+    )
+    label = "Plano administrativo definido" if payload.action == "change_plan" else "Cortesia concedida"
+    return {"message": f"{label} para {target_email}: {plan.title()} por {payload.duration_days} dias."}
+
+
+@app.get("/admin/api/overview")
+async def admin_overview(request: Request):
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        candidates = db.scalars(select(Candidate).order_by(Candidate.id.desc())).all()
+        subscriptions = db.scalars(select(BillingSubscription).order_by(BillingSubscription.updated_at.desc(), BillingSubscription.id.desc())).all()
+        latest_by_owner = {}
+        for sub in subscriptions:
+            latest_by_owner.setdefault(sub.owner_id, sub)
+        users = []
+        seen = set()
+        for candidate in candidates:
+            key = candidate.owner_id or candidate.email.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            sub = latest_by_owner.get(candidate.owner_id)
+            active = bool(sub and sub.access_until and (sub.access_until.replace(tzinfo=timezone.utc) if sub.access_until.tzinfo is None else sub.access_until) > utc_now() and sub.status in {"authorized", "active", "paused"})
+            users.append({
+                "email": candidate.email or "",
+                "name": candidate.name or "",
+                "owner_id": candidate.owner_id or "",
+                "plan": (sub.plan_code if sub and active else "essential"),
+                "status": ("suspenso" if sub and sub.status == "suspended" else ("ativo" if active else "inativo")),
+                "access_until": sub.access_until.isoformat() if sub and sub.access_until else None,
+                "courtesy": bool(sub and "CORTESIA-" in (sub.external_reference or "").upper() and active),
+                "subscription_status": sub.status if sub else None,
+            })
+        audits = db.scalars(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(40)).all()
+        active = [u for u in users if u["status"] == "ativo"]
+        return {
+            "metrics": {
+                "known_users": len(users),
+                "active_users": len(active),
+                "courtesies": sum(1 for u in users if u["courtesy"]),
+                "suspended": sum(1 for u in users if u["status"] == "suspenso"),
+                "plans": {plan: sum(1 for u in active if u["plan"] == plan) for plan in ("essential", "start", "start_plus", "pro", "consultoria")},
+            },
+            "users": users,
+            "audit": [{"action": a.action, "actor_email": a.actor_email, "target_email": a.target_email, "reason": a.reason, "details": a.details or {}, "created_at": a.created_at.isoformat()} for a in audits],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/admin/api/action")
+async def admin_action(payload: AdminActionRequest, request: Request):
+    user = await _require_admin(request)
+    db = SessionLocal()
+    try:
+        result = _admin_apply_action(db, _admin_actor(user), payload)
+        db.commit()
+        return result
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha em ação administrativa")
+        raise HTTPException(500, "Não foi possível concluir a ação administrativa.")
+    finally:
+        db.close()
 
 
 @app.get("/admin/logout")
@@ -6703,8 +6907,7 @@ async def admin_dashboard(request: Request):
     if not user:
         return RedirectResponse("/admin/login", status_code=303)
         
-    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
-    if user.get("email") not in admin_emails and not os.getenv("DEBUG"):
+    if not _admin_allowed(user) and not os.getenv("DEBUG"):
         return HTMLResponse("Acesso Negado", status_code=403)
         
     session = SessionLocal()
@@ -6929,108 +7132,26 @@ async def admin_metrics(request: Request):
 
 @app.post("/admin/grant")
 async def admin_grant(payload: AdminGrantRequest, request: Request):
-    from .auth import _resolve_session
-    import uuid
-    from datetime import timedelta, timezone
-    
-    user, _ = await _resolve_session(request)
-    if not user:
-        raise HTTPException(401, "Login necessario.")
-        
-    admin_emails = os.getenv("ADMIN_EMAILS", "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br").split(",")
-    admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
-    user_email = str(user.get("email") or "").strip().lower()
-    if user_email not in admin_emails and not os.getenv("DEBUG"):
-        raise HTTPException(403, "Acesso negado.")
-        
-    plan = payload.plan.lower()
-    if plan not in ['start', 'pro', 'consultoria', 'essential']:
-        raise HTTPException(400, "Plano invalido")
-
-    target_email = payload.email.strip().lower()
-    if not target_email or "@" not in target_email:
-        raise HTTPException(400, "E-mail inválido")
-        
+    user = await _require_admin(request)
     session = SessionLocal()
     try:
-        candidate = session.scalar(
-            select(Candidate).where(func.lower(Candidate.email) == target_email)
+        action = "revoke_access" if payload.plan.casefold() == "essential" else "grant_courtesy"
+        result = _admin_apply_action(
+            session,
+            _admin_actor(user),
+            AdminActionRequest(
+                email=payload.email,
+                action=action,
+                plan=payload.plan,
+                duration_days=payload.duration_days,
+                reason=payload.reason,
+            ),
         )
-        
-        target_owner_id = None
-        if candidate and candidate.owner_id:
-            target_owner_id = candidate.owner_id
-        else:
-            # Check existing subscriptions for an owner_id
-            existing_sub = session.scalar(
-                select(BillingSubscription)
-                .where(func.lower(BillingSubscription.payer_email) == target_email)
-                .order_by(BillingSubscription.updated_at.desc())
-                .limit(1)
-            )
-            if existing_sub and existing_sub.owner_id:
-                target_owner_id = existing_sub.owner_id
-            else:
-                target_owner_id = str(uuid.uuid4())
-            
-            if not candidate:
-                candidate = Candidate(
-                    owner_id=target_owner_id,
-                    name=target_email.split('@')[0].capitalize(),
-                    email=target_email,
-                    location="Brasil",
-                    phone="",
-                    linkedin="",
-                    target_roles="",
-                    summary="Perfil criado via concessão administrativa",
-                )
-                session.add(candidate)
-            else:
-                candidate.owner_id = target_owner_id
-            session.flush()
-
-        now_utc = datetime.now(timezone.utc)
-
-        if plan == 'essential':
-            session.execute(
-                BillingSubscription.__table__.update()
-                .where(
-                    or_(
-                        BillingSubscription.owner_id == target_owner_id,
-                        func.lower(BillingSubscription.payer_email) == target_email,
-                    )
-                )
-                .values(status="canceled", access_until=now_utc)
-            )
-            session.commit()
-            return {"message": f"Acesso premium revogado. O usuario {target_email} voltou para o plano Essencial."}
-            
-        # Cancel older active subscriptions to avoid conflicts
-        session.execute(
-            BillingSubscription.__table__.update()
-            .where(
-                or_(
-                    BillingSubscription.owner_id == target_owner_id,
-                    func.lower(BillingSubscription.payer_email) == target_email,
-                )
-            )
-            .where(BillingSubscription.status == "authorized")
-            .values(status="superseded")
-        )
-
-        sub = BillingSubscription(
-            owner_id=target_owner_id,
-            plan_code=plan,
-            external_reference=f"CORTESIA-{uuid.uuid4().hex[:12]}",
-            payer_email=target_email,
-            monthly_amount=0,
-            currency="BRL",
-            status="authorized",
-            access_until=now_utc + timedelta(days=365)
-        )
-        session.add(sub)
         session.commit()
-        return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida com sucesso para {target_email}."}
+        return result
+    except HTTPException:
+        session.rollback()
+        raise
     finally:
         session.close()
 

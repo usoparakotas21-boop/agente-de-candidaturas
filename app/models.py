@@ -522,6 +522,21 @@ class BillingSubscription(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class AdminAudit(Base):
+    """Immutable record of administrative actions taken in the developer panel."""
+
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    target_email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    target_owner_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+
 class ConsultationCredit(Base):
     """One human consultation entitlement for a confirmed monthly payment."""
 
