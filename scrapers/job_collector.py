@@ -40,6 +40,7 @@ class CollectionReport:
 async def collect_report(
     query: str = "",
     *,
+    location: str = "",
     sources: list[str] | None = None,
     limit_per_source: int = 25,
     concurrency: int = 4,
@@ -58,9 +59,15 @@ async def collect_report(
         async def collect_one(source: str) -> tuple[str, list[VagaPadronizada] | None, Exception | None]:
             async with semaphore:
                 try:
-                    jobs = await COLLECTORS[source](query, limit=limit_per_source, client=client)
+                    source_query = f"{query} {location}".strip() if source in {"remoteok", "weworkremotely"} else query
+                    jobs = await COLLECTORS[source](
+                        source_query,
+                        location=location,
+                        limit=limit_per_source,
+                        client=client,
+                    )
                     logger.info(
-                        "[JobCollector] fonte=%s consulta=%r resultados_brutos=%d limite=%d",
+                        "[JobCollector] fonte=%s consulta=%r resultados_filtrados=%d limite=%d",
                         source,
                         query,
                         len(jobs or []),
@@ -69,7 +76,7 @@ async def collect_report(
                     return source, jobs, None
                 except Exception as exc:  # noqa: BLE001 - one source must not stop the others
                     logger.info(
-                        "[JobCollector] fonte=%s consulta=%r resultados_brutos=0 status=erro",
+                        "[JobCollector] fonte=%s consulta=%r resultados_brutos=indisponivel resultados_filtrados=0 status=erro",
                         source,
                         query,
                     )
@@ -96,7 +103,7 @@ async def collect_report(
             )
             continue
         logger.info(
-            "[JobCollector] fonte=%s processamento concluido brutos=%d",
+            "[JobCollector] fonte=%s processamento concluido resultados_filtrados=%d",
             source,
             len(jobs or []),
         )
@@ -116,6 +123,7 @@ async def collect_report(
 async def collect_all(
     query: str = "",
     *,
+    location: str = "",
     sources: list[str] | None = None,
     limit_per_source: int = 25,
     concurrency: int = 4,
@@ -125,6 +133,7 @@ async def collect_all(
 
     report = await collect_report(
         query,
+        location=location,
         sources=sources,
         limit_per_source=limit_per_source,
         concurrency=concurrency,
@@ -135,6 +144,7 @@ async def collect_all(
 async def coletar_todas_as_fontes(
     termo: str = "",
     *,
+    localizacao: str = "",
     limite_por_fonte: int = 25,
     concorrencia: int = 4,
     fontes: list[str] | None = None,
@@ -144,6 +154,7 @@ async def coletar_todas_as_fontes(
 
     return await collect_all(
         termo,
+        location=localizacao,
         sources=fontes,
         limit_per_source=limite_por_fonte,
         concurrency=concorrencia,

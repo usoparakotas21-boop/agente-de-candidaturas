@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+
 from schemas import TipoModalidade, VagaPadronizada
 from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
 
 
 SOURCE = "remoteok"
 PUBLIC_ENDPOINT = "https://remoteok.com/api"
+logger = logging.getLogger(__name__)
 
 
 async def collect(
     query: str = "",
     *,
+    location: str = "",
     limit: int = 25,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
@@ -22,6 +26,7 @@ async def collect(
         payload = await http.get_json(PUBLIC_ENDPOINT)
         if not isinstance(payload, list):
             raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado lista, recebido {type(payload).__name__}")
+        logger.info("[RemoteOK] url=%s itens_brutos=%d", PUBLIC_ENDPOINT, len(payload))
         query_lower = query.casefold().strip()
         jobs: list[VagaPadronizada] = []
         for item in payload:
@@ -30,7 +35,7 @@ async def collect(
             title = clean_text(item.get("position"))
             company = clean_text(item.get("company")) or "Não informado"
             tags = [clean_text(tag) for tag in item.get("tags", []) if clean_text(tag)]
-            if query_lower and not matches_search_query(query, title, company, *tags):
+            if query_lower and not matches_search_query(query, title, *tags, clean_text(item.get("description"))):
                 continue
             url = clean_text(item.get("url"))
             if not url:

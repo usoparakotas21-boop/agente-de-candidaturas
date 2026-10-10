@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import logging
 from urllib.parse import quote, urljoin
 
 from bs4 import BeautifulSoup
@@ -12,18 +13,21 @@ from utils.http_client import SafeHttpClient, clean_text, matches_search_query, 
 
 SOURCE = "infojobs"
 BASE_URL = "https://www.infojobs.com.br/vagas-de-emprego-"
+logger = logging.getLogger(__name__)
 
 
 async def collect(
     query: str = "",
     *,
+    location: str = "",
     limit: int = 25,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
     if not query.strip():
         return []
     slug = re.sub(r"[^a-z0-9]+", "-", query.casefold()).strip("-")
-    url = f"{BASE_URL}{quote(slug)}.aspx"
+    search_slug = re.sub(r"[^a-z0-9]+", "+", f"{query} {location}".casefold()).strip("+")
+    url = f"{BASE_URL}{quote(search_slug, safe='+')}.aspx"
     own_client = client is None
     http = client or SafeHttpClient()
     try:
@@ -32,6 +36,7 @@ async def collect(
         cards = soup.select(".js_vacanciesGridFragment .js_rowCard[data-href]")
         if not cards:
             raise ValueError(f"{SOURCE}: página sem cartões [data-href]; seletor pode ter mudado")
+        logger.info("[InfoJobs] url=%s itens_brutos=%d", url, len(cards))
         jobs: list[VagaPadronizada] = []
         for card in cards:
             title_node = card.select_one(".js_vacancyTitle")
@@ -39,12 +44,13 @@ async def collect(
             company_links = card.select("a.text-body.text-decoration-none")
             company = clean_text(company_links[0].get_text(" ") if company_links else "Não informado")
             text = clean_text(card.get_text(" "))
-            location = "Não informado"
+            location_text = "Não informado"
             location_node = card.select_one(".js_vacancyLoad .mb-8") or card.select_one(".mb-8")
             if location_node:
-                location = clean_text(location_node.get_text(" "))
+                location_text = clean_text(location_node.get_text(" "))
             description = clean_text(card.select_one(".text-medium:last-child").get_text(" ") if card.select_one(".text-medium:last-child") else text)
-            if not title or not matches_search_query(query, title, company, location, description):
+            effective_query = f"{query} {location}".strip()
+            if not title or not matches_search_query(effective_query, title, company, location_text, description):
                 continue
             href = card.get("data-href") or (title_node.find_parent("a").get("href") if title_node and title_node.find_parent("a") else "")
             job_url = urljoin(url, href or url)
@@ -56,7 +62,7 @@ async def collect(
                     origem=SOURCE,
                     titulo=title,
                     empresa=company or "Não informado",
-                    localidade=location or "Não informado",
+                    localidade=location_text or "Não informado",
                     tipo_modalidade=modality,
                     url_candidatura=job_url,
                     url_origem=url,

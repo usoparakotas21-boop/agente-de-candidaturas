@@ -183,6 +183,11 @@ def _clean_vaga(value: Any) -> dict[str, Any]:
     tags = data.get("tags") or data.get("palavras_chave") or []
     if isinstance(tags, str):
         tags = [tags]
+    published_at = data.get("data_publicacao")
+    if isinstance(published_at, datetime):
+        published_at = published_at.isoformat()
+    elif hasattr(published_at, "isoformat") and published_at is not None:
+        published_at = published_at.isoformat()
     return {
         "id_externo": str(data["id_externo"]).strip(),
         "origem": str(data["origem"]).strip(),
@@ -192,7 +197,7 @@ def _clean_vaga(value: Any) -> dict[str, Any]:
         "tipo_modalidade": str(data.get("tipo_modalidade") or "Não informado"),
         "tipo_contrato": data.get("tipo_contrato"),
         "url_candidatura": str(data["url_candidatura"]).strip(),
-        "data_publicacao": data.get("data_publicacao"),
+        "data_publicacao": published_at,
         "tags": [str(tag).strip() for tag in tags if str(tag).strip()],
     }
 
@@ -337,7 +342,7 @@ async def obter_matches_pendentes(
         JOIN candidatos c ON c.id = h.candidato_id
         JOIN vagas v ON v.id = h.vaga_id
         WHERE h.status = 'pendente'
-          AND (:candidato_id IS NULL OR h.candidato_id = :candidato_id)
+          AND (CAST(:candidato_id AS INTEGER) IS NULL OR h.candidato_id = CAST(:candidato_id AS INTEGER))
         ORDER BY h.created_at ASC, h.id ASC
         LIMIT :limite OFFSET :offset
         """

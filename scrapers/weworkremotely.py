@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import logging
 import xmltodict
 
 from schemas import TipoModalidade, VagaPadronizada
@@ -12,6 +13,7 @@ from utils.http_client import SafeHttpClient, clean_text, matches_search_query, 
 
 SOURCE = "weworkremotely"
 PUBLIC_ENDPOINT = "https://weworkremotely.com/remote-jobs.rss"
+logger = logging.getLogger(__name__)
 
 
 def _items(payload: Any) -> list[dict[str, Any]]:
@@ -25,6 +27,7 @@ def _items(payload: Any) -> list[dict[str, Any]]:
 async def collect(
     query: str = "",
     *,
+    location: str = "",
     limit: int = 25,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
@@ -34,7 +37,9 @@ async def collect(
         payload = xmltodict.parse(await http.get_text(PUBLIC_ENDPOINT))
         query_lower = query.casefold().strip()
         jobs: list[VagaPadronizada] = []
-        for item in _items(payload):
+        items = _items(payload)
+        logger.info("[WeWorkRemotely] url=%s itens_brutos=%d", PUBLIC_ENDPOINT, len(items))
+        for item in items:
             title = clean_text(item.get("title"))
             if not title:
                 continue

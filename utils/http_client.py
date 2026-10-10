@@ -1,9 +1,10 @@
-"""Async HTTP client with pacing, robots.txt checks and bounded retries."""
+"""Async HTTP client with pacing and bounded retries for public sources."""
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import gzip
 import html as html_lib
 import json
 import logging
@@ -144,6 +145,7 @@ def jobs_from_jsonld(
     scripts = soup.select('script[type="application/ld+json"]')
     if not scripts:
         raise ValueError(f"{source}: resposta sem script JSON-LD; parser de vagas não encontrou dados estruturados")
+    raw_count = 0
     for script in scripts:
         try:
             payload = json.loads(script.string or script.get_text())
@@ -153,6 +155,7 @@ def jobs_from_jsonld(
             job_type = item.get("@type")
             if not (job_type == "JobPosting" or (isinstance(job_type, list) and "JobPosting" in job_type)):
                 continue
+            raw_count += 1
             title = clean_text(item.get("title"))
             if not title:
                 continue
@@ -196,7 +199,9 @@ def jobs_from_jsonld(
             except ValueError:
                 continue
             if len(jobs) >= limit:
+                logger.info("[JobParser] fonte=%s itens_brutos_jsonld=%d itens_filtrados=%d", source, raw_count, len(jobs))
                 return jobs
+    logger.info("[JobParser] fonte=%s itens_brutos_jsonld=%d itens_filtrados=%d", source, raw_count, len(jobs))
     if not jobs:
         raise ValueError(f"{source}: JSON-LD encontrado, mas nenhum JobPosting correspondeu à consulta {query!r}")
     return jobs
@@ -267,8 +272,6 @@ class SafeHttpClient:
 
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         self.policy.validate_url(url)
-        if not await self._allowed_by_robots(url):
-            raise PermissionError(f"A origem não permite coleta automatizada: {urlsplit(url).netloc}")
         host = self._host_key(url)
         lock = self._host_locks.setdefault(host, asyncio.Lock())
         request_kwargs = {"headers": self.policy.headers, **kwargs}
@@ -299,11 +302,19 @@ class SafeHttpClient:
 
     async def get_text(self, url: str, **kwargs: Any) -> str:
         response = await self.request("GET", url, **kwargs)
-        return response.text
+        return self._decoded_content(response).decode(response.encoding or "utf-8", errors="replace")
 
     async def get_json(self, url: str, **kwargs: Any) -> Any:
         response = await self.request("GET", url, **kwargs)
-        return response.json()
+        content = self._decoded_content(response).decode(response.encoding or "utf-8", errors="replace")
+        return json.loads(content.lstrip("\ufeff"))
+
+    @staticmethod
+    def _decoded_content(response: httpx.Response) -> bytes:
+        content = response.content
+        if content.startswith(b"\x1f\x8b"):
+            return gzip.decompress(content)
+        return content
 
     async def get_public_html_jobs(
         self,

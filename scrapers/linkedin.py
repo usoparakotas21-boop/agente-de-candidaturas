@@ -30,7 +30,7 @@ async def collect(
     own_client = client is None
     http = client or SafeHttpClient()
     try:
-        return jobs_from_jsonld(await http.get_text(url), source=SOURCE, page_url=url, query=query, limit=limit)
+        return jobs_from_jsonld(await http.get_text(url), source=SOURCE, page_url=url, query=f"{query} {location}".strip(), limit=limit)
     finally:
         if own_client:
             await http.aclose()

@@ -87,6 +87,18 @@ def _queries(roles: list[str], locations: list[str]) -> list[str]:
     return (roles or locations or ["emprego"])[:12]
 
 
+def _search_pairs(roles: list[str], locations: list[str]) -> list[tuple[str, str]]:
+    """Keep role and location separate so each source gets its native filters."""
+
+    if roles and locations:
+        return [(role, location) for role in roles[:8] for location in locations[:8]][:12]
+    if roles:
+        return [(role, "") for role in roles[:12]]
+    if locations:
+        return [("emprego", location) for location in locations[:12]]
+    return [("emprego", "")]
+
+
 def _diagnostic_fallback_enabled(request: CapturaVagasRequest) -> bool:
     if request.usar_fallback_diagnostico is not None:
         return request.usar_fallback_diagnostico
@@ -200,6 +212,7 @@ async def capturar_vagas(
     locations = _split_values(request.localizacoes) or saved_locations
     modalities = [item.casefold() for item in (_split_values(request.modalidades) or saved_modalities)]
     queries = _queries(roles, locations)
+    search_pairs = _search_pairs(roles, locations)
     logger.info(
         "[Captura] inicio usuario=%s cargos=%s localizacoes=%s modalidades=%s consultas=%s fontes=%s",
         _owner_id(user) or "local_user",
@@ -213,23 +226,26 @@ async def capturar_vagas(
     source_errors: dict[str, str] = {}
     raw_total = 0
     filtered_total = 0
-    for query in queries:
+    for query, location in search_pairs:
         try:
             report = await collect_report(
                 query,
+                location=location,
                 sources=request.fontes or None,
                 limit_per_source=request.limite_por_fonte,
                 concurrency=4,
             )
         except Exception as exc:  # noqa: BLE001 - report the source failure to the UI
-            source_errors[query] = f"{type(exc).__name__}: {str(exc)[:220]}"
-            logger.exception("[Captura] consulta=%r falhou: %s", query, source_errors[query])
+            query_key = f"{query} {location}".strip()
+            source_errors[query_key] = f"{type(exc).__name__}: {str(exc)[:220]}"
+            logger.exception("[Captura] consulta=%r localizacao=%r falhou: %s", query, location, source_errors[query_key])
             continue
         source_errors.update(report.erros)
         raw_total += sum(report.brutos_por_fonte.values())
         logger.info(
-            "[Captura] consulta=%r brutos_por_fonte=%s resultados_unicos_do_relatorio=%d erros=%s",
+            "[Captura] consulta=%r localizacao=%r brutos_por_fonte=%s resultados_unicos_do_relatorio=%d erros=%s",
             query,
+            location,
             report.brutos_por_fonte,
             len(report.vagas),
             report.erros or "nenhum",

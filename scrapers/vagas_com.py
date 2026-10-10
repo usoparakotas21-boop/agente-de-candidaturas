@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import logging
 from urllib.parse import quote, urljoin
 
 from schemas import VagaPadronizada
@@ -12,18 +13,21 @@ from bs4 import BeautifulSoup
 
 SOURCE = "vagas_com"
 BASE_URL = "https://www.vagas.com.br/vagas-de-"
+logger = logging.getLogger(__name__)
 
 
 async def collect(
     query: str = "",
     *,
+    location: str = "",
     limit: int = 25,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
     if not query.strip():
         return []
     slug = re.sub(r"[^a-z0-9]+", "-", query.casefold()).strip("-")
-    url = f"{BASE_URL}{quote(slug)}"
+    search_slug = re.sub(r"[^a-z0-9]+", "-", f"{query} {location}".casefold()).strip("-")
+    url = f"{BASE_URL}{quote(search_slug)}"
     own_client = client is None
     http = client or SafeHttpClient()
     try:
@@ -32,14 +36,16 @@ async def collect(
         cards = soup.select("#todasVagas li.vaga")
         if not cards:
             raise ValueError(f"{SOURCE}: página sem cartões li.vaga; seletor pode ter mudado")
+        logger.info("[Vagas.com] url=%s itens_brutos=%d", url, len(cards))
         jobs: list[VagaPadronizada] = []
         for card in cards:
             link = card.select_one("a.link-detalhes-vaga")
             title = clean_text(link.get("title") if link else "") or clean_text(link.get_text(" ") if link else "")
             company = clean_text(card.select_one(".emprVaga").get_text(" ") if card.select_one(".emprVaga") else "Não informado")
-            location = clean_text(card.select_one(".vaga-local").get_text(" ") if card.select_one(".vaga-local") else "Não informado")
+            location_text = clean_text(card.select_one(".vaga-local").get_text(" ") if card.select_one(".vaga-local") else "Não informado")
             description = clean_text(card.select_one(".detalhes").get_text(" ") if card.select_one(".detalhes") else "")
-            if not title or not matches_search_query(query, title, company, location, description):
+            effective_query = f"{query} {location}".strip()
+            if not title or not matches_search_query(effective_query, title, company, location_text, description):
                 continue
             href = link.get("href") if link else ""
             job_url = urljoin(url, href or url)
@@ -50,7 +56,7 @@ async def collect(
                     origem=SOURCE,
                     titulo=title,
                     empresa=company or "Não informado",
-                    localidade=location or "Não informado",
+                    localidade=location_text or "Não informado",
                     url_candidatura=job_url,
                     url_origem=url,
                     descricao=description,

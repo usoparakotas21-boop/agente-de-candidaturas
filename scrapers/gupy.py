@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Any
+from urllib.parse import urlencode
 
 from schemas import VagaPadronizada
 from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
@@ -14,6 +16,7 @@ from utils.http_client import SafeHttpClient, clean_text, matches_search_query, 
 SOURCE = "gupy"
 PUBLIC_ENDPOINT = "https://portal.gupy.io/vagas"
 OFFICIAL_API_ENDPOINT = "https://api.gupy.io/api/v1/jobs"
+logger = logging.getLogger(__name__)
 
 
 def _items(payload: Any) -> list[dict[str, Any]]:
@@ -46,6 +49,7 @@ def _next_items(html: str) -> list[dict[str, Any]]:
 async def collect(
     query: str = "",
     *,
+    location: str = "",
     limit: int = 25,
     client: SafeHttpClient | None = None,
 ) -> list[VagaPadronizada]:
@@ -54,26 +58,38 @@ async def collect(
     try:
         token = os.getenv("GUPY_API_TOKEN", "").strip()
         if token:
+            params = {"name": query.strip(), "perPage": min(max(limit, 1), 100), "fields": "all"}
+            if location.strip():
+                params["addressState"] = location.strip()
+            requested_url = f"{OFFICIAL_API_ENDPOINT}?{urlencode(params)}"
+            logger.info("[Gupy] requisitando url=%s modo=api_oficial", requested_url)
             payload = await http.get_json(
                 OFFICIAL_API_ENDPOINT,
-                params={"name": query.strip(), "perPage": min(max(limit, 1), 100), "fields": "all"},
+                params=params,
                 headers={"Authorization": f"Bearer {token}"},
             )
             items = _items(payload)
             source_url = OFFICIAL_API_ENDPOINT
+            logger.info("[Gupy] url=%s itens_brutos=%d", requested_url, len(items))
         else:
-            html = await http.get_text(PUBLIC_ENDPOINT, params={"jobName": query.strip()})
+            params = {"jobName": query.strip()}
+            if location.strip():
+                params["state"] = location.strip()
+            requested_url = f"{PUBLIC_ENDPOINT}?{urlencode(params)}"
+            logger.info("[Gupy] requisitando url=%s modo=portal_publico", requested_url)
+            html = await http.get_text(PUBLIC_ENDPOINT, params=params)
             items = _next_items(html)
             source_url = PUBLIC_ENDPOINT
+            logger.info("[Gupy] url=%s itens_brutos=%d", requested_url, len(items))
         jobs: list[VagaPadronizada] = []
-        query_lower = query.casefold().strip()
+        query_lower = f"{query} {location}".casefold().strip()
         for item in items:
             title = clean_text(item.get("name") or item.get("title"))
             if not title:
                 continue
             company = clean_text(item.get("companyName") or item.get("company")) or "Não informado"
             if query_lower and not matches_search_query(
-                query,
+                query_lower,
                 title,
                 company,
                 clean_text(item.get("description")),
