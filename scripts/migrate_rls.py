@@ -43,6 +43,8 @@ INTERNAL_RLS_TABLES = (
     "job_listings",
     "job_ingestion_tasks",
     "job_ingestion_runs",
+    "admin_audit_logs",
+    "product_feedback",
 )
 
 CHILD_POLICIES = {

@@ -379,6 +379,8 @@ footer a { font-size: 1rem !important; }
         .testimonial-text::after { content: "”"; font-size: 24px; color: var(--blue); position: relative; top: 5px; margin-left: 2px; }
         .testimonial-author { display: flex; align-items: center; gap: 12px; }
         .testimonial-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--mint); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #16805a; }
+        .testimonial-avatar.community { background:#eef2f8; color:var(--blue); }
+        .feedback-link { text-align:center; margin:22px 0 0; }
         .testimonial-info strong { display: block; font-size: 14px; color: var(--ink); }
         .testimonial-info span { font-size: 12px; color: var(--muted); }
       
@@ -403,10 +405,10 @@ footer a { font-size: 1rem !important; }
       <div class="testimonials-grid" id="publicFeedbackGrid">
         <div class="testimonial-card">
           <p class="testimonial-text">Estamos reunindo relatos reais de pessoas que usam a plataforma. Seu feedback ajuda a decidir o que construir em seguida.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar" style="background:#eef2f8;color:var(--blue)">?</div><div class="testimonial-info"><strong>Comunidade Candidatura Certa</strong><span>Relatos aprovados pela equipe</span></div></div>
+          <div class="testimonial-author"><div class="testimonial-avatar community">?</div><div class="testimonial-info"><strong>Comunidade Candidatura Certa</strong><span>Relatos aprovados pela equipe</span></div></div>
         </div>
       </div>
-      <p style="text-align:center;margin:22px 0 0"><a class="ghost" href="/feedback">Enviar meu feedback</a></p>
+          <p class="feedback-link"><a class="ghost" href="/feedback">Enviar meu feedback</a></p>
     </section>
     <!-- SEÇÃO: CRIADOR / ROSTO HUMANO -->
     <section class="section creator-section" id="sobre-o-criador">

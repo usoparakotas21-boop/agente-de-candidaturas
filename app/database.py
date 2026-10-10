@@ -22,19 +22,19 @@ def _normalize_database_url(value: str) -> str:
     if database_url.startswith("postgres://"):
         database_url = database_url.replace(
             "postgres://",
-            "postgresql+psycopg2://",
+            "postgresql+psycopg://",
             1,
         )
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace(
             "postgresql://",
-            "postgresql+psycopg2://",
+            "postgresql+psycopg://",
             1,
         )
     elif database_url.startswith("postgresql+asyncpg://"):
         database_url = database_url.replace(
             "postgresql+asyncpg://",
-            "postgresql+psycopg2://",
+            "postgresql+psycopg://",
             1,
         )
     if not database_url.startswith("sqlite") and "sslmode=" not in database_url.casefold():

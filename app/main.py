@@ -714,7 +714,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
 .global-logout{margin:0}
 .global-logout button{padding:6px 10px;border:1px solid #ffffff55;border-radius:8px;color:#fff;background:transparent;font:inherit;font-size:11px;cursor:pointer}
 .global-logout button:hover{background:#ffffff18}
-.global-footer{max-width:1160px;margin:auto auto 0;padding:18px 22px calc(50px + env(safe-area-inset-bottom,0px));border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;color:#718198;font:14px Inter,system-ui,sans-serif; text-align: center;}
+.global-footer{max-width:1160px;margin:auto auto 0;padding:18px 22px calc(96px + env(safe-area-inset-bottom,0px));border-top:1px solid #dce5f1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;color:#718198;font:14px Inter,system-ui,sans-serif; text-align: center;}
 .global-footer a{color:#3975a8;text-decoration:none;font-size:14px;}
 .global-footer a:hover{text-decoration:underline}
 .global-footer-status{display:inline-flex;align-items:center;gap:7px; justify-content: center;}

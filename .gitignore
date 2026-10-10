@@ -8,10 +8,12 @@ token*.json
 
 # Ambientes e caches Python
 .venv/
+.venv-test/
 venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.test-results/
 
 # Dados e artefatos locais (podem conter dados pessoais)
 data/*.db

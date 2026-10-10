@@ -69,6 +69,12 @@
       gap: 14px;
     }
     .upload-card:hover { border-color: #3B82F6; background: #243447; }
+    .upload-content { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; }
+    .upload-note { color:#94A3B8; font-size:.9rem; margin:0; }
+    .upload-note-spaced { color:#64748b; font-size:.85rem; margin-top:16px; }
+    .buy-btn { display:inline-flex; align-items:center; gap:8px; text-decoration:none; }
+    .analysis-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+    .linkedin-extra { margin-top:20px; }
     .upload-icon { font-size: 3.5rem; color: #3B82F6; }
     .upload-title { margin: 0; color: #FFFFFF; font-size: 1.25rem; font-weight: 700; }
     .upload-subtitle { color: #94A3B8; font-size: 1rem; margin: 0; }
@@ -191,7 +197,7 @@
 
     <!-- UPLOAD CARD: shown for users WITH access (including master) -->
     <div class="upload-card" id="dropzone">
-      <div id="upload-content" style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">
+      <div id="upload-content" class="upload-content">
         <i class="fa-solid fa-file-pdf upload-icon"></i>
         <h3 class="upload-title">Clique para enviar seu PDF</h3>
         <p class="upload-subtitle">Ou arraste e solte o arquivo aqui</p>
@@ -204,7 +210,7 @@
       <div class="loading-overlay" id="loading-state">
         <div class="spinner"></div>
         <div class="loading-text">Analisando seu perfil com IA...</div>
-        <p style="color:#94A3B8;font-size:0.9rem;margin:0">Isso pode levar até 30 segundos.</p>
+        <p class="upload-note">Isso pode levar até 30 segundos.</p>
       </div>
     </div>
 
@@ -214,12 +220,12 @@
       <div class="paywall-icon"><i class="fa-solid fa-lock"></i></div>
       <h3>Recurso Premium</h3>
       <p>O Rebranding de LinkedIn é exclusivo para assinantes <strong>PRO/Consultoria</strong> ou mediante compra avulsa.</p>
-      <p style="color:#94A3B8;font-size:0.9rem">Acesso permanente ao resultado gerado para o seu perfil.</p>
+      <p class="upload-note">Acesso permanente ao resultado gerado para o seu perfil.</p>
       <div class="price-tag">R$ 19,90</div>
-      <button type="button" onclick="buyRebranding(event)" class="btn btn-green" id="buy-btn" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+      <button type="button" onclick="buyRebranding(event)" class="btn btn-green buy-btn" id="buy-btn">
         <i class="fa-solid fa-unlock"></i> Desbloquear Agora — R$ 19,90
       </button>
-      <p style="color:#64748b;font-size:0.85rem;margin-top:16px">
+      <p class="upload-note-spaced">
         Pagamento seguro pelo Mercado Pago
       </p>
     </div>
@@ -229,11 +235,11 @@
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
       <div class="markdown-body" id="result-content"></div>
-      <div class="analysis-actions" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:24px">
+      <div class="analysis-actions">
         <button class="btn" type="button" id="market-btn">Inteligência de mercado</button>
         <button class="btn" type="button" id="visibility-btn">Plano de visibilidade</button>
       </div>
-      <div id="linkedin-extra" style="margin-top:20px"></div>
+      <div id="linkedin-extra" class="linkedin-extra"></div>
       <button class="btn copy-btn" onclick="copyResult()" type="button">
         <i class="fa-regular fa-copy"></i> Copiar Texto
       </button>

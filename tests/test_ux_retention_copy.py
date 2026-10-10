@@ -42,7 +42,7 @@ class RetentionExperienceCopyTests(unittest.TestCase):
         html = (STATIC / "privacidade.html").read_text(encoding="utf-8-sig")
         for provider in (
             "Supabase",
-            "Render",
+            "Railway",
             "Google",
             "Microsoft",
             "Mercado Pago",
