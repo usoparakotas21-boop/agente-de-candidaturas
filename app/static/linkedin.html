@@ -360,15 +360,16 @@
     async function loadLinkedinExtra(kind) {
       const endpoint = kind === 'market' ? '/api/linkedin/market-intelligence' : '/api/linkedin/visibility-plan';
       const target = document.getElementById('linkedin-extra');
+      const safe = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
       target.textContent = 'Carregando…';
       try {
         const response = await fetch(endpoint);
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Não foi possível carregar este módulo.');
         if (kind === 'market') {
-          target.innerHTML = `<h3>Inteligência de mercado</h3><p>${data.total_active_jobs} vagas ativas · fonte: ${data.source_label} · ${new Date(data.generated_at).toLocaleString('pt-BR')}</p><p><strong>Cargos:</strong> ${data.roles.map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p><p><strong>Competências mais frequentes:</strong> ${data.skills.slice(0, 10).map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p><p><strong>Localidades:</strong> ${data.locations.map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p>`;
+          target.innerHTML = `<h3>Inteligência de mercado</h3><p>${safe(data.total_active_jobs)} vagas ativas · fonte: ${safe(data.source_label)} · ${safe(new Date(data.generated_at).toLocaleString('pt-BR'))}</p><p><strong>Cargos:</strong> ${data.roles.map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p><p><strong>Competências mais frequentes:</strong> ${data.skills.slice(0, 10).map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p><p><strong>Localidades:</strong> ${data.locations.map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p>`;
         } else {
-          target.innerHTML = `<h3>Plano de visibilidade</h3><p>${data.automatic_publishing_reason}</p><ul>${data.weekly_checklist.map(x => `<li>${x}</li>`).join('')}</ul>${data.posts.map(x => `<p><strong>${x.day}:</strong> ${x.theme} — ${x.cta}</p>`).join('')}`;
+          target.innerHTML = `<h3>Plano de visibilidade</h3><p>${safe(data.automatic_publishing_reason)}</p><ul>${data.weekly_checklist.map(x => `<li>${safe(x)}</li>`).join('')}</ul>${data.posts.map(x => `<p><strong>${safe(x.day)}:</strong> ${safe(x.theme)} — ${safe(x.cta)}</p>`).join('')}`;
         }
       } catch (error) { target.textContent = error.message; }
     }
