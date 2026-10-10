@@ -140,6 +140,12 @@
       border: 1px solid #334155;
     }
     .result-section h2 { margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; color: #FFFFFF; font-size: 1.5rem; }
+    #linkedin-extra { margin-top: 20px; padding: 20px; border: 1px solid #334155; border-radius: 12px; background: #0F172A; color: #CBD5E1; line-height: 1.6; }
+    #linkedin-extra h3 { margin: 0 0 10px; color: #FFFFFF; font-size: 1.2rem; }
+    #linkedin-extra p, #linkedin-extra li { color: #CBD5E1; }
+    #linkedin-extra strong { color: #FFFFFF; }
+    #linkedin-extra .module-meta { color: #94A3B8; font-size: 0.88rem; }
+    #linkedin-extra .module-empty { color: #FCD34D; }
     .copy-btn { margin: 20px auto 0; background: #334155; color: #FFFFFF; border: 1px solid #475569; display: flex; }
     .copy-btn:hover { background: #475569; }
 
@@ -402,17 +408,24 @@
       const endpoint = kind === 'market' ? '/api/linkedin/market-intelligence' : '/api/linkedin/visibility-plan';
       const target = document.getElementById('linkedin-extra');
       const safe = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+      const button = document.getElementById(kind === 'market' ? 'market-btn' : 'visibility-btn');
+      if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Carregando…'; }
       target.textContent = 'Carregando…';
       try {
-        const response = await fetch(endpoint);
+        const response = await fetch(endpoint, { method: kind === 'market' ? 'GET' : 'POST' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Não foi possível carregar este módulo.');
         if (kind === 'market') {
-          target.innerHTML = `<h3>Inteligência de mercado</h3><p>${safe(data.total_active_jobs)} vagas ativas · fonte: ${safe(data.source_label)} · ${safe(new Date(data.generated_at).toLocaleString('pt-BR'))}</p><p><strong>Cargos:</strong> ${data.roles.map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p><p><strong>Competências mais frequentes:</strong> ${data.skills.slice(0, 10).map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p><p><strong>Localidades:</strong> ${data.locations.map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ') || 'sem dados'}</p>`;
+          const roles = (data.roles || []).map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ');
+          const skills = (data.skills || []).slice(0, 10).map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ');
+          const locations = (data.locations || []).map(x => `${safe(x.label)} (${safe(x.count)})`).join(', ');
+          const empty = Number(data.total_active_jobs || 0) === 0;
+          target.innerHTML = `<h3>Inteligência de mercado</h3><p class="module-meta">${safe(data.total_active_jobs)} vagas ativas · fonte: ${safe(data.source_label)} · atualizado em ${safe(new Date(data.generated_at).toLocaleString('pt-BR'))}</p>${empty ? '<p class="module-empty">Ainda não há vagas autorizadas no catálogo. Conecte o Apify ou sincronize seus alertas para gerar esta análise.</p>' : `<p><strong>Cargos:</strong> ${roles || 'sem dados'}</p><p><strong>Competências mais frequentes:</strong> ${skills || 'sem dados'}</p><p><strong>Localidades:</strong> ${locations || 'sem dados'}</p>`}`;
         } else {
-          target.innerHTML = `<h3>Plano de visibilidade</h3><p>${safe(data.automatic_publishing_reason)}</p><ul>${data.weekly_checklist.map(x => `<li>${safe(x)}</li>`).join('')}</ul>${data.posts.map(x => `<p><strong>${safe(x.day)}:</strong> ${safe(x.theme)} — ${safe(x.cta)}</p>`).join('')}`;
+          target.innerHTML = `<h3>Plano de visibilidade</h3><p>${safe(data.automatic_publishing_reason)}</p><ul>${(data.weekly_checklist || []).map(x => `<li>${safe(x)}</li>`).join('')}</ul>${(data.posts || []).map(x => `<p><strong>${safe(x.day)}:</strong> ${safe(x.theme)} — ${safe(x.cta)}</p>`).join('')}`;
         }
-      } catch (error) { target.textContent = error.message; }
+      } catch (error) { target.innerHTML = `<p class="module-empty">${safe(error.message || 'Não foi possível carregar este módulo.')}</p>`; }
+      finally { if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (kind === 'market' ? 'Inteligência de mercado' : 'Plano de visibilidade'); } }
     }
     document.getElementById('market-btn').addEventListener('click', () => loadLinkedinExtra('market'));
     document.getElementById('visibility-btn').addEventListener('click', () => loadLinkedinExtra('visibility'));

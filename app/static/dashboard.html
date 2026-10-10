@@ -113,6 +113,27 @@
     .metric-value { display: block; margin-top: 12px; font-size: 30px; font-weight: 800; letter-spacing: -.04em; color: #0f172a; }
     .metric-note { display: block; margin-top: 4px; color: #475569; font-size: 12px; }
 
+    .insight-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .9fr); gap: 18px; margin: 0 0 28px; }
+    .insight-panel { min-width: 0; padding: 22px; border: 1px solid #dbe5f0; border-radius: 18px; background: var(--paper); box-shadow: 0 4px 16px rgba(15,23,42,.06); }
+    .insight-panel h2 { margin: 0; color: var(--ink); font-size: 17px; }
+    .insight-panel > p { margin: 6px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .recommendation-list { display: grid; gap: 10px; }
+    .recommendation-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 13px; background: #fbfdff; }
+    .recommendation-rank { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: #fff; background: var(--blue); font-weight: 800; }
+    .recommendation-card h3 { margin: 0; color: var(--ink); font-size: 13px; }
+    .recommendation-card h3 a { color: inherit; text-decoration: none; }
+    .recommendation-card h3 a:hover { text-decoration: underline; }
+    .recommendation-meta, .recommendation-reason, .recommendation-source { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .recommendation-reason { color: var(--ink); }
+    .recommendation-score { float: right; color: var(--green); font-size: 13px; font-weight: 800; }
+    .recommendation-empty { padding: 12px; border-radius: 10px; color: var(--muted); background: #f8fafc; font-size: 12px; line-height: 1.5; }
+    .next-action { display: grid; gap: 12px; min-height: 148px; align-content: center; padding: 16px; border-radius: 14px; background: linear-gradient(135deg, #eff6ff, #f8fbff); }
+    .next-action-label { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .next-action strong { color: var(--ink); font-size: 16px; line-height: 1.3; }
+    .next-action p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .next-action a { justify-self: start; padding: 8px 11px; border-radius: 9px; color: #fff; background: var(--blue); font-size: 11px; font-weight: 800; text-decoration: none; }
+    .insight-footnote { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+
     .queue-panel { margin-bottom: 20px; }
     .queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 20px 26px; border-bottom: 1px solid var(--line); background: #fafbfc; }
     .queue-summary-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
@@ -333,6 +354,7 @@
       .mobile-nav { display: flex; gap: 7px; overflow-x: auto; padding: 10px 4vw; border-bottom: 1px solid var(--line); background: var(--paper); }
       .mobile-nav .sidebar-link { flex: 0 0 auto; width: auto; padding: 8px 10px; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
+      .insight-grid { grid-template-columns: 1fr; }
       .workspace { display: block; }
       .distribution { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
       .distribution h2, .distribution > p { grid-column: 1 / -1; }
@@ -352,6 +374,7 @@
       .hero-menu-panel { left: 0; right: 0; }
       .refresh, .new-job { min-width: 0; }
       .metrics { grid-template-columns: 1fr 1fr; gap: 9px; }
+      .insight-panel { padding: 18px; }
       .metric { padding: 15px; }
       .metric-value { font-size: 24px; }
       .panel-head { align-items: stretch; flex-direction: column; }
@@ -519,7 +542,25 @@
         <article class="metric"><span class="metric-label">Descartar</span><strong class="metric-value" id="discardMetric">—</strong><span class="metric-note">fora das preferências</span></article>
       </section>
 
-      <section class="panel queue-panel" aria-label="Fila de decisão">
+      <section class="insight-grid" aria-label="Recomendações e próxima ação">
+        <article class="insight-panel">
+          <h2>Melhores vagas da semana</h2>
+          <p>Uma seleção curta, ordenada pela compatibilidade com seu perfil e pronta para revisão.</p>
+          <div class="recommendation-list" id="weeklyRecommendations" aria-live="polite"></div>
+          <p class="insight-footnote">A pontuação considera a análise da vaga, seus critérios e a confiança da captura. A fonte e a data aparecem em cada recomendação.</p>
+        </article>
+        <article class="insight-panel">
+          <h2>Próxima melhor ação</h2>
+          <p>O passo mais útil para manter sua busca avançando.</p>
+          <div class="next-action" id="nextBestAction" aria-live="polite">
+            <span class="next-action-label">Analisando sua jornada</span>
+            <strong>Carregando recomendações…</strong>
+            <p>Estamos cruzando suas vagas, candidaturas e entrevistas.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel queue-panel" id="fila" aria-label="Fila de decisão">
         <div class="panel-head">
           <div><h2>Fila de decisão</h2><p>Revise oportunidades captadas antes que avancem para candidaturas.</p></div>
           <div class="filters">
@@ -1400,7 +1441,7 @@
         if (!response.ok) throw new Error("Não foi possível carregar as candidaturas.");
         const payload = await response.json();
         applications = payload.applications || [];
-        renderMetrics(); renderDistribution(); renderTable();
+        renderMetrics(); renderDistribution(); renderTable(); renderDecisionInsights();
         if (selectedId) openApplication(selectedId);
         if (showMessage) toast("Dados atualizados.");
       } catch (error) { toast(error.message); }
@@ -1597,6 +1638,72 @@
       $("distribution").innerHTML = active.length ? active.map(item => `
         <div class="dist-row"><div class="dist-meta"><span>${statusLabels[item.status]}</span><strong>${item.count}</strong></div>
         <div class="bar"><span class="bar-fill-${Math.round(((item.count / max) * 100) / 10) * 10}"></span></div></div>`).join("") : '<div class="empty">Sem dados para exibir.</div>';
+    }
+
+    function recommendationReason(item) {
+      const analysis = item.analysis || {};
+      const requirements = Array.isArray(analysis.requirements) ? analysis.requirements : [];
+      const matched = requirements.filter(requirement => ["COMPROVADO_DIRETAMENTE", "COMPROVADO_POR_EXPERIENCIA_RELACIONADA"].includes(requirement.status)).length;
+      if (requirements.length) return `Atende ${matched} de ${requirements.length} critérios identificados${item.recommendation ? ` · ${item.recommendation}` : ""}.`;
+      if (item.recommendation) return item.recommendation;
+      if (item.decision_reasons?.length) return item.decision_reasons[0];
+      return "Compatibilidade calculada a partir do perfil e dos dados da vaga.";
+    }
+
+    function recommendationSource(item) {
+      const source = item.source || "Fonte não informada";
+      const captured = item.created_at ? formatDate(item.created_at) : "data não informada";
+      const confidence = item.capture_confidence == null ? "confiança não informada" : `confiança da captura: ${item.capture_confidence}%`;
+      const deadline = item.valid_through ? ` · prazo até ${formatDate(item.valid_through)}` : "";
+      return `${source} · captada em ${captured} · ${confidence}${deadline}`;
+    }
+
+    function renderDecisionInsights() {
+      const list = $("weeklyRecommendations");
+      const action = $("nextBestAction");
+      if (!list || !action) return;
+      const active = applications
+        .filter(item => !["RECUSADO", "ARQUIVADA"].includes(item.status))
+        .sort((left, right) => (Number(right.analysis_score) || 0) - (Number(left.analysis_score) || 0))
+        .slice(0, 5);
+      list.innerHTML = active.length ? active.map((item, index) => {
+        const score = item.analysis_score == null ? "—" : `${Math.round(item.analysis_score)}%`;
+        const title = escapeHtml(item.job_title || "Cargo não identificado");
+        const company = escapeHtml(item.company || "Empresa não identificada");
+        const href = item.job_url ? ` href="${escapeHtml(item.job_url)}" target="_blank" rel="noopener"` : "";
+        return `<article class="recommendation-card"><span class="recommendation-rank">${index + 1}</span><div><h3><a${href}>${title}</a><span class="recommendation-score">${score}</span></h3><div class="recommendation-meta">${company} · ${escapeHtml(statusLabels[item.status] || item.status || "Em análise")}</div><div class="recommendation-reason">${escapeHtml(recommendationReason(item))}</div><div class="recommendation-source">${escapeHtml(recommendationSource(item))}</div></div></article>`;
+      }).join("") : '<div class="recommendation-empty">Ainda não há vagas analisadas para recomendar. Capte uma vaga ou reconecte uma fonte para começar.</div>';
+
+      const pending = applications.filter(item => item.queue_decision === "REVISAR" && !["RECUSADO", "ARQUIVADA"].includes(item.status)).length;
+      const interview = applications.find(item => item.status === "ENTREVISTA");
+      const submitted = applications.find(item => item.status === "CANDIDATURA_ENVIADA");
+      const candidate = active[0];
+      let title = "Captar sua primeira vaga";
+      let detail = "Cole um anúncio ou reconecte uma integração para receber uma análise explicada.";
+      let link = "/vagas";
+      let label = "Comece por aqui";
+      if (pending) {
+        title = `Revisar ${pending} vaga${pending === 1 ? "" : "s"} pendente${pending === 1 ? "" : "s"}`;
+        detail = "Confirme as melhores oportunidades antes que o prazo do anúncio termine.";
+        link = "/dashboard#fila";
+        label = "Ação recomendada";
+      } else if (interview) {
+        title = "Treinar sua próxima entrevista";
+        detail = `Use o roteiro adaptado para ${interview.job_title || "a vaga"} e registre seu resultado.`;
+        link = "/entrevistas";
+        label = "Ação recomendada";
+      } else if (submitted) {
+        title = "Enviar um follow-up";
+        detail = `Registre o retorno de ${submitted.company || "sua candidatura"} e mantenha o histórico atualizado.`;
+        link = "/candidaturas";
+        label = "Ação recomendada";
+      } else if (candidate) {
+        title = "Adaptar seu currículo para a melhor vaga";
+        detail = `${candidate.job_title || "A oportunidade"} está no topo por compatibilidade. Abra os detalhes para gerar documentos e ver os critérios.`;
+        link = "/candidaturas";
+        label = "Ação recomendada";
+      }
+      action.innerHTML = `<span class="next-action-label">${label}</span><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p><a href="${link}">Abrir agora →</a>`;
     }
 
     function renderTable() {
