@@ -201,7 +201,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import AdminAudit, Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, QueueItem, Skill, utc_now
+from .models import AdminAudit, Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, ProductFeedback, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -556,6 +556,9 @@ SIMULATOR_PAGE_PATH = Path(__file__).parent / "static" / "simulador.html"
 SIMULATOR_SMART_PATH = Path(__file__).parent / "static" / "simulador-inteligente.html"
 EBOOK_PAGE_PATH = Path(__file__).parent / "static" / "ebook.html"
 HELP_PAGE_PATH = Path(__file__).parent / "static" / "ajuda.html"
+ABOUT_PAGE_PATH = Path(__file__).parent / "static" / "sobre.html"
+RECRUITERS_PAGE_PATH = Path(__file__).parent / "static" / "para-empresas.html"
+FEEDBACK_PAGE_PATH = Path(__file__).parent / "static" / "feedback.html"
 TERMS_PATH = Path(__file__).parent / 'static' / 'termos.html'
 PRIVACY_PATH = Path(__file__).parent / 'static' / 'privacidade.html'
 EMAIL_VERIFICATION_PATH = Path(__file__).parent / 'static' / 'email-verification.html'
@@ -1705,7 +1708,7 @@ def root():
     rendered = html.replace(
         "</body>",
         _style_nonce_bootstrap(nonce)
-        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/support-chat.js?v=7" defer></script></body>',
+        + f'<script src="/static/modal-a11y.js"></script><script src="/static/landing-enhance.js"></script><script nonce="{nonce}">' + auth_script + '</script><script src="/static/public-feedback.js?v=1" defer></script><script src="/static/support-chat.js?v=7" defer></script></body>',
         1,
     )
     import re
@@ -1760,6 +1763,9 @@ def sitemap_xml():
         {"loc": base + "/termos", "priority": "0.3", "changefreq": "monthly"},
         {"loc": base + "/privacidade", "priority": "0.3", "changefreq": "monthly"},
         {"loc": base + "/ajuda", "priority": "0.5", "changefreq": "monthly"},
+        {"loc": base + "/sobre", "priority": "0.6", "changefreq": "monthly"},
+        {"loc": base + "/para-empresas", "priority": "0.5", "changefreq": "monthly"},
+        {"loc": base + "/feedback", "priority": "0.4", "changefreq": "monthly"},
     ]
     entries = ""
     for u in urls:
@@ -1847,6 +1853,42 @@ def onboarding_page():
 def help_page():
     if not HELP_PAGE_PATH.is_file(): raise HTTPException(500, "Pagina de ajuda nao encontrada.")
     return _page(HELP_PAGE_PATH)
+
+
+def _public_story_page(path: Path) -> HTMLResponse:
+    if not path.is_file():
+        raise HTTPException(500, "Página pública não encontrada.")
+    nonce = current_csp_nonce()
+    html = _with_favicon(path.read_text(encoding="utf-8"))
+    html = _nonce_styles(html, nonce)
+    html = html.replace(
+        "</body>",
+        '<script src="/static/support-chat.js?v=7" defer></script>'
+        '<script src="/static/public-feedback.js?v=1" defer></script></body>',
+        1,
+    )
+    html = re.sub(
+        r"<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)([^>]*)>",
+        lambda match: f'<script nonce="{nonce}"{match.group(1)}>',
+        html,
+        flags=re.I,
+    )
+    return HTMLResponse(html)
+
+
+@app.get("/sobre", response_class=HTMLResponse, include_in_schema=False)
+def about_page():
+    return _public_story_page(ABOUT_PAGE_PATH)
+
+
+@app.get("/para-empresas", response_class=HTMLResponse, include_in_schema=False)
+def recruiters_page():
+    return _public_story_page(RECRUITERS_PAGE_PATH)
+
+
+@app.get("/feedback", response_class=HTMLResponse, include_in_schema=False)
+def feedback_page():
+    return _public_story_page(FEEDBACK_PAGE_PATH)
 
 @app.get("/curriculos", response_class=HTMLResponse, include_in_schema=False)
 def resumes_page():
@@ -6850,6 +6892,143 @@ async def download_chrome_extension_zip():
     raise HTTPException(404, "Arquivo de extensão não encontrado.")
 
 
+# --- FEEDBACK / COMMUNITY ---
+class FeedbackCreateRequest(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    message: str = Field(min_length=10, max_length=2000)
+    category: Literal["geral", "vagas", "documentos", "linkedin", "entrevistas", "pagamentos", "integracoes"] = "geral"
+    rating: int = Field(default=5, ge=1, le=5)
+    display_name: str = Field(default="", max_length=120)
+
+
+class FeedbackModerationRequest(BaseModel):
+    status: Literal["pending", "approved", "rejected", "featured"]
+    reviewer_note: str = Field(default="", max_length=500)
+
+
+@app.get("/api/feedback/public", include_in_schema=False)
+def public_feedback():
+    db = SessionLocal()
+    try:
+        items = db.scalars(
+            select(ProductFeedback)
+            .where(ProductFeedback.status.in_(["approved", "featured"]))
+            .order_by(ProductFeedback.status.desc(), ProductFeedback.created_at.desc())
+            .limit(24)
+        ).all()
+        return {
+            "items": [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "message": item.message,
+                    "category": item.category,
+                    "rating": item.rating,
+                    "display_name": item.display_name or "Pessoa usuária",
+                    "featured": item.status == "featured",
+                    "created_at": item.created_at.isoformat(),
+                }
+                for item in items
+            ]
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/feedback", include_in_schema=False)
+async def create_feedback(payload: FeedbackCreateRequest, request: Request, user=Depends(authenticated_user)):
+    email = str((user or {}).get("email") or "").strip().casefold()
+    if not email:
+        raise HTTPException(401, "Entre na sua conta para enviar feedback.")
+    _enforce_rate_limit(request, "feedback", email)
+    title = sanitize_untrusted_text(payload.title, max_chars=160)
+    message = sanitize_untrusted_text(payload.message, max_chars=2000)
+    display_name = sanitize_untrusted_text(payload.display_name, max_chars=120)
+    if len(title) < 3 or len(message) < 10:
+        raise HTTPException(422, "Informe um título e um relato mais detalhado.")
+    db = SessionLocal()
+    try:
+        item = ProductFeedback(
+            owner_id=str((user or {}).get("id") or "") or None,
+            email=email,
+            display_name=display_name or email.split("@", 1)[0],
+            title=title,
+            message=message,
+            category=payload.category,
+            rating=payload.rating,
+            status="pending",
+        )
+        db.add(item)
+        db.commit()
+        return {"ok": True, "message": "Obrigado. Seu feedback foi enviado para revisão."}
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao salvar feedback")
+        raise HTTPException(500, "Não foi possível salvar o feedback agora.")
+    finally:
+        db.close()
+
+
+@app.get("/admin/api/feedback")
+async def admin_feedback(request: Request):
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        items = db.scalars(select(ProductFeedback).order_by(ProductFeedback.created_at.desc()).limit(100)).all()
+        return {
+            "items": [
+                {
+                    "id": item.id,
+                    "email": item.email,
+                    "display_name": item.display_name,
+                    "title": item.title,
+                    "message": item.message,
+                    "category": item.category,
+                    "rating": item.rating,
+                    "status": item.status,
+                    "reviewer_note": item.reviewer_note,
+                    "created_at": item.created_at.isoformat(),
+                    "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
+                }
+                for item in items
+            ]
+        }
+    finally:
+        db.close()
+
+
+@app.post("/admin/api/feedback/{feedback_id}/moderate")
+async def moderate_feedback(feedback_id: int, payload: FeedbackModerationRequest, request: Request):
+    admin = await _require_admin(request)
+    db = SessionLocal()
+    try:
+        item = db.get(ProductFeedback, feedback_id)
+        if item is None:
+            raise HTTPException(404, "Feedback não encontrado.")
+        item.status = payload.status
+        item.reviewer_note = sanitize_untrusted_text(payload.reviewer_note, max_chars=500)
+        item.reviewed_at = utc_now()
+        _admin_write_audit(
+            db,
+            _admin_actor(admin),
+            f"feedback_{payload.status}",
+            item.email,
+            item.owner_id or "",
+            item.reviewer_note,
+            feedback_id=item.id,
+        )
+        db.commit()
+        return {"ok": True, "message": "Feedback atualizado."}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao moderar feedback")
+        raise HTTPException(500, "Não foi possível atualizar o feedback.")
+    finally:
+        db.close()
+
 
 # --- ADMIN ROUTES ---
 ADMIN_PLANS = {"essential", "start", "start_plus", "pro", "consultoria"}
@@ -7064,6 +7243,10 @@ async def admin_overview(request: Request):
                 "subscription_status": sub.status if sub else None,
             })
         audits = db.scalars(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(40)).all()
+        feedback_counts = {
+            status: int(db.scalar(select(func.count(ProductFeedback.id)).where(ProductFeedback.status == status)) or 0)
+            for status in ("pending", "approved", "featured", "rejected")
+        }
         active = [u for u in users if u["status"] == "ativo"]
         billing_metrics = {
             "subscriptions": sum(1 for sub in subscriptions if sub.status in {"authorized", "active", "paused"}),
@@ -7080,6 +7263,7 @@ async def admin_overview(request: Request):
                 "suspended": sum(1 for u in users if u["status"] == "suspenso"),
                 "plans": {plan: sum(1 for u in active if u["plan"] == plan) for plan in ("essential", "start", "start_plus", "pro", "consultoria")},
                 "billing": billing_metrics,
+                "feedback": feedback_counts,
             },
             "users": users,
             "audit": [{"action": a.action, "actor_email": a.actor_email, "target_email": a.target_email, "reason": a.reason, "details": a.details or {}, "created_at": a.created_at.isoformat()} for a in audits],

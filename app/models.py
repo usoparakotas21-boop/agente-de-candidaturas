@@ -537,6 +537,32 @@ class AdminAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
 
+class ProductFeedback(Base):
+    """Feedback submitted by users and reviewed before appearing publicly."""
+
+    __tablename__ = "product_feedback"
+    __table_args__ = (
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_product_feedback_rating"),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'featured')",
+            name="ck_product_feedback_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    message: Mapped[str] = mapped_column(String(2000), nullable=False)
+    category: Mapped[str] = mapped_column(String(40), nullable=False, default="geral")
+    rating: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
+    reviewer_note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ConsultationCredit(Base):
     """One human consultation entitlement for a confirmed monthly payment."""
 
