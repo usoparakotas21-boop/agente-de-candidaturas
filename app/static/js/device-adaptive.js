@@ -24,9 +24,6 @@
       });
     }
 
-    // Registrar Service Worker do PWA se suportado
-    );
-    }
   }
 
   // PWA Deferred Prompt Handling
