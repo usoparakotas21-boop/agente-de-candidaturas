@@ -120,7 +120,10 @@ async def collect(
             logger.info("[%s] consulta=%r resultados=%d", SOURCE, query, len(jobs))
             return jobs
         except Exception as err:  # noqa: BLE001 - Apify must not block other sources
-            logger.exception("[%s] Actor Apify falhou: %s: %s", SOURCE, type(err).__name__, err)
+            # The Apify URL contains the bearer token; keep the exact failure
+            # class/status useful without writing that credential to Railway.
+            detail = str(err).replace(apify_token, "[redacted]")
+            logger.error("[%s] Actor Apify falhou: %s: %s", SOURCE, type(err).__name__, detail)
             return []
     finally:
         if own_client:
