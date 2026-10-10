@@ -127,6 +127,29 @@ _NATIONAL_LOCATION_ALIASES = {
     "qualquer lugar do brasil",
 }
 
+_LOCATION_HINTS = _NATIONAL_LOCATION_ALIASES | {
+    "acre", "alagoas", "amapa", "amapá", "amazonas", "bahia", "ceara", "ceará",
+    "distrito federal", "espirito santo", "espírito santo", "goias", "goiás",
+    "maranhao", "maranhão", "mato grosso", "mato grosso do sul", "minas gerais",
+    "para", "pará", "paraiba", "paraíba", "parana", "paraná", "pernambuco",
+    "piaui", "piauí", "rio de janeiro", "rio grande do norte", "rio grande do sul",
+    "rondonia", "rondônia", "roraima", "santa catarina", "sao paulo", "são paulo",
+    "sergipe", "tocantins",
+}
+
+
+def _manual_term_and_location(termo: str | None, localidade: str | None) -> tuple[list[str], list[str]]:
+    """Allow the compact screen search ``cargo, localidade`` format."""
+
+    if termo is None:
+        return [], _split_values(localidade)
+    parts = _split_values(termo)
+    if localidade is None and len(parts) >= 2:
+        candidate_location = " ".join(parts[1:]).strip()
+        if candidate_location.casefold() in _LOCATION_HINTS:
+            return [parts[0]], [candidate_location]
+    return parts, _split_values(localidade)
+
 
 def _source_location(value: str) -> str:
     """Treat nationwide searches as no geographic restriction at the source."""
@@ -271,8 +294,11 @@ async def capturar_vagas(
 
     # The ad-hoc search fields from the screen have priority over both the
     # legacy list fields and the saved profile preferences.
-    roles = _split_values(request.termo) if request.termo is not None else _split_values(request.termos)
-    locations = _split_values(request.localidade) if request.localidade is not None else _split_values(request.localizacoes)
+    manual_roles, manual_locations = _manual_term_and_location(request.termo, request.localidade)
+    roles = manual_roles if request.termo is not None else _split_values(request.termos)
+    locations = manual_locations if request.termo is not None and request.localidade is None else (
+        _split_values(request.localidade) if request.localidade is not None else _split_values(request.localizacoes)
+    )
     roles = roles or saved_roles
     locations = locations or saved_locations
     modalities = [item.casefold() for item in (_split_values(request.modalidades) or saved_modalities)]

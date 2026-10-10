@@ -114,6 +114,26 @@ def matches_location(location: str, *values: Any) -> bool:
     """Check a location without rejecting cards whose portal omitted it."""
 
     tokens = list(dict.fromkeys(_search_tokens(location)))
+    # Portals commonly expose Brazilian states as UF while the profile stores
+    # the full name (e.g. ``Bahia`` vs ``BA``). Accept both forms so a valid
+    # card from a query-only fallback is not discarded by the screen filter.
+    state_aliases = {
+        "acre": "ac", "alagoas": "al", "amapa": "ap", "amapá": "ap",
+        "amazonas": "am", "bahia": "ba", "ceara": "ce", "ceará": "ce",
+        "distrito federal": "df", "espirito santo": "es", "espírito santo": "es",
+        "goias": "go", "goiás": "go", "maranhao": "ma", "maranhão": "ma",
+        "mato grosso": "mt", "mato grosso do sul": "ms", "minas gerais": "mg",
+        "para": "pa", "pará": "pa", "paraiba": "pb", "paraíba": "pb",
+        "parana": "pr", "paraná": "pr", "pernambuco": "pe", "piaui": "pi",
+        "piauí": "pi", "rio de janeiro": "rj", "rio grande do norte": "rn",
+        "rio grande do sul": "rs", "rondonia": "ro", "rondônia": "ro",
+        "roraima": "rr", "santa catarina": "sc", "sao paulo": "sp",
+        "são paulo": "sp", "sergipe": "se", "tocantins": "to",
+    }
+    normalized_location = clean_text(location).casefold()
+    for state_name, abbreviation in state_aliases.items():
+        if state_name in normalized_location and abbreviation not in tokens:
+            tokens.append(abbreviation)
     if not tokens or any(token in {"brasil", "nacional", "pais", "país"} for token in tokens):
         return True
     searchable = clean_text(" ".join(clean_text(value) for value in values)).casefold()
