@@ -2,6 +2,7 @@ from typing import Any, Literal, Optional
 from sqlalchemy import or_, and_, func, select, text, update, inspect
 import asyncio
 import csv
+from collections import Counter
 from contextlib import contextmanager
 import json
 import base64
@@ -228,6 +229,8 @@ from .plan_limits import (
 )
 from .ai_provider import AIProviderError, evaluate_interview_answer, generate_copilot_suggestions, extract_job_from_image, generate_interview_questions_with_gemini
 from .voice_interview import interview_start, interview_chat
+from .markdown_utils import markdown_to_plain_text
+from .apify_ingestion import sync_apify_dataset
 from email.message import EmailMessage
 from .email_transport import send_via_brevo_api, brevo_api_key
 
@@ -6454,6 +6457,26 @@ create_cover_letter_for_job = create_cover_letter
 create_cover_letter_document = create_cover_letter_doc
 download_application_cover_letter = download_cover_letter
 
+def _linkedin_has_access(user: Any) -> tuple[bool, str]:
+    ent = _get_user_plan_and_entitlement(user)
+    if ent.get("is_admin") or ent.get("is_pro") or ent.get("is_consultoria"):
+        return True, str(ent.get("reason") or "plan")
+    owner_id = _owner_id(user)
+    if not owner_id:
+        return False, "unauthenticated"
+    db = SessionLocal()
+    try:
+        purchase = db.scalar(
+            select(LinkedinRebrandingPurchase.id)
+            .where(LinkedinRebrandingPurchase.owner_id == owner_id)
+            .where(LinkedinRebrandingPurchase.status == "PAID")
+            .limit(1)
+        )
+        return bool(purchase), "purchase" if purchase else "no_purchase"
+    finally:
+        db.close()
+
+
 @app.get("/api/linkedin/access-status", include_in_schema=False)
 def check_linkedin_access(user=Depends(authenticated_user)):
     ent = _get_user_plan_and_entitlement(user)
@@ -6479,13 +6502,97 @@ def check_linkedin_access(user=Depends(authenticated_user)):
     finally:
         db.close()
 
+
+@app.get("/api/linkedin/market-intelligence", include_in_schema=False)
+def linkedin_market_intelligence(user=Depends(authenticated_user)):
+    """Return explainable aggregates from the approved shared job catalogue."""
+    allowed, reason = _linkedin_has_access(user)
+    if not allowed:
+        raise HTTPException(403, "A Inteligência de Mercado requer o acesso ao módulo LinkedIn.")
+    db = SessionLocal()
+    try:
+        listings = db.scalars(
+            select(JobListing)
+            .where(JobListing.status == "active")
+            .order_by(JobListing.updated_at.desc())
+            .limit(1000)
+        ).all()
+        role_counts: Counter[str] = Counter()
+        skill_counts: Counter[str] = Counter()
+        location_counts: Counter[str] = Counter()
+        mode_counts: Counter[str] = Counter()
+        company_counts: Counter[str] = Counter()
+        stop = {"para", "com", "como", "uma", "por", "das", "dos", "the", "and", "de", "do", "da", "em"}
+        for listing in listings:
+            title = (listing.title or "").strip()
+            if title:
+                role_counts[title] += 1
+            if listing.location:
+                location_counts[listing.location.strip()] += 1
+            if listing.work_mode:
+                mode_counts[listing.work_mode] += 1
+            if listing.company_name:
+                company_counts[listing.company_name.strip()] += 1
+            words = re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ+.#-]{2,}", f"{listing.title} {listing.description}")
+            for word in words:
+                normalized = word.casefold()
+                if normalized not in stop and not normalized.isdigit():
+                    skill_counts[word] += 1
+        return {
+            "source": "job_listings",
+            "source_label": "Catálogo aprovado de vagas",
+            "generated_at": utc_now().isoformat(),
+            "authorization": reason,
+            "total_active_jobs": len(listings),
+            "roles": [{"label": key, "count": value} for key, value in role_counts.most_common(10)],
+            "skills": [{"label": key, "count": value} for key, value in skill_counts.most_common(20)],
+            "locations": [{"label": key, "count": value} for key, value in location_counts.most_common(10)],
+            "work_modes": [{"label": key, "count": value} for key, value in mode_counts.most_common()],
+            "companies": [{"label": key, "count": value} for key, value in company_counts.most_common(10)],
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/linkedin/visibility-plan", include_in_schema=False)
+def linkedin_visibility_plan(user=Depends(authenticated_user)):
+    allowed, _ = _linkedin_has_access(user)
+    if not allowed:
+        raise HTTPException(403, "O Plano de Visibilidade requer o acesso ao módulo LinkedIn.")
+    ent = _get_user_plan_and_entitlement(user)
+    profile = get_profile(user) if callable(get_profile) else {}
+    roles = profile.get("target_roles") or ["sua área profissional"]
+    focus = ", ".join(roles[:3])
+    return {
+        "manual_mode": True,
+        "automatic_publishing": False,
+        "automatic_publishing_reason": "A publicação automática exige OAuth e aprovação do aplicativo LinkedIn.",
+        "generated_at": utc_now().isoformat(),
+        "focus": focus,
+        "weekly_checklist": [
+            "Publicar uma reflexão prática sobre sua área",
+            "Comentar em três publicações de profissionais do setor",
+            "Atualizar uma competência com evidência de resultado",
+            "Registrar visualizações, comentários e conexões recebidas",
+        ],
+        "posts": [
+            {"day": "Segunda", "theme": f"Aprendizado recente em {focus}", "cta": "Convide profissionais da área para trocar experiências."},
+            {"day": "Quarta", "theme": "Caso prático com resultado mensurável", "cta": "Peça opiniões sobre o desafio apresentado."},
+            {"day": "Sexta", "theme": "Tendência observada nas vagas", "cta": "Abra uma conversa sobre como a tendência afeta o trabalho."},
+        ],
+        "tracking_fields": ["data", "publicação", "visualizações", "reações", "comentários", "novas conexões", "observações"],
+        "plan": ent.get("plan"),
+    }
+
 @app.post("/billing/linkedin-rebranding/checkout", include_in_schema=False)
 async def create_linkedin_rebranding_checkout(request: Request, user=Depends(authenticated_user)):
-    owner_id = getattr(user, "uid", getattr(user, "id", None))
+    owner_id = _owner_id(user)
     if not owner_id:
         raise HTTPException(401, "Usuário não autenticado")
 
-    email = getattr(user, "email", "") or ""
+    email = str(user.get("email") if isinstance(user, dict) else getattr(user, "email", "") or "").strip().lower()
+    if not email:
+        raise HTTPException(400, "A conta precisa ter um e-mail confirmado para iniciar o pagamento.")
     order_nsu = f"linkedin-{uuid.uuid4().hex}"
     price_cents = 1990
 
@@ -6534,10 +6641,16 @@ async def create_linkedin_rebranding_checkout(request: Request, user=Depends(aut
             )
         if resp.status_code >= 400:
             logger.error("Erro Mercado Pago (LinkedIn Rebranding): %s", resp.text)
+            db.query(LinkedinRebrandingPurchase).filter(LinkedinRebrandingPurchase.order_nsu == order_nsu).delete(synchronize_session=False)
+            db.commit()
             raise HTTPException(500, "Falha ao gerar link de pagamento no Mercado Pago")
 
         pref = resp.json()
         checkout_url = pref.get("init_point") or pref.get("sandbox_init_point")
+        if not checkout_url:
+            db.query(LinkedinRebrandingPurchase).filter(LinkedinRebrandingPurchase.order_nsu == order_nsu).delete(synchronize_session=False)
+            db.commit()
+            raise HTTPException(502, "O Mercado Pago não retornou um endereço de checkout.")
         return {"checkout_url": checkout_url}
     finally:
         db.close()
@@ -6615,6 +6728,15 @@ Para as experiências mais relevantes do currículo, rescreva o cargo e as descr
 
 # 🎯 Competências a destacar (Skills)
 Liste as 5 principais habilidades técnicas e as 3 principais habilidades comportamentais (Soft Skills) que o usuário deve fixar em seu perfil.
+
+# 🔎 Diagnóstico do perfil
+Liste 3 pontos fortes, 3 lacunas e uma nota de clareza do posicionamento de 0 a 100. Explique cada item em uma frase objetiva.
+
+# 🧭 Posicionamento profissional
+Defina a proposta de valor em uma frase, o público de recrutadores prioritário e 5 palavras-chave que devem aparecer naturalmente no perfil.
+
+# 📣 Plano de visibilidade
+Sugira 3 temas de publicação e 4 ações semanais de networking, sem prometer publicação automática ou métricas que não estejam no currículo.
 """
 
     user_prompt = f"Aqui está o texto extraído do meu currículo:\n\n{text_content}\n\nCrie o meu Rebranding de LinkedIn com base neste perfil."
@@ -6624,7 +6746,7 @@ Liste as 5 principais habilidades técnicas e as 3 principais habilidades compor
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ], temperature=0.7)
-        return {"markdown": result}
+        return {"markdown": result, "plain_text": markdown_to_plain_text(result)}
     except Exception as e:
         logger.error(f"Failed to generate LinkedIn rebranding: {e}")
         raise HTTPException(500, "Falha ao gerar o rebranding. Tente novamente mais tarde.")
@@ -6878,6 +7000,13 @@ async def admin_overview(request: Request):
             })
         audits = db.scalars(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(40)).all()
         active = [u for u in users if u["status"] == "ativo"]
+        billing_metrics = {
+            "subscriptions": sum(1 for sub in subscriptions if sub.status in {"authorized", "active", "paused"}),
+            "pending_subscriptions": sum(1 for sub in subscriptions if sub.status in {"pending", "in_process"}),
+            "paid_linkedin": int(db.scalar(select(func.count(LinkedinRebrandingPurchase.id)).where(LinkedinRebrandingPurchase.status == "PAID")) or 0),
+            "paid_ebook": int(db.scalar(select(func.count(EbookPurchase.id)).where(EbookPurchase.status == "PAID")) or 0),
+            "apify_configured": bool(os.getenv("APIFY_DATASET_ID") and os.getenv("APIFY_API_TOKEN") and os.getenv("APIFY_SOURCE_APPROVED", "").lower() == "true"),
+        }
         return {
             "metrics": {
                 "known_users": len(users),
@@ -6885,6 +7014,7 @@ async def admin_overview(request: Request):
                 "courtesies": sum(1 for u in users if u["courtesy"]),
                 "suspended": sum(1 for u in users if u["status"] == "suspenso"),
                 "plans": {plan: sum(1 for u in active if u["plan"] == plan) for plan in ("essential", "start", "start_plus", "pro", "consultoria")},
+                "billing": billing_metrics,
             },
             "users": users,
             "audit": [{"action": a.action, "actor_email": a.actor_email, "target_email": a.target_email, "reason": a.reason, "details": a.details or {}, "created_at": a.created_at.isoformat()} for a in audits],
@@ -6908,6 +7038,26 @@ async def admin_action(payload: AdminActionRequest, request: Request):
         db.rollback()
         logger.exception("Falha em ação administrativa")
         raise HTTPException(500, "Não foi possível concluir a ação administrativa.")
+    finally:
+        db.close()
+
+
+@app.post("/admin/api/apify/sync")
+async def admin_apify_sync(request: Request):
+    """Run the configured Apify Dataset import from the protected console."""
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        result = await sync_apify_dataset(db)
+        db.commit()
+        return {"ok": True, "fetched": result.fetched, "upserted": result.upserted, "skipped": result.skipped}
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(503, str(exc))
+    except Exception:
+        db.rollback()
+        logger.exception("Falha na sincronização do Dataset Apify")
+        raise HTTPException(502, "Não foi possível sincronizar o Dataset do Apify.")
     finally:
         db.close()
 

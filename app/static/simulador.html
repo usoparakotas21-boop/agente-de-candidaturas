@@ -156,6 +156,7 @@
 
 </head>
 <body>
+<script src="/static/text-utils.js"></script>
 
 <nav class="nav">
   <a href="/dashboard" class="nav-brand">Candidatura Certa</a>
@@ -379,7 +380,7 @@
   function speak(text, allowMic = true) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
+    const utt = new SpeechSynthesisUtterance(window.CandidaturaText ? CandidaturaText.stripMarkdown(text) : text);
     utt.lang = 'pt-BR';
     const selected = availableVoices.find(voice => voice.name === voiceSelect.value);
     if (selected) utt.voice = selected;

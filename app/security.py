@@ -39,7 +39,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(self), geolocation=()")
         # HTML pages carry account state, checkout context, or security UI.
         # Authentication/configuration failures also must not be cached, since
         # a browser or intermediary could replay a stale access decision.

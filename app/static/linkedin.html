@@ -14,8 +14,7 @@
   <title>Rebranding de LinkedIn - Candidatura Certa</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/static/theme.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/text-utils.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { max-width: 100vw; overflow-x: hidden; }
@@ -221,6 +220,11 @@
     <div class="result-section" id="result-section">
       <h2>Seu Novo Perfil</h2>
       <div class="markdown-body" id="result-content"></div>
+      <div class="analysis-actions" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:24px">
+        <button class="btn" type="button" id="market-btn">Inteligência de mercado</button>
+        <button class="btn" type="button" id="visibility-btn">Plano de visibilidade</button>
+      </div>
+      <div id="linkedin-extra" style="margin-top:20px"></div>
       <button class="btn copy-btn" onclick="copyResult()" type="button">
         <i class="fa-regular fa-copy"></i> Copiar Texto
       </button>
@@ -309,7 +313,7 @@
         }
 
         const data = await res.json();
-        document.getElementById('result-content').innerHTML = marked.parse(data.markdown);
+        document.getElementById('result-content').innerHTML = CandidaturaText.markdownToSafeHtml(data.markdown);
         document.getElementById('result-section').style.display = 'block';
 
       } catch (e) {
@@ -347,11 +351,29 @@
     }
 
     function copyResult() {
-      const text = document.getElementById('result-content').innerText;
+      const text = CandidaturaText.stripMarkdown(document.getElementById('result-content').innerText);
       navigator.clipboard.writeText(text).then(() => {
         alert('Texto copiado para a área de transferência!');
       });
     }
+
+    async function loadLinkedinExtra(kind) {
+      const endpoint = kind === 'market' ? '/api/linkedin/market-intelligence' : '/api/linkedin/visibility-plan';
+      const target = document.getElementById('linkedin-extra');
+      target.textContent = 'Carregando…';
+      try {
+        const response = await fetch(endpoint);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Não foi possível carregar este módulo.');
+        if (kind === 'market') {
+          target.innerHTML = `<h3>Inteligência de mercado</h3><p>${data.total_active_jobs} vagas ativas · fonte: ${data.source_label} · ${new Date(data.generated_at).toLocaleString('pt-BR')}</p><p><strong>Cargos:</strong> ${data.roles.map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p><p><strong>Competências mais frequentes:</strong> ${data.skills.slice(0, 10).map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p><p><strong>Localidades:</strong> ${data.locations.map(x => `${x.label} (${x.count})`).join(', ') || 'sem dados'}</p>`;
+        } else {
+          target.innerHTML = `<h3>Plano de visibilidade</h3><p>${data.automatic_publishing_reason}</p><ul>${data.weekly_checklist.map(x => `<li>${x}</li>`).join('')}</ul>${data.posts.map(x => `<p><strong>${x.day}:</strong> ${x.theme} — ${x.cta}</p>`).join('')}`;
+        }
+      } catch (error) { target.textContent = error.message; }
+    }
+    document.getElementById('market-btn').addEventListener('click', () => loadLinkedinExtra('market'));
+    document.getElementById('visibility-btn').addEventListener('click', () => loadLinkedinExtra('visibility'));
 
     // Drag & drop
     const dropzone = document.getElementById('dropzone');
