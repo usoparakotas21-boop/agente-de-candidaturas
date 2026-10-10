@@ -527,6 +527,35 @@ class BillingSubscription(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class BillingWebhookEvent(Base):
+    """Durable receipt ledger for Mercado Pago webhook deliveries.
+
+    The provider may retry a notification several times.  Keeping a small
+    hash-only ledger lets the API acknowledge processed deliveries without
+    replaying entitlement changes, while still allowing a failed delivery to
+    be retried safely.
+    """
+
+    __tablename__ = "billing_webhook_events"
+    __table_args__ = (
+        UniqueConstraint("event_key", name="uq_billing_webhook_event_key"),
+        Index("ix_billing_webhook_events_payment_id", "payment_id"),
+        Index("ix_billing_webhook_events_status_received", "status", "received_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_key: Mapped[str] = mapped_column(String(180), nullable=False)
+    payment_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="received")
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    error_detail: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class AdminAudit(Base):
     """Immutable record of administrative actions taken in the developer panel."""
 

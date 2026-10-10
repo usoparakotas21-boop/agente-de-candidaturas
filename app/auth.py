@@ -1223,6 +1223,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         
 
         "/webhooks/mercadopago",
+        "/api/billing/webhook",
         "/billing/mercadopago/success",
         "/auth/verification-required",
         "/ajuda",

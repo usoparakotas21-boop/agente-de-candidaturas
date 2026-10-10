@@ -202,7 +202,7 @@ from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
 from .job_file_intake import MAX_JOB_FILE_BYTES, OCRUnavailableError, extract_job_file_text
-from .models import AdminAudit, Application, ApplicationEvent, BillingSubscription, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobListing, ProcessedEmailMessage, ProductFeedback, QueueItem, Skill, utc_now
+from .models import AdminAudit, Application, ApplicationEvent, BillingSubscription, BillingWebhookEvent, Candidate, ConsultationCredit, CopilotPreparation, DocumentDelivery, DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase, EmailApplicationSubmission, EmailIntegration, Experience, ExpiringJobEmailOutbox, FollowupEmailOutbox, GeneratedDocument, InterviewEmailOutbox, Job, JobIngestionRun, JobListing, ProcessedEmailMessage, ProductFeedback, QueueItem, Skill, utc_now
 from .resume_importer import MAX_UPLOAD_BYTES, parse_resume
 from .upload_validation import validate_image_upload
 from .text_sanitization import sanitize_untrusted_text
@@ -266,6 +266,7 @@ from services.scheduler import (
     iniciar_agendador,
     scheduler as vagas_scheduler,
 )
+from .billing_routes import router as billing_router
 
 PORT = int(os.getenv("PORT", "8000") or "8000")
 
@@ -330,6 +331,7 @@ app.include_router(gmail_monitor_router)
 app.include_router(queue_router)
 app.include_router(vagas_router)
 app.include_router(support_chat_router)
+app.include_router(billing_router)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
@@ -1564,9 +1566,13 @@ def startup():
             if not _postgres_rls_enabled(db, "job_ingestion_runs"):
                 db.execute(text("ALTER TABLE job_ingestion_runs ENABLE ROW LEVEL SECURITY"))
             db.execute(text("REVOKE ALL ON TABLE job_ingestion_runs FROM anon, authenticated"))
-            for table in ("billing_subscriptions", "consultation_credits"):
+            for table in ("billing_subscriptions", "consultation_credits", "billing_webhook_events"):
                 if not _postgres_rls_enabled(db, table):
                     db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            # Mercado Pago notifications are server-to-server records.  They
+            # must never be exposed to browser roles, even when the table is
+            # present in a Supabase public schema.
+            db.execute(text("REVOKE ALL ON TABLE billing_webhook_events FROM anon, authenticated"))
             # Shared ingestion records are client-readable only while active;
             # writes stay on the server/service-role path and have no client policy.
             if not _postgres_rls_enabled(db, "job_listings"):
@@ -3758,6 +3764,84 @@ def _mercadopago_signature_is_valid(request: Request, payload: dict[str, Any]) -
     return hmac.compare_digest(expected, received)
 
 
+def _billing_webhook_key(event_type: str, payment_id: str) -> str:
+    """Return a stable provider-event key for idempotent delivery handling."""
+
+    return f"{event_type.strip().casefold() or 'unknown'}:{payment_id.strip()}"[:180]
+
+
+def _billing_webhook_payload_hash(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(payload or {}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _claim_billing_webhook_event(payment_id: str, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Claim one webhook for processing, allowing failed deliveries to retry.
+
+    ``processed`` and an in-flight ``received`` row are acknowledged as
+    duplicates.  A row marked ``failed`` is claimed again so transient provider
+    or database failures can be retried by Mercado Pago.
+    """
+
+    event_key = _billing_webhook_key(event_type, payment_id)
+    db = SessionLocal()
+    try:
+        existing = db.scalar(select(BillingWebhookEvent).where(BillingWebhookEvent.event_key == event_key))
+        if existing is not None:
+            existing.attempts = int(existing.attempts or 0) + 1
+            if existing.status in {"processed", "received"}:
+                db.commit()
+                return {"claimed": False, "idempotent": True, "status": existing.status}
+            existing.status = "received"
+            existing.error_detail = None
+            existing.next_retry_at = None
+            existing.payload_hash = _billing_webhook_payload_hash(payload)
+            db.commit()
+            return {"claimed": True, "idempotent": False, "status": "retry"}
+        db.add(
+            BillingWebhookEvent(
+                event_key=event_key,
+                payment_id=str(payment_id)[:120],
+                event_type=str(event_type or "unknown")[:80],
+                status="received",
+                payload_hash=_billing_webhook_payload_hash(payload),
+                attempts=1,
+            )
+        )
+        db.commit()
+        return {"claimed": True, "idempotent": False, "status": "received"}
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(BillingWebhookEvent).where(BillingWebhookEvent.event_key == event_key))
+        if existing is not None:
+            return {"claimed": False, "idempotent": True, "status": existing.status}
+        raise
+    finally:
+        db.close()
+
+
+def _finish_billing_webhook_event(payment_id: str, event_type: str, *, status: str, error: str | None = None) -> None:
+    db = SessionLocal()
+    try:
+        event = db.scalar(
+            select(BillingWebhookEvent).where(
+                BillingWebhookEvent.event_key == _billing_webhook_key(event_type, payment_id)
+            )
+        )
+        if event is None:
+            return
+        event.status = status
+        event.error_detail = (error or "")[:1000] or None
+        event.processed_at = utc_now() if status == "processed" else None
+        event.next_retry_at = (utc_now() + timedelta(minutes=min(60, max(1, int(event.attempts or 1) * 2)))) if status == "failed" else None
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao atualizar ledger de webhook Mercado Pago")
+    finally:
+        db.close()
+
+
 def _mark_purchase_paid(
     db,
     purchase: DocumentExportPurchase,
@@ -5934,6 +6018,8 @@ async def mercadopago_webhook(request: Request):
         raise HTTPException(401, "Webhook Mercado Pago não autorizado.")
     payment_id = str((payload.get("data") or {}).get("id") or payload.get("id") or request.query_params.get("data.id") or "").strip()
     notification_type = str(payload.get("type") or payload.get("topic") or "").strip().casefold()
+    if notification_type in {"payment.created", "payment.updated"}:
+        notification_type = "payment"
     if not payment_id:
         return {"received": True, "verified": False}
 
@@ -7349,6 +7435,12 @@ class AdminActionRequest(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
+class AdminCourtesyRequest(BaseModel):
+    plan: str = Field(default="pro", min_length=1, max_length=24)
+    duration_days: int = Field(default=30, ge=1, le=730)
+    reason: str = Field(default="", max_length=500)
+
+
 def _admin_actor(user: dict | None) -> str:
     return str((user or {}).get("email") or "").strip().casefold()
 
@@ -7896,6 +7988,180 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
         raise
     finally:
         session.close()
+
+
+def _admin_subscription_is_active(subscription: BillingSubscription | None, now: datetime | None = None) -> bool:
+    if subscription is None or subscription.status not in {"authorized", "active", "paused", "canceled"}:
+        return False
+    expiry = subscription.access_until
+    if expiry is None:
+        return True
+    current = now or utc_now()
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return expiry > current
+
+
+@app.get("/api/admin/metricas")
+async def admin_metricas(request: Request):
+    """Operational billing metrics for the developer console."""
+
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        now = utc_now()
+        subscriptions = db.scalars(select(BillingSubscription)).all()
+        latest_by_owner: dict[str, BillingSubscription] = {}
+        for subscription in sorted(subscriptions, key=lambda item: (item.updated_at or datetime.min, item.id), reverse=True):
+            latest_by_owner.setdefault(subscription.owner_id, subscription)
+        active_subscriptions = [item for item in latest_by_owner.values() if _admin_subscription_is_active(item, now)]
+        users_total = int(db.scalar(select(func.count(Candidate.id))) or 0)
+        def metric_plan(item: BillingSubscription) -> str:
+            if str(item.external_reference or "").casefold().startswith("combo-"):
+                return "combo"
+            return str(item.plan_code or "essential").casefold()
+
+        active_by_plan = Counter(metric_plan(item) for item in active_subscriptions)
+        paid_users = len([item for item in active_subscriptions if metric_plan(item) != "essential"])
+        revenue_cents = sum(int(item.monthly_amount or 0) for item in active_subscriptions if str(item.plan_code).casefold() != "essential" and "cortesia-" not in str(item.external_reference or "").casefold())
+        for model in (DocumentExportPurchase, EbookPurchase, LinkedinRebrandingPurchase):
+            try:
+                revenue_cents += int(db.scalar(select(func.coalesce(func.sum(model.paid_amount), 0)).where(model.status == "PAID")) or 0)
+            except Exception:
+                db.rollback()
+        failed_subscriptions = sum(1 for item in subscriptions if str(item.status).casefold() in {"rejected", "failed", "checkout_failed", "checkout_unknown", "canceled"})
+        failed_webhooks = 0
+        try:
+            failed_webhooks = int(db.scalar(select(func.count(BillingWebhookEvent.id)).where(BillingWebhookEvent.status == "failed")) or 0)
+        except Exception:
+            db.rollback()
+        total_users_for_conversion = max(users_total, len(latest_by_owner))
+        conversion = round((paid_users / total_users_for_conversion) * 100, 2) if total_users_for_conversion else 0.0
+        return {
+            "receita_total_centavos": revenue_cents,
+            "receita_total": round(revenue_cents / 100, 2),
+            "usuarios_ativos_por_plano": dict(active_by_plan),
+            "taxa_conversao": conversion,
+            "falhas_pagamento": failed_subscriptions + failed_webhooks,
+            "falhas_assinaturas": failed_subscriptions,
+            "falhas_webhooks": failed_webhooks,
+            "usuarios_total": total_users_for_conversion,
+            "assinaturas_ativas": len(active_subscriptions),
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/admin/integracoes")
+async def admin_integracoes(request: Request):
+    """Return Gmail/Outlook status per account and global Apify readiness."""
+
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        candidates = db.scalars(select(Candidate).order_by(Candidate.id)).all()
+        integrations = db.scalars(select(EmailIntegration)).all()
+        by_owner: dict[str, dict[str, Any]] = {}
+        for item in integrations:
+            row = by_owner.setdefault(str(item.owner_id), {})
+            row[str(item.provider).casefold()] = {
+                "status": item.sync_status,
+                "email": item.email,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+            }
+        items = []
+        for candidate in candidates:
+            items.append({
+                "owner_id": candidate.owner_id,
+                "email": candidate.email,
+                "gmail": by_owner.get(str(candidate.owner_id), {}).get("gmail", {"status": "not_connected"}),
+                "outlook": by_owner.get(str(candidate.owner_id), {}).get("outlook", by_owner.get(str(candidate.owner_id), {}).get("microsoft", {"status": "not_connected"})),
+            })
+        apify_token = bool(os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN"))
+        actor = os.getenv("APIFY_ACTOR_ID") or os.getenv("APIFY_DATASET_ID")
+        return {
+            "items": items,
+            "apify": {"configured": bool(apify_token and actor), "token_configured": apify_token, "actor_or_dataset": actor or None},
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/admin/usuarios/{user_id}/cortesia")
+async def admin_conceder_cortesia(user_id: str, payload: AdminCourtesyRequest, request: Request):
+    """Grant a time-limited plan entitlement and write an audit record."""
+
+    admin = await _require_admin(request)
+    plan = payload.plan.strip().casefold()
+    if plan not in ADMIN_PLANS - {"essential", "start_plus"}:
+        raise HTTPException(400, "Plano de cortesia inválido.")
+    db = SessionLocal()
+    try:
+        candidate = db.scalar(select(Candidate).where(Candidate.owner_id == user_id).order_by(Candidate.id.desc()).limit(1))
+        if candidate is None and user_id.isdigit():
+            candidate = db.get(Candidate, int(user_id))
+        if candidate is None or not candidate.owner_id:
+            raise HTTPException(404, "Usuário não encontrado.")
+        owner_id = str(candidate.owner_id)
+        email = str(candidate.email or "").strip().casefold()
+        now = utc_now()
+        db.execute(
+            BillingSubscription.__table__.update()
+            .where(BillingSubscription.owner_id == owner_id)
+            .where(BillingSubscription.external_reference.ilike("CORTESIA-%"))
+            .where(BillingSubscription.status.in_(["authorized", "active", "paused"]))
+            .values(status="superseded", updated_at=now)
+        )
+        subscription = BillingSubscription(
+            owner_id=owner_id,
+            plan_code=plan,
+            external_reference=f"CORTESIA-{uuid.uuid4().hex[:12]}",
+            payer_email=email,
+            monthly_amount=0,
+            currency="BRL",
+            status="authorized",
+            access_until=now + timedelta(days=payload.duration_days),
+        )
+        db.add(subscription)
+        _admin_write_audit(db, _admin_actor(admin), "grant_courtesy", email, owner_id, payload.reason, plan=plan, duration_days=payload.duration_days)
+        db.commit()
+        return {"ok": True, "owner_id": owner_id, "plan": plan, "access_until": subscription.access_until.isoformat(), "duration_days": payload.duration_days}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Falha ao conceder cortesia no painel administrativo")
+        raise HTTPException(500, "Não foi possível conceder a cortesia.")
+    finally:
+        db.close()
+
+
+@app.get("/api/admin/logs-coleta")
+async def admin_logs_coleta(request: Request, limite: int = 100):
+    """Expose source ingestion health and recent failures to administrators."""
+
+    await _require_admin(request)
+    db = SessionLocal()
+    try:
+        limite = max(1, min(int(limite), 500))
+        runs = db.scalars(select(JobIngestionRun).order_by(JobIngestionRun.started_at.desc()).limit(limite)).all()
+        stats: dict[str, dict[str, int]] = {}
+        items = []
+        for run in runs:
+            source = str(run.source_id)
+            bucket = stats.setdefault(source, {"execucoes": 0, "sucesso": 0, "falha": 0, "bruto": 0, "salvo": 0})
+            bucket["execucoes"] += 1
+            bucket["sucesso"] += int(run.status == "succeeded")
+            bucket["falha"] += int(run.status in {"failed", "retry", "blocked"})
+            bucket["bruto"] += int(run.fetched_count or 0)
+            bucket["salvo"] += int(run.upserted_count or 0)
+            items.append({"id": run.id, "fonte": source, "status": run.status, "total_bruto": run.fetched_count, "total_salvo": run.upserted_count, "ignoradas": run.skipped_count, "erro": run.error_code, "executado_em": (run.finished_at or run.started_at).isoformat()})
+        return {"items": items, "fontes": stats, "total": len(items)}
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

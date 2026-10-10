@@ -45,6 +45,7 @@ INTERNAL_RLS_TABLES = (
     "job_ingestion_runs",
     "admin_audit_logs",
     "product_feedback",
+    "billing_webhook_events",
 )
 
 CHILD_POLICIES = {
@@ -112,7 +113,7 @@ def setup_rls() -> None:
             _create_policy(connection, table, "owner_id = auth.uid()::text")
         for table in INTERNAL_RLS_TABLES:
             connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
-            if table in {"job_ingestion_tasks", "job_ingestion_runs"}:
+            if table in {"job_ingestion_tasks", "job_ingestion_runs", "billing_webhook_events"}:
                 connection.execute(text(f'REVOKE ALL ON TABLE "{table}" FROM anon, authenticated'))
         connection.execute(text("GRANT SELECT ON TABLE job_listings TO anon, authenticated"))
         connection.execute(text("DROP POLICY IF EXISTS job_listings_active_read ON job_listings"))
