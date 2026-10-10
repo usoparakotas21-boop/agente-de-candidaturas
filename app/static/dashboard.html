@@ -567,7 +567,7 @@
           <div class="filters">
             <input class="queue-search" id="queueSearchInput" type="search" placeholder="Buscar cargo ou empresa" aria-label="Buscar na fila de decisão">
             <select id="queueDecisionFilter" aria-label="Filtrar decisão da fila"><option value="">Todas as decisões</option><option value="AUTOMATICA">Automática</option><option value="CAPTURAR">Capturar</option><option value="REVISAR">Revisar</option><option value="DESCARTAR">Descartar</option></select>
-            <select id="queueSourceFilter" aria-label="Filtrar origem da fila"><option value="">Todas as origens</option><option value="gupy">Gupy</option><option value="remoteok">RemoteOK</option><option value="weworkremotely">We Work Remotely</option><option value="vagas_com">Vagas.com</option><option value="solides">Sólides</option><option value="linkedin">LinkedIn</option><option value="catho">Catho</option><option value="infojobs">InfoJobs</option></select>
+            <select id="queueSourceFilter" aria-label="Filtrar origem da fila"><option value="">Todas as origens</option><option value="gupy">Gupy</option><option value="remoteok">RemoteOK</option><option value="weworkremotely">We Work Remotely</option><option value="vagas_com">Vagas.com</option><option value="solides">Sólides</option><option value="linkedin">LinkedIn</option><option value="catho">Catho</option><option value="infojobs">InfoJobs</option><option value="diagnostico">Diagnóstico</option></select>
             <select id="queueModalityFilter" aria-label="Filtrar modalidade da fila"><option value="">Todas as modalidades</option><option value="remoto">Remoto</option><option value="hibrido">Híbrido</option><option value="presencial">Presencial</option></select>
             <select id="queueStatusFilter" aria-label="Filtrar status da fila"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="PROMOVIDO">Aprovado</option><option value="RECUSADO">Recusado</option><option value="EXPIRADO">Expirado</option></select>
             <button class="refresh" id="queueRefreshButton" type="button">Atualizar fila</button>
@@ -2241,7 +2241,8 @@
         const result = await response.json();
         await Promise.all([loadQueue(), loadApplications()]);
         const warning = result.avisos?.length ? ` ${result.avisos[0]}` : "";
-        toast(`${result.capturadas || 0} vaga(s) encontradas; ${result.enfileiradas || 0} nova(s) na fila.${warning}`);
+        const diagnostic = result.fallback_diagnostico ? " Dados de diagnóstico foram usados e estão marcados como [Diagnóstico]." : "";
+        toast(`${result.capturadas || 0} vaga(s) encontradas; ${result.enfileiradas || 0} nova(s) na fila.${warning}${diagnostic}`);
       } catch (error) {
         toast(error.message || "Não foi possível captar vagas agora.");
       } finally {

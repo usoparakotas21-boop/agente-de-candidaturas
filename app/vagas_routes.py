@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from scrapers.job_collector import collect_report
+from scrapers.job_collector import COLLECTORS, collect_report
 
 from .auth import authenticated_user
 from .database import consultar_vagas, salvar_vagas_em_lote
@@ -31,6 +33,7 @@ class CapturaVagasRequest(BaseModel):
     modalidades: list[str] = Field(default_factory=list, max_length=8)
     fontes: list[str] = Field(default_factory=list, max_length=8)
     limite_por_fonte: int = Field(default=25, ge=1, le=100)
+    usar_fallback_diagnostico: bool | None = None
 
 
 def _owner_id(user: Any) -> str | None:
@@ -82,6 +85,64 @@ def _queries(roles: list[str], locations: list[str]) -> list[str]:
     if roles and locations:
         return [f"{role} {location}" for role in roles for location in locations][:12]
     return (roles or locations or ["emprego"])[:12]
+
+
+def _diagnostic_fallback_enabled(request: CapturaVagasRequest) -> bool:
+    if request.usar_fallback_diagnostico is not None:
+        return request.usar_fallback_diagnostico
+    return os.getenv("JOB_CAPTURE_DIAGNOSTIC_FALLBACK", "true").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _diagnostic_vagas(queries: list[str], modalities: list[str] | None = None) -> list[dict[str, Any]]:
+    """Temporary, visibly marked records for testing the UI when sources are empty."""
+
+    query = queries[0] if queries else "emprego"
+    digest = hashlib.sha256(query.casefold().encode("utf-8")).hexdigest()[:16]
+    modes = modalities or ["hibrido", "remoto", "presencial"]
+    records = [
+        {
+            "id_externo": f"diagnostico-{digest}-1",
+            "origem": "diagnostico",
+            "titulo": f"[Diagnóstico] {query.title()} — oportunidade 1",
+            "empresa": "Empresa exemplo (diagnóstico)",
+            "localidade": "Bahia (exemplo)",
+            "tipo_modalidade": modes[0 % len(modes)],
+            "tipo_contrato": "CLT",
+            "url_candidatura": f"https://example.com/candidatura/diagnostico/{digest}/1",
+            "descricao": "Vaga simulada criada para validar a fila de decisão enquanto as fontes externas estão indisponíveis.",
+            "tags": ["diagnostico", "teste"],
+        },
+        {
+            "id_externo": f"diagnostico-{digest}-2",
+            "origem": "diagnostico",
+            "titulo": f"[Diagnóstico] {query.title()} — oportunidade 2",
+            "empresa": "Organização exemplo (diagnóstico)",
+            "localidade": "Salvador, BA (exemplo)",
+            "tipo_modalidade": modes[1 % len(modes)],
+            "tipo_contrato": "PJ",
+            "url_candidatura": f"https://example.com/candidatura/diagnostico/{digest}/2",
+            "descricao": "Vaga simulada criada para validar a fila de decisão enquanto as fontes externas estão indisponíveis.",
+            "tags": ["diagnostico", "teste"],
+        },
+        {
+            "id_externo": f"diagnostico-{digest}-3",
+            "origem": "diagnostico",
+            "titulo": f"[Diagnóstico] {query.title()} — oportunidade 3",
+            "empresa": "Instituição exemplo (diagnóstico)",
+            "localidade": "Feira de Santana, BA (exemplo)",
+            "tipo_modalidade": modes[2 % len(modes)],
+            "tipo_contrato": "CLT",
+            "url_candidatura": f"https://example.com/candidatura/diagnostico/{digest}/3",
+            "descricao": "Vaga simulada criada para validar a fila de decisão enquanto as fontes externas estão indisponíveis.",
+            "tags": ["diagnostico", "teste"],
+        },
+    ]
+    return records
 
 
 def _captured_data(vaga: dict[str, Any], quality: dict[str, Any]) -> dict[str, Any]:
@@ -139,8 +200,19 @@ async def capturar_vagas(
     locations = _split_values(request.localizacoes) or saved_locations
     modalities = [item.casefold() for item in (_split_values(request.modalidades) or saved_modalities)]
     queries = _queries(roles, locations)
+    logger.info(
+        "[Captura] inicio usuario=%s cargos=%s localizacoes=%s modalidades=%s consultas=%s fontes=%s",
+        _owner_id(user) or "local_user",
+        roles,
+        locations,
+        modalities,
+        queries,
+        request.fontes or list(COLLECTORS),
+    )
     collected: dict[str, Any] = {}
     source_errors: dict[str, str] = {}
+    raw_total = 0
+    filtered_total = 0
     for query in queries:
         try:
             report = await collect_report(
@@ -151,15 +223,52 @@ async def capturar_vagas(
             )
         except Exception as exc:  # noqa: BLE001 - report the source failure to the UI
             source_errors[query] = f"{type(exc).__name__}: {str(exc)[:220]}"
+            logger.exception("[Captura] consulta=%r falhou: %s", query, source_errors[query])
             continue
         source_errors.update(report.erros)
+        raw_total += sum(report.brutos_por_fonte.values())
+        logger.info(
+            "[Captura] consulta=%r brutos_por_fonte=%s resultados_unicos_do_relatorio=%d erros=%s",
+            query,
+            report.brutos_por_fonte,
+            len(report.vagas),
+            report.erros or "nenhum",
+        )
         for vaga in report.vagas:
             item = vaga.model_dump(mode="json") if hasattr(vaga, "model_dump") else dict(vaga)
             if modalities and item.get("tipo_modalidade") not in modalities:
                 continue
+            filtered_total += 1
             collected.setdefault(str(item.get("chave_deduplicacao") or f"{item.get('origem')}:{item.get('id_externo')}"), item)
 
     vagas = list(collected.values())
+    diagnostic_fallback = False
+    if not vagas and _diagnostic_fallback_enabled(request):
+        diagnostic_fallback = True
+        vagas = _diagnostic_vagas(queries, modalities)
+        logger.warning(
+            "[Captura] fontes externas sem resultados (brutos=%d filtrados=%d erros=%d); "
+            "injetando %d vagas de diagnóstico. Desative com JOB_CAPTURE_DIAGNOSTIC_FALLBACK=false.",
+            raw_total,
+            filtered_total,
+            len(source_errors),
+            len(vagas),
+        )
+    elif not vagas:
+        logger.warning(
+            "[Captura] nenhuma vaga retornada: brutos=%d filtrados=%d erros=%d fallback=desativado",
+            raw_total,
+            filtered_total,
+            len(source_errors),
+        )
+    logger.info(
+        "[Captura] fim consultas=%d brutos=%d apos_filtros=%d unicos=%d fallback_diagnostico=%s",
+        len(queries),
+        raw_total,
+        filtered_total,
+        len(vagas),
+        diagnostic_fallback,
+    )
     normalized = 0
     warnings: list[str] = []
     if vagas:
@@ -216,6 +325,7 @@ async def capturar_vagas(
         "normalizadas": normalized,
         "enfileiradas": queued,
         "duplicadas": duplicates,
+        "fallback_diagnostico": diagnostic_fallback,
         "erros_fontes": source_errors,
         "erros_fila": queue_errors,
         "avisos": warnings,

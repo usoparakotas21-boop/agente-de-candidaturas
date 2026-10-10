@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
@@ -12,6 +13,8 @@ from utils.http_client import SafeHttpClient
 
 from . import catho, gupy, infojobs, linkedin, remoteok, solides, vagas_com, weworkremotely
 
+
+logger = logging.getLogger(__name__)
 
 Collector = Callable[..., Awaitable[list[VagaPadronizada]]]
 COLLECTORS: dict[str, Collector] = {
@@ -31,6 +34,7 @@ class CollectionReport:
     vagas: list[VagaPadronizada] = field(default_factory=list)
     erros: dict[str, str] = field(default_factory=dict)
     fontes_consultadas: list[str] = field(default_factory=list)
+    brutos_por_fonte: dict[str, int] = field(default_factory=dict)
 
 
 async def collect_report(
@@ -55,20 +59,57 @@ async def collect_report(
             async with semaphore:
                 try:
                     jobs = await COLLECTORS[source](query, limit=limit_per_source, client=client)
+                    logger.info(
+                        "[JobCollector] fonte=%s consulta=%r resultados_brutos=%d limite=%d",
+                        source,
+                        query,
+                        len(jobs or []),
+                        limit_per_source,
+                    )
                     return source, jobs, None
                 except Exception as exc:  # noqa: BLE001 - one source must not stop the others
+                    logger.info(
+                        "[JobCollector] fonte=%s consulta=%r resultados_brutos=0 status=erro",
+                        source,
+                        query,
+                    )
+                    logger.exception(
+                        "[JobCollector] fonte=%s consulta=%r falhou: %s: %s",
+                        source,
+                        query,
+                        type(exc).__name__,
+                        exc,
+                    )
                     return source, None, exc
 
         results = await asyncio.gather(*(collect_one(source) for source in selected))
 
     unique: dict[str, VagaPadronizada] = {}
     for source, jobs, error in results:
+        report.brutos_por_fonte[source] = len(jobs or [])
         if error is not None:
             report.erros[source] = f"{type(error).__name__}: {error}"
+            logger.error(
+                "[JobCollector] fonte=%s erro_registrado=%s",
+                source,
+                report.erros[source],
+            )
             continue
+        logger.info(
+            "[JobCollector] fonte=%s processamento concluido brutos=%d",
+            source,
+            len(jobs or []),
+        )
         for job in jobs or []:
             unique.setdefault(job.chave_deduplicacao, job)
     report.vagas = list(unique.values())
+    logger.info(
+        "[JobCollector] consulta=%r fontes=%d resultados_unicos=%d erros=%d",
+        query,
+        len(selected),
+        len(report.vagas),
+        len(report.erros),
+    )
     return report
 
 
