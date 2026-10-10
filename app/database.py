@@ -28,6 +28,12 @@ def _normalize_database_url(value: str) -> str:
             "postgresql+psycopg2://",
             1,
         )
+    elif database_url.startswith("postgresql+asyncpg://"):
+        database_url = database_url.replace(
+            "postgresql+asyncpg://",
+            "postgresql+psycopg2://",
+            1,
+        )
     if not database_url.startswith("sqlite") and "sslmode=" not in database_url.casefold():
         database_url += "&sslmode=require" if "?" in database_url else "?sslmode=require"
     return database_url

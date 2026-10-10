@@ -196,7 +196,7 @@ from .queue_routes import router as queue_router
 from .analyzer import analyze_job
 from .cover_letter import generate_cover_letter, generate_cover_letter_docx
 from .decision_engine import HEURISTICS_VERSION, decide_opportunity, normalize_preferences
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, async_engine, engine
 from .job_intake import parse_job_text
 from .job_quality import assess_job_capture
 from .job_source_fetcher import SourceFetchError, fetch_job_posting, infer_from_public_url
@@ -271,6 +271,8 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         await shutdown()
+        if async_engine is not None:
+            await async_engine.dispose()
 
 
 app = FastAPI(title="Candidatura Certa", version="0.24.0", lifespan=lifespan)
