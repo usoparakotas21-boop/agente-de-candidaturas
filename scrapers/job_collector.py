@@ -16,6 +16,20 @@ from . import catho, gupy, infojobs, linkedin, remoteok, solides, vagas_com, wew
 
 logger = logging.getLogger(__name__)
 
+
+def _is_expected_no_result(error: Exception) -> bool:
+    """Keep an empty search from being reported as a source outage."""
+
+    message = str(error).casefold()
+    markers = (
+        "nenhuma vaga correspondeu",
+        "nenhum resultado compatível",
+        "nenhum jobposting correspondeu",
+        "itens brutos=0",
+        "cartões encontrados, mas nenhum",
+    )
+    return isinstance(error, ValueError) and any(marker in message for marker in markers)
+
 Collector = Callable[..., Awaitable[list[VagaPadronizada]]]
 COLLECTORS: dict[str, Collector] = {
     "gupy": gupy.collect,
@@ -75,6 +89,14 @@ async def collect_report(
                     )
                     return source, jobs, None
                 except Exception as exc:  # noqa: BLE001 - one source must not stop the others
+                    if _is_expected_no_result(exc):
+                        logger.info(
+                            "[JobCollector] fonte=%s consulta=%r sem_resultados status=sem_resultados detalhe=%s",
+                            source,
+                            query,
+                            exc,
+                        )
+                        return source, [], None
                     logger.info(
                         "[JobCollector] fonte=%s consulta=%r resultados_brutos=indisponivel resultados_filtrados=0 status=erro",
                         source,

@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, matches_location, matches_search_query_relaxed, parse_datetime, stable_external_id
 
 
 SOURCE = "gupy"
@@ -88,13 +88,9 @@ async def collect(
             if not title:
                 continue
             company = clean_text(item.get("companyName") or item.get("company")) or "Não informado"
-            if query_lower and not matches_search_query(
-                query_lower,
-                title,
-                company,
-                clean_text(item.get("description")),
-                item.get("city"),
-                item.get("state"),
+            if query_lower and (
+                not matches_search_query_relaxed(query, title, company, clean_text(item.get("description")))
+                or not matches_location(location, item.get("city"), item.get("state"), item.get("location"))
             ):
                 continue
             job_url = clean_text(item.get("jobUrl") or item.get("url"))

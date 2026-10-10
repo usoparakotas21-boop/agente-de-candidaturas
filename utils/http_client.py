@@ -91,6 +91,39 @@ def matches_search_query(query: str, *values: Any) -> bool:
     return matched == len(unique_tokens)
 
 
+def matches_search_query_relaxed(query: str, *values: Any) -> bool:
+    """Match a national job search when at least one meaningful term appears.
+
+    Portals frequently shorten titles (``RH`` instead of ``Recursos Humanos``)
+    or omit stop words such as ``de``.  The strict matcher remains useful for
+    international feeds; national portals use this variant together with the
+    source's own location filter so a valid result is not discarded locally.
+    """
+
+    query_text = clean_text(query).casefold()
+    if not query_text:
+        return True
+    searchable = clean_text(" ".join(clean_text(value) for value in values)).casefold()
+    if query_text in searchable:
+        return True
+    tokens = list(dict.fromkeys(_search_tokens(query_text)))
+    return bool(tokens) and any(token in searchable for token in tokens)
+
+
+def matches_location(location: str, *values: Any) -> bool:
+    """Check a location without rejecting cards whose portal omitted it."""
+
+    tokens = list(dict.fromkeys(_search_tokens(location)))
+    if not tokens or any(token in {"brasil", "nacional", "pais", "país"} for token in tokens):
+        return True
+    searchable = clean_text(" ".join(clean_text(value) for value in values)).casefold()
+    if not searchable or searchable in {"não informado", "nao informado"}:
+        # The search URL already carries the location; keep the card when the
+        # portal does not expose a location field in the result card.
+        return True
+    return any(token in searchable for token in tokens)
+
+
 def stable_external_id(source: str, value: Any) -> str:
     candidate = clean_text(value)
     if candidate:
@@ -337,7 +370,28 @@ class SafeHttpClient:
     async def get_json(self, url: str, **kwargs: Any) -> Any:
         response = await self.request("GET", url, **kwargs)
         content = self._decoded_content(response).decode(response.encoding or "utf-8", errors="replace")
-        return json.loads(content.lstrip("\ufeff"))
+        normalized = content.lstrip("\ufeff \r\n\t")
+        try:
+            return json.loads(normalized)
+        except json.JSONDecodeError as first_error:
+            # Some public feeds prepend a short anti-cache/banner string. If
+            # the body still contains a complete JSON array/object, recover it
+            # without hiding a genuinely non-JSON response.
+            starts = [index for index in (normalized.find("["), normalized.find("{")) if index >= 0]
+            if starts:
+                start = min(starts)
+                end = max(normalized.rfind("]"), normalized.rfind("}"))
+                if end > start:
+                    try:
+                        return json.loads(normalized[start : end + 1])
+                    except json.JSONDecodeError:
+                        pass
+            preview = re.sub(r"\s+", " ", normalized[:160])
+            raise json.JSONDecodeError(
+                f"resposta não é JSON (início={preview!r})",
+                normalized,
+                first_error.pos,
+            ) from first_error
 
     @staticmethod
     def _decoded_content(response: httpx.Response) -> bytes:

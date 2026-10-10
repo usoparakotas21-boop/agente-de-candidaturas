@@ -389,17 +389,33 @@ async def capturar_vagas(
     finally:
         db.close()
 
+    # E-mail alerts are persisted directly into the user's queue by their
+    # synchronizers. Include them in the manual-capture summary so the UI does
+    # not say "0 vagas" when Gmail or Outlook just imported opportunities.
+    email_captured = sum(
+        int((email_sync.get(provider) or {}).get("captured", 0) or 0)
+        for provider in ("gmail", "outlook")
+        if isinstance(email_sync.get(provider), dict)
+    )
+    email_queued = sum(
+        int((email_sync.get(provider) or {}).get("queue", 0) or 0)
+        for provider in ("gmail", "outlook")
+        if isinstance(email_sync.get(provider), dict)
+    )
+
     return {
         "status": "COLETA_CONCLUIDA",
         "consultas": queries,
         "consultas_executadas": [{"termo": query, "localizacao": location} for query, location in search_pairs],
         "preferencias": {"cargos": roles, "localizacoes": locations, "modalidades": modalities},
         "sincronizacao_emails": email_sync,
-        "capturadas": len(vagas),
-        "total_encontradas": len(vagas),
+        "capturadas": len(vagas) + email_captured,
+        "total_encontradas": len(vagas) + email_captured,
         "normalizadas": normalized,
-        "enfileiradas": queued,
-        "novas_na_fila": queued,
+        "enfileiradas": queued + email_queued,
+        "novas_na_fila": queued + email_queued,
+        "capturadas_fontes_externas": len(vagas),
+        "capturadas_email": email_captured,
         "duplicadas": duplicates,
         "fallback_diagnostico": diagnostic_fallback,
         "erros_fontes": source_errors,

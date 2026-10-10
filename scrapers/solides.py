@@ -8,7 +8,7 @@ import logging
 from urllib.parse import quote
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, is_generic_search, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, fetch_via_scraperapi, is_generic_search, matches_location, matches_search_query_relaxed, parse_datetime, stable_external_id
 
 
 SOURCE = "solides"
@@ -38,7 +38,16 @@ async def collect(
                 requested_url += f"&locations={quote(location.strip())}"
             logger.info("[Sólides] requisitando url=%s", requested_url)
             try:
-                payload = json.loads(await fetch_via_scraperapi(requested_url, render_js=True, client=http))
+                # The vacancies endpoint is JSON and works directly in most
+                # regions. Use ScraperAPI only when the direct request is
+                # blocked or the SPA requires rendering, avoiding needless
+                # proxy timeouts for normal captures.
+                try:
+                    body = await http.get_text(requested_url)
+                except Exception as direct_exc:  # noqa: BLE001 - proxy is the fallback
+                    logger.warning("[Sólides] acesso direto falhou (%s); tentando ScraperAPI", direct_exc)
+                    body = await fetch_via_scraperapi(requested_url, render_js=True, client=http)
+                payload = json.loads(body)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
             if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
@@ -73,8 +82,7 @@ async def collect(
             state = item.get("state") if isinstance(item.get("state"), dict) else {}
             city = item.get("city") if isinstance(item.get("city"), dict) else {}
             location_text = ", ".join(filter(None, (clean_text(city.get("name")), clean_text(state.get("name"))))) or "Não informado"
-            effective_query = f"{query} {location}".strip()
-            if not title or not matches_search_query(effective_query, title, company, location_text, description):
+            if not title or not matches_search_query_relaxed(query, title, company, description) or not matches_location(location, location_text):
                 continue
             publishers = item.get("publishers") if isinstance(item.get("publishers"), dict) else {}
             redirect_url = ""
@@ -106,7 +114,7 @@ async def collect(
             if len(jobs) >= limit:
                 break
         if not jobs:
-            raise ValueError(f"{SOURCE}: API retornou itens, mas nenhum correspondeu à consulta {query!r}")
+            logger.info("[%s] nenhum resultado compatível consulta=%r itens_brutos=%d", SOURCE, query, len(items))
         return jobs
     finally:
         if own_client:

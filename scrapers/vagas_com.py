@@ -7,7 +7,7 @@ import logging
 from urllib.parse import quote, urljoin
 
 from schemas import VagaPadronizada
-from utils.http_client import SafeHttpClient, clean_text, is_generic_search, matches_search_query, parse_datetime, stable_external_id
+from utils.http_client import SafeHttpClient, clean_text, is_generic_search, matches_location, matches_search_query_relaxed, parse_datetime, stable_external_id
 from bs4 import BeautifulSoup
 
 
@@ -49,8 +49,7 @@ async def collect(
                 company = clean_text(card.select_one(".emprVaga").get_text(" ") if card.select_one(".emprVaga") else "Não informado")
                 location_text = clean_text(card.select_one(".vaga-local").get_text(" ") if card.select_one(".vaga-local") else "Não informado")
                 description = clean_text(card.select_one(".detalhes").get_text(" ") if card.select_one(".detalhes") else "")
-                effective_query = f"{query} {location}".strip()
-                if not title or not matches_search_query(effective_query, title, company, location_text, description):
+                if not title or not matches_search_query_relaxed(query, title, company, description) or not matches_location(location, location_text):
                     continue
                 href = link.get("href") if link else ""
                 job_url = urljoin(page_url, href or page_url)
@@ -65,7 +64,7 @@ async def collect(
             if len(jobs) >= limit and not is_generic_search(query):
                 break
         if not jobs:
-            raise ValueError(f"{SOURCE}: nenhuma vaga correspondeu à consulta {query!r} (itens brutos={raw_total})")
+            logger.info("[%s] nenhum resultado compatível consulta=%r itens_brutos=%d", SOURCE, query, raw_total)
         return jobs
     finally:
         if own_client:
