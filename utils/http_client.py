@@ -62,7 +62,7 @@ def _search_tokens(value: str) -> list[str]:
 
 
 def matches_search_query(query: str, *values: Any) -> bool:
-    """Match meaningful query terms without requiring one verbatim phrase."""
+    """Match every meaningful term without requiring one verbatim phrase."""
 
     query_text = clean_text(query).casefold()
     if not query_text:
@@ -75,8 +75,7 @@ def matches_search_query(query: str, *values: Any) -> bool:
         return True
     unique_tokens = list(dict.fromkeys(tokens))
     matched = sum(token in searchable for token in unique_tokens)
-    required = max(1, (len(unique_tokens) + 1) // 2)
-    return matched >= required
+    return matched == len(unique_tokens)
 
 
 def stable_external_id(source: str, value: Any) -> str:
@@ -93,6 +92,11 @@ def parse_datetime(value: Any) -> datetime | None:
     try:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
         return None
 
 
