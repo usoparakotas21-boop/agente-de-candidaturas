@@ -1,0 +1,11 @@
+import React from 'react';
+import {interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {SceneShell} from '../components/SceneShell';
+import {GlassCard} from '../components/GlassCard';
+
+export const Scene4Email: React.FC = () => {
+  const frame = useCurrentFrame(); const {fps} = useVideoConfig();
+  const enter = spring({frame: frame - 16, fps, config: {damping: 18, stiffness: 100}});
+  const sweep = interpolate(frame, [80, 290], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  return <SceneShell from={0} duration={600} eyebrow="Sempre conectado" title="Se chegou no seu e-mail, chega no seu painel."><div style={{position: 'absolute', left: 240, right: 240, top: 42, display: 'flex', gap: 24, alignItems: 'center', transform: `translateY(${(1 - enter) * 50}px)`, opacity: enter}}><GlassCard style={{width: 330, background: 'rgba(255,255,255,.08)'}}><div style={{fontSize: 18, fontWeight: 800}}>Integrações OAuth</div><div style={{display: 'flex', gap: 12, marginTop: 28}}>{['Gmail', 'Outlook'].map((x, i) => <div key={x} style={{flex: 1, padding: 16, borderRadius: 14, background: 'rgba(255,255,255,.08)', textAlign: 'center'}}><div style={{fontSize: 30}}>{i ? '▣' : '✉'}</div><div style={{marginTop: 8}}>{x}</div><div style={{color: '#34d399', fontSize: 12, marginTop: 7}}>conectado</div></div>)}</div></GlassCard><div style={{fontSize: 42, color: '#34d399'}}>→</div><div style={{width: 570}}><GlassCard accent="#34d399"><div style={{fontWeight: 800, fontSize: 18}}>Monitor de alertas</div><div style={{marginTop: 18, height: 12, background: '#334155', borderRadius: 99, overflow: 'hidden'}}><div style={{width: `${sweep * 100}%`, height: '100%', background: '#34d399'}}/></div><div style={{display: 'flex', gap: 12, marginTop: 22, transform: `translateX(${(1 - sweep) * -80}px)`, opacity: sweep}}><div style={{width: 280, padding: 16, borderRadius: 12, background: 'rgba(248,250,252,.95)', color: '#0f172a'}}><b>Analista de RH</b><div style={{fontSize: 13, color: '#64748b', marginTop: 6}}>Vaga extraída · confiança alta</div></div><div style={{width: 150, padding: 16, borderRadius: 12, background: '#d1fae5', color: '#065f46', fontWeight: 800}}>Nova vaga</div></div></GlassCard></div></div></SceneShell>;
+};
