@@ -2242,7 +2242,11 @@
         await Promise.all([loadQueue(), loadApplications()]);
         const warning = result.avisos?.length ? ` ${result.avisos[0]}` : "";
         const diagnostic = result.fallback_diagnostico ? " Dados de diagnóstico foram usados e estão marcados como [Diagnóstico]." : "";
-        toast(`${result.capturadas || 0} vaga(s) encontradas; ${result.enfileiradas || 0} nova(s) na fila.${warning}${diagnostic}`);
+        const sourceErrors = Object.keys(result.erros_fontes || {}).length;
+        const found = Number(result.capturadas ?? result.total_encontradas ?? result.captured ?? 0);
+        const queued = Number(result.enfileiradas ?? result.novas_na_fila ?? result.queued ?? 0);
+        const errors = sourceErrors ? ` ${sourceErrors} fonte(s) falharam; veja os detalhes no diagnóstico.` : "";
+        toast(`${found} vaga(s) encontradas; ${queued} nova(s) na fila.${warning}${diagnostic}${errors}`);
       } catch (error) {
         toast(error.message || "Não foi possível captar vagas agora.");
       } finally {

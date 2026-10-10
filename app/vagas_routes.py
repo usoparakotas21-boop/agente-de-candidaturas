@@ -87,15 +87,34 @@ def _queries(roles: list[str], locations: list[str]) -> list[str]:
     return (roles or locations or ["emprego"])[:12]
 
 
+_NATIONAL_LOCATION_ALIASES = {
+    "br",
+    "brasil",
+    "nacional",
+    "todo brasil",
+    "todo o brasil",
+    "pais inteiro",
+    "país inteiro",
+    "qualquer lugar do brasil",
+}
+
+
+def _source_location(value: str) -> str:
+    """Treat nationwide searches as no geographic restriction at the source."""
+
+    normalized = " ".join(str(value or "").casefold().split())
+    return "" if normalized in _NATIONAL_LOCATION_ALIASES else value
+
+
 def _search_pairs(roles: list[str], locations: list[str]) -> list[tuple[str, str]]:
     """Keep role and location separate so each source gets its native filters."""
 
     if roles and locations:
-        return [(role, location) for role in roles[:8] for location in locations[:8]][:12]
+        return [(role, _source_location(location)) for role in roles[:8] for location in locations[:8]][:12]
     if roles:
         return [(role, "") for role in roles[:12]]
     if locations:
-        return [("emprego", location) for location in locations[:12]]
+        return [("emprego", _source_location(location)) for location in locations[:12]]
     return [("emprego", "")]
 
 
@@ -214,12 +233,13 @@ async def capturar_vagas(
     queries = _queries(roles, locations)
     search_pairs = _search_pairs(roles, locations)
     logger.info(
-        "[Captura] inicio usuario=%s cargos=%s localizacoes=%s modalidades=%s consultas=%s fontes=%s",
+        "[Captura] inicio usuario=%s cargos=%s localizacoes=%s modalidades=%s consultas=%s pares=%s fontes=%s",
         _owner_id(user) or "local_user",
         roles,
         locations,
         modalities,
         queries,
+        search_pairs,
         request.fontes or list(COLLECTORS),
     )
     collected: dict[str, Any] = {}
@@ -336,13 +356,17 @@ async def capturar_vagas(
     return {
         "status": "COLETA_CONCLUIDA",
         "consultas": queries,
+        "consultas_executadas": [{"termo": query, "localizacao": location} for query, location in search_pairs],
         "preferencias": {"cargos": roles, "localizacoes": locations, "modalidades": modalities},
         "capturadas": len(vagas),
+        "total_encontradas": len(vagas),
         "normalizadas": normalized,
         "enfileiradas": queued,
+        "novas_na_fila": queued,
         "duplicadas": duplicates,
         "fallback_diagnostico": diagnostic_fallback,
         "erros_fontes": source_errors,
+        "fontes_com_erro": len(source_errors),
         "erros_fila": queue_errors,
         "avisos": warnings,
     }
