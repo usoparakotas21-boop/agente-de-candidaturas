@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -44,6 +44,33 @@ def _owner_id(user: Any) -> str | None:
     else:
         value = getattr(user, "id", None) or getattr(user, "uid", None)
     return str(value).strip() if value else None
+
+
+async def _sincronizar_emails_do_usuario(user: Any) -> dict[str, Any]:
+    """Run connected inbox providers before a manual vacancy capture."""
+
+    owner_id = _owner_id(user)
+    result: dict[str, Any] = {"gmail": None, "outlook": None, "erros": {}}
+    if not owner_id:
+        return result
+    from .gmail_monitor import sync_owner as sync_gmail_owner
+    from .outlook_monitor import sync_owner as sync_outlook_owner
+
+    for provider, sync in (("gmail", sync_gmail_owner), ("outlook", sync_outlook_owner)):
+        try:
+            result[provider] = await sync(owner_id)
+        except HTTPException as exc:
+            detail = str(exc.detail)
+            if exc.status_code == 409 and detail.casefold().startswith("conecte o"):
+                result[provider] = {"status": "nao_conectado"}
+            else:
+                # A revoked OAuth token remains visible in the integration
+                # status endpoint and is returned as a clear manual-capture warning.
+                result["erros"][provider] = detail
+        except Exception as exc:  # noqa: BLE001 - web capture must continue
+            logger.exception("[EmailSync] captura manual falhou para %s: %s", provider, exc)
+            result["erros"][provider] = f"{type(exc).__name__}: {str(exc)[:240]}"
+    return result
 
 
 def _split_values(value: Any) -> list[str]:
@@ -236,6 +263,9 @@ async def capturar_vagas(
     roles = roles or saved_roles
     locations = locations or saved_locations
     modalities = [item.casefold() for item in (_split_values(request.modalidades) or saved_modalities)]
+    email_sync = await _sincronizar_emails_do_usuario(user)
+    if email_sync["erros"]:
+        logger.warning("[EmailSync] captura manual com avisos: %s", email_sync["erros"])
     queries = _queries(roles, locations)
     search_pairs = _search_pairs(roles, locations)
     logger.info(
@@ -364,6 +394,7 @@ async def capturar_vagas(
         "consultas": queries,
         "consultas_executadas": [{"termo": query, "localizacao": location} for query, location in search_pairs],
         "preferencias": {"cargos": roles, "localizacoes": locations, "modalidades": modalities},
+        "sincronizacao_emails": email_sync,
         "capturadas": len(vagas),
         "total_encontradas": len(vagas),
         "normalizadas": normalized,

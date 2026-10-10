@@ -243,6 +243,7 @@ async def gmail_authorization_callback(
             )
         integration.email = gmail_address
         integration.scopes = tokens.get("scope") or GMAIL_READONLY_SCOPE
+        integration.sync_status = "connected"
         db.commit()
     finally:
         db.close()
@@ -265,10 +266,14 @@ async def gmail_connection_status(
                 EmailIntegration.provider == "gmail",
             )
         )
+        needs_reconnect = bool(integration and integration.sync_status == "precisa_reconectar")
         return {
             "configured": True,
-            "connected": integration is not None,
+            "connected": integration is not None and not needs_reconnect,
             "email": integration.email if integration else None,
+            "status": integration.sync_status if integration else "nao_conectado",
+            "needs_reconnect": needs_reconnect,
+            "message": "Reconecte o Gmail para renovar a autorização." if needs_reconnect else None,
         }
     finally:
         db.close()

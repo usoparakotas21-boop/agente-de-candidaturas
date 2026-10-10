@@ -30,6 +30,35 @@ class OutlookSyncError(RuntimeError):
     pass
 
 
+def _requires_reconnect(exc: BaseException) -> bool:
+    message = str(exc).casefold()
+    return isinstance(exc, OutlookSyncError) and any(
+        marker in message
+        for marker in ("renovacao", "invalid_grant", "token outlook armazenado", "autorizacao")
+    )
+
+
+def _mark_needs_reconnect(integration: EmailIntegration, reason: str) -> None:
+    db = SessionLocal()
+    try:
+        current = db.get(EmailIntegration, integration.id)
+        if current is None:
+            return
+        current.sync_status = "precisa_reconectar"
+        db.commit()
+        logger.warning(
+            "Integracao Outlook %s (%s) marcada como precisa_reconectar: %s",
+            integration.id,
+            integration.email,
+            reason[:300],
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Nao foi possivel marcar a integracao Outlook %s para reconexao", integration.id)
+    finally:
+        db.close()
+
+
 async def _access_token(integration: EmailIntegration) -> str:
     try:
         refresh = _cipher().decrypt(integration.encrypted_refresh_token.encode("ascii")).decode()
@@ -46,7 +75,15 @@ async def _access_token(integration: EmailIntegration) -> str:
             },
         )
     if response.status_code != 200:
-        raise OutlookSyncError("Microsoft recusou a renovacao do acesso ao Outlook.")
+        detail = ""
+        try:
+            detail = str(response.json().get("error") or "")
+        except ValueError:
+            detail = response.text[:120]
+        raise OutlookSyncError(
+            "Microsoft recusou a renovacao do acesso ao Outlook"
+            + (f" ({detail})." if detail else ".")
+        )
     token = response.json().get("access_token")
     if not token:
         raise OutlookSyncError("Microsoft nao retornou um token temporario.")
@@ -122,37 +159,54 @@ async def sync_owner(owner_id: str) -> dict[str, int]:
     finally:
         db.close()
     async with _sync_lock:
-        token = await _access_token(integration)
-        return await sync_integration(
-            integration,
-            access_token=token,
-            list_message_ids=_list_message_ids,
-            get_message=_get_message,
-            source_name="outlook",
-            provider_label="Outlook",
-        )
+        try:
+            token = await _access_token(integration)
+            return await sync_integration(
+                integration,
+                access_token=token,
+                list_message_ids=_list_message_ids,
+                get_message=_get_message,
+                source_name="outlook",
+                provider_label="Outlook",
+            )
+        except OutlookSyncError as exc:
+            if _requires_reconnect(exc):
+                _mark_needs_reconnect(integration, str(exc))
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-async def sync_all_integrations() -> None:
+async def sync_all_integrations() -> dict[str, int]:
     db = SessionLocal()
     try:
-        integrations = list(db.scalars(select(EmailIntegration).where(EmailIntegration.provider == "outlook")).all())
+        integrations = list(db.scalars(select(EmailIntegration).where(
+            EmailIntegration.provider == "outlook",
+            EmailIntegration.sync_status != "precisa_reconectar",
+        )).all())
         for integration in integrations:
             db.expunge(integration)
     finally:
         db.close()
+    totals = {"found": 0, "captured": 0, "queue": 0, "duplicate": 0, "ignored": 0, "errors": 0, "integrations": 0, "reconnect": 0}
     for integration in integrations:
         try:
             async with _sync_lock:
                 token = await _access_token(integration)
-                await sync_integration(integration, access_token=token, list_message_ids=_list_message_ids, get_message=_get_message, source_name="outlook", provider_label="Outlook")
+                result = await sync_integration(integration, access_token=token, list_message_ids=_list_message_ids, get_message=_get_message, source_name="outlook", provider_label="Outlook")
+                totals["integrations"] += 1
+                for key in ("found", "captured", "queue", "duplicate", "ignored", "errors"):
+                    totals[key] += result.get(key, 0)
         except Exception as exc:
+            if _requires_reconnect(exc):
+                _mark_needs_reconnect(integration, str(exc))
+                totals["reconnect"] += 1
             logger.warning(
                 "Sincronizacao Outlook falhou para integracao %s: %s - %s",
                 integration.id,
                 type(exc).__name__,
                 str(exc)[:300],
             )
+    logger.info("Sincronizacao Outlook geral: %s", totals)
+    return totals
 
 
 async def _monitor_loop() -> None:

@@ -1521,6 +1521,9 @@ def startup():
                 "applications": {
                     "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER", "followup_notified_at": "TIMESTAMP WITH TIME ZONE", "followup_notification_outbox_id": "INTEGER",
                 },
+                "email_integrations": {
+                    "sync_status": "VARCHAR(40) DEFAULT 'connected' NOT NULL",
+                },
                 "application_events": {
                     "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
                 },
@@ -1557,6 +1560,9 @@ def startup():
             start_outlook_monitor()
             return
         Base.metadata.create_all(bind=engine)
+        email_integration_columns = {c["name"] for c in inspect(engine).get_columns("email_integrations")}
+        if "sync_status" not in email_integration_columns:
+            db.execute(text("ALTER TABLE email_integrations ADD COLUMN sync_status VARCHAR(40) DEFAULT 'connected' NOT NULL"))
         for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
@@ -1636,6 +1642,9 @@ def startup():
         for idx in ["idx_applications_status", "idx_applications_updated_at", "idx_applications_queue_decision", "idx_candidates_owner_id", "idx_jobs_owner_id"]:
             db.execute(text(f"CREATE INDEX IF NOT EXISTS {idx} ON {'applications' if 'applications' in idx else 'candidates' if 'candidates' in idx else 'jobs'} ({'status' if 'status' in idx else 'updated_at' if 'updated' in idx else 'queue_decision' if 'queue' in idx else 'owner_id'})"))
         db.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)"))
+        email_integration_columns = {c["name"] for c in inspect(engine).get_columns("email_integrations")}
+        if "sync_status" not in email_integration_columns:
+            db.execute(text("ALTER TABLE email_integrations ADD COLUMN sync_status VARCHAR(40) DEFAULT 'connected' NOT NULL"))
         for job in db.scalars(select(Job)).all():
             cand = db.scalar(select(Candidate).where(Candidate.owner_id == job.owner_id).order_by(Candidate.id))
             _ensure_app(db, job, cand)

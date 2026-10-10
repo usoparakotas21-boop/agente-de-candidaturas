@@ -1,5 +1,6 @@
 """Rotinas assíncronas de coleta, alertas e limpeza de vagas."""
 
+import asyncio
 import json
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -14,6 +15,8 @@ from app.database import (
     salvar_vagas_em_lote,
 )
 from app.models import Candidate
+from app.gmail_monitor import sync_all_integrations as sync_all_gmail_integrations
+from app.outlook_monitor import sync_all_integrations as sync_all_outlook_integrations
 from scrapers.job_collector import coletar_todas_as_fontes
 
 
@@ -117,6 +120,23 @@ async def executar_rotina_limpeza() -> None:
     print(f"[Housekeeping] {removidas} vagas antigas removidas.")
 
 
+async def executar_rotina_sincronizacao_emails() -> None:
+    """Synchronize every active Gmail and Outlook integration in one cycle."""
+
+    print("[EmailSync] Iniciando sincronização de Gmail e Outlook...")
+    resultados = await asyncio.gather(
+        sync_all_gmail_integrations(),
+        sync_all_outlook_integrations(),
+        return_exceptions=True,
+    )
+    for provider, result in zip(("Gmail", "Outlook"), resultados):
+        if isinstance(result, Exception):
+            print(f"[EmailSync] {provider} falhou: {type(result).__name__}: {result}")
+        else:
+            print(f"[EmailSync] {provider}: {result}")
+    print("[EmailSync] Sincronização concluída.")
+
+
 def iniciar_agendador() -> None:
     scheduler.add_job(
         executar_rotina_varredura,
@@ -128,6 +148,12 @@ def iniciar_agendador() -> None:
         executar_rotina_limpeza,
         trigger=IntervalTrigger(hours=24),
         id="limpeza_vagas",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        executar_rotina_sincronizacao_emails,
+        trigger=IntervalTrigger(minutes=15),
+        id="sincronizacao_emails",
         replace_existing=True,
     )
     scheduler.start()

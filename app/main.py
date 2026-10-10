@@ -261,6 +261,7 @@ def send_interview_questions_email(job_title: str, job_description: str, to_emai
 from .support_chat import router as support_chat_router
 from .security import SecurityHeadersMiddleware, current_csp_nonce
 from services.scheduler import (
+    executar_rotina_sincronizacao_emails,
     executar_rotina_varredura,
     iniciar_agendador,
     scheduler as vagas_scheduler,
@@ -272,10 +273,11 @@ PORT = int(os.getenv("PORT", "8000") or "8000")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Initialize and stop the ingestion, notification and retention workers."""
-    global _job_collection_task
+    global _job_collection_task, _email_sync_task
     startup()
     iniciar_agendador()
     _job_collection_task = asyncio.create_task(executar_rotina_varredura())
+    _email_sync_task = asyncio.create_task(executar_rotina_sincronizacao_emails())
     try:
         yield
     finally:
@@ -345,6 +347,7 @@ _purchase_generation_task: asyncio.Task | None = None
 _purchase_generation_wakeup: asyncio.Event | None = None
 _lifecycle_email_task: asyncio.Task | None = None
 _job_collection_task: asyncio.Task | None = None
+_email_sync_task: asyncio.Task | None = None
 DOCUMENT_GENERATION_POLL_SECONDS = 15
 DOCUMENT_GENERATION_MAX_ATTEMPTS = 5
 DOCUMENT_GENERATION_STALE_AFTER = timedelta(minutes=15)
@@ -1559,6 +1562,9 @@ def startup():
                 "applications": {
                     "cover_letter_text": "TEXT", "cover_letter_path": "TEXT", "analysis_data": "TEXT", "decision_reasons": "TEXT", "field_confidence": "TEXT", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)", "health_score": "INTEGER", "health_band": "VARCHAR(20)", "health_signals": "JSON", "fraud_suspected": "BOOLEAN DEFAULT FALSE NOT NULL", "risk_reviewed_at": "TIMESTAMP WITH TIME ZONE", "queue_decision": "VARCHAR(20) DEFAULT 'REVISAR' NOT NULL", "capture_confidence": "INTEGER", "followup_notified_at": "TIMESTAMP WITH TIME ZONE", "followup_notification_outbox_id": "INTEGER",
                 },
+                "email_integrations": {
+                    "sync_status": "VARCHAR(40) DEFAULT 'connected' NOT NULL",
+                },
                 "application_events": {
                     "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
                 },
@@ -1595,6 +1601,9 @@ def startup():
             start_outlook_monitor()
             return
         Base.metadata.create_all(bind=engine)
+        email_integration_columns = {c["name"] for c in inspect(engine).get_columns("email_integrations")}
+        if "sync_status" not in email_integration_columns:
+            db.execute(text("ALTER TABLE email_integrations ADD COLUMN sync_status VARCHAR(40) DEFAULT 'connected' NOT NULL"))
         for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
@@ -1696,7 +1705,7 @@ def startup():
     start_outlook_monitor()
 
 async def shutdown():
-    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task, _job_collection_task
+    global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task, _job_collection_task, _email_sync_task
     if _job_collection_task is not None:
         _job_collection_task.cancel()
         try:
@@ -1706,6 +1715,15 @@ async def shutdown():
         except Exception:
             logger.exception("Falha na primeira varredura de vagas")
         _job_collection_task = None
+    if _email_sync_task is not None:
+        _email_sync_task.cancel()
+        try:
+            await _email_sync_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Falha na primeira sincronização de e-mails")
+        _email_sync_task = None
     if _retention_task is not None:
         _retention_task.cancel()
         try:

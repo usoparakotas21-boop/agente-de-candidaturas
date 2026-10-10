@@ -1126,7 +1126,10 @@
         const payload = await response.json();
         button.hidden = !payload.configured;
         $("gmailSyncButton").hidden = !payload.connected;
-        if (payload.connected) {
+        if (payload.needs_reconnect) {
+          button.textContent = "Reconectar Gmail";
+          button.title = payload.message || "A autorização do Gmail expirou; conecte novamente.";
+        } else if (payload.connected) {
           button.textContent = payload.email
             ? `Gmail: ${payload.email}`
             : "Gmail conectado";
@@ -2243,10 +2246,12 @@
         const warning = result.avisos?.length ? ` ${result.avisos[0]}` : "";
         const diagnostic = result.fallback_diagnostico ? " Dados de diagnóstico foram usados e estão marcados como [Diagnóstico]." : "";
         const sourceErrors = Object.keys(result.erros_fontes || {}).length;
+        const emailErrors = Object.keys(result.sincronizacao_emails?.erros || {}).length;
         const found = Number(result.capturadas ?? result.total_encontradas ?? result.captured ?? 0);
         const queued = Number(result.enfileiradas ?? result.novas_na_fila ?? result.queued ?? 0);
         const errors = sourceErrors ? ` ${sourceErrors} fonte(s) falharam; veja os detalhes no diagnóstico.` : "";
-        toast(`${found} vaga(s) encontradas; ${queued} nova(s) na fila.${warning}${diagnostic}${errors}`);
+        const emailWarning = emailErrors ? ` ${emailErrors} integração(ões) de e-mail precisam de reconexão em Configurações.` : "";
+        toast(`${found} vaga(s) encontradas; ${queued} nova(s) na fila.${warning}${diagnostic}${errors}${emailWarning}`);
       } catch (error) {
         toast(error.message || "Não foi possível captar vagas agora.");
       } finally {

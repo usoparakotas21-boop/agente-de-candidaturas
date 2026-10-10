@@ -122,6 +122,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
         integration.email = email
         integration.encrypted_refresh_token = _cipher().encrypt(refresh.encode()).decode("ascii")
         integration.scopes = tokens.get("scope", "Mail.Read")
+        integration.sync_status = "connected"
         db.commit()
     finally:
         db.close()
@@ -136,6 +137,14 @@ async def status(user: dict = Depends(authenticated_user)):
     db = SessionLocal()
     try:
         integration = db.scalar(select(EmailIntegration).where(EmailIntegration.owner_id == oid, EmailIntegration.provider == "outlook"))
-        return {"configured": True, "connected": integration is not None, "email": integration.email if integration else None}
+        needs_reconnect = bool(integration and integration.sync_status == "precisa_reconectar")
+        return {
+            "configured": True,
+            "connected": integration is not None and not needs_reconnect,
+            "email": integration.email if integration else None,
+            "status": integration.sync_status if integration else "nao_conectado",
+            "needs_reconnect": needs_reconnect,
+            "message": "Reconecte o Outlook para renovar a autorização." if needs_reconnect else None,
+        }
     finally:
         db.close()

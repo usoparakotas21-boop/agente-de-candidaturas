@@ -104,6 +104,35 @@ class GmailSyncError(RuntimeError):
     pass
 
 
+def _requires_reconnect(exc: BaseException) -> bool:
+    message = str(exc).casefold()
+    return isinstance(exc, GmailSyncError) and any(
+        marker in message
+        for marker in ("renovacao", "invalid_grant", "token gmail armazenado", "autorizacao")
+    )
+
+
+def _mark_needs_reconnect(integration: EmailIntegration, reason: str) -> None:
+    db = SessionLocal()
+    try:
+        current = db.get(EmailIntegration, integration.id)
+        if current is None:
+            return
+        current.sync_status = "precisa_reconectar"
+        db.commit()
+        logger.warning(
+            "Integracao %s (%s) marcada como precisa_reconectar: %s",
+            integration.id,
+            integration.email,
+            reason[:300],
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Nao foi possivel marcar a integracao Gmail %s para reconexao", integration.id)
+    finally:
+        db.close()
+
+
 class _ReadableEmailParser(HTMLParser):
     BLOCK_TAGS = {
         "article", "br", "div", "h1", "h2", "h3", "h4", "li", "p", "section", "tr"
@@ -281,7 +310,15 @@ async def _access_token(integration: EmailIntegration) -> str:
             },
         )
     if response.status_code != 200:
-        raise GmailSyncError("Google recusou a renovacao do acesso ao Gmail.")
+        detail = ""
+        try:
+            detail = str(response.json().get("error") or "")
+        except ValueError:
+            detail = response.text[:120]
+        raise GmailSyncError(
+            "Google recusou a renovacao do acesso ao Gmail"
+            + (f" ({detail})." if detail else ".")
+        )
     access_token = response.json().get("access_token")
     if not access_token:
         raise GmailSyncError("Google nao retornou um token temporario.")
@@ -590,6 +627,20 @@ async def sync_integration(
                 error=str(getattr(exc, "detail", exc)),
             )
             counters["errors"] += 1
+    logger.info(
+        "Sincronizacao %s concluida para integracao=%s: emails_lidos=%d novos=%d candidatos=%d "
+        "vagas_capturadas=%d fila=%d duplicados=%d descartados=%d erros=%d",
+        provider_label,
+        integration.id,
+        counters["found"],
+        counters["new"],
+        counters["candidates"],
+        counters["captured"],
+        counters["queue"],
+        counters["duplicate"],
+        counters["ignored"],
+        counters["errors"],
+    )
     return counters
 
 
@@ -608,28 +659,45 @@ async def sync_owner(owner_id: str) -> dict[str, int]:
     finally:
         db.close()
     async with _sync_lock:
-        return await sync_integration(integration)
+        try:
+            return await sync_integration(integration)
+        except GmailSyncError as exc:
+            if _requires_reconnect(exc):
+                _mark_needs_reconnect(integration, str(exc))
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-async def sync_all_integrations() -> None:
+async def sync_all_integrations() -> dict[str, int]:
     db = SessionLocal()
     try:
-        integrations = list(db.scalars(select(EmailIntegration).where(EmailIntegration.provider == "gmail")).all())
+        integrations = list(db.scalars(select(EmailIntegration).where(
+            EmailIntegration.provider == "gmail",
+            EmailIntegration.sync_status != "precisa_reconectar",
+        )).all())
         for integration in integrations:
             db.expunge(integration)
     finally:
         db.close()
+    totals = {"found": 0, "captured": 0, "queue": 0, "duplicate": 0, "ignored": 0, "errors": 0, "integrations": 0, "reconnect": 0}
     async with _sync_lock:
         for integration in integrations:
             try:
-                await sync_integration(integration)
+                result = await sync_integration(integration)
+                totals["integrations"] += 1
+                for key in ("found", "captured", "queue", "duplicate", "ignored", "errors"):
+                    totals[key] += result.get(key, 0)
             except Exception as exc:
+                if _requires_reconnect(exc):
+                    _mark_needs_reconnect(integration, str(exc))
+                    totals["reconnect"] += 1
                 logger.warning(
                     "Sincronizacao Gmail falhou para integracao %s: %s - %s",
                     integration.id,
                     type(exc).__name__,
                     str(exc)[:300],
                 )
+    logger.info("Sincronizacao Gmail geral: %s", totals)
+    return totals
 
 
 async def _monitor_loop() -> None:

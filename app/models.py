@@ -312,6 +312,11 @@ class EmailIntegration(Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     encrypted_refresh_token: Mapped[str] = mapped_column(Text, nullable=False)
     scopes: Mapped[str] = mapped_column(Text, nullable=False)
+    sync_status: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        default="connected",
+    )
     connected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
