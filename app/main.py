@@ -267,8 +267,6 @@ async def enforce_canonical_host(request: Request, call_next):
         url = request.url.replace(scheme="https", netloc="candidaturacerta.com.br")
         return RedirectResponse(url=str(url), status_code=301)
     return await call_next(request)
-
-
 @app.exception_handler(RequestValidationError)
 async def request_validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(
@@ -7093,34 +7091,3 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
         return {"message": f"Cortesia de 1 ano no plano {plan.upper()} concedida com sucesso para {target_email}."}
     finally:
         session.close()
-
-
-import httpx
-import os
-import asyncio
-
-async def auto_provision_admin():
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    anon_key = os.getenv("SUPABASE_ANON_KEY", "")
-    
-    if not supabase_url or not anon_key:
-        return
-        
-    email = "contato@candidaturacerta.com.br"
-    password = "Querubim@131"
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(
-                f"{supabase_url}/auth/v1/signup",
-                headers={"apikey": anon_key},
-                json={"email": email, "password": password}
-            )
-            # We don't print anything to avoid leaking password in logs
-        except Exception:
-            pass
-
-@app.on_event("startup")
-async def provision_admin_startup():
-    asyncio.create_task(auto_provision_admin())
-
