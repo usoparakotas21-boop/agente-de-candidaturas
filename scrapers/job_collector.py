@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
@@ -56,6 +57,37 @@ SOURCE_TIMEOUTS_SECONDS = {
     "linkedin": 95.0,
 }
 
+_STATE_ALIASES = {
+    "ac": "Acre", "al": "Alagoas", "ap": "Amapá", "am": "Amazonas",
+    "ba": "Bahia", "ce": "Ceará", "df": "Distrito Federal", "es": "Espírito Santo",
+    "go": "Goiás", "ma": "Maranhão", "mt": "Mato Grosso", "ms": "Mato Grosso do Sul",
+    "mg": "Minas Gerais", "pa": "Pará", "pb": "Paraíba", "pr": "Paraná",
+    "pe": "Pernambuco", "pi": "Piauí", "rj": "Rio de Janeiro", "rn": "Rio Grande do Norte",
+    "rs": "Rio Grande do Sul", "ro": "Rondônia", "rr": "Roraima", "sc": "Santa Catarina",
+    "sp": "São Paulo", "se": "Sergipe", "to": "Tocantins",
+}
+
+
+def normalizar_localidade(value: str | None) -> str:
+    """Normalize Brazilian state abbreviations before source-specific URLs."""
+
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return ""
+    key = text.casefold().replace(".", "")
+    if key in _STATE_ALIASES:
+        return _STATE_ALIASES[key]
+    # Preserve city names while expanding a trailing state abbreviation.
+    match = re.search(r"(?:^|[\s,/-])([a-z]{2})$", key)
+    if match and match.group(1) in _STATE_ALIASES:
+        start, end = match.span(1)
+        return text[:start] + _STATE_ALIASES[match.group(1)] + text[end:]
+    return text
+
+
+def normalizar_termo(value: str | None) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
 
 @dataclass(slots=True)
 class CollectionReport:
@@ -76,6 +108,8 @@ async def collect_report(
 ) -> CollectionReport:
     """Collect from selected sources concurrently and deduplicate the result."""
 
+    query = normalizar_termo(query)
+    location = normalizar_localidade(location)
     selected = sources or list(COLLECTORS)
     unknown = sorted(set(selected) - set(COLLECTORS))
     if unknown:

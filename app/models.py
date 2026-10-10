@@ -317,6 +317,13 @@ class EmailIntegration(Base):
         nullable=False,
         default="connected",
     )
+    # Nullable for existing integrations created before token expiry was
+    # tracked.  OAuth providers can leave it unset when a long-lived refresh
+    # token is supplied; housekeeping only marks rows whose expiry is known.
+    token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     connected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

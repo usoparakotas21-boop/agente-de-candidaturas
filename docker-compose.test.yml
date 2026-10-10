@@ -1,0 +1,10 @@
+services:
+  api-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      AUTH_REQUIRED: "0"
+      ENVIRONMENT: test
+      DATABASE_URL: sqlite:////tmp/candidatura-certa-tests.db
+    command: ["python", "-m", "pytest", "tests", "-v"]

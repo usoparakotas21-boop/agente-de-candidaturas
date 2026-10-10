@@ -37,7 +37,6 @@ class CapturaVagasRequest(BaseModel):
     limite_por_fonte: int = Field(default=30, ge=1, le=100)
     usar_fallback_diagnostico: bool | None = None
 
-
 def _owner_id(user: Any) -> str | None:
     if isinstance(user, dict):
         value = user.get("id") or user.get("uid") or user.get("sub")

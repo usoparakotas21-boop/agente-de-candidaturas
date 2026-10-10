@@ -28,21 +28,25 @@ def _items(payload: Any) -> list[dict[str, Any]]:
             if isinstance(value, list):
                 return [item for item in value if isinstance(item, dict)]
     keys = sorted(payload) if isinstance(payload, dict) else type(payload).__name__
-    raise ValueError(f"{SOURCE}: resposta JSON inesperada; chaves={keys}")
+    logger.info("[%s] resposta sem itens de vaga; estrutura=%s", SOURCE, keys)
+    return []
 
 
 def _next_items(html: str) -> list[dict[str, Any]]:
     match = re.search(r'<script[^>]+id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>', html, re.S | re.I)
     if not match:
-        raise ValueError(f"{SOURCE}: página pública sem __NEXT_DATA__")
+        logger.info("[%s] página pública sem __NEXT_DATA__; consulta sem resultados", SOURCE)
+        return []
     try:
         payload = json.loads(match.group(1))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"{SOURCE}: __NEXT_DATA__ inválido: {exc}") from exc
+        logger.info("[%s] __NEXT_DATA__ inválido; consulta sem resultados: %s", SOURCE, exc)
+        return []
     page_props = payload.get("props", {}).get("pageProps", {})
     items = page_props.get("initialJobList", {}).get("data")
     if not isinstance(items, list):
-        raise ValueError(f"{SOURCE}: __NEXT_DATA__ sem initialJobList.data")
+        logger.info("[%s] __NEXT_DATA__ sem initialJobList.data; consulta sem resultados", SOURCE)
+        return []
     return [item for item in items if isinstance(item, dict)]
 
 

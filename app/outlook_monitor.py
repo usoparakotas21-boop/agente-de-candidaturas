@@ -21,6 +21,7 @@ from .outlook_integration import TOKEN_URL, _cipher, _secret
 
 router = APIRouter(prefix="/auth/outlook", tags=["outlook"])
 OUTLOOK_MESSAGES_URL = "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages"
+DEFAULT_OUTLOOK_JOB_QUERY = '"vaga" OR "processo" OR "oportunidade"'
 _sync_lock = asyncio.Lock()
 _monitor_task: asyncio.Task | None = None
 logger = logging.getLogger(__name__)
@@ -92,10 +93,11 @@ async def _access_token(integration: EmailIntegration) -> str:
 
 async def _list_message_ids(access_token: str) -> list[str]:
     top = min(max(int(os.getenv("OUTLOOK_MAX_RESULTS", "25")), 1), 100)
+    search_query = os.getenv("OUTLOOK_JOB_QUERY", DEFAULT_OUTLOOK_JOB_QUERY).strip() or DEFAULT_OUTLOOK_JOB_QUERY
     params = {
         "$top": top,
-        "$orderby": "receivedDateTime desc",
         "$select": "id",
+        "$search": search_query,
     }
     since = os.getenv("OUTLOOK_SINCE", "").strip()
     if since:
@@ -103,7 +105,12 @@ async def _list_message_ids(access_token: str) -> list[str]:
     async with httpx.AsyncClient(timeout=25.0) as client:
         response = await client.get(
             OUTLOOK_MESSAGES_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                # Microsoft Graph requires this header for $search on
+                # messages and otherwise silently ignores the filter.
+                "ConsistencyLevel": "eventual",
+            },
             params=params,
         )
     if response.status_code != 200:

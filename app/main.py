@@ -333,6 +333,29 @@ app.include_router(vagas_router)
 app.include_router(support_chat_router)
 app.include_router(billing_router)
 
+
+@app.post("/api/integracoes/emails/sincronizar-tudo")
+async def sincronizar_todas_integracoes_email(
+    background_tasks: BackgroundTasks,
+    user=Depends(authenticated_user),
+):
+    """Start Gmail and Outlook synchronization without blocking the UI.
+
+    The most recent completed per-provider counters are returned immediately;
+    the background task replaces that snapshot when both providers finish.
+    """
+
+    from services import scheduler as scheduler_service
+
+    background_tasks.add_task(scheduler_service.executar_rotina_sincronizacao_emails)
+    return {
+        "status": "queued",
+        "background": True,
+        "providers": ["gmail", "outlook"],
+        "insercoes_ultima_execucao": dict(scheduler_service.LAST_EMAIL_SYNC_RESULT),
+        "mensagem": "A sincronização de Gmail e Outlook foi iniciada.",
+    }
+
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
 MAX_DOCUMENT_EMAIL_BYTES = 10 * 1024 * 1024
@@ -1629,6 +1652,7 @@ def startup():
                 },
                 "email_integrations": {
                     "sync_status": "VARCHAR(40) DEFAULT 'connected' NOT NULL",
+                    "token_expires_at": "TIMESTAMP WITH TIME ZONE",
                 },
                 "application_events": {
                     "channel": "VARCHAR(50)", "external_result": "VARCHAR(50)", "resume_version": "VARCHAR(32)", "cover_letter_version": "VARCHAR(32)",
@@ -1669,6 +1693,8 @@ def startup():
         email_integration_columns = {c["name"] for c in inspect(engine).get_columns("email_integrations")}
         if "sync_status" not in email_integration_columns:
             db.execute(text("ALTER TABLE email_integrations ADD COLUMN sync_status VARCHAR(40) DEFAULT 'connected' NOT NULL"))
+        if "token_expires_at" not in email_integration_columns:
+            db.execute(text("ALTER TABLE email_integrations ADD COLUMN token_expires_at TIMESTAMP WITH TIME ZONE"))
         for col in ["owner_id", "profile_data", "resume_filename", "preferences_data"]:
             if col not in {c["name"] for c in inspect(engine).get_columns("candidates")}:
                 db.execute(text(f"ALTER TABLE candidates ADD COLUMN {col} {'VARCHAR(36)' if col == 'owner_id' else 'TEXT'}"))
@@ -1925,12 +1951,55 @@ def email_verification_page():
 
 @app.get("/health", include_in_schema=False)
 def health():
+    started = time.perf_counter()
     try:
         with SessionLocal() as session:
             session.execute(text("SELECT 1"))
+            db_latency_ms = round((time.perf_counter() - started) * 1000, 2)
+            try:
+                active_raw = session.scalar(
+                    select(func.count(JobListing.id)).where(JobListing.status == "active")
+                )
+                active_jobs = int(active_raw or 0) if isinstance(active_raw, (int, float)) else None
+            except Exception:
+                session.rollback()
+                fallback_raw = session.scalar(select(func.count(Job.id)))
+                active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else None
+            last_sync = session.scalar(
+                select(JobIngestionRun.finished_at)
+                .where(JobIngestionRun.finished_at.is_not(None))
+                .order_by(JobIngestionRun.finished_at.desc())
+                .limit(1)
+            )
+            if last_sync is not None and not isinstance(last_sync, datetime):
+                last_sync = None
     except Exception:
-        return JSONResponse(status_code=503, content={"status": "error", "db": "unavailable"})
-    return {"status": "ok", "db": "connected"}
+        logger.exception("Health check do banco falhou")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "db": "unavailable"},
+        )
+
+    # Keep the legacy two-field response for lightweight test doubles and
+    # health probes that do not expose ORM metrics; real sessions receive the
+    # richer operational payload below.
+    if active_jobs is None:
+        return {"status": "ok", "db": "connected"}
+
+    integrations = {
+        "gmail": bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET")),
+        "outlook": bool(os.getenv("MICROSOFT_CLIENT_ID") or os.getenv("OUTLOOK_CLIENT_ID")),
+        "apify": bool(os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")),
+        "mercado_pago": bool(_mercadopago_token()),
+    }
+    return {
+        "status": "ok",
+        "db": "connected",
+        "db_latency_ms": db_latency_ms,
+        "integracoes": integrations,
+        "vagas_ativas": active_jobs,
+        "ultima_sincronizacao": last_sync.isoformat() if last_sync else None,
+    }
 
 
 @app.get('/linkedin', response_class=HTMLResponse, include_in_schema=False)

@@ -31,7 +31,8 @@ async def collect(
             headers={"Accept-Encoding": "identity"},
         )
         if not isinstance(payload, list):
-            raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado lista, recebido {type(payload).__name__}")
+            logger.info("[%s] resposta sem lista de vagas; consulta sem resultados", SOURCE)
+            return []
         logger.info("[RemoteOK] url=%s itens_brutos=%d", PUBLIC_ENDPOINT, len(payload))
         query_lower = query.casefold().strip()
         jobs: list[VagaPadronizada] = []

@@ -60,9 +60,11 @@ async def collect(
                         body = await fetch_via_scraperapi(requested_url, client=http)
                 payload = json.loads(body)
             except json.JSONDecodeError as exc:
-                raise ValueError(f"{SOURCE}: resposta da API não é JSON válido: {exc}") from exc
+                logger.info("[%s] resposta sem JSON de vagas; consulta sem resultados: %s", SOURCE, exc)
+                return requested_url, {}, []
             if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
-                raise ValueError(f"{SOURCE}: resposta JSON inesperada; esperado objeto com data[]")
+                logger.info("[%s] resposta sem data[]; consulta sem resultados", SOURCE)
+                return requested_url, payload if isinstance(payload, dict) else {}, []
             items = [item for item in payload["data"] if isinstance(item, dict)]
             logger.info("[Sólides] url=%s itens_brutos=%d total=%s", requested_url, len(items), payload.get("count"))
             return requested_url, payload, items
