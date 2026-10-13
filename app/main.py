@@ -1961,16 +1961,37 @@ def health():
                     select(func.count(JobListing.id)).where(JobListing.status == "active")
                 )
                 active_jobs = int(active_raw or 0) if isinstance(active_raw, (int, float)) else None
+                # The web collector writes normalized records to ``vagas`` while
+                # the user-facing queue uses ``job_listings``/``jobs``.  A
+                # healthy deployment can therefore have zero rows in the
+                # queue tables and still have a populated vacancy catalog.
+                if active_jobs == 0:
+                    fallback_raw = session.scalar(select(func.count(Job.id)))
+                    active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else 0
+                if active_jobs == 0:
+                    catalog_raw = session.scalar(
+                        text("SELECT count(*) FROM vagas WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '45 days'")
+                    )
+                    active_jobs = int(catalog_raw or 0) if isinstance(catalog_raw, (int, float)) else active_jobs
             except Exception:
                 session.rollback()
-                fallback_raw = session.scalar(select(func.count(Job.id)))
-                active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else None
+                try:
+                    fallback_raw = session.scalar(select(func.count(Job.id)))
+                    active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else None
+                except Exception:
+                    session.rollback()
+                    active_jobs = None
             last_sync = session.scalar(
                 select(JobIngestionRun.finished_at)
                 .where(JobIngestionRun.finished_at.is_not(None))
                 .order_by(JobIngestionRun.finished_at.desc())
                 .limit(1)
             )
+            if last_sync is None:
+                try:
+                    last_sync = session.scalar(text("SELECT max(updated_at) FROM vagas"))
+                except Exception:
+                    session.rollback()
             if last_sync is not None and not isinstance(last_sync, datetime):
                 last_sync = None
     except Exception:
