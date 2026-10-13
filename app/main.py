@@ -1952,6 +1952,7 @@ def email_verification_page():
 @app.get("/health", include_in_schema=False)
 def health():
     started = time.perf_counter()
+    workflow_jobs = None
     try:
         with SessionLocal() as session:
             session.execute(text("SELECT 1"))
@@ -1965,19 +1966,31 @@ def health():
                 # the user-facing queue uses ``job_listings``/``jobs``.  A
                 # healthy deployment can therefore have zero rows in the
                 # queue tables and still have a populated vacancy catalog.
+                workflow_jobs = active_jobs
                 if active_jobs == 0:
                     fallback_raw = session.scalar(select(func.count(Job.id)))
                     active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else 0
+                    workflow_jobs = active_jobs
                 if active_jobs == 0:
                     catalog_raw = session.scalar(
                         text("SELECT count(*) FROM vagas WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '45 days'")
                     )
                     active_jobs = int(catalog_raw or 0) if isinstance(catalog_raw, (int, float)) else active_jobs
+                else:
+                    # Keep the health metric representative of the complete
+                    # normalized catalog even when only part of it is queued
+                    # for a user's workflow.
+                    catalog_raw = session.scalar(
+                        text("SELECT count(*) FROM vagas WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '45 days'")
+                    )
+                    if isinstance(catalog_raw, (int, float)):
+                        active_jobs = max(active_jobs, int(catalog_raw))
             except Exception:
                 session.rollback()
                 try:
                     fallback_raw = session.scalar(select(func.count(Job.id)))
                     active_jobs = int(fallback_raw or 0) if isinstance(fallback_raw, (int, float)) else None
+                    workflow_jobs = active_jobs
                 except Exception:
                     session.rollback()
                     active_jobs = None
@@ -2019,6 +2032,7 @@ def health():
         "db_latency_ms": db_latency_ms,
         "integracoes": integrations,
         "vagas_ativas": active_jobs,
+        "vagas_na_fila": workflow_jobs,
         "ultima_sincronizacao": last_sync.isoformat() if last_sync else None,
     }
 
