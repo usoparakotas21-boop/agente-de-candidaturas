@@ -31,7 +31,12 @@ def _app_base_url() -> str:
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
-AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
+_auth_default = "true" if (
+    os.getenv("RAILWAY_ENVIRONMENT", "").strip()
+    or os.getenv("RAILWAY_ENVIRONMENT_NAME", "").strip()
+    or os.getenv("ENVIRONMENT", "").strip().lower() in {"production", "prod"}
+) else "false"
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", _auth_default).lower() == "true"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ACCESS_COOKIE_NAME = "agente_access_token"
 REFRESH_COOKIE_NAME = "agente_refresh_token"

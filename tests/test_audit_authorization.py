@@ -1,0 +1,82 @@
+import asyncio
+import os
+import unittest
+from datetime import timedelta
+from unittest.mock import AsyncMock, patch
+
+from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from starlette.requests import Request
+
+from app import auth, main
+from app.database import Base
+from app.models import BillingSubscription, Candidate, utc_now
+from app.plan_limits import _effective_plan, ensure_opportunity_capacity
+
+
+class AuditAuthorizationTests(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine("sqlite://")
+        Base.metadata.create_all(self.engine)
+        self.sessions = sessionmaker(bind=self.engine)
+
+    def tearDown(self):
+        self.engine.dispose()
+
+    def test_profile_email_cannot_steal_subscription_or_admin_quota(self):
+        with self.sessions() as db:
+            db.add(Candidate(owner_id="attacker", name="Test", location="", phone="", linkedin="", target_roles="", summary="", email="contato@candidaturacerta.com.br"))
+            db.add(BillingSubscription(
+                owner_id="victim", payer_email="contato@candidaturacerta.com.br",
+                plan_code="consultoria", external_reference="audit-victim", status="authorized",
+                monthly_amount=19700, currency="BRL", access_until=utc_now() + timedelta(days=10),
+            ))
+            db.commit()
+            self.assertEqual(_effective_plan(db, "attacker", utc_now()), "essential")
+            self.assertEqual(ensure_opportunity_capacity(db, "attacker")["limit"], 50)
+            self.assertEqual(_effective_plan(db, "victim", utc_now()), "consultoria")
+
+    def test_entitlement_lookup_does_not_follow_other_candidates_email(self):
+        with self.sessions() as db:
+            db.add(Candidate(owner_id="victim", name="Test", location="", phone="", linkedin="", target_roles="", summary="", email="person@example.com"))
+            db.add(BillingSubscription(
+                owner_id="victim", payer_email="person@example.com", plan_code="pro",
+                external_reference="audit-sub", status="authorized", monthly_amount=9900,
+                currency="BRL", access_until=utc_now() + timedelta(days=10),
+            ))
+            db.commit()
+        with patch.object(main, "SessionLocal", self.sessions):
+            self.assertFalse(main._get_user_plan_and_entitlement(
+                {"id": "attacker", "email": "person@example.com"}
+            )["entitled"])
+            self.assertTrue(main._get_user_plan_and_entitlement(
+                {"id": "victim", "email": "person@example.com"}
+            )["entitled"])
+
+    def test_debug_values_never_grant_admin(self):
+        request = Request({"type": "http", "headers": []})
+        for debug in ("true", "false", "1"):
+            with self.subTest(debug=debug), patch.dict(os.environ, {"DEBUG": debug}), patch.object(
+                auth, "_resolve_session", new=AsyncMock(return_value=({"id": "ordinary", "email": "ordinary@example.com"}, None))
+            ):
+                with self.assertRaises(HTTPException) as caught:
+                    asyncio.run(main._require_admin(request))
+                self.assertEqual(caught.exception.status_code, 403)
+
+    def test_admin_cannot_skip_verified_email_or_mfa(self):
+        request = Request({"type": "http", "headers": []})
+        user = {"id": "admin", "email": "contato@candidaturacerta.com.br", "email_confirmed_at": None}
+        with patch.object(auth, "_resolve_session", new=AsyncMock(return_value=(user, None))):
+            with self.assertRaises(HTTPException):
+                asyncio.run(main._require_admin(request))
+        user["email_confirmed_at"] = "2026-10-01"
+        with patch.object(auth, "_resolve_session", new=AsyncMock(return_value=(user, None))), patch.object(
+            auth, "_session_requires_mfa", return_value=True
+        ):
+            with self.assertRaises(HTTPException):
+                asyncio.run(main._require_admin(request))
+
+
+if __name__ == "__main__":
+    unittest.main()

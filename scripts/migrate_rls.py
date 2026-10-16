@@ -10,6 +10,7 @@ from sqlalchemy import text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database import Base, engine
+from app.rls_security import protect_financial_tables
 from app import models as _models  # Register tables before applying owner policies.
 
 
@@ -121,6 +122,7 @@ def setup_rls() -> None:
             "CREATE POLICY job_listings_active_read ON job_listings "
             "FOR SELECT TO anon, authenticated USING (status = 'active')"
         ))
+        protect_financial_tables(connection)
         for table, expression in CHILD_POLICIES.items():
             _create_policy(connection, table, " ".join(expression.split()))
 

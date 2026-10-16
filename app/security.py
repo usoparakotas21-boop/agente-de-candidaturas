@@ -1,7 +1,9 @@
 import secrets
+from urllib.parse import urlsplit
 from contextvars import ContextVar
 
 from fastapi import Request
+from starlette.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
@@ -29,10 +31,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
     async def dispatch(self, request: Request, call_next):
+        # SameSite=Lax does not block a compromised sibling subdomain.
+        # Webhooks authenticate their provider signature; the extension uses
+        # its explicit bearer credential rather than ambient cookies.
+        denied = None
+        provider_path = request.url.path.rstrip("/") in {
+            "/webhooks/mercadopago", "/api/billing/webhook",
+        }
+        bearer_extension = (
+            request.url.path.startswith("/api/copilot/")
+            and request.headers.get("authorization", "").lower().startswith("bearer ")
+        )
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and not provider_path and not bearer_extension:
+            from app.auth import APP_BASE_URL
+
+            origin = request.headers.get("origin")
+            expected = urlsplit(APP_BASE_URL)
+            trusted_origin = f"{expected.scheme}://{expected.netloc}"
+            if (origin is not None and origin != trusted_origin) or request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
+                denied = JSONResponse({"detail": "Origem da solicitacao nao permitida."}, status_code=403)
         nonce = secrets.token_urlsafe(18)
         token = _CSP_NONCE.set(nonce)
         try:
-            response = await call_next(request)
+            response = denied if denied is not None else await call_next(request)
         finally:
             _CSP_NONCE.reset(token)
         response.headers.setdefault("Content-Security-Policy", self.content_security_policy(nonce))

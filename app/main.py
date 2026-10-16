@@ -86,7 +86,6 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
     }
     env_admins = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
     if user_email in BYPASS_EMAILS or user_email in env_admins or is_admin(user):
-        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: CONSULTORIA (BYPASS ADMIN/TESTE)", flush=True)
         return {
             "plan": "consultoria",
             "is_pro": True,
@@ -99,20 +98,8 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
 
     db = SessionLocal()
     try:
-        candidate_owner_id = None
-        if user_email:
-            cand = db.scalar(select(Candidate).where(func.lower(Candidate.email) == user_email).limit(1))
-            if cand and cand.owner_id:
-                candidate_owner_id = cand.owner_id
-
-        # Build resilient dual-lookup clauses
-        clauses = []
-        if owner_id:
-            clauses.append(BillingSubscription.owner_id == owner_id)
-        if candidate_owner_id and candidate_owner_id != owner_id:
-            clauses.append(BillingSubscription.owner_id == candidate_owner_id)
-        if user_email:
-            clauses.append(func.lower(BillingSubscription.payer_email) == user_email)
+        # Entitlements belong to the verified Auth subject, never profile/payer email.
+        clauses = [BillingSubscription.owner_id == owner_id] if owner_id else []
 
         now = utc_now()
         sub = None
@@ -159,7 +146,6 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
 
             if has_access and plan_code != "essential":
                 is_pro_tier = plan_code in ("pro", "consultoria", "start_plus") or (is_courtesy and plan_code in ("pro", "consultoria"))
-                print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: {plan_code.upper()} (CORTESIA/ASSINATURA ATIVA)", flush=True)
                 return {
                     "plan": plan_code,
                     "is_pro": is_pro_tier,
@@ -170,7 +156,6 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
                     "email": user_email,
                 }
 
-        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: ESSENTIAL", flush=True)
         return {
             "plan": "essential",
             "is_pro": False,
@@ -182,7 +167,6 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         }
     except Exception as e:
         logger.exception("Error checking dynamic user plan: %s", e)
-        print(f"-> VALIDANDO ACESSO PARA EMAIL: {user_email} | PLANO ENCONTRADO: ERRO ({str(e)})", flush=True)
         return {"plan": "essential", "is_pro": False, "is_consultoria": False, "is_admin": False, "entitled": False, "reason": "db_error", "email": user_email}
     finally:
         db.close()
@@ -1592,6 +1576,8 @@ def startup():
             for table in ("billing_subscriptions", "consultation_credits", "billing_webhook_events"):
                 if not _postgres_rls_enabled(db, table):
                     db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            from .rls_security import protect_financial_tables
+            protect_financial_tables(db)
             # Mercado Pago notifications are server-to-server records.  They
             # must never be exposed to browser roles, even when the table is
             # present in a Supabase public schema.
@@ -7550,25 +7536,21 @@ def _admin_actor(user: dict | None) -> str:
 
 
 def _admin_allowed(user: dict | None) -> bool:
-    email = _admin_actor(user)
-    configured = {
-        item.strip().casefold()
-        for item in os.getenv(
-            "ADMIN_EMAILS",
-            "usoparakotas4@gmail.com,usoparakotas21@gmail.com,contato@candidaturacerta.com.br",
-        ).split(",")
-        if item.strip()
-    }
-    return bool(email and (email in configured or is_admin(user)))
+    return is_admin(user)
 
 
 async def _require_admin(request: Request) -> dict:
-    from .auth import _resolve_session
+    from .auth import _resolve_session, _email_is_verified, _session_requires_mfa, ACCESS_COOKIE_NAME
 
-    user, _ = await _resolve_session(request)
+    user, renewed = await _resolve_session(request)
     if not user:
         raise HTTPException(401, "Login necessário.")
-    if not _admin_allowed(user) and not os.getenv("DEBUG"):
+    if not _email_is_verified(user):
+        raise HTTPException(403, "Confirme seu e-mail antes de continuar.")
+    access_token = (renewed or {}).get("access_token") or request.cookies.get(ACCESS_COOKIE_NAME)
+    if _session_requires_mfa(user, access_token):
+        raise HTTPException(403, "Conclua a autenticação de dois fatores.")
+    if not _admin_allowed(user):
         raise HTTPException(403, "Acesso restrito ao time de desenvolvimento.")
     return user
 
@@ -7845,8 +7827,7 @@ async def admin_dashboard(request: Request):
     if not user:
         return RedirectResponse("/admin/login", status_code=303)
         
-    if not _admin_allowed(user) and not os.getenv("DEBUG"):
-        return HTMLResponse("Acesso Negado", status_code=403)
+    await _require_admin(request)
         
     session = SessionLocal()
     total_users = 0
