@@ -1,0 +1,7 @@
+Run: https://github.com/usoparakotas21-boop/agente-de-candidaturas/actions/runs/38944929969
+Code commit: 95e758d2def8ee11f6fa9fafe77d436fde1951b9
+Conclusion: success
+527 passed, 6 warnings, 72 subtests passed in 14.53s
+PostgreSQL integration tests: 8 passed, none skipped
+JavaScript: 30 passed
+pip check: passed
