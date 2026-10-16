@@ -49,7 +49,7 @@ A configuração lista os nomes AUTH_REQUIRED, COOKIE_SECURE, MFA_LOGIN_ENFORCE,
 
 ## Validação e reprodução
 
-- Python 3.12.10, ambiente virtual exclusivo: `python -m pytest tests -q` → **518 passed, 8 skipped**, 72 subtests; os oito skips são testes PostgreSQL da nova proteção financeira.
+- Python 3.12.10, ambiente virtual exclusivo: `python -m pytest tests -q` → **519 passed, 8 skipped**, 72 subtests; os oito skips são testes PostgreSQL da nova proteção financeira.
 - Node 24.19: cinco arquivos de testes selecionados, incluindo novo teste XSS → **30 passed**.
 - `python -m pip check` → No broken requirements found.
 - `git diff --check` passou (CRLF reconhecido na configuração local).

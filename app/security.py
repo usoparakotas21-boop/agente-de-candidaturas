@@ -43,12 +43,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             and request.headers.get("authorization", "").lower().startswith("bearer ")
         )
         if request.method not in {"GET", "HEAD", "OPTIONS"} and not provider_path and not bearer_extension:
-            from app.auth import APP_BASE_URL
+            from app.auth import APP_BASE_URL, AUTH_REQUIRED
 
             origin = request.headers.get("origin")
             expected = urlsplit(APP_BASE_URL)
             trusted_origin = f"{expected.scheme}://{expected.netloc}"
-            if (origin is not None and origin != trusted_origin) or request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
+            trusted_origins = {trusted_origin}
+            if not AUTH_REQUIRED and request.url.hostname in {"localhost", "127.0.0.1", "::1"}:
+                trusted_origins.add(f"{request.url.scheme}://{request.url.netloc}")
+            if (origin is not None and origin not in trusted_origins) or request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
                 denied = JSONResponse({"detail": "Origem da solicitacao nao permitida."}, status_code=403)
         nonce = secrets.token_urlsafe(18)
         token = _CSP_NONCE.set(nonce)

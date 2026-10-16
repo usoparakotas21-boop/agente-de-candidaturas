@@ -43,3 +43,16 @@ def test_webhooks_and_bearer_extension_keep_their_own_authentication():
         assert client.post("/api/billing/webhook", headers={"Origin": "https://provider.example"}).status_code == 200
         assert client.post("/api/copilot/profile", headers={"Origin": "chrome-extension://example", "Authorization": "Bearer test"}).status_code == 200
         assert client.post("/api/copilot/profile", headers={"Origin": "https://evil.example"}).status_code == 403
+
+
+def test_local_mode_accepts_only_its_loopback_origin():
+    app = FastAPI()
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    @app.post("/change")
+    def change():
+        return {"ok": True}
+
+    with patch("app.auth.AUTH_REQUIRED", False), TestClient(app, base_url="http://localhost:8000") as client:
+        assert client.post("/change", headers={"Origin": "http://localhost:8000"}).status_code == 200
+        assert client.post("/change", headers={"Origin": "http://localhost:9000"}).status_code == 403
