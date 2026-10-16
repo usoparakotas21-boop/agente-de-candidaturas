@@ -18,7 +18,7 @@ jobs:
           POSTGRES_PASSWORD: local-test-only
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready --health-interval 5s
+          --health-cmd "pg_isready -U postgres -d audit_security" --health-interval 5s
           --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: 'sqlite://'

@@ -45,7 +45,7 @@ Advisor também reportou RLS sem política em billing_webhook_events. Isso é co
 
 Railway: projeto truthful-vision, serviço web, ambiente production. Build RAILPACK/V3, runtime V2, uma réplica em sfo, healthcheck `/health`, Uvicorn `app.main:app`, domínio customizado. Não há Dockerfile em uso nesse builder; o Dockerfile do repositório copia todo o checkout e roda como root, recomendando-se contexto mínimo e usuário sem privilégios caso venha a ser usado.
 
-A configuração lista os nomes AUTH_REQUIRED, COOKIE_SECURE, MFA_LOGIN_ENFORCE, PWNED_PASSWORD_CHECK, RATE_LIMIT_DISTRIBUTED_REQUIRED, credenciais OAuth, banco, Redis, pagamento e TOKEN_ENCRYPTION_KEY. **Presença do nome não confirma valor correto, robustez, rotação ou uso efetivo.** Valores foram deliberadamente omitidos da inspeção.
+A configuração lista os nomes AUTH_REQUIRED, COOKIE_SECURE, MFA_LOGIN_ENFORCE, PWNED_PASSWORD_CHECK, RATE_LIMIT_DISTRIBUTED_REQUIRED, credenciais OAuth, banco, Redis, pagamento e TOKEN_ENCRYPTION_KEY. **Presença do nome não confirma valor correto, robustez, rotação ou uso efetivo.** Uma chamada específica de leitura de variáveis confirmou `valuesRedacted=true`: o conector OAuth retorna apenas nomes, sem permitir conferir os valores. Nenhum segredo foi exposto.
 
 ## Validação e reprodução
 
@@ -54,8 +54,12 @@ A configuração lista os nomes AUTH_REQUIRED, COOKIE_SECURE, MFA_LOGIN_ENFORCE,
 - `python -m pip check` → No broken requirements found.
 - `git diff --check` passou (CRLF reconhecido na configuração local).
 - Testes PostgreSQL reais: `tests/test_audit_rls_postgres.py` exige `AUDIT_POSTGRES_URL`, host local, nome `audit_*` e schema public vazio. Tudo ocorre em transação com rollback. Confere bloqueio INSERT/UPDATE/DELETE/TRUNCATE para anon/authenticated, leitura do próprio usuário, invisibilidade de outra linha, escrita de backend e idempotência. **Não executar apontando para produção.**
-- Workflow `.github/workflows/security-regression.yml` prepara banco efêmero para executar esses testes no GitHub. Resultado remoto deve ser consultado na execução associada à branch; existência do workflow não significa aprovação dos testes.
+- Workflow `.github/workflows/security-regression.yml` prepara banco efêmero para executar esses testes no GitHub. Primeira execução remota [38944494371](https://github.com/usoparakotas21-boop/agente-de-candidaturas/actions/runs/38944494371), commit `4630bbd`, aprovada: **526 testes Python, sem skips**, incluindo os oito de PostgreSQL, além dos 30 testes JavaScript e pip check. A revisão de origem local foi validada novamente localmente e possui execução remota própria.
 - `dependencies-before.json` e `dependencies-after.json` registram pins e avisos; os resumos de testes estão nesta pasta. Não há credenciais nesses anexos.
+
+## Falha intermitente encontrada na validação
+
+A execução [38944602069](https://github.com/usoparakotas21-boop/agente-de-candidaturas/actions/runs/38944602069) encerrou com código 139 durante um teste preexistente de arquivo estático. O stack mostrou limpeza em `asyncio.to_thread` acessando SQLite simultaneamente ao descarte da conexão no lifespan. Os oito testes PostgreSQL tinham terminado sem falhas antes desse encerramento. O teste estático passou a substituir o startup e os workers por mocks, pois sua responsabilidade é servir o arquivo sem autenticação. Isso elimina a corrida criada pelo próprio teste, sem alterar o comportamento de produção. Permanece recomendável revisar drenagem de threads no shutdown em instalações SQLite; cancelar a tarefa async não interrompe o trabalho já iniciado na thread. Não foi demonstrado crash equivalente no PostgreSQL de produção.
 
 ## Próximas ações, sem implantação automática
 

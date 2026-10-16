@@ -65,7 +65,16 @@ class WebhookSecurityTest(unittest.TestCase):
             poolclass=StaticPool,
         )
         local_session = sessionmaker(bind=engine)
-        with patch.object(main_module, "engine", engine), patch.object(main_module, "SessionLocal", local_session):
+        # This only verifies a public static response. Starting real retention
+        # workers races SQLite connection disposal during TestClient shutdown.
+        with (
+            patch.object(main_module, "engine", engine),
+            patch.object(main_module, "SessionLocal", local_session),
+            patch.object(main_module, "startup"),
+            patch.object(main_module, "iniciar_agendador"),
+            patch.object(main_module, "executar_rotina_varredura", new=AsyncMock()),
+            patch.object(main_module, "executar_rotina_sincronizacao_emails", new=AsyncMock()),
+        ):
             with TestClient(main_module.app) as client:
                 response = client.get("/static/security-enhance.js?v=3")
 
