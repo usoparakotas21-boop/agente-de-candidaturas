@@ -63,7 +63,7 @@ Changelog Supabase foi recuperado e revisado. Atenção operacional: a mudança 
 - JavaScript: **30 passed**, zero skips/falhas.
 - Dependências: `pip check` aprovado; pins sem avisos; auditoria com resolução de dependências **98 pacotes, zero avisos conhecidos**.
 - `git diff --check` aprovado.
-- Workflow isolado PostgreSQL 17 mantido e ampliado com `pip-audit`. Validação CI e URL serão registradas abaixo quando disponíveis. Nenhum segredo de produção é utilizado pelo workflow de regressão.
+- Workflow isolado PostgreSQL 17 mantido e ampliado com `pip-audit`. [CI 39694541264](https://github.com/usoparakotas21-boop/agente-de-candidaturas/actions/runs/39694541264), commit `219fe380bab18c26356eb4a1714c3b71f9f66bac`, **aprovada: 547 testes Python, zero skips, 87 subtests e 30 testes JavaScript**. Os oito testes PostgreSQL reais passaram. `pip check` e `pip-audit` também passaram em Linux. Nenhum segredo de produção é utilizado pelo workflow de regressão.
 
 Evidências: `python-tests.txt`, `javascript-tests.txt`, `pip-check.txt`, `dependencies-before.json`, `dependencies-after.json`, `dependencies-resolved.json`, `dependency-audit.txt`, `secret-pattern-scan.json`. Contagens de avisos refletem a base consultada em 21/10; não são contagem de explorações comprovadas.
 
@@ -71,12 +71,16 @@ Evidências: `python-tests.txt`, `javascript-tests.txt`, `pip-check.txt`, `depen
 
 Branch isolada inclui as correções anteriores e esta rodada: centralização de assinatura, SSRF por conexão ao IP validado, revogação de privilégios que RLS não restringe, flags de produção obrigatórios, atualizações de dependências e testes correspondentes. Arquivos completos e diff serão disponibilizados junto ao relatório.
 
+[Branch publicada para revisão](https://github.com/usoparakotas21-boop/agente-de-candidaturas/tree/audit/seis-frentes-2026-10-21). A criação de PR em rascunho pelo conector foi recusada com HTTP 403 `Resource not accessible by integration`; nenhum PR foi criado. Isso não impediu a publicação da branch e a execução da CI por push. O commit posterior de documentação não muda o código validado em `219fe38`.
+
 Antes de eventual implantação: revisar as mudanças, reconciliar identificadores legados, testar a migração em staging, homologar integrações/documentos e completar a auditoria Railway após reautenticação. A implantação não faz parte desta execução. Permanecem explicitamente abertos os pontos externos acima, OAuth nonce único, alinhamento administrativo, legado de assinaturas sem prazo e cobertura dos demais clientes HTTP.
 
 ## Referências técnicas verificadas
 
 - [Supabase RLS e grants](https://supabase.com/docs/guides/database/postgres/row-level-security).
 - [Changelog Supabase](https://supabase.com/changelog).
+- [Mudança dos grants de novas tabelas](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically).
+- [Atualização PostgreSQL 15.19/17.11](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes).
 - [HTTPX: sni_hostname, conexão a IP e identidade TLS](https://www.python-httpx.org/advanced/extensions/).
 - [Starlette: notas de versão](https://www.starlette.io/release-notes/).
 - [FastAPI: notas de versão](https://fastapi.tiangolo.com/release-notes/).
