@@ -1,0 +1,24 @@
+.................................................. [  9%]
+........ssssssss........................................................ [ 22%]
+........................................................................ [ 35%]
+........................................................................................................................................... [ 60%]
+........................................................................ [ 74%]
+..............................................................................................................................................               [100%]
+============================== warnings summary ===============================
+.venv-audit\Lib\site-packages\reportlab\lib\rl_safe_eval.py:12
+  C:\Users\mumuz\.codex\.chatgpt-projects\g-p-6ac9bc0d83e881919c6de4d18c52c010\auditoria-repo\.venv-audit\Lib\site-packages\reportlab\lib\rl_safe_eval.py:12: DeprecationWarning: ast.NameConstant is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    haveNameConstant = hasattr(ast,'NameConstant')
+
+.venv-audit\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\mumuz\.codex\.chatgpt-projects\g-p-6ac9bc0d83e881919c6de4d18c52c010\auditoria-repo\.venv-audit\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_auth.py::AuthMiddlewareTest::test_private_route_accepts_aal2_and_users_without_totp
+tests/test_auth.py::AuthMiddlewareTest::test_private_route_accepts_aal2_and_users_without_totp
+tests/test_auth.py::AuthMiddlewareTest::test_private_route_blocks_old_aal1_session_after_totp_is_enabled
+tests/test_auth.py::AuthMiddlewareTest::test_refreshed_aal1_session_with_verified_totp_is_blocked
+  C:\Users\mumuz\.codex\.chatgpt-projects\g-p-6ac9bc0d83e881919c6de4d18c52c010\auditoria-repo\.venv-audit\Lib\site-packages\httpx\_client.py:812: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    warnings.warn(message, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+539 passed, 8 skipped, 6 warnings, 87 subtests passed in 30.79s

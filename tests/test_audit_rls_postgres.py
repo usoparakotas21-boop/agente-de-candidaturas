@@ -31,8 +31,17 @@ def test_financial_writes_are_server_only(role, command):
                     connection.execute(text(f'INSERT INTO public."{table}" VALUES (\'owner-a\', \'pending\'), (\'owner-b\', \'paid\')'))
                     connection.execute(text(f'GRANT ALL ON public."{table}" TO anon, authenticated'))
                     connection.execute(text(f'CREATE POLICY owner_all ON public."{table}" FOR ALL TO authenticated USING (owner_id = \'owner-a\') WITH CHECK (owner_id = \'owner-a\')'))
+                # Include a nonfinancial table: RLS cannot constrain TRUNCATE.
+                connection.execute(text('CREATE TABLE public.audit_profile (owner_id text)'))
+                connection.execute(text('GRANT ALL ON public.audit_profile TO anon, authenticated'))
                 protect_financial_tables(connection)
                 protect_financial_tables(connection)  # Idempotent with existing permissive policies.
+                for client_role in ("anon", "authenticated"):
+                    for table in (*FINANCIAL_TABLES, "audit_profile"):
+                        for privilege in ("TRUNCATE", "TRIGGER", "REFERENCES", "MAINTAIN"):
+                            assert not connection.scalar(text(
+                                "SELECT has_table_privilege(:role, :table, :privilege)"
+                            ), {"role": client_role, "table": f"public.{table}", "privilege": privilege})
                 # The privileged backend retains write access.
                 connection.execute(text('UPDATE public.billing_subscriptions SET status=\'active\' WHERE owner_id=\'owner-b\''))
                 connection.execute(text(f"SET LOCAL ROLE {role}"))

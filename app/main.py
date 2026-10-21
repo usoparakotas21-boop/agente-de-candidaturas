@@ -54,6 +54,7 @@ def _mercadopago_public_key() -> str:
     )
 
 import httpx
+from .billing_access import subscription_for_owner, subscription_has_access
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
@@ -98,51 +99,15 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
 
     db = SessionLocal()
     try:
-        # Entitlements belong to the verified Auth subject, never profile/payer email.
-        clauses = [BillingSubscription.owner_id == owner_id] if owner_id else []
-
+        # Shared lookup never follows profile or payer email.
         now = utc_now()
-        sub = None
-        if clauses:
-            # Priority 1: Check active, authorized, or explicit CORTESIA subscriptions
-            sub = db.scalar(
-                select(BillingSubscription)
-                .where(or_(*clauses))
-                .where(
-                    or_(
-                        BillingSubscription.status.in_(["authorized", "active"]),
-                        BillingSubscription.external_reference.ilike("%cortesia%"),
-                        BillingSubscription.access_until > now,
-                    )
-                )
-                .order_by(BillingSubscription.id.desc())
-                .limit(1)
-            )
-
-            # Priority 2: Check latest subscription record if not found above
-            if not sub:
-                sub = db.scalar(
-                    select(BillingSubscription)
-                    .where(or_(*clauses))
-                    .order_by(BillingSubscription.id.desc())
-                    .limit(1)
-                )
+        sub = subscription_for_owner(db, owner_id, now)
 
         if sub:
             plan_code = str(sub.plan_code or "essential").strip().lower()
             is_courtesy = "cortesia" in str(sub.external_reference or "").lower()
             
-            has_access = False
-            if sub.access_until:
-                access_until = sub.access_until
-                if access_until.tzinfo is None:
-                    access_until = access_until.replace(tzinfo=timezone.utc)
-                if access_until > now:
-                    has_access = True
-            elif sub.status in ("authorized", "active") or is_courtesy:
-                has_access = True
-            elif _subscription_is_entitled(sub):
-                has_access = True
+            has_access = subscription_has_access(sub, now)
 
             if has_access and plan_code != "essential":
                 is_pro_tier = plan_code in ("pro", "consultoria", "start_plus") or (is_courtesy and plan_code in ("pro", "consultoria"))

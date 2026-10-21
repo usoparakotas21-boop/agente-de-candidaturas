@@ -64,6 +64,25 @@ class AuditAuthorizationTests(unittest.TestCase):
                     asyncio.run(main._require_admin(request))
                 self.assertEqual(caught.exception.status_code, 403)
 
+    def test_quota_and_entitlement_agree_on_paid_period(self):
+        for status in ("active", "authorized", "paused", "canceled", "pending"):
+            for period in (None, -1, 1):
+                with self.subTest(status=status, period=period), self.sessions() as db:
+                    db.query(BillingSubscription).delete()
+                    db.add(BillingSubscription(
+                        owner_id="owner", payer_email="person@example.com", plan_code="pro",
+                        external_reference="audit-period", status=status, monthly_amount=9900,
+                        currency="BRL", access_until=None if period is None else utc_now() + timedelta(days=period),
+                    ))
+                    db.commit()
+                    with patch.object(main, "SessionLocal", self.sessions):
+                        entitlement = main._get_user_plan_and_entitlement(
+                            {"id": "owner", "email": "person@example.com"}
+                        )
+                    expected = period == 1 or (period is None and status in {"active", "authorized"})
+                    self.assertEqual(entitlement["entitled"], expected)
+                    self.assertEqual(_effective_plan(db, "owner", utc_now()), "pro" if expected else "essential")
+
     def test_admin_cannot_skip_verified_email_or_mfa(self):
         request = Request({"type": "http", "headers": []})
         user = {"id": "admin", "email": "contato@candidaturacerta.com.br", "email_confirmed_at": None}

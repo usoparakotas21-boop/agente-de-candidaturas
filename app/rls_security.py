@@ -12,6 +12,28 @@ FINANCIAL_TABLES = (
 )
 
 
+def protect_client_table_privileges(connection) -> None:
+    """RLS does not constrain TRUNCATE; clients need no DDL-like privileges."""
+    connection.execute(text("""
+        DO $$ DECLARE target record; BEGIN
+            FOR target IN
+                SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            LOOP
+                EXECUTE format(
+                    'REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE public.%I FROM PUBLIC, anon, authenticated',
+                    target.tablename
+                );
+                IF current_setting('server_version_num')::int >= 170000 THEN
+                    EXECUTE format(
+                        'REVOKE MAINTAIN ON TABLE public.%I FROM PUBLIC, anon, authenticated',
+                        target.tablename
+                    );
+                END IF;
+            END LOOP;
+        END $$;
+    """))
+
+
 def protect_financial_tables(connection) -> None:
     """Keep client reads under existing owner policies; reserve writes for server roles.
 
@@ -19,6 +41,7 @@ def protect_financial_tables(connection) -> None:
     column-level grant exists. TRUNCATE bypasses RLS and must be revoked.
     Identifiers come exclusively from the fixed tuple above.
     """
+    protect_client_table_privileges(connection)
     for table in FINANCIAL_TABLES:
         connection.execute(text(f'ALTER TABLE public."{table}" ENABLE ROW LEVEL SECURITY'))
         connection.execute(text(

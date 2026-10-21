@@ -8,7 +8,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
-from .models import Application, BillingSubscription, Job, QueueItem, utc_now
+from .models import Application, Job, QueueItem, utc_now
+from .billing_access import subscription_for_owner, subscription_has_access
 
 
 MONTHLY_OPPORTUNITY_LIMITS = {
@@ -49,36 +50,11 @@ def month_window(now: datetime | None = None) -> tuple[datetime, datetime]:
 
 
 def _effective_plan(session: Session, owner_id: str, now: datetime) -> str:
-    # Profile email is user-editable and cannot establish billing ownership.
-    clauses = [BillingSubscription.owner_id == owner_id]
-
-    subscription = session.scalar(
-        select(BillingSubscription)
-        .where(or_(*clauses))
-        .where(
-            or_(
-                BillingSubscription.status.in_(["authorized", "active"]),
-                BillingSubscription.external_reference.ilike("%cortesia%"),
-                BillingSubscription.access_until > now,
-            )
-        )
-        .order_by(BillingSubscription.id.desc())
-        .limit(1)
-    )
-    if not subscription:
-        subscription = session.scalar(
-            select(BillingSubscription)
-            .where(or_(*clauses))
-            .order_by(BillingSubscription.id.desc())
-            .limit(1)
-        )
-    if subscription is None or str(subscription.plan_code or "").casefold() not in {"start", "pro", "consultoria"}:
+    subscription = subscription_for_owner(session, owner_id, now)
+    if not subscription_has_access(subscription, now):
         return "essential"
-    if str(subscription.status or "").casefold() not in {"authorized", "active", "paused", "canceled"} and "cortesia" not in str(subscription.external_reference or "").casefold():
-        return "essential"
-    if subscription.access_until and _utc(subscription.access_until) <= now:
-        return "essential"
-    return str(subscription.plan_code).casefold()
+    plan = str(subscription.plan_code or "").casefold()
+    return plan if plan in {"start", "pro", "consultoria"} else "essential"
 
 
 def monthly_opportunity_usage(
