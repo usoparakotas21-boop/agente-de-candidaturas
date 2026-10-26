@@ -65,7 +65,7 @@ def test_clients_cannot_reassign_or_null_ownership(connection, table, column, va
 
 
 def test_backend_can_reconcile_identity(connection):
-    assert connection.execute(text('UPDATE public.candidates SET owner_id=:owner, user_id=CAST(:owner AS uuid) WHERE id=4'), {'owner': A}).rowcount == 1
+    assert connection.execute(text('UPDATE public.candidates SET owner_id=:owner, user_id=CAST(:user_id AS uuid) WHERE id=4'), {'owner': A, 'user_id': A}).rowcount == 1
 
 
 @pytest.mark.parametrize('role', ['anon','authenticated'])
