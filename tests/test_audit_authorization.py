@@ -65,7 +65,7 @@ class AuditAuthorizationTests(unittest.TestCase):
                 self.assertEqual(caught.exception.status_code, 403)
 
     def test_quota_and_entitlement_agree_on_paid_period(self):
-        for status in ("active", "authorized", "paused", "canceled", "pending"):
+        for status in ("active", "authorized", "paused", "canceled", "pending", "suspended", "superseded", "rejected"):
             for period in (None, -1, 1):
                 with self.subTest(status=status, period=period), self.sessions() as db:
                     db.query(BillingSubscription).delete()
@@ -79,7 +79,7 @@ class AuditAuthorizationTests(unittest.TestCase):
                         entitlement = main._get_user_plan_and_entitlement(
                             {"id": "owner", "email": "person@example.com"}
                         )
-                    expected = period == 1
+                    expected = period == 1 and status not in {"suspended", "superseded", "rejected"}
                     self.assertEqual(entitlement["entitled"], expected)
                     self.assertEqual(_effective_plan(db, "owner", utc_now()), "pro" if expected else "essential")
 
@@ -95,6 +95,15 @@ class AuditAuthorizationTests(unittest.TestCase):
         ):
             with self.assertRaises(HTTPException):
                 asyncio.run(main._require_admin(request))
+
+
+    def test_superseded_record_never_hides_a_valid_active_subscription(self):
+        with self.sessions() as db:
+            db.add(BillingSubscription(owner_id="owner", payer_email="owner@example.com", plan_code="pro", external_reference="paid", status="authorized", monthly_amount=9900, currency="BRL", access_until=utc_now()+timedelta(days=10)))
+            db.flush()
+            db.add(BillingSubscription(owner_id="owner", payer_email="owner@example.com", plan_code="start", external_reference="old-courtesy", status="superseded", monthly_amount=0, currency="BRL", access_until=utc_now()+timedelta(days=15)))
+            db.commit()
+            self.assertEqual(_effective_plan(db, "owner", utc_now()), "pro")
 
     def test_courtesy_account_does_not_gain_admin_authority(self):
         user = {"id": "courtesy-owner", "email": "henriqueoliveirarh93@gmail.com", "email_confirmed_at": "2026-10-01"}
