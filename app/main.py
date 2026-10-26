@@ -49,7 +49,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, or_, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 
 def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
@@ -5116,12 +5116,7 @@ def get_current_subscription(user=Depends(authenticated_user)):
     db = SessionLocal()
     try:
         opportunity_usage = monthly_opportunity_usage(db, owner_id)
-        subscription = db.scalar(
-            select(BillingSubscription)
-            .where(or_(BillingSubscription.owner_id == owner_id, func.lower(BillingSubscription.payer_email) == str(user.get("email") or "").strip().lower()))
-            .order_by(BillingSubscription.updated_at.desc())
-            .limit(1)
-        )
+        subscription = subscription_for_owner(db, owner_id, utc_now())
         if is_admin(user):
             return {
                 "plan_code": "pro",
@@ -5723,18 +5718,7 @@ def download_pro_ebook(user=Depends(authenticated_user)):
         raise HTTPException(401, "Login necessário")
     db = SessionLocal()
     try:
-        subscription = db.scalar(
-            select(BillingSubscription)
-            .where(
-                or_(
-                    BillingSubscription.owner_id == owner_id,
-                    func.lower(BillingSubscription.payer_email) == str(user.get("email") or "").strip().lower(),
-                )
-            )
-            .where(BillingSubscription.status.in_(["authorized", "active", "pending", "paused"]))
-            .order_by(BillingSubscription.updated_at.desc())
-            .limit(1)
-        )
+        subscription = subscription_for_owner(db, owner_id, utc_now())
         has_access = subscription is not None and _subscription_is_entitled(subscription)
         plan = str(subscription.plan_code).casefold() if has_access and subscription.plan_code else "none"
 
@@ -7498,18 +7482,23 @@ async def _require_admin(request: Request) -> dict:
 
 def _admin_find_target(db, email: str) -> tuple[Candidate, str]:
     target_email = email.strip().casefold()
+    # Only the verified identity provider can map an email to an owner.
+    # Profile and payer emails can be edited and are not ownership proofs.
+    try:
+        owners = db.execute(text(
+            "SELECT CAST(id AS TEXT) FROM auth.users "
+            "WHERE lower(email) = :email AND email_confirmed_at IS NOT NULL LIMIT 2"
+        ), {"email": target_email}).scalars().all()
+    except SQLAlchemyError:
+        raise HTTPException(503, "Não foi possível verificar a conta no provedor de autenticação.") from None
+    if not owners:
+        raise HTTPException(404, "Conta com e-mail confirmado não encontrada.")
+    if len(owners) != 1:
+        raise HTTPException(409, "Há mais de uma conta confirmada para esse e-mail; concilie antes de continuar.")
+    owner_id = owners[0]
     candidate = db.scalar(
-        select(Candidate).where(func.lower(Candidate.email) == target_email).order_by(Candidate.id.desc()).limit(1)
+        select(Candidate).where(Candidate.owner_id == owner_id).order_by(Candidate.id.desc()).limit(1)
     )
-    owner_id = candidate.owner_id if candidate and candidate.owner_id else None
-    if not owner_id:
-        existing = db.scalar(
-            select(BillingSubscription)
-            .where(func.lower(BillingSubscription.payer_email) == target_email)
-            .order_by(BillingSubscription.updated_at.desc(), BillingSubscription.id.desc())
-            .limit(1)
-        )
-        owner_id = existing.owner_id if existing else str(uuid.uuid4())
     if not candidate:
         candidate = Candidate(
             owner_id=owner_id,
@@ -7523,8 +7512,6 @@ def _admin_find_target(db, email: str) -> tuple[Candidate, str]:
         )
         db.add(candidate)
         db.flush()
-    elif not candidate.owner_id:
-        candidate.owner_id = owner_id
     return candidate, owner_id
 
 
@@ -7550,7 +7537,7 @@ def _admin_apply_action(db, actor: str, payload: AdminActionRequest) -> dict:
         raise HTTPException(400, "Plano inválido.")
     candidate, owner_id = _admin_find_target(db, target_email)
     now = utc_now()
-    target_filter = or_(BillingSubscription.owner_id == owner_id, func.lower(BillingSubscription.payer_email) == target_email)
+    target_filter = BillingSubscription.owner_id == owner_id
 
     if payload.action in {"revoke_access", "suspend"}:
         status = "suspended" if payload.action == "suspend" else "canceled"
@@ -7644,12 +7631,12 @@ async def admin_overview(request: Request):
             })
         for auth_user in auth_users:
             email = str(auth_user.get("email") or "").strip().casefold()
-            if not email or email in seen_emails:
+            owner_id = str(auth_user.get("id") or "").strip()
+            if not email or not owner_id or owner_id in seen:
                 continue
-            seen.add(email)
+            seen.add(owner_id)
             seen_emails.add(email)
-            owner_id = str(auth_user.get("id") or "")
-            sub = latest_by_owner.get(owner_id) or latest_by_email.get(email)
+            sub = latest_by_owner.get(owner_id)
             active = bool(sub and sub.access_until and (sub.access_until.replace(tzinfo=timezone.utc) if sub.access_until.tzinfo is None else sub.access_until) > utc_now() and sub.status in {"authorized", "active", "paused"})
             users.append({
                 "email": email,
