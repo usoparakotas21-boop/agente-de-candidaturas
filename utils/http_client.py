@@ -27,6 +27,7 @@ from .anti_ban import (
     obter_configuracao_proxy,
     obter_headers_camuflados,
 )
+from .public_http import PublicAsyncTransport
 from .delays import sleep_with_jitter
 from .resilience import RetryPolicy, run_with_retries
 
@@ -471,16 +472,7 @@ def criar_cliente_protegido(
         "headers": obter_headers_camuflados(),
         "verify": True,
     }
-    if selected_proxy:
-        kwargs["proxies"] = selected_proxy
-    try:
-        return httpx.AsyncClient(**kwargs)
-    except TypeError:
-        # httpx 0.28 renamed the singular-client proxy argument.
-        if selected_proxy:
-            kwargs.pop("proxies", None)
-            kwargs["proxy"] = selected_proxy
-            return httpx.AsyncClient(**kwargs)
-        raise
-
-
+    # Validate and pin every destination, including redirects and proxy targets.
+    kwargs["trust_env"] = False
+    kwargs["transport"] = PublicAsyncTransport(proxy=selected_proxy)
+    return httpx.AsyncClient(**kwargs)

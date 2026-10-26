@@ -79,7 +79,7 @@ class AuditAuthorizationTests(unittest.TestCase):
                         entitlement = main._get_user_plan_and_entitlement(
                             {"id": "owner", "email": "person@example.com"}
                         )
-                    expected = period == 1 or (period is None and status in {"active", "authorized"})
+                    expected = period == 1
                     self.assertEqual(entitlement["entitled"], expected)
                     self.assertEqual(_effective_plan(db, "owner", utc_now()), "pro" if expected else "essential")
 
@@ -95,6 +95,24 @@ class AuditAuthorizationTests(unittest.TestCase):
         ):
             with self.assertRaises(HTTPException):
                 asyncio.run(main._require_admin(request))
+
+    def test_courtesy_account_does_not_gain_admin_authority(self):
+        user = {"id": "courtesy-owner", "email": "henriqueoliveirarh93@gmail.com", "email_confirmed_at": "2026-10-01"}
+        self.assertFalse(main.is_admin(user))
+        entitlement = main._get_user_plan_and_entitlement(user)
+        self.assertTrue(entitlement["entitled"])
+        self.assertFalse(entitlement["is_admin"])
+
+    def test_admin_requires_verified_identity_and_trusted_metadata(self):
+        user = {"id": "ordinary", "email": "ordinary@example.com", "email_confirmed_at": "2026-10-01", "user_metadata": {"is_admin": True}}
+        self.assertFalse(main.is_admin(user))
+        user["app_metadata"] = {"is_admin": "false"}
+        self.assertFalse(main.is_admin(user))
+        user["app_metadata"] = {"is_admin": True}
+        self.assertTrue(main.is_admin(user))
+        user["email_confirmed_at"] = None
+        self.assertFalse(main.is_admin(user))
+
 
 
 if __name__ == "__main__":

@@ -68,8 +68,11 @@ class OutlookIntegrationTest(unittest.IsolatedAsyncioTestCase):
         Base.metadata.create_all(bind=self.engine)
         self.session = sessionmaker(bind=self.engine)
         self.key = Fernet.generate_key().decode("ascii")
+        self.nonce_sessions = patch.object(outlook, "SessionLocal", self.session)
+        self.nonce_sessions.start()
 
     def tearDown(self):
+        self.nonce_sessions.stop()
         self.engine.dispose()
         self.temp_dir.cleanup()
 

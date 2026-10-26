@@ -17,6 +17,7 @@ from .auth import APP_BASE_URL, authenticated_user
 from .database import SessionLocal
 from .models import EmailIntegration
 from .oauth_urls import public_callback_url
+from .oauth_nonce import register_nonce, consume_nonce
 
 router = APIRouter(prefix="/auth/outlook", tags=["outlook"])
 AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
@@ -30,21 +31,28 @@ def _secret():
 
 
 def _state(owner_id):
+    if not _secret():
+        raise HTTPException(503, "Outlook ainda nao configurado.")
     body = json.dumps({"sub": owner_id, "exp": int(time.time()) + 600, "nonce": secrets.token_urlsafe(16)}, separators=(",", ":"), sort_keys=True)
     sig = hmac.new(_secret().encode(), body.encode(), hashlib.sha256).hexdigest()
+    payload = json.loads(body)
+    register_nonce(SessionLocal, "outlook", owner_id, payload["nonce"], payload["exp"])
     return body.encode().hex() + "." + sig
 
 
 def _validate_state(value, owner_id):
+    if not _secret():
+        raise HTTPException(503, "Outlook ainda nao configurado.")
     try:
         body, supplied = value.split(".", 1)
         raw = bytes.fromhex(body).decode()
         expected = hmac.new(_secret().encode(), raw.encode(), hashlib.sha256).hexdigest()
         data = json.loads(raw)
-        if not hmac.compare_digest(supplied, expected) or data.get("sub") != owner_id or int(data.get("exp", 0)) < int(time.time()):
+        if not hmac.compare_digest(supplied, expected) or data.get("sub") != owner_id or int(data.get("exp", 0)) <= int(time.time()):
             raise ValueError
     except Exception:
         raise HTTPException(400, "Autorizacao do Outlook expirada ou invalida.")
+    consume_nonce(SessionLocal, "outlook", owner_id, data.get("nonce"))
 
 
 def _redirect():

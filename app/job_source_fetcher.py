@@ -13,12 +13,12 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
 
+from utils.public_http import SourceFetchError, _public_addresses, _validate_public_url, _PublicURLTransport
+
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
 
 
-class SourceFetchError(RuntimeError):
-    pass
 
 
 class _StructuredDataParser(HTMLParser):
@@ -181,59 +181,6 @@ def extract_job_posting_html(page_html: str, url: str) -> dict[str, Any] | None:
     }
 
 
-def _public_addresses(url: str) -> list[str]:
-    try:
-        parsed = urlparse(url)
-        port = parsed.port
-    except ValueError as exc:
-        raise SourceFetchError("Link publico invalido.") from exc
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise SourceFetchError("Link publico invalido.")
-    if parsed.username or parsed.password:
-        raise SourceFetchError("Link com credenciais nao permitido.")
-    try:
-        default_port = 443 if parsed.scheme == "https" else 80
-        addresses = socket.getaddrinfo(parsed.hostname, port or default_port, type=socket.SOCK_STREAM)
-    except OSError as exc:
-        raise SourceFetchError("Nao foi possivel localizar o site da vaga.") from exc
-    if not addresses:
-        raise SourceFetchError("Nao foi possivel localizar o site da vaga.")
-    for address in addresses:
-        ip = ipaddress.ip_address(address[4][0])
-        if not ip.is_global:
-            raise SourceFetchError("O link nao aponta para um site publico.")
-    return list(dict.fromkeys(address[4][0] for address in addresses))
-
-
-def _validate_public_url(url: str) -> str:
-    _public_addresses(url)
-    return url
-
-
-class _PublicURLTransport(httpx.HTTPTransport):
-    """Connect to a validated literal IP while retaining Host and TLS identity.
-
-    Resolution and connection share the same address, closing DNS rebinding.
-    HTTPX/httpcore forward sni_hostname to TLS certificate verification too.
-    Each redirect is resolved independently; environment proxies are disabled.
-    """
-
-    def __init__(self):
-        # Different names may share an IP; never reuse TLS across identities.
-        super().__init__(limits=httpx.Limits(max_keepalive_connections=0), trust_env=False)
-
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        addresses = _public_addresses(str(request.url))
-        target = request.url.copy_with(host=addresses[0])
-        headers = request.headers.copy()
-        headers["Host"] = request.url.netloc.decode("ascii")
-        extensions = dict(request.extensions)
-        extensions["sni_hostname"] = request.url.host
-        pinned = httpx.Request(
-            request.method, target, headers=headers, stream=request.stream,
-            extensions=extensions,
-        )
-        return super().handle_request(pinned)
 
 
 def fetch_job_posting(url: str) -> dict[str, Any] | None:

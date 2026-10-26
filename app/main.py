@@ -22,22 +22,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from weakref import WeakValueDictionary
 
+from .admin_identity import admin_emails, courtesy_emails, verified_identity, is_admin_identity
+
+
 def is_admin(user: Any | None) -> bool:
-    if not user: return False
-    email = ""
-    if isinstance(user, dict):
-        email = str(user.get("email") or "").strip().lower()
-    else:
-        email = str(getattr(user, "email", "") or "").strip().lower()
-    admin_emails = {
-        "contato@candidaturacerta.com.br",
-        "usoparakotas4@gmail.com",
-        "usoparakotas21@gmail.com",
-    }
-    env_admins = os.getenv("ADMIN_EMAILS", "")
-    if env_admins:
-        admin_emails.update(e.strip().lower() for e in env_admins.split(",") if e.strip())
-    return email in admin_emails
+    return is_admin_identity(user)
 
 def _mercadopago_token() -> str:
     return (
@@ -78,22 +67,18 @@ def _get_user_plan_and_entitlement(user: Any | None) -> dict[str, Any]:
         user_email = str(getattr(user, "email", "") or "").strip().lower()
         owner_id = str(getattr(user, "uid", getattr(user, "id", "")) or "").strip()
 
-    # 1. Master Admin, Test Accounts & Bypass List
-    BYPASS_EMAILS = {
-        "contato@candidaturacerta.com.br",
-        "henriqueoliveirarh93@gmail.com",
-        "usoparakotas4@gmail.com",
-        "usoparakotas21@gmail.com",
-    }
-    env_admins = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
-    if user_email in BYPASS_EMAILS or user_email in env_admins or is_admin(user):
+    # Administrative authority and courtesy benefits are separate decisions.
+    BYPASS_EMAILS = admin_emails() | courtesy_emails()
+    env_admins = admin_emails()
+    admin = is_admin(user)
+    if admin or (verified_identity(user) and user_email in BYPASS_EMAILS):
         return {
             "plan": "consultoria",
             "is_pro": True,
             "is_consultoria": True,
-            "is_admin": True,
+            "is_admin": admin,
             "entitled": True,
-            "reason": "bypass",
+            "reason": "bypass" if admin else "cortesia",
             "email": user_email,
         }
 
@@ -805,18 +790,7 @@ def _subscription_access_until(subscription: BillingSubscription | None) -> date
 
 
 def _subscription_is_entitled(subscription: BillingSubscription | None) -> bool:
-    access_until = _subscription_access_until(subscription)
-    if subscription is None or access_until is None:
-        return False
-    now = utc_now()
-    # SQLite may return a naive datetime even when timezone=True.
-    if access_until.tzinfo is None:
-        access_until = access_until.replace(tzinfo=timezone.utc)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    # A provider authorization is not proof of a paid period. Entitlement
-    # always ends at the latest confirmed access_until timestamp.
-    return access_until > now
+    return subscription_has_access(subscription, utc_now())
 
 
 def _mp_datetime(value: Any) -> datetime | None:
@@ -1531,7 +1505,7 @@ def startup():
                     END $$;
                 """))
             # Dispatcher state stays server-only: RLS is enabled without an authenticated policy.
-            for table in ("interview_email_outbox", "expiring_job_email_outbox", "job_ingestion_tasks"):
+            for table in ("interview_email_outbox", "expiring_job_email_outbox", "job_ingestion_tasks", "oauth_state_nonces"):
                 if not _postgres_rls_enabled(db, table):
                     db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
             db.execute(text("REVOKE ALL ON TABLE job_ingestion_tasks FROM anon, authenticated"))
@@ -1541,8 +1515,10 @@ def startup():
             for table in ("billing_subscriptions", "consultation_credits", "billing_webhook_events"):
                 if not _postgres_rls_enabled(db, table):
                     db.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
-            from .rls_security import protect_financial_tables
+            from .rls_security import protect_financial_tables, protect_user_identities, protect_oauth_state
             protect_financial_tables(db)
+            protect_user_identities(db)
+            protect_oauth_state(db)
             # Mercado Pago notifications are server-to-server records.  They
             # must never be exposed to browser roles, even when the table is
             # present in a Supabase public schema.
@@ -8041,17 +8017,7 @@ async def admin_grant(payload: AdminGrantRequest, request: Request):
 
 
 def _admin_subscription_is_active(subscription: BillingSubscription | None, now: datetime | None = None) -> bool:
-    if subscription is None or subscription.status not in {"authorized", "active", "paused", "canceled"}:
-        return False
-    expiry = subscription.access_until
-    if expiry is None:
-        return True
-    current = now or utc_now()
-    if expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=timezone.utc)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=timezone.utc)
-    return expiry > current
+    return subscription_has_access(subscription, now or utc_now())
 
 
 @app.get("/api/admin/metricas")

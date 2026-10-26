@@ -12,6 +12,60 @@ FINANCIAL_TABLES = (
 )
 
 
+def protect_oauth_state(connection) -> None:
+    connection.execute(text('ALTER TABLE public.oauth_state_nonces ENABLE ROW LEVEL SECURITY'))
+    connection.execute(text('REVOKE ALL ON TABLE public.oauth_state_nonces FROM PUBLIC, anon, authenticated'))
+    connection.execute(text('DROP POLICY IF EXISTS oauth_state_server_only ON public.oauth_state_nonces'))
+    connection.execute(text(
+        'CREATE POLICY oauth_state_server_only ON public.oauth_state_nonces AS RESTRICTIVE '
+        'FOR ALL TO anon, authenticated USING (false) WITH CHECK (false)'
+    ))
+
+
+def protect_user_identities(connection) -> None:
+    """Preserve legacy owner-only rows without permitting a second foreign owner."""
+    connection.execute(text("""
+        CREATE OR REPLACE FUNCTION public.audit_identity_guard()
+        RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog
+        AS $$ BEGIN
+            IF current_user IN ('anon', 'authenticated') AND (
+                (to_jsonb(OLD)->'owner_id') IS DISTINCT FROM (to_jsonb(NEW)->'owner_id') OR
+                (to_jsonb(OLD)->'user_id') IS DISTINCT FROM (to_jsonb(NEW)->'user_id')
+            ) THEN
+                RAISE EXCEPTION 'Ownership changes require the server reconciliation path'
+                    USING ERRCODE = '42501';
+            END IF;
+            RETURN NEW;
+        END $$;
+        REVOKE ALL ON FUNCTION public.audit_identity_guard() FROM PUBLIC, anon, authenticated;
+    """))
+    has_admin = bool(connection.scalar(text("SELECT to_regprocedure('public.is_admin()') IS NOT NULL")))
+    for table in ("candidates", "candidatos", "email_integrations"):
+        columns = set(connection.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name=:table "
+            "AND column_name IN ('owner_id','user_id')"
+        ), {"table": table}).scalars())
+        if not columns:
+            continue
+        checks = [f'("{column}" IS NULL OR "{column}"::text = (SELECT auth.uid())::text)' for column in sorted(columns)]
+        present = " OR ".join(f'"{column}" IS NOT NULL' for column in sorted(columns))
+        expression = " AND ".join(checks) + f" AND ({present})"
+        if has_admin:
+            expression = f"((SELECT public.is_admin()) OR ({expression}))"
+        connection.execute(text(f'ALTER TABLE public."{table}" ENABLE ROW LEVEL SECURITY'))
+        connection.execute(text(f'DROP POLICY IF EXISTS audit_identity_consistent ON public."{table}"'))
+        connection.execute(text(
+            f'CREATE POLICY audit_identity_consistent ON public."{table}" AS RESTRICTIVE '
+            f'FOR ALL TO authenticated USING ({expression}) WITH CHECK ({expression})'
+        ))
+        connection.execute(text(f'DROP TRIGGER IF EXISTS audit_identity_immutable ON public."{table}"'))
+        connection.execute(text(
+            f'CREATE TRIGGER audit_identity_immutable BEFORE UPDATE ON public."{table}" '
+            'FOR EACH ROW EXECUTE FUNCTION public.audit_identity_guard()'
+        ))
+
+
 def protect_client_table_privileges(connection) -> None:
     """RLS does not constrain TRUNCATE; clients need no DDL-like privileges."""
     connection.execute(text("""

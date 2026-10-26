@@ -19,6 +19,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
 
+class OAuthStateNonce(Base):
+    """Short-lived, server-only ledger; never stores raw OAuth state or tokens."""
+    __tablename__ = "oauth_state_nonces"
+
+    nonce_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(16), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
 class Candidate(Base):
     __tablename__ = "candidates"
 

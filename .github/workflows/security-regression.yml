@@ -40,3 +40,5 @@ jobs:
       - run: python -m pip_audit -r requirements.txt --progress-spinner off
       - run: python -m pytest tests -q
       - run: node --test tests/test_audit_xss.cjs tests/chrome-extension.test.cjs tests/test_landing_checkout.cjs tests/test_ai_simulator.js tests/test_guided_onboarding.js
+      - run: docker build -t candidatura-audit .
+      - run: docker run --rm -e ENVIRONMENT=production -e DATABASE_URL=sqlite:// candidatura-audit python -m scripts.container_smoke

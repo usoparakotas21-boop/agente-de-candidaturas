@@ -10,7 +10,7 @@ from sqlalchemy import text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database import Base, engine
-from app.rls_security import protect_financial_tables
+from app.rls_security import protect_financial_tables, protect_user_identities, protect_oauth_state
 from app import models as _models  # Register tables before applying owner policies.
 
 
@@ -39,6 +39,7 @@ DIRECT_OWNER_TABLES = (
 # Non-owner-scoped tables receive only their explicit least-privilege policies.
 # Dispatch outboxes stay server-only; the catalog exposes active listings read-only.
 INTERNAL_RLS_TABLES = (
+    "oauth_state_nonces",
     "interview_email_outbox",
     "expiring_job_email_outbox",
     "job_listings",
@@ -114,8 +115,10 @@ def setup_rls() -> None:
             _create_policy(connection, table, "owner_id = auth.uid()::text")
         for table in INTERNAL_RLS_TABLES:
             connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
-            if table in {"job_ingestion_tasks", "job_ingestion_runs", "billing_webhook_events"}:
+            if table in {"job_ingestion_tasks", "job_ingestion_runs", "billing_webhook_events", "oauth_state_nonces"}:
                 connection.execute(text(f'REVOKE ALL ON TABLE "{table}" FROM anon, authenticated'))
+                if table == "oauth_state_nonces":
+                    connection.execute(text('REVOKE ALL ON TABLE "oauth_state_nonces" FROM PUBLIC'))
         connection.execute(text("GRANT SELECT ON TABLE job_listings TO anon, authenticated"))
         connection.execute(text("DROP POLICY IF EXISTS job_listings_active_read ON job_listings"))
         connection.execute(text(
@@ -125,6 +128,8 @@ def setup_rls() -> None:
         protect_financial_tables(connection)
         for table, expression in CHILD_POLICIES.items():
             _create_policy(connection, table, " ".join(expression.split()))
+        protect_user_identities(connection)
+        protect_oauth_state(connection)
 
     logger.info(
         "RLS configurado em %d tabelas.",

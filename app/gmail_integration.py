@@ -19,6 +19,7 @@ from .auth import APP_BASE_URL, authenticated_user
 from .database import SessionLocal
 from .models import EmailIntegration
 from .oauth_urls import public_callback_url
+from .oauth_nonce import register_nonce, consume_nonce
 
 
 router = APIRouter(prefix="/auth/gmail", tags=["gmail"])
@@ -103,6 +104,7 @@ def _create_state(owner_id: str) -> str:
     signature = _urlsafe_encode(
         hmac.new(_state_secret(), body.encode("ascii"), hashlib.sha256).digest()
     )
+    register_nonce(SessionLocal, "gmail", owner_id, payload["nonce"], payload["exp"])
     return f"{body}.{signature}"
 
 
@@ -115,7 +117,7 @@ def _validate_state(state: str, owner_id: str) -> None:
         if not hmac.compare_digest(supplied_signature, expected_signature):
             raise ValueError("invalid signature")
         payload = json.loads(_urlsafe_decode(body))
-        if payload.get("sub") != owner_id or int(payload.get("exp", 0)) < int(time.time()):
+        if payload.get("sub") != owner_id or int(payload.get("exp", 0)) <= int(time.time()):
             raise ValueError("expired or wrong user")
     except (
         AttributeError,
@@ -129,6 +131,7 @@ def _validate_state(state: str, owner_id: str) -> None:
             status_code=400,
             detail="A autorizacao do Gmail expirou ou e invalida. Tente novamente.",
         )
+    consume_nonce(SessionLocal, "gmail", owner_id, payload.get("nonce"))
 
 
 def _cipher() -> Fernet:
