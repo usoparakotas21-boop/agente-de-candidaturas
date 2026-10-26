@@ -1,0 +1,74 @@
+CREATE TABLE IF NOT EXISTS public.oauth_state_nonces (nonce_hash varchar(64) PRIMARY KEY, provider varchar(16) NOT NULL, owner_id varchar(36) NOT NULL, expires_at timestamptz NOT NULL);
+
+CREATE INDEX IF NOT EXISTS ix_oauth_state_nonces_expires_at ON public.oauth_state_nonces (expires_at);
+
+ALTER TABLE public."email_integrations" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "email_integrations_owner" ON public."email_integrations";
+
+CREATE POLICY "email_integrations_owner" ON public."email_integrations" FOR ALL TO authenticated USING (owner_id = auth.uid()::text) WITH CHECK (owner_id = auth.uid()::text);
+
+ALTER TABLE public."processed_email_messages" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "processed_email_messages_owner" ON public."processed_email_messages";
+
+CREATE POLICY "processed_email_messages_owner" ON public."processed_email_messages" FOR ALL TO authenticated USING (owner_id = auth.uid()::text) WITH CHECK (owner_id = auth.uid()::text);
+
+DO $$ DECLARE target record; BEGIN
+            FOR target IN
+                SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            LOOP
+                EXECUTE format(
+                    'REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE public.%I FROM PUBLIC, anon, authenticated',
+                    target.tablename
+                );
+                IF current_setting('server_version_num')::int >= 170000 THEN
+                    EXECUTE format(
+                        'REVOKE MAINTAIN ON TABLE public.%I FROM PUBLIC, anon, authenticated',
+                        target.tablename
+                    );
+                END IF;
+            END LOOP;
+        END $$;
+
+CREATE OR REPLACE FUNCTION public.audit_identity_guard()
+        RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog
+        AS $$ BEGIN
+            IF current_user IN ('anon', 'authenticated') AND (
+                (to_jsonb(OLD)->'owner_id') IS DISTINCT FROM (to_jsonb(NEW)->'owner_id') OR
+                (to_jsonb(OLD)->'user_id') IS DISTINCT FROM (to_jsonb(NEW)->'user_id')
+            ) THEN
+                RAISE EXCEPTION 'Ownership changes require the server reconciliation path'
+                    USING ERRCODE = '42501';
+            END IF;
+            RETURN NEW;
+        END $$;
+        REVOKE ALL ON FUNCTION public.audit_identity_guard() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public."candidates" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS audit_identity_consistent ON public."candidates";
+
+CREATE POLICY audit_identity_consistent ON public."candidates" AS RESTRICTIVE FOR ALL TO authenticated USING (("owner_id" IS NULL OR "owner_id"::text = (SELECT auth.uid())::text) AND ("owner_id" IS NOT NULL)) WITH CHECK (("owner_id" IS NULL OR "owner_id"::text = (SELECT auth.uid())::text) AND ("owner_id" IS NOT NULL));
+
+DROP TRIGGER IF EXISTS audit_identity_immutable ON public."candidates";
+
+CREATE TRIGGER audit_identity_immutable BEFORE UPDATE ON public."candidates" FOR EACH ROW EXECUTE FUNCTION public.audit_identity_guard();
+
+ALTER TABLE public."email_integrations" ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS audit_identity_consistent ON public."email_integrations";
+
+CREATE POLICY audit_identity_consistent ON public."email_integrations" AS RESTRICTIVE FOR ALL TO authenticated USING (("owner_id" IS NULL OR "owner_id"::text = (SELECT auth.uid())::text) AND ("owner_id" IS NOT NULL)) WITH CHECK (("owner_id" IS NULL OR "owner_id"::text = (SELECT auth.uid())::text) AND ("owner_id" IS NOT NULL));
+
+DROP TRIGGER IF EXISTS audit_identity_immutable ON public."email_integrations";
+
+CREATE TRIGGER audit_identity_immutable BEFORE UPDATE ON public."email_integrations" FOR EACH ROW EXECUTE FUNCTION public.audit_identity_guard();
+
+ALTER TABLE public.oauth_state_nonces ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.oauth_state_nonces FROM PUBLIC, anon, authenticated;
+
+DROP POLICY IF EXISTS oauth_state_server_only ON public.oauth_state_nonces;
+
+CREATE POLICY oauth_state_server_only ON public.oauth_state_nonces AS RESTRICTIVE FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);

@@ -1,0 +1,10 @@
+GitHub Actions: https://github.com/usoparakotas21-boop/agente-de-candidaturas/actions/runs/40395770158
+Validated code commit: ac77d54c7a9952bd1b0ebcacfc3437f3bd312e9e
+Job: 121828261831; conclusion: success
+2026-10-26T20:28:12Z No broken requirements found.
+2026-10-26T20:28:25Z No known vulnerabilities found.
+2026-10-26T20:28:44Z 601 passed, 6 warnings, 96 subtests passed in 17.75s.
+Python skips: 0; PostgreSQL 17 runs in a disposable service.
+2026-10-26T20:28:45Z JavaScript: tests 30; pass 30; fail 0; skipped 0.
+2026-10-26T20:29:21Z Container: non-root, writable data, secure flags, schema and DOCX/PDF OK.
+No deployment, merge or production database change was performed.

@@ -1,0 +1,38 @@
+✔ preenche campos vazios identificados por rótulos e autocomplete (3.2725ms)
+✔ preenche cidade e estado apenas quando há uma opção exata no seletor (0.3405ms)
+✔ ignora campos preenchidos, ocultos, senhas, upload e respostas sensíveis (0.2701ms)
+✔ não preenche endereço, vaga pretendida, consentimento ou captcha por aproximação (0.2512ms)
+✔ não corta silenciosamente respostas para caber no limite do portal (0.175ms)
+✔ bloqueia portais que restringem automação e deixa o portal do empregador disponível (0.2777ms)
+✔ mantém seletores profissionais por portal sem liberar envio (0.4523ms)
+✔ extrai texto visível de contexto profissional dentro do limite (0.9678ms)
+✔ ignora descrição escondida e texto dentro de formulários (0.2125ms)
+✔ reconhece páginas de vagas e ações de candidatura sem ativar em páginas genéricas (0.8862ms)
+✔ ativa e revoga o botão automático com permissão só para o domínio da vaga (2.9516ms)
+✔ painel lateral exige consentimento e envia análise apenas da aba ATS ativa (1.5846ms)
+✔ painel lateral explica análise, consentimentos e controle em linguagem simples (0.8729ms)
+✔ só reconhece uploads explicitamente identificados como currículo ou carta (0.3478ms)
+✔ anexa PDF a um input oculto somente quando há rótulo visível e explícito (1.0718ms)
+✔ complemento pede permissão do app só após clique e limita atuação à página ativa (6.1532ms)
+✔ preenche de forma isolada formulários reais nos portais Gupy, Vagas, InfoJobs, Catho, Empregos e Solides (8.0374ms)
+✔ MutationObserver detecta novas etapas do modal/wizard e aplica o preenchimento continuamente (405.7221ms)
+✔ refazer a simulação reinicia índice, feedback, respostas e resultado (3.865ms)
+✔ changing interview context resets scoring but preserves typed drafts (0.7437ms)
+✔ application company and unknown status stay text (5.2841ms)
+✔ the onboarding key is namespaced by authenticated account id (0.8382ms)
+✔ saving the next step pauses and survives a new dashboard session (1.1086ms)
+✔ progress for one account is isolated from another account on the same browser (0.1903ms)
+✔ only explicit completion persists a permanent dismissal (0.2871ms)
+✔ invalid or unavailable storage never creates a shared global completion (1.1216ms)
+✔ dashboard actions pause for work and only close or skip can complete the guide (0.434ms)
+✔ checkout failure displays the error and never redirects to a generic payment page (2.0185ms)
+✔ pending checkout survives a provider failure after login (1.825ms)
+✔ successful pending checkout redirects to the provider and clears the pending plan (1.1056ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 513.2304

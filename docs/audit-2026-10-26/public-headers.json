@@ -1,0 +1,31 @@
+[
+  {
+    "path": "/health",
+    "status": 200,
+    "server": "cloudflare",
+    "hsts": "max-age=31536000; includeSubDomains",
+    "content_type": "application/json",
+    "csp_present": true,
+    "cloudflare_challenge": false,
+    "blocked_text": false
+  },
+  {
+    "path": "/login",
+    "status": 401,
+    "server": "cloudflare",
+    "hsts": "max-age=31536000; includeSubDomains",
+    "content_type": "application/json",
+    "csp_present": true,
+    "cloudflare_challenge": false,
+    "blocked_text": false
+  },
+  {
+    "path": "/",
+    "status": 200,
+    "hsts": "max-age=31536000; includeSubDomains",
+    "cache_control": "private, no-store, max-age=0",
+    "csp_present": true,
+    "x_content_type_options": "nosniff",
+    "frame_options": "DENY"
+  }
+]
