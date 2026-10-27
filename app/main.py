@@ -205,14 +205,19 @@ from .billing_routes import router as billing_router
 PORT = int(os.getenv("PORT", "8000") or "8000")
 
 
+def _staging_background_workers_disabled() -> bool:
+    return os.getenv("STAGING_DISABLE_BACKGROUND_WORKERS", "").strip().casefold() == "true"
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Initialize and stop the ingestion, notification and retention workers."""
     global _job_collection_task, _email_sync_task
     startup()
-    iniciar_agendador()
-    _job_collection_task = asyncio.create_task(executar_rotina_varredura())
-    _email_sync_task = asyncio.create_task(executar_rotina_sincronizacao_emails())
+    if not _staging_background_workers_disabled():
+        iniciar_agendador()
+        _job_collection_task = asyncio.create_task(executar_rotina_varredura())
+        _email_sync_task = asyncio.create_task(executar_rotina_sincronizacao_emails())
     try:
         yield
     finally:
@@ -1602,19 +1607,20 @@ def startup():
             ):
                 db.execute(text(statement))
             db.commit()
-            cleanup_expired_documents()
-            _cleanup_generated_document_records()
-            _backfill_legacy_generated_document_pairs()
-            _cleanup_raw_intake_data()
-            _cleanup_followup_email_outbox()
-            _cleanup_interview_email_outbox()
-            _cleanup_expiration_email_outbox()
-            if _retention_task is None or _retention_task.done():
-                _retention_task = asyncio.create_task(_document_retention_loop())
-            _start_purchase_generation_worker()
-            _start_lifecycle_email_worker()
-            start_monitor()
-            start_outlook_monitor()
+            if not _staging_background_workers_disabled():
+                cleanup_expired_documents()
+                _cleanup_generated_document_records()
+                _backfill_legacy_generated_document_pairs()
+                _cleanup_raw_intake_data()
+                _cleanup_followup_email_outbox()
+                _cleanup_interview_email_outbox()
+                _cleanup_expiration_email_outbox()
+                if _retention_task is None or _retention_task.done():
+                    _retention_task = asyncio.create_task(_document_retention_loop())
+                _start_purchase_generation_worker()
+                _start_lifecycle_email_worker()
+                start_monitor()
+                start_outlook_monitor()
             return
         Base.metadata.create_all(bind=engine)
         email_integration_columns = {c["name"] for c in inspect(engine).get_columns("email_integrations")}
@@ -1701,26 +1707,28 @@ def startup():
         for idx in ["idx_applications_status", "idx_applications_updated_at", "idx_applications_queue_decision", "idx_candidates_owner_id", "idx_jobs_owner_id"]:
             db.execute(text(f"CREATE INDEX IF NOT EXISTS {idx} ON {'applications' if 'applications' in idx else 'candidates' if 'candidates' in idx else 'jobs'} ({'status' if 'status' in idx else 'updated_at' if 'updated' in idx else 'queue_decision' if 'queue' in idx else 'owner_id'})"))
         db.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_valid_through ON jobs (valid_through)"))
-        for job in db.scalars(select(Job)).all():
-            cand = db.scalar(select(Candidate).where(Candidate.owner_id == job.owner_id).order_by(Candidate.id))
-            _ensure_app(db, job, cand)
+        if not _staging_background_workers_disabled():
+            for job in db.scalars(select(Job)).all():
+                cand = db.scalar(select(Candidate).where(Candidate.owner_id == job.owner_id).order_by(Candidate.id))
+                _ensure_app(db, job, cand)
         db.commit()
     finally:
         db.close()
-    cleanup_expired_documents()
-    _cleanup_generated_document_records()
-    _backfill_legacy_generated_document_pairs()
-    _cleanup_raw_intake_data()
-    _cleanup_followup_email_outbox()
-    _cleanup_interview_email_outbox()
-    _cleanup_expiration_email_outbox()
-    _cleanup_copilot_preparations()
-    if _retention_task is None or _retention_task.done():
-        _retention_task = asyncio.create_task(_document_retention_loop())
-    _start_purchase_generation_worker()
-    _start_lifecycle_email_worker()
-    start_monitor()
-    start_outlook_monitor()
+    if not _staging_background_workers_disabled():
+        cleanup_expired_documents()
+        _cleanup_generated_document_records()
+        _backfill_legacy_generated_document_pairs()
+        _cleanup_raw_intake_data()
+        _cleanup_followup_email_outbox()
+        _cleanup_interview_email_outbox()
+        _cleanup_expiration_email_outbox()
+        _cleanup_copilot_preparations()
+        if _retention_task is None or _retention_task.done():
+            _retention_task = asyncio.create_task(_document_retention_loop())
+        _start_purchase_generation_worker()
+        _start_lifecycle_email_worker()
+        start_monitor()
+        start_outlook_monitor()
 
 async def shutdown():
     global _retention_task, _purchase_generation_task, _purchase_generation_wakeup, _lifecycle_email_task, _job_collection_task, _email_sync_task
