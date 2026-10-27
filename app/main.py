@@ -280,20 +280,35 @@ async def sincronizar_todas_integracoes_email(
 ):
     """Start Gmail and Outlook synchronization without blocking the UI.
 
-    The most recent completed per-provider counters are returned immediately;
-    the background task replaces that snapshot when both providers finish.
+    Only the authenticated user's integrations are synchronized.
     """
 
-    from services import scheduler as scheduler_service
-
-    background_tasks.add_task(scheduler_service.executar_rotina_sincronizacao_emails)
+    owner_id = str(user.get("id") or "").strip()
+    if not owner_id:
+        raise HTTPException(status_code=409, detail="Login necessario.")
+    background_tasks.add_task(_sincronizar_integracoes_owner, owner_id)
     return {
         "status": "queued",
         "background": True,
         "providers": ["gmail", "outlook"],
-        "insercoes_ultima_execucao": dict(scheduler_service.LAST_EMAIL_SYNC_RESULT),
+        "insercoes_ultima_execucao": {},
         "mensagem": "A sincronização de Gmail e Outlook foi iniciada.",
     }
+
+
+async def _sincronizar_integracoes_owner(owner_id: str) -> None:
+    from .gmail_monitor import sync_owner as sync_gmail_owner
+    from .outlook_monitor import sync_owner as sync_outlook_owner
+
+    # A disconnected or failed provider must not prevent the other from syncing.
+    results = await asyncio.gather(
+        sync_gmail_owner(owner_id), sync_outlook_owner(owner_id), return_exceptions=True
+    )
+    for provider, result in zip(("Gmail", "Outlook"), results):
+        if isinstance(result, Exception) and not (
+            isinstance(result, HTTPException) and result.status_code == 409
+        ):
+            logger.warning("Sincronizacao %s do usuario falhou: %s", provider, type(result).__name__)
 
 APPLICATION_STATUSES = ("IDENTIFICADA", "ANALISADA", "PERSONALIZADA", "CURRICULO_GERADO", "CANDIDATURA_ENVIADA", "ENTREVISTA", "APROVADO", "RECUSADO", "ARQUIVADA")
 DOCUMENT_PROCESSING_TIMEOUT = 30
