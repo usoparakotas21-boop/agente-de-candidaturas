@@ -135,7 +135,7 @@ class SupportChatTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("R$ 99,00/mês", response.json()["answer"])
-        self.assertIn("o e-book digital Hackeando o DISC", response.json()["answer"])
+        self.assertIn("o e-book digital Por que não me contrataram?", response.json()["answer"])
         self.assertIn("Consultoria", response.json()["answer"])
         self.assertNotIn("será incluído após a publicação", response.json()["answer"])
         self.assertEqual(response.headers["cache-control"], "no-store")

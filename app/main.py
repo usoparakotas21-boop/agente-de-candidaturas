@@ -759,7 +759,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
 @media(prefers-reduced-motion:reduce){.global-status::before{animation:none}}
 @media(max-width:650px){.global-nav{gap:10px;padding:0 14px;font-size:12px}.global-nav a:nth-child(n+5){display:none}.global-status{display:none}.global-plan-badge{max-width:125px}.global-logout button{padding:5px 7px}}
 </style>
-<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/meu-ebook" style="color:#86efac;font-weight:800;">📘 Meu e-book DISC</a><span class="global-plan-badge" id="globalPlanBadge" data-state="loading">Plano…</span><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
+<nav class="global-nav"><a class="global-brand" href="/dashboard"><img class="global-brand-icon" src="/static/favicon.svg?v=2" alt="" aria-hidden="true"><span>Candidatura Certa</span></a><a href="/vagas">Vagas</a><a href="/candidaturas">Candidaturas</a><a href="/criar-documentos">Criar documentos</a><a href="/entrevistas">Entrevistas</a><a href="/perfil">Perfil</a><a href="/configuracoes">Configurações</a><a href="/meu-ebook" style="color:#86efac;font-weight:800;">📘 Meu livro</a><span class="global-plan-badge" id="globalPlanBadge" data-state="loading">Plano…</span><span class="global-status">Sistema conectado</span><form class="global-logout" method="post" action="/auth/logout"><button type="submit">Sair</button></form></nav>'''
     if path.name == "dashboard.html":
         # O dashboard já possui cabeçalho próprio e navegação lateral.
         # Mantemos apenas os estilos compartilhados para evitar duas barras no topo.
@@ -5784,7 +5784,7 @@ def download_preview_ebook():
     return FileResponse(
         PREVIEW_BOOK_PATH,
         media_type="application/pdf",
-        filename="Preview-DISC-Hackeado.pdf",
+        filename="Previa-Por-que-nao-me-contrataram.pdf",
         headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
     )
 
@@ -5826,14 +5826,14 @@ def download_pro_ebook(user=Depends(authenticated_user)):
 
     if plan == "consultoria":
         path = PRO_BOOK_PATH
-        name = "Hackeando-DISC-Pacote-Completo.zip"
+        name = "Por-que-nao-me-contrataram-pacote.zip"
         mime = "application/zip"
     elif plan in ["pro", "start_plus", "ebook_standalone"]:
         path = NORMAL_BOOK_PATH
-        name = "DISC-Hackeado.pdf"
+        name = "Por-que-nao-me-contrataram.pdf"
         mime = "application/pdf"
     else:
-        raise HTTPException(403, "O e-book Hackeando o DISC está incluído nos planos Start+Ebook, Pro e Consultoria ativos, ou via compra avulsa.")
+        raise HTTPException(403, "O e-book Por que não me contrataram? está incluído nos planos Start+Ebook, Pro e Consultoria ativos, ou via compra avulsa.")
 
     if not path.is_file():
         logger.error(f"Arquivo do e-book não está disponível no deploy: {path}")
@@ -5850,7 +5850,7 @@ def download_pro_ebook(user=Depends(authenticated_user)):
 def _ebook_fallback_pdf() -> bytes:
     """Small valid PDF used only if a product asset was omitted from a deploy."""
     stream = (
-        b"BT /F1 20 Tf 72 720 Td (Candidatura Certa - E-book DISC) Tj "
+        b"BT /F1 20 Tf 72 720 Td (Candidatura Certa - Por que nao me contrataram?) Tj "
         b"/F1 11 Tf 0 -28 Td (Material temporario de recuperacao.) Tj ET\n"
     )
     objects = [
@@ -5917,7 +5917,7 @@ def download_ebook_api(user=Depends(authenticated_user)):
             return FileResponse(
                 path,
                 media_type="application/pdf",
-                filename="DISC-Hackeado.pdf",
+                filename="Por-que-nao-me-contrataram.pdf",
                 headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
             )
     logger.error("Nenhum asset do e-book está presente no deploy; entregando fallback seguro")
@@ -5925,7 +5925,7 @@ def download_ebook_api(user=Depends(authenticated_user)):
         content=_ebook_fallback_pdf(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": 'attachment; filename="DISC-Hackeado.pdf"',
+            "Content-Disposition": 'attachment; filename="Por-que-nao-me-contrataram.pdf"',
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
@@ -5946,7 +5946,7 @@ async def create_ebook_checkout(request: Request, user=Depends(authenticated_use
     base_url = _public_base_url()
     return_url = f"{base_url}/billing/mercadopago/success?order_nsu={quote(order_nsu, safe='')}"
     payload = {
-        "items": [{"id": "ebook-avulso", "title": "E-book: Hackeando o DISC", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "items": [{"id": "ebook-avulso", "title": "E-book: Por que não me contrataram?", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
         "external_reference": order_nsu,
         "payer": {"email": str(user.get("email") or "")},
         "back_urls": {
@@ -5995,7 +5995,7 @@ async def create_combo_checkout(request: Request, user=Depends(authenticated_use
     base_url = _public_base_url()
     return_url = f"{base_url}/billing/mercadopago/success?order_nsu={quote(order_nsu, safe='')}"
     payload = {
-        "items": [{"id": "combo-start-ebook", "title": "Combo: Start 30 Dias + E-book Hackeando o DISC", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
+        "items": [{"id": "combo-start-ebook", "title": "Combo: Start 30 Dias + E-book Por que não me contrataram?", "quantity": 1, "currency_id": "BRL", "unit_price": price_cents / 100}],
         "external_reference": order_nsu,
         "payer": {"email": str(user.get("email") or "")},
         "back_urls": {
@@ -7352,7 +7352,7 @@ Sugira 3 temas de publicação e 4 ações semanais de networking, sem prometer 
 @app.get("/billing/ebook/preview", include_in_schema=False)
 @app.get("/ebook/download/preview", include_in_schema=False)
 async def download_ebook_preview():
-    """Serve a prévia gratuita do e-book DISC em PDF."""
+    """Serve a prévia gratuita do livro Por que não me contrataram? em PDF."""
     pdf_candidates = [
         PREVIEW_BOOK_PATH,
         Path(__file__).parent.parent / "output_pdfs" / "Hackeando_DISC_Livro.pdf",
@@ -7363,7 +7363,7 @@ async def download_ebook_preview():
             return FileResponse(
                 candidate,
                 media_type="application/pdf",
-                filename="Preview_DISC_Hackeado.pdf",
+                filename="Previa-Por-que-nao-me-contrataram.pdf",
             )
     raise HTTPException(404, "Arquivo de prévia do e-book não encontrado.")
 
